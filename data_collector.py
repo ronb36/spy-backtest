@@ -173,8 +173,13 @@ def github_get_file(path):
     r = requests.get(url, headers=headers, timeout=15)
     if r.status_code == 200:
         data    = r.json()
-        content = base64.b64decode(data["content"]).decode("utf-8")
-        return json.loads(content), data["sha"]
+        raw     = base64.b64decode(data["content"]).decode("utf-8").strip()
+        if not raw:
+            return None, data["sha"]  # empty file (e.g. .gitkeep replaced)
+        try:
+            return json.loads(raw), data["sha"]
+        except json.JSONDecodeError:
+            return None, data["sha"]  # not valid JSON, treat as new
     return None, None
 
 
