@@ -253,21 +253,15 @@
     <!-- Summary cards -->
     <div class="summary-grid" id="mart-summary" style="margin-bottom:12px;"></div>
 
-    <!-- Selector row -->
-    <div class="controls-panel" style="padding:12px 16px; margin-bottom:12px;">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <div class="ctrl" style="flex:0 0 auto;">
-          <label>Dataset</label>
-          <select id="mart-dataset" onchange="renderMartTable()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;">
-            <option value="spy">SPY Daily</option>
-            <option value="vix">VIX Daily</option>
-            <option value="calls">Options Contracts</option>
-          </select>
-        </div>
-        <div class="ctrl" style="flex:1 1 240px;" id="mart-contract-wrap">
-          <label>Contract</label>
-          <select id="mart-contract" onchange="renderMartTable()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;width:100%;"></select>
-        </div>
+    <!-- Dataset toggle -->
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+      <div class="view-toggle visible" style="margin-bottom:0;">
+        <button class="vtog-btn active" id="mart-btn-spy" onclick="setMartDataset('spy')">SPY</button>
+        <button class="vtog-btn" id="mart-btn-vix" onclick="setMartDataset('vix')">VIX</button>
+        <button class="vtog-btn" id="mart-btn-calls" onclick="setMartDataset('calls')">Options</button>
+      </div>
+      <div id="mart-contract-wrap" style="display:none;flex:1 1 280px;">
+        <select id="mart-contract" onchange="renderMartTable()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;width:100%;"></select>
       </div>
     </div>
 
@@ -345,11 +339,22 @@ function renderMartSummary() {
   renderMartTable();
 }
 
+let _martDataset = "spy";
+
+function setMartDataset(ds) {
+  _martDataset = ds;
+  ["spy","vix","calls"].forEach(d => {
+    const btn = document.getElementById("mart-btn-"+d);
+    if (btn) btn.classList.toggle("active", d === ds);
+  });
+  renderMartTable();
+}
+
 function renderMartTable() {
   if (!DM) return;
-  const dataset = document.getElementById("mart-dataset").value;
+  const dataset = _martDataset;
   const contractWrap = document.getElementById("mart-contract-wrap");
-  contractWrap.style.display = dataset === "calls" ? "block" : "none";
+  contractWrap.style.display = dataset === "calls" ? "flex" : "none";
 
   let html = "", title = "", count = "";
 
