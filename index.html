@@ -114,7 +114,7 @@
   <!-- Initial Position -->
   <div class="init-panel" id="init-panel" style="display:none">
     <div class="controls-title">Initial Position <span class="init-badge">📌 Fixed — not optimized</span></div>
-    <div class="controls-grid">
+    <div class="controls-grid" style="grid-template-columns:repeat(6,1fr);gap:10px;">
       <div class="ctrl">
         <label>Entry Date</label>
         <div class="init-display" id="init-entry-date">—</div>
@@ -148,7 +148,7 @@
     <div class="controls-grid">
       <div class="ctrl">
         <label>Roll Frequency</label>
-        <select id="roll-freq">
+        <select id="roll-freq" onchange="autoSelectExpiry()">
           <option value="monthly">Monthly (~30 DTE)</option>
           <option value="quarterly" selected>Quarterly (~90 DTE)</option>
         </select>
@@ -206,13 +206,13 @@
   <!-- Results tabs -->
   <div id="results-tabs" style="display:none">
     <div class="tab-bar">
-      <button class="tab-btn active" id="tab-chart-btn" onclick="showTab('chart')">📈 Chart</button>
-      <button class="tab-btn" id="tab-log-btn" onclick="showTab('log')">📋 Cycle Log</button>
+      <button class="tab-btn active" id="tab-log-btn" onclick="showTab('log')">📋 Cycle Log</button>
+      <button class="tab-btn" id="tab-chart-btn" onclick="showTab('chart')">📈 Chart</button>
       <button class="tab-btn" id="tab-heatmap-btn" onclick="showTab('heatmap')" style="display:none">⊞ Heatmap</button>
     </div>
 
     <!-- Chart tab -->
-    <div id="tab-chart" class="tab-content">
+    <div id="tab-chart" class="tab-content" style="display:none">
       <div class="chart-panel">
         <div class="chart-header">
           <span class="chart-title">Equity Curve — Covered Call vs Buy &amp; Hold SPY</span>
@@ -222,7 +222,7 @@
     </div>
 
     <!-- Log tab -->
-    <div id="tab-log" class="tab-content" style="display:none">
+    <div id="tab-log" class="tab-content">
       <div class="chart-panel">
         <div class="chart-header">
           <span class="chart-title">Roll Cycle Log</span>
@@ -295,6 +295,34 @@ function populateInitDates() {
   const sel = document.getElementById("init-date");
   sel.innerHTML = expiries.map(e => `<option value="${e}">${e}</option>`).join("");
   document.getElementById("init-panel").style.display = "block";
+  autoSelectExpiry();
+}
+
+function autoSelectExpiry() {
+  // Pick expiry closest to target DTE based on roll frequency
+  const freq = document.getElementById("roll-freq").value;
+  const targetDTE = freq === "monthly" ? 30 : 90;
+  const today = new Date();
+  const expiries = [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
+
+  // Filter to quarterly expiries if quarterly selected
+  const quarterMonths = new Set([3, 6, 9, 12]);
+  const filtered = freq === "quarterly"
+    ? expiries.filter(e => quarterMonths.has(parseInt(e.split("-")[1])))
+    : expiries;
+
+  // Find the expiry closest to targetDTE from today
+  let best = filtered[0], bestDiff = Infinity;
+  for (const e of filtered) {
+    const exp = new Date(e + "T00:00:00");
+    const dte = Math.round((exp - today) / 86400000);
+    // Prefer the first expiry >= targetDTE
+    if (dte >= targetDTE && dte < bestDiff) { bestDiff = dte; best = e; }
+  }
+  // Fallback: if all expired, pick last available
+  if (bestDiff === Infinity) best = filtered[filtered.length - 1];
+
+  document.getElementById("init-date").value = best;
   updateInitPosition();
 }
 
@@ -593,7 +621,7 @@ function runSimulation() {
 
     document.getElementById("results-tabs").style.display = "block";
     document.getElementById("tab-heatmap-btn").style.display = "none";
-    showTab("chart");
+    showTab("log");
   }, 50);
 }
 
