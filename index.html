@@ -91,6 +91,12 @@
 
   .footer-note { font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px; line-height: 1.6; }
   @media (max-width: 600px) { .controls-grid { grid-template-columns: 1fr 1fr; } .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  /* Initial position panel */
+  .init-panel { background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .init-panel .controls-title { color: var(--accent); }
+  .init-display { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-family: var(--mono); font-size: 12px; color: var(--text); height: 34px; display: flex; align-items: center; }
+  .init-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(91,138,245,0.12); border: 1px solid rgba(91,138,245,0.3); border-radius: 3px; padding: 2px 8px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; color: var(--accent); margin-left: 8px; }
 </style>
 </head>
 <body>
@@ -98,6 +104,33 @@
   <div class="header-eyebrow">SPY Covered Call</div>
   <h1>Backtest & Roll Optimizer</h1>
   <div class="header-sub" id="data-status">Loading data mart from GitHub...</div>
+
+  <!-- Initial Position -->
+  <div class="init-panel" id="init-panel" style="display:none">
+    <div class="controls-title">Initial Position <span class="init-badge">📌 Fixed — not optimized</span></div>
+    <div class="controls-grid">
+      <div class="ctrl">
+        <label>Entry Date</label>
+        <select id="init-date" onchange="updateInitPosition()"></select>
+      </div>
+      <div class="ctrl">
+        <label>SPY Price</label>
+        <div class="init-display" id="init-spy">—</div>
+      </div>
+      <div class="ctrl">
+        <label>Call Sold</label>
+        <div class="init-display" id="init-call-ticker">—</div>
+      </div>
+      <div class="ctrl">
+        <label>Premium Received</label>
+        <div class="init-display" id="init-premium">—</div>
+      </div>
+      <div class="ctrl">
+        <label>Initial Credit (600 shares)</label>
+        <div class="init-display" id="init-credit">—</div>
+      </div>
+    </div>
+  </div>
 
   <!-- Controls -->
   <div class="controls-panel">
@@ -112,7 +145,7 @@
       </div>
       <div class="ctrl">
         <label>OTM Target</label>
-        <select id="otm-target">
+        <select id="otm-target" onchange="updateInitPosition()">
           <option value="0.03">3% OTM</option>
           <option value="0.05" selected>5% OTM</option>
           <option value="0.07">7% OTM</option>
@@ -130,7 +163,7 @@
       </div>
       <div class="ctrl">
         <label>Shares</label>
-        <select id="shares">
+        <select id="shares" onchange="updateInitPosition()">
           <option value="600" selected>600 shares</option>
           <option value="100">100 shares</option>
           <option value="200">200 shares</option>
@@ -215,6 +248,7 @@ async function loadData() {
     status.style.color = "var(--green)";
     document.getElementById("run-btn").disabled = false;
     document.getElementById("opt-btn").disabled = false;
+    populateInitDates();
   } catch(e) {
     status.textContent = "✗ Could not load data mart: " + e.message;
     status.style.color = "var(--red)";
@@ -228,6 +262,46 @@ function buildLookups() {
   const vixMap = {};
   DM.vix.forEach(r => vixMap[r.date] = r.c);
   return { spyMap, vixMap };
+}
+
+// ── Initial position setup ────────────────────────────────────────────────
+function populateInitDates() {
+  const expiries = [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
+  const sel = document.getElementById("init-date");
+  sel.innerHTML = expiries.map(e => `<option value="${e}">${e}</option>`).join("");
+  document.getElementById("init-panel").style.display = "block";
+  updateInitPosition();
+}
+
+function updateInitPosition() {
+  const expiry = document.getElementById("init-date").value;
+  const otmMode = document.getElementById("otm-target").value;
+  const otmFixed = otmMode === "vix" ? 0.05 : parseFloat(otmMode);
+  const shares = parseInt(document.getElementById("shares").value);
+  const contracts = shares / 100;
+
+  // Find first available day for this contract
+  const { spyMap, vixMap } = buildLookups();
+  const otm = otmFixed;
+  const contract = findContract(expiry, otm);
+
+  if (!contract || !contract.days.length) {
+    document.getElementById("init-spy").textContent = "No data";
+    document.getElementById("init-call-ticker").textContent = "—";
+    document.getElementById("init-premium").textContent = "—";
+    document.getElementById("init-credit").textContent = "—";
+    return;
+  }
+
+  const firstDay = contract.days[0];
+  const spyOnEntry = spyMap[firstDay.date]?.c;
+  const premium = firstDay.c;
+  const totalCredit = premium * 100 * contracts;
+
+  document.getElementById("init-spy").textContent = spyOnEntry ? "$" + spyOnEntry.toFixed(2) + " on " + firstDay.date : "—";
+  document.getElementById("init-call-ticker").textContent = contract.ticker.replace("O:", "") + " @ " + (contract.otm_pct*100).toFixed(0) + "% OTM";
+  document.getElementById("init-premium").textContent = "$" + premium.toFixed(2) + " per share";
+  document.getElementById("init-credit").textContent = "+$" + totalCredit.toLocaleString("en-US", {minimumFractionDigits:0, maximumFractionDigits:0});
 }
 
 function fmt(n, dec=2) {
@@ -271,19 +345,36 @@ function getExpiriesFromData(freq) {
 
 // ── Core simulation engine ─────────────────────────────────────────────────
 function simulate(params) {
-  const { rollFreq, otmMode, otmFixed, decayTrigger, dteFloor, shares } = params;
+  const { rollFreq, otmMode, otmFixed, decayTrigger, dteFloor, shares, initExpiry } = params;
   const { spyMap, vixMap } = buildLookups();
   const contracts = parseInt(shares) / 100;
 
-  const expiries = getExpiriesFromData(rollFreq);
+  // Get all expiries, starting from initExpiry
+  const allExpiries = getExpiriesFromData(rollFreq);
+  // Find starting index — first expiry >= initExpiry
+  let startExpIdx = 0;
+  if (initExpiry) {
+    startExpIdx = allExpiries.findIndex(e => e >= initExpiry);
+    if (startExpIdx < 0) startExpIdx = 0;
+  }
+  const expiries = allExpiries.slice(startExpIdx);
   if (expiries.length === 0) return null;
 
   const cycles = [];
-  const equityCurve = []; // {date, covered_call, buyhold}
+  const equityCurve = [];
   let premiumPnL = 0;
   const spyDates = DM.spy.map(r => r.date).sort();
-  const startDate = spyDates[0];
-  const startSPY = DM.spy[0].c;
+
+  // ── Seed from initial position ──────────────────────────────────────────
+  // The first cycle uses the selected initial expiry — this is the "buy SPY + sell call" trade
+  // Subsequent cycles are rolls: buy back old call, sell new call
+  const initOTM = otmMode === "vix" ? 0.05 : otmFixed;
+  const initContract = findContract(expiries[0], initOTM);
+  if (!initContract || !initContract.days.length) return null;
+
+  const initFirstDay = initContract.days[0];
+  const startSPY = spyMap[initFirstDay.date]?.c || DM.spy[0].c;
+  const startDate = initFirstDay.date;
 
   let currentExpIdx = 0;
   let currentContract = null;
@@ -291,10 +382,11 @@ function simulate(params) {
   let entryCallPrice = null;
   let entryDate = null;
   let entryStrike = null;
-  let cyclePremiumCollected = 0;
+  let cycleIsInitial = true; // flag first cycle
 
-  // Walk through time day by day
+  // Walk through time day by day starting from initiation date
   for (const date of spyDates) {
+    if (date < startDate) continue;
     const spyRow = spyMap[date];
     if (!spyRow) continue;
     const spy = spyRow.c;
@@ -379,9 +471,11 @@ function simulate(params) {
         buybackCost: exitCallPrice * 100 * contracts,
         daysHeld, annYield, rollReason,
         isExpiry,
+        isInitial: cycleIsInitial,
         entryVix: vixMap[entryDate] || vix,
       });
 
+      cycleIsInitial = false;
       currentContract = null;
       currentExpIdx++;
     }
@@ -420,6 +514,7 @@ function getParams() {
     decayTrigger: parseFloat(document.getElementById("decay-trigger").value),
     dteFloor:     parseInt(document.getElementById("dte-floor").value),
     shares:       parseInt(document.getElementById("shares").value),
+    initExpiry:   document.getElementById("init-date")?.value || null,
   };
 }
 
@@ -615,13 +710,19 @@ function renderCycleTable(result) {
   const tbody = cycles.map(c => {
     const pnlClass = c.cyclePnL >= 0 ? "green" : "red";
     const yClass   = c.annYield >= 8 ? "green" : c.annYield >= 4 ? "yellow" : "muted";
+    const typeTag = c.isInitial
+      ? '<span style="color:var(--accent);font-size:9px">INIT</span>'
+      : '<span style="color:var(--text-muted);font-size:9px">ROLL</span>';
+    const buybackCell = c.isInitial
+      ? '<td class="muted">—</td>'
+      : `<td class="red">-$${fmt(c.exitCall)}</td>`;
     return `<tr>
-      <td>${c.entryDate}</td>
+      <td>${c.entryDate} ${typeTag}</td>
       <td>${c.exitDate}</td>
       <td class="accent">$${c.strike}</td>
       <td class="muted">${(c.otmPct*100).toFixed(0)}%</td>
       <td>$${fmt(c.entryCall)} × ${Math.round(c.premiumCollected / (c.entryCall * 100))}ct</td>
-      <td class="red">-$${fmt(c.exitCall)}</td>
+      ${buybackCell}
       <td class="${pnlClass}">${fmtDollar(c.cyclePnL)}</td>
       <td class="${yClass}">${fmt(c.annYield,1)}%</td>
       <td class="muted">${c.daysHeld}d</td>
