@@ -353,22 +353,32 @@ function simulate(params) {
 
     if (shouldRoll) {
       const exitCallPrice = callPrice || entryCallPrice;
+      const isExpiry = date >= currentContract.expiry;
+
+      // For expiry: keep full remaining value if OTM, lose intrinsic if ITM
+      // For early roll: net credit = premium_collected_on_entry - buyback_cost
+      //   The NEW premium from replacement call is credited in the next cycle
+      //   So this cycle P&L is the partial premium kept = entryCall - exitCall
       const cyclePnL = (entryCallPrice - exitCallPrice) * 100 * contracts;
       premiumPnL += cyclePnL;
 
       const exitSPY = spy;
-      const daysHeld = Math.round((new Date(date) - new Date(entryDate)) / 86400000);
-      const annYield = daysHeld > 0
-        ? (entryCallPrice / entrySPY) * (365 / daysHeld) * 100
-        : 0;
+      const daysHeld = Math.max(1, Math.round((new Date(date) - new Date(entryDate)) / 86400000));
+      // Annualized yield based on premium collected at entry vs SPY price
+      const annYield = (entryCallPrice / entrySPY) * (365 / daysHeld) * 100;
+      // Net credit = what we kept from this leg
+      const netCredit = cyclePnL;
 
       cycles.push({
         entryDate, exitDate: date, expiry: currentContract.expiry,
         strike: entryStrike, otmPct: currentContract.otm_pct,
         entryCall: entryCallPrice, exitCall: exitCallPrice,
         entrySPY, exitSPY,
-        cyclePnL, premiumCollected: cyclePremiumCollected,
+        cyclePnL: netCredit,
+        premiumCollected: entryCallPrice * 100 * contracts,
+        buybackCost: exitCallPrice * 100 * contracts,
         daysHeld, annYield, rollReason,
+        isExpiry,
         entryVix: vixMap[entryDate] || vix,
       });
 
@@ -597,8 +607,8 @@ function renderHeatmap(grid, decayTriggers, dteFloors) {
 function renderCycleTable(result) {
   const { cycles } = result;
   const thead = `<thead><tr>
-    <th>Entry</th><th>Exit</th><th>Expiry</th><th>Strike</th><th>OTM%</th>
-    <th>Entry Call</th><th>Exit Call</th><th>Premium P&L</th><th>Ann. Yield</th>
+    <th>Entry</th><th>Exit</th><th>Strike</th><th>OTM%</th>
+    <th>Entry Call</th><th>Buyback</th><th>Net Credit</th><th>Ann. Yield</th>
     <th>Days</th><th>Trigger</th><th>VIX</th>
   </tr></thead>`;
 
@@ -608,11 +618,10 @@ function renderCycleTable(result) {
     return `<tr>
       <td>${c.entryDate}</td>
       <td>${c.exitDate}</td>
-      <td>${c.expiry}</td>
       <td class="accent">$${c.strike}</td>
       <td class="muted">${(c.otmPct*100).toFixed(0)}%</td>
-      <td>$${fmt(c.entryCall)}</td>
-      <td>$${fmt(c.exitCall)}</td>
+      <td>$${fmt(c.entryCall)} × ${Math.round(c.premiumCollected / (c.entryCall * 100))}ct</td>
+      <td class="red">-$${fmt(c.exitCall)}</td>
       <td class="${pnlClass}">${fmtDollar(c.cyclePnL)}</td>
       <td class="${yClass}">${fmt(c.annYield,1)}%</td>
       <td class="muted">${c.daysHeld}d</td>
