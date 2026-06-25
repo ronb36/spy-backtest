@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SPY Covered Call Backtest</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d0f14; --surface: #161921; --surface2: #1e2230; --border: #2a2f3d;
+    --text: #e8ecf4; --text-muted: #7a8299; --green: #3dd68c; --red: #f56565;
+    --accent: #5b8af5; --yellow: #f6c90e; --orange: #f59e0b;
+    --mono: "IBM Plex Mono", monospace; --sans: "IBM Plex Sans", sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); }
+  .app { max-width: 1200px; margin: 0 auto; padding: 24px 16px 60px; }
+
+  /* Header */
+  .header-eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--accent); text-transform: uppercase; margin-bottom: 8px; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .header-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+
+  /* Controls */
+  .controls-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .controls-title { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+  .controls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; align-items: end; }
+  .ctrl { display: flex; flex-direction: column; gap: 5px; }
+  .ctrl label { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+  .ctrl select, .ctrl input[type=range] { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 6px 8px; height: 34px; outline: none; cursor: pointer; }
+  .ctrl select:focus { border-color: var(--accent); }
+  .ctrl input[type=range] { padding: 0; height: 6px; margin-top: 10px; accent-color: var(--accent); cursor: pointer; }
+  .ctrl .range-val { font-family: var(--mono); font-size: 11px; color: var(--text); margin-top: 3px; }
+  .run-btn { display: flex; align-items: center; gap: 6px; background: var(--accent); border: none; border-radius: 4px; color: #fff; font-family: var(--mono); font-size: 11px; padding: 0 18px; height: 34px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; align-self: end; }
+  .run-btn:hover { opacity: 0.85; }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .optimize-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); }
+  .optimize-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+
+  /* Progress */
+  .progress-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; display: none; }
+  .progress-panel.visible { display: block; }
+  .progress-title { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+  .progress-bar-wrap { background: var(--surface2); border-radius: 4px; height: 6px; margin-bottom: 8px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s ease; }
+  .progress-log { font-family: var(--mono); font-size: 10px; color: var(--text-muted); line-height: 1.8; max-height: 120px; overflow-y: auto; }
+  .progress-log .ok { color: var(--green); }
+  .progress-log .err { color: var(--red); }
+
+  /* Summary cards */
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+  .stat-label { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px; }
+  .stat-value { font-family: var(--mono); font-size: 16px; font-weight: 600; }
+  .stat-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .green { color: var(--green); } .red { color: var(--red); } .accent { color: var(--accent); } .yellow { color: var(--yellow); }
+
+  /* Chart panels */
+  .chart-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+  .chart-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .chart-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+  .chart-body { padding: 0; }
+
+  /* Heatmap */
+  .heatmap-wrap { overflow-x: auto; padding: 16px; }
+  .heatmap-table { border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+  .heatmap-table th { padding: 6px 12px; color: var(--text-muted); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; text-align: center; white-space: nowrap; }
+  .heatmap-table th.row-h { text-align: left; min-width: 140px; }
+  .heatmap-table td { padding: 8px 12px; text-align: center; white-space: nowrap; border-radius: 3px; font-weight: 500; }
+  .heatmap-table td.row-label { text-align: left; color: var(--text-muted); font-size: 10px; background: transparent !important; }
+  .heatmap-best { outline: 2px solid var(--green); outline-offset: -2px; }
+
+  /* Cycle table */
+  .cycle-table-wrap { overflow-x: auto; }
+  .cycle-table { width: 100%; border-collapse: collapse; }
+  .cycle-table th { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  .cycle-table td { font-family: var(--mono); font-size: 11px; color: var(--text); padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .cycle-table tr:last-child td { border-bottom: none; }
+  .cycle-table td.green { color: var(--green); }
+  .cycle-table td.red { color: var(--red); }
+  .cycle-table td.yellow { color: var(--yellow); }
+  .cycle-table td.muted { color: var(--text-muted); }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 13px; }
+  .empty-state .icon { font-size: 32px; margin-bottom: 12px; }
+
+  .spinner { display: inline-block; width: 9px; height: 9px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .footer-note { font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px; line-height: 1.6; }
+  @media (max-width: 600px) { .controls-grid { grid-template-columns: 1fr 1fr; } .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header-eyebrow">SPY Covered Call</div>
+  <h1>Backtest & Roll Optimizer</h1>
+  <div class="header-sub" id="data-status">Loading data mart from GitHub...</div>
+
+  <!-- Controls -->
+  <div class="controls-panel">
+    <div class="controls-title">Simulation Parameters</div>
+    <div class="controls-grid">
+      <div class="ctrl">
+        <label>Roll Frequency</label>
+        <select id="roll-freq">
+          <option value="monthly">Monthly (~30 DTE)</option>
+          <option value="quarterly" selected>Quarterly (~90 DTE)</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label>OTM Target</label>
+        <select id="otm-target">
+          <option value="0.03">3% OTM</option>
+          <option value="0.05" selected>5% OTM</option>
+          <option value="0.07">7% OTM</option>
+          <option value="0.10">10% OTM</option>
+          <option value="vix">VIX-Adaptive</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label>Roll Trigger — % Decay (<span id="decay-val">75%</span>)</label>
+        <input type="range" id="decay-trigger" min="50" max="90" step="5" value="75" oninput="document.getElementById('decay-val').textContent=this.value+'%'" />
+      </div>
+      <div class="ctrl">
+        <label>DTE Floor — Roll if below (<span id="dte-val">21d</span>)</label>
+        <input type="range" id="dte-floor" min="7" max="45" step="7" value="21" oninput="document.getElementById('dte-val').textContent=this.value+'d'" />
+      </div>
+      <div class="ctrl">
+        <label>Shares</label>
+        <select id="shares">
+          <option value="600" selected>600 shares</option>
+          <option value="100">100 shares</option>
+          <option value="200">200 shares</option>
+          <option value="300">300 shares</option>
+        </select>
+      </div>
+      <div class="ctrl" style="display:flex;flex-direction:row;gap:8px;align-items:flex-end;">
+        <button class="run-btn" id="run-btn" onclick="runSimulation()" disabled>
+          <span id="run-icon">▶</span> Run
+        </button>
+        <button class="run-btn optimize-btn" id="opt-btn" onclick="runOptimization()" disabled>
+          ⊞ Optimize
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-panel" id="progress-panel">
+    <div class="progress-title">Running simulation...</div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar" style="width:0%"></div></div>
+    <div class="progress-log" id="progress-log"></div>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="summary-grid" id="summary-grid">
+    <div class="stat-card"><div class="stat-label">Status</div><div class="stat-value accent" id="st-status">—</div><div class="stat-sub">Run a simulation</div></div>
+  </div>
+
+  <!-- Equity curve -->
+  <div class="chart-panel" id="equity-panel" style="display:none">
+    <div class="chart-header">
+      <span class="chart-title">Equity Curve — Covered Call vs Buy & Hold SPY</span>
+    </div>
+    <div class="chart-body"><div id="equity-chart" style="height:340px;"></div></div>
+  </div>
+
+  <!-- Optimization heatmap -->
+  <div class="chart-panel" id="heatmap-panel" style="display:none">
+    <div class="chart-header">
+      <span class="chart-title">Optimization Heatmap — Ann. Yield % by Roll Trigger × DTE Floor</span>
+    </div>
+    <div class="chart-body">
+      <div class="heatmap-wrap"><div id="heatmap-container"></div></div>
+    </div>
+  </div>
+
+  <!-- Cycle table -->
+  <div class="chart-panel" id="cycle-panel" style="display:none">
+    <div class="chart-header">
+      <span class="chart-title">Roll Cycle Log</span>
+    </div>
+    <div class="chart-body">
+      <div class="cycle-table-wrap"><div id="cycle-table-container"></div></div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest). Option prices are EOD closes.
+    P&amp;L reflects premium collected + mark-to-market. SPY equity appreciation tracked separately.
+    Not financial advice.
+  </div>
+</div>
+
+<script>
+// ── Data mart ──────────────────────────────────────────────────────────────
+const DATA_URL = "https://raw.githubusercontent.com/ronb36/spy-backtest/main/data/spy_data.json";
+let DM = null; // loaded data mart
+
+// ── Load data on page load ─────────────────────────────────────────────────
+async function loadData() {
+  const status = document.getElementById("data-status");
+  try {
+    status.textContent = "Fetching data mart from GitHub...";
+    const r = await fetch(DATA_URL + "?t=" + Date.now()); // cache bust
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    DM = await r.json();
+    const spy_days = DM.spy.length;
+    const opt_count = Object.keys(DM.options).length;
+    const last = DM.metadata.last_updated;
+    status.textContent = `✓ Data mart loaded — ${spy_days} SPY days · ${opt_count} option contracts · updated ${last}`;
+    status.style.color = "var(--green)";
+    document.getElementById("run-btn").disabled = false;
+    document.getElementById("opt-btn").disabled = false;
+  } catch(e) {
+    status.textContent = "✗ Could not load data mart: " + e.message;
+    status.style.color = "var(--red)";
+  }
+}
+
+// ── Helper: build lookup maps ──────────────────────────────────────────────
+function buildLookups() {
+  const spyMap = {};
+  DM.spy.forEach(r => spyMap[r.date] = r);
+  const vixMap = {};
+  DM.vix.forEach(r => vixMap[r.date] = r.c);
+  return { spyMap, vixMap };
+}
+
+function fmt(n, dec=2) {
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  return n.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+function fmtPct(n) { return n !== null && !isNaN(n) ? (n >= 0 ? "+" : "") + fmt(n,1) + "%" : "—"; }
+function fmtDollar(n) { return n !== null && !isNaN(n) ? (n >= 0 ? "+$" : "-$") + fmt(Math.abs(n),0) : "—"; }
+
+// ── VIX regime OTM target ──────────────────────────────────────────────────
+function vixOTM(vix) {
+  if (vix < 15) return 0.03;
+  if (vix < 20) return 0.05;
+  if (vix < 25) return 0.07;
+  return 0.10;
+}
+
+// ── Find best matching option contract ────────────────────────────────────
+function findContract(targetExpiry, targetOTM) {
+  // Find contract in DM.options closest to targetExpiry and targetOTM
+  let best = null, bestScore = Infinity;
+  for (const [ticker, c] of Object.entries(DM.options)) {
+    if (c.expiry !== targetExpiry) continue;
+    const otmDiff = Math.abs(c.otm_pct - targetOTM);
+    if (otmDiff < bestScore) { bestScore = otmDiff; best = { ticker, ...c }; }
+  }
+  return best;
+}
+
+// ── Get monthly/quarterly expiries from data ───────────────────────────────
+function getExpiriesFromData(freq) {
+  const expiries = [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
+  if (freq === "quarterly") {
+    return expiries.filter(e => {
+      const m = parseInt(e.split("-")[1]);
+      return [3, 6, 9, 12].includes(m);
+    });
+  }
+  return expiries;
+}
+
+// ── Core simulation engine ─────────────────────────────────────────────────
+function simulate(params) {
+  const { rollFreq, otmMode, otmFixed, decayTrigger, dteFloor, shares } = params;
+  const { spyMap, vixMap } = buildLookups();
+  const contracts = parseInt(shares) / 100;
+
+  const expiries = getExpiriesFromData(rollFreq);
+  if (expiries.length === 0) return null;
+
+  const cycles = [];
+  const equityCurve = []; // {date, covered_call, buyhold}
+  let premiumPnL = 0;
+  const spyDates = DM.spy.map(r => r.date).sort();
+  const startDate = spyDates[0];
+  const startSPY = DM.spy[0].c;
+
+  let currentExpIdx = 0;
+  let currentContract = null;
+  let entrySPY = null;
+  let entryCallPrice = null;
+  let entryDate = null;
+  let entryStrike = null;
+  let cyclePremiumCollected = 0;
+
+  // Walk through time day by day
+  for (const date of spyDates) {
+    const spyRow = spyMap[date];
+    if (!spyRow) continue;
+    const spy = spyRow.c;
+    const vix = vixMap[date] || 18;
+
+    // Initialize or roll position
+    if (!currentContract) {
+      // Find next expiry
+      while (currentExpIdx < expiries.length && expiries[currentExpIdx] <= date) currentExpIdx++;
+      if (currentExpIdx >= expiries.length) break;
+      const exp = expiries[currentExpIdx];
+
+      // Determine OTM target
+      const otm = otmMode === "vix" ? vixOTM(vix) : otmFixed;
+      currentContract = findContract(exp, otm);
+      if (!currentContract) { currentExpIdx++; continue; }
+
+      // Find entry price (first day of contract data)
+      const firstDay = currentContract.days[0];
+      if (!firstDay) { currentContract = null; currentExpIdx++; continue; }
+
+      entryCallPrice = firstDay.c;
+      entryDate = firstDay.date;
+      entryStrike = currentContract.strike;
+      entrySPY = spyMap[entryDate]?.c || spy;
+      cyclePremiumCollected = entryCallPrice * 100 * contracts;
+    }
+
+    // Find today's call price
+    const callDay = currentContract.days.find(d => d.date === date);
+    const callPrice = callDay ? callDay.c : null;
+
+    // Calculate DTE
+    const expDate = new Date(currentContract.expiry + "T00:00:00");
+    const today = new Date(date + "T00:00:00");
+    const dte = Math.round((expDate - today) / 86400000);
+
+    // Check roll triggers
+    let shouldRoll = false;
+    let rollReason = "";
+    if (callPrice !== null && entryCallPrice > 0) {
+      const decayPct = ((entryCallPrice - callPrice) / entryCallPrice) * 100;
+      if (decayPct >= decayTrigger) { shouldRoll = true; rollReason = `${fmt(decayPct,0)}% decay`; }
+    }
+    if (dte <= dteFloor && !shouldRoll) { shouldRoll = true; rollReason = `${dte}d DTE floor`; }
+    if (date >= currentContract.expiry) { shouldRoll = true; rollReason = "expired"; }
+
+    // Record equity curve point
+    const buyholdValue = (spy / startSPY - 1) * 100;
+    const callMark = callPrice !== null ? callPrice : (callDay ? callDay.c : entryCallPrice);
+    const optionPnL = entryCallPrice !== null && callMark !== null
+      ? (entryCallPrice - callMark) * 100 * contracts
+      : 0;
+    const coveredCallValue = buyholdValue + ((premiumPnL + optionPnL) / (startSPY * shares)) * 100;
+    equityCurve.push({ date, covered_call: coveredCallValue, buyhold: buyholdValue, spy, vix });
+
+    if (shouldRoll) {
+      const exitCallPrice = callPrice || entryCallPrice;
+      const cyclePnL = (entryCallPrice - exitCallPrice) * 100 * contracts;
+      premiumPnL += cyclePnL;
+
+      const exitSPY = spy;
+      const daysHeld = Math.round((new Date(date) - new Date(entryDate)) / 86400000);
+      const annYield = daysHeld > 0
+        ? (entryCallPrice / entrySPY) * (365 / daysHeld) * 100
+        : 0;
+
+      cycles.push({
+        entryDate, exitDate: date, expiry: currentContract.expiry,
+        strike: entryStrike, otmPct: currentContract.otm_pct,
+        entryCall: entryCallPrice, exitCall: exitCallPrice,
+        entrySPY, exitSPY,
+        cyclePnL, premiumCollected: cyclePremiumCollected,
+        daysHeld, annYield, rollReason,
+        entryVix: vixMap[entryDate] || vix,
+      });
+
+      currentContract = null;
+      currentExpIdx++;
+    }
+  }
+
+  if (cycles.length === 0) return null;
+
+  // Summary stats
+  const totalPremium = cycles.reduce((s, c) => s + c.cyclePnL, 0);
+  const avgAnnYield = cycles.reduce((s, c) => s + c.annYield, 0) / cycles.length;
+  const winRate = cycles.filter(c => c.cyclePnL > 0).length / cycles.length * 100;
+  const spyReturn = (DM.spy[DM.spy.length-1].c / DM.spy[0].c - 1) * 100;
+  const lastEC = equityCurve[equityCurve.length-1];
+  const covReturn = lastEC ? lastEC.covered_call : 0;
+  const maxDD = calcMaxDrawdown(equityCurve.map(e => e.covered_call));
+
+  return { cycles, equityCurve, totalPremium, avgAnnYield, winRate, spyReturn, covReturn, maxDD, params };
+}
+
+function calcMaxDrawdown(values) {
+  let peak = -Infinity, maxDD = 0;
+  for (const v of values) {
+    if (v > peak) peak = v;
+    const dd = peak - v;
+    if (dd > maxDD) maxDD = dd;
+  }
+  return maxDD;
+}
+
+// ── Run single simulation ──────────────────────────────────────────────────
+function getParams() {
+  return {
+    rollFreq:     document.getElementById("roll-freq").value,
+    otmMode:      document.getElementById("otm-target").value === "vix" ? "vix" : "fixed",
+    otmFixed:     parseFloat(document.getElementById("otm-target").value) || 0.05,
+    decayTrigger: parseFloat(document.getElementById("decay-trigger").value),
+    dteFloor:     parseInt(document.getElementById("dte-floor").value),
+    shares:       parseInt(document.getElementById("shares").value),
+  };
+}
+
+function logProgress(msg, cls="") {
+  const el = document.getElementById("progress-log");
+  el.innerHTML += `<div class="${cls}">${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function setProgress(pct) {
+  document.getElementById("progress-bar").style.width = pct + "%";
+}
+
+function runSimulation() {
+  if (!DM) return;
+  const params = getParams();
+
+  document.getElementById("progress-panel").classList.add("visible");
+  document.getElementById("progress-log").innerHTML = "";
+  setProgress(10);
+  logProgress("Building lookups...");
+
+  setTimeout(() => {
+    setProgress(30);
+    logProgress(`Running ${params.rollFreq} simulation — ${params.otmMode === "vix" ? "VIX-adaptive" : (params.otmFixed*100).toFixed(0)+"% OTM"} · ${params.decayTrigger}% decay trigger · ${params.dteFloor}d DTE floor`);
+
+    const result = simulate(params);
+    setProgress(80);
+
+    if (!result) {
+      logProgress("✗ No cycles found — check parameters", "err");
+      setProgress(100);
+      return;
+    }
+
+    logProgress(`✓ ${result.cycles.length} cycles simulated`, "ok");
+    setProgress(100);
+
+    renderSummary(result);
+    renderEquityCurve(result);
+    renderCycleTable(result);
+
+    document.getElementById("equity-panel").style.display = "block";
+    document.getElementById("cycle-panel").style.display = "block";
+    document.getElementById("heatmap-panel").style.display = "none";
+  }, 50);
+}
+
+// ── Optimization grid ──────────────────────────────────────────────────────
+function runOptimization() {
+  if (!DM) return;
+  const baseParams = getParams();
+
+  document.getElementById("progress-panel").classList.add("visible");
+  document.getElementById("progress-log").innerHTML = "";
+  setProgress(5);
+  logProgress("Running optimization grid...");
+
+  const decayTriggers = [50, 60, 70, 75, 80, 90];
+  const dteFloors     = [7, 14, 21, 30, 45];
+  const total = decayTriggers.length * dteFloors.length;
+  let done = 0;
+
+  const grid = {}; // grid[decay][dte] = annYield
+  decayTriggers.forEach(d => { grid[d] = {}; });
+
+  setTimeout(() => {
+    for (const decay of decayTriggers) {
+      for (const dte of dteFloors) {
+        const result = simulate({ ...baseParams, decayTrigger: decay, dteFloor: dte });
+        grid[decay][dte] = result ? result.avgAnnYield : null;
+        done++;
+        setProgress(Math.round((done / total) * 90));
+      }
+    }
+
+    logProgress(`✓ ${total} combinations tested`, "ok");
+    setProgress(100);
+
+    renderHeatmap(grid, decayTriggers, dteFloors);
+    document.getElementById("heatmap-panel").style.display = "block";
+    document.getElementById("equity-panel").style.display = "none";
+    document.getElementById("cycle-panel").style.display = "none";
+    document.getElementById("summary-grid").innerHTML = "";
+  }, 50);
+}
+
+// ── Render functions ───────────────────────────────────────────────────────
+function renderSummary(result) {
+  const { totalPremium, avgAnnYield, winRate, spyReturn, covReturn, maxDD, cycles, params } = result;
+  const yieldClass = avgAnnYield >= 8 ? "green" : avgAnnYield >= 4 ? "yellow" : "red";
+  const ddClass    = maxDD > 20 ? "red" : maxDD > 10 ? "yellow" : "green";
+
+  document.getElementById("summary-grid").innerHTML = `
+    <div class="stat-card"><div class="stat-label">Avg Ann. Yield</div><div class="stat-value ${yieldClass}">${fmt(avgAnnYield,1)}%</div><div class="stat-sub">Premium only</div></div>
+    <div class="stat-card"><div class="stat-label">Total Premium P&L</div><div class="stat-value ${totalPremium >= 0 ? "green" : "red"}">${fmtDollar(totalPremium)}</div><div class="stat-sub">${cycles.length} cycles</div></div>
+    <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${winRate >= 70 ? "green" : "yellow"}">${fmt(winRate,0)}%</div><div class="stat-sub">Cycles with net credit</div></div>
+    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${covReturn >= 0 ? "green" : "red"}">${fmtPct(covReturn)}</div><div class="stat-sub">vs SPY ${fmtPct(spyReturn)}</div></div>
+    <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
+    <div class="stat-card"><div class="stat-label">Parameters</div><div class="stat-value accent" style="font-size:12px">${params.rollFreq === "monthly" ? "Mo" : "Qtr"} · ${params.otmMode === "vix" ? "VIX" : (params.otmFixed*100).toFixed(0)+"%"} OTM</div><div class="stat-sub">${params.decayTrigger}% decay · ${params.dteFloor}d floor</div></div>
+  `;
+}
+
+function renderEquityCurve(result) {
+  const { equityCurve } = result;
+  const dates = equityCurve.map(e => e.date);
+  const cc    = equityCurve.map(e => parseFloat(e.covered_call.toFixed(2)));
+  const bh    = equityCurve.map(e => parseFloat(e.buyhold.toFixed(2)));
+
+  const traces = [
+    { x: dates, y: cc, name: "Covered Call", type: "scatter", mode: "lines",
+      line: { color: "#3dd68c", width: 2 } },
+    { x: dates, y: bh, name: "Buy & Hold SPY", type: "scatter", mode: "lines",
+      line: { color: "#5b8af5", width: 2, dash: "dot" } },
+  ];
+
+  const layout = {
+    paper_bgcolor: "#161921", plot_bgcolor: "#161921",
+    font: { family: "IBM Plex Mono", color: "#7a8299", size: 10 },
+    xaxis: { gridcolor: "#2a2f3d", zerolinecolor: "#2a2f3d", tickfont: { size: 9 } },
+    yaxis: { gridcolor: "#2a2f3d", zerolinecolor: "#2a2f3d", tickfont: { size: 9 },
+             ticksuffix: "%", title: { text: "Return %", font: { color: "#7a8299" } } },
+    margin: { l: 50, r: 20, t: 16, b: 40 },
+    legend: { bgcolor: "#1e2230", bordercolor: "#2a2f3d", borderwidth: 1,
+              font: { color: "#e8ecf4", size: 10 } },
+    hovermode: "x unified",
+  };
+  Plotly.newPlot("equity-chart", traces, layout, { responsive: true, displayModeBar: false });
+}
+
+function renderHeatmap(grid, decayTriggers, dteFloors) {
+  // Find best cell
+  let bestVal = -Infinity, bestDecay = null, bestDTE = null;
+  for (const d of decayTriggers) {
+    for (const dte of dteFloors) {
+      const v = grid[d][dte];
+      if (v !== null && v > bestVal) { bestVal = v; bestDecay = d; bestDTE = dte; }
+    }
+  }
+
+  // Color scale: low=dark blue, high=green
+  const allVals = decayTriggers.flatMap(d => dteFloors.map(dte => grid[d][dte])).filter(v => v !== null);
+  const minV = Math.min(...allVals), maxV = Math.max(...allVals);
+
+  function cellColor(v) {
+    if (v === null) return "var(--surface2)";
+    const t = maxV === minV ? 0.5 : (v - minV) / (maxV - minV);
+    const r = Math.round(30 + t * (61 - 30));
+    const g = Math.round(40 + t * (214 - 40));
+    const b = Math.round(60 + t * (140 - 60));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function textColor(v) {
+    if (v === null) return "var(--text-muted)";
+    const t = maxV === minV ? 0.5 : (v - minV) / (maxV - minV);
+    return t > 0.5 ? "#0d0f14" : "#e8ecf4";
+  }
+
+  let html = `<table class="heatmap-table">`;
+  html += `<thead><tr><th class="row-h">Decay Trigger ↓ / DTE Floor →</th>`;
+  for (const dte of dteFloors) html += `<th>${dte}d</th>`;
+  html += `</tr></thead><tbody>`;
+
+  for (const d of decayTriggers) {
+    html += `<tr><td class="row-label">${d}% decay</td>`;
+    for (const dte of dteFloors) {
+      const v = grid[d][dte];
+      const isBest = d === bestDecay && dte === bestDTE;
+      const bg = cellColor(v);
+      const tc = textColor(v);
+      html += `<td style="background:${bg};color:${tc}" class="${isBest ? "heatmap-best" : ""}">`;
+      html += v !== null ? fmt(v,1)+"%" : "—";
+      html += `</td>`;
+    }
+    html += `</tr>`;
+  }
+  html += `</tbody></table>`;
+  html += `<div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--text-muted);">`;
+  html += `Best: ${fmt(bestVal,1)}% ann. yield at ${bestDecay}% decay trigger / ${bestDTE}d DTE floor (outlined in green)</div>`;
+
+  document.getElementById("heatmap-container").innerHTML = html;
+}
+
+function renderCycleTable(result) {
+  const { cycles } = result;
+  const thead = `<thead><tr>
+    <th>Entry</th><th>Exit</th><th>Expiry</th><th>Strike</th><th>OTM%</th>
+    <th>Entry Call</th><th>Exit Call</th><th>Premium P&L</th><th>Ann. Yield</th>
+    <th>Days</th><th>Trigger</th><th>VIX</th>
+  </tr></thead>`;
+
+  const tbody = cycles.map(c => {
+    const pnlClass = c.cyclePnL >= 0 ? "green" : "red";
+    const yClass   = c.annYield >= 8 ? "green" : c.annYield >= 4 ? "yellow" : "muted";
+    return `<tr>
+      <td>${c.entryDate}</td>
+      <td>${c.exitDate}</td>
+      <td>${c.expiry}</td>
+      <td class="accent">$${c.strike}</td>
+      <td class="muted">${(c.otmPct*100).toFixed(0)}%</td>
+      <td>$${fmt(c.entryCall)}</td>
+      <td>$${fmt(c.exitCall)}</td>
+      <td class="${pnlClass}">${fmtDollar(c.cyclePnL)}</td>
+      <td class="${yClass}">${fmt(c.annYield,1)}%</td>
+      <td class="muted">${c.daysHeld}d</td>
+      <td class="muted">${c.rollReason}</td>
+      <td class="muted">${fmt(c.entryVix,1)}</td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("cycle-table-container").innerHTML =
+    `<table class="cycle-table">${thead}<tbody>${tbody}</tbody></table>`;
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
