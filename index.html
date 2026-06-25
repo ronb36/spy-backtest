@@ -89,6 +89,12 @@
   .spinner { display: inline-block; width: 9px; height: 9px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Tabs */
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 12px; }
+  .tab-btn { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; padding: 0 16px; height: 32px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+  .tab-btn:hover { border-color: var(--accent); color: var(--text); }
+  .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
   .footer-note { font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px; line-height: 1.6; }
   @media (max-width: 600px) { .controls-grid { grid-template-columns: 1fr 1fr; } .summary-grid { grid-template-columns: repeat(2, 1fr); } }
 
@@ -111,22 +117,26 @@
     <div class="controls-grid">
       <div class="ctrl">
         <label>Entry Date</label>
-        <select id="init-date" onchange="updateInitPosition()"></select>
+        <div class="init-display" id="init-entry-date">—</div>
       </div>
       <div class="ctrl">
-        <label>SPY Price</label>
+        <label>SPY Qty</label>
+        <div class="init-display" id="init-qty">—</div>
+      </div>
+      <div class="ctrl">
+        <label>SPY Entry Price</label>
         <div class="init-display" id="init-spy">—</div>
       </div>
       <div class="ctrl">
-        <label>Call Sold</label>
-        <div class="init-display" id="init-call-ticker">—</div>
+        <label>Call Expiry</label>
+        <select id="init-date" onchange="updateInitPosition()"></select>
       </div>
       <div class="ctrl">
-        <label>Premium Received</label>
-        <div class="init-display" id="init-premium">—</div>
+        <label>Strike</label>
+        <div class="init-display" id="init-strike">—</div>
       </div>
       <div class="ctrl">
-        <label>Initial Credit (600 shares)</label>
+        <label>Initial Credit</label>
         <div class="init-display" id="init-credit">—</div>
       </div>
     </div>
@@ -193,31 +203,46 @@
     <div class="stat-card"><div class="stat-label">Status</div><div class="stat-value accent" id="st-status">—</div><div class="stat-sub">Run a simulation</div></div>
   </div>
 
-  <!-- Equity curve -->
-  <div class="chart-panel" id="equity-panel" style="display:none">
-    <div class="chart-header">
-      <span class="chart-title">Equity Curve — Covered Call vs Buy & Hold SPY</span>
+  <!-- Results tabs -->
+  <div id="results-tabs" style="display:none">
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-chart-btn" onclick="showTab('chart')">📈 Chart</button>
+      <button class="tab-btn" id="tab-log-btn" onclick="showTab('log')">📋 Cycle Log</button>
+      <button class="tab-btn" id="tab-heatmap-btn" onclick="showTab('heatmap')" style="display:none">⊞ Heatmap</button>
     </div>
-    <div class="chart-body"><div id="equity-chart" style="height:340px;"></div></div>
-  </div>
 
-  <!-- Optimization heatmap -->
-  <div class="chart-panel" id="heatmap-panel" style="display:none">
-    <div class="chart-header">
-      <span class="chart-title">Optimization Heatmap — Ann. Yield % by Roll Trigger × DTE Floor</span>
+    <!-- Chart tab -->
+    <div id="tab-chart" class="tab-content">
+      <div class="chart-panel">
+        <div class="chart-header">
+          <span class="chart-title">Equity Curve — Covered Call vs Buy &amp; Hold SPY</span>
+        </div>
+        <div class="chart-body"><div id="equity-chart" style="height:340px;"></div></div>
+      </div>
     </div>
-    <div class="chart-body">
-      <div class="heatmap-wrap"><div id="heatmap-container"></div></div>
-    </div>
-  </div>
 
-  <!-- Cycle table -->
-  <div class="chart-panel" id="cycle-panel" style="display:none">
-    <div class="chart-header">
-      <span class="chart-title">Roll Cycle Log</span>
+    <!-- Log tab -->
+    <div id="tab-log" class="tab-content" style="display:none">
+      <div class="chart-panel">
+        <div class="chart-header">
+          <span class="chart-title">Roll Cycle Log</span>
+        </div>
+        <div class="chart-body">
+          <div class="cycle-table-wrap"><div id="cycle-table-container"></div></div>
+        </div>
+      </div>
     </div>
-    <div class="chart-body">
-      <div class="cycle-table-wrap"><div id="cycle-table-container"></div></div>
+
+    <!-- Heatmap tab -->
+    <div id="tab-heatmap" class="tab-content" style="display:none">
+      <div class="chart-panel">
+        <div class="chart-header">
+          <span class="chart-title">Optimization Heatmap — Ann. Yield % by Roll Trigger × DTE Floor</span>
+        </div>
+        <div class="chart-body">
+          <div class="heatmap-wrap"><div id="heatmap-container"></div></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -298,10 +323,11 @@ function updateInitPosition() {
   const premium = firstDay.c;
   const totalCredit = premium * 100 * contracts;
 
-  document.getElementById("init-spy").textContent = spyOnEntry ? "$" + spyOnEntry.toFixed(2) + " on " + firstDay.date : "—";
-  document.getElementById("init-call-ticker").textContent = contract.ticker.replace("O:", "") + " @ " + (contract.otm_pct*100).toFixed(0) + "% OTM";
-  document.getElementById("init-premium").textContent = "$" + premium.toFixed(2) + " per share";
-  document.getElementById("init-credit").textContent = "+$" + totalCredit.toLocaleString("en-US", {minimumFractionDigits:0, maximumFractionDigits:0});
+  document.getElementById("init-entry-date").textContent = firstDay.date;
+  document.getElementById("init-qty").textContent = shares + " shares / " + contracts + " contracts";
+  document.getElementById("init-spy").textContent = spyOnEntry ? "$" + spyOnEntry.toFixed(2) : "—";
+  document.getElementById("init-strike").textContent = "$" + contract.strike + " (" + (contract.otm_pct*100).toFixed(0) + "% OTM)";
+  document.getElementById("init-credit").textContent = "+$" + totalCredit.toLocaleString("en-US", {minimumFractionDigits:0, maximumFractionDigits:0}) + "  ($" + premium.toFixed(2) + "/sh)";
 }
 
 function fmt(n, dec=2) {
@@ -518,6 +544,14 @@ function getParams() {
   };
 }
 
+function showTab(tab) {
+  ["chart","log","heatmap"].forEach(t => {
+    document.getElementById("tab-"+t).style.display = t === tab ? "block" : "none";
+    const btn = document.getElementById("tab-"+t+"-btn");
+    if (btn) btn.classList.toggle("active", t === tab);
+  });
+}
+
 function logProgress(msg, cls="") {
   const el = document.getElementById("progress-log");
   el.innerHTML += `<div class="${cls}">${msg}</div>`;
@@ -557,9 +591,9 @@ function runSimulation() {
     renderEquityCurve(result);
     renderCycleTable(result);
 
-    document.getElementById("equity-panel").style.display = "block";
-    document.getElementById("cycle-panel").style.display = "block";
-    document.getElementById("heatmap-panel").style.display = "none";
+    document.getElementById("results-tabs").style.display = "block";
+    document.getElementById("tab-heatmap-btn").style.display = "none";
+    showTab("chart");
   }, 50);
 }
 
@@ -595,10 +629,9 @@ function runOptimization() {
     setProgress(100);
 
     renderHeatmap(grid, decayTriggers, dteFloors);
-    document.getElementById("heatmap-panel").style.display = "block";
-    document.getElementById("equity-panel").style.display = "none";
-    document.getElementById("cycle-panel").style.display = "none";
-    document.getElementById("summary-grid").innerHTML = "";
+    document.getElementById("results-tabs").style.display = "block";
+    document.getElementById("tab-heatmap-btn").style.display = "block";
+    showTab("heatmap");
   }, 50);
 }
 
