@@ -95,6 +95,12 @@
   .tab-btn:hover { border-color: var(--accent); color: var(--text); }
   .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+  /* Sticky table header for data mart */
+  #mart-table-container table thead th {
+    position: sticky; top: 0; background: var(--surface); z-index: 2;
+    box-shadow: 0 1px 0 var(--border);
+  }
+
   .footer-note { font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px; line-height: 1.6; }
   @media (max-width: 600px) { .controls-grid { grid-template-columns: 1fr 1fr; } .summary-grid { grid-template-columns: repeat(2, 1fr); } }
 
@@ -253,19 +259,28 @@
     <!-- Summary cards -->
     <div class="summary-grid" id="mart-summary" style="margin-bottom:12px;"></div>
 
-    <!-- Contract dropdown — shown only when Options card is selected -->
+    <!-- Contract filters — shown only when Options card is selected -->
     <div id="mart-contract-wrap" style="display:none;margin-bottom:12px;">
-      <select id="mart-contract" onchange="renderMartTable()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;width:100%;max-width:480px;"></select>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="ctrl" style="flex:0 0 auto;">
+          <label>Expiry</label>
+          <select id="mart-expiry" onchange="populateMartStrikes()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;min-width:130px;"></select>
+        </div>
+        <div class="ctrl" style="flex:0 0 auto;">
+          <label>Strike</label>
+          <select id="mart-strike" onchange="renderMartTable()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;min-width:130px;"></select>
+        </div>
+        <div class="ctrl" style="flex:0 0 auto;">
+          <label style="visibility:hidden;">x</label>
+          <div class="init-display" id="mart-contract-info" style="color:var(--text-muted);font-size:10px;min-width:180px;">—</div>
+        </div>
+      </div>
     </div>
 
     <!-- Data table -->
     <div class="chart-panel">
-      <div class="chart-header" style="justify-content:space-between;">
-        <span class="chart-title" id="mart-table-title">—</span>
-        <span style="font-family:var(--mono);font-size:10px;color:var(--text-muted);" id="mart-record-count">—</span>
-      </div>
       <div class="chart-body">
-        <div class="cycle-table-wrap" style="max-height:400px;overflow-y:auto;">
+        <div class="cycle-table-wrap" style="max-height:420px;overflow-y:auto;">
           <div id="mart-table-container"></div>
         </div>
       </div>
@@ -321,13 +336,13 @@ function renderMartSummary() {
     </div>
   `;
 
-  // Populate contract dropdown
-  const sel = document.getElementById("mart-contract");
-  sel.innerHTML = opts
-    .sort(([,a],[,b]) => a.expiry.localeCompare(b.expiry) || a.strike - b.strike)
-    .map(([ticker, c]) =>
-      `<option value="${ticker}">${ticker.replace("O:","").replace("C","C$")} · ${(c.otm_pct*100).toFixed(0)}% OTM · ${c.days.length}d</option>`
-    ).join("");
+  // Populate expiry dropdown (unique expiries sorted)
+  const expSel = document.getElementById("mart-expiry");
+  if (expSel) {
+    const uniqueExpiries = [...new Set(opts.map(([,c]) => c.expiry))].sort();
+    expSel.innerHTML = uniqueExpiries.map(e => `<option value="${e}">${e}</option>`).join("");
+    populateMartStrikes();
+  }
 
   setMartDataset("spy");
 }
@@ -347,17 +362,33 @@ function setMartDataset(ds) {
   renderMartTable();
 }
 
+function populateMartStrikes() {
+  if (!DM) return;
+  const expiry = document.getElementById("mart-expiry")?.value;
+  const strikeSel = document.getElementById("mart-strike");
+  if (!strikeSel || !expiry) return;
+
+  const contracts = Object.entries(DM.options)
+    .filter(([, c]) => c.expiry === expiry)
+    .sort(([, a], [, b]) => a.strike - b.strike);
+
+  strikeSel.innerHTML = contracts.map(([ticker, c]) =>
+    `<option value="${ticker}">$${c.strike} &nbsp;(${(c.otm_pct*100).toFixed(0)}% OTM)</option>`
+  ).join("");
+
+  renderMartTable();
+}
+
 function renderMartTable() {
   if (!DM) return;
   const dataset = _martDataset;
   const contractWrap = document.getElementById("mart-contract-wrap");
   contractWrap.style.display = dataset === "calls" ? "block" : "none";
 
-  let html = "", title = "", count = "";
+  let html = "";
 
   if (dataset === "spy") {
-    title = "SPY Daily OHLCV";
-    count = DM.spy.length + " records";
+
     html = `<table class="cycle-table">
       <thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr></thead>
       <tbody>${DM.spy.slice().reverse().map(r => `<tr>
@@ -369,8 +400,7 @@ function renderMartTable() {
     </table>`;
 
   } else if (dataset === "vix") {
-    title = "VIX Daily Close";
-    count = DM.vix.length + " records";
+
     html = `<table class="cycle-table">
       <thead><tr><th>Date</th><th>VIX Close</th><th>Regime</th></tr></thead>
       <tbody>${DM.vix.slice().reverse().map(r => {
@@ -381,11 +411,15 @@ function renderMartTable() {
     </table>`;
 
   } else {
-    const ticker = document.getElementById("mart-contract").value;
-    const contract = DM.options[ticker];
+    const ticker = document.getElementById("mart-strike")?.value;
+    const contract = ticker ? DM.options[ticker] : null;
     if (!contract) { document.getElementById("mart-table-container").innerHTML = ""; return; }
-    title = ticker.replace("O:","") + " · $" + contract.strike + " · " + contract.expiry;
-    count = contract.days.length + " trading days · entry SPY $" + fmt(contract.entry_spy);
+
+    // Update info badge
+    const info = document.getElementById("mart-contract-info");
+    if (info) info.textContent = (contract.otm_pct*100).toFixed(0) + "% OTM · " + contract.days.length + " days · entry SPY $" + fmt(contract.entry_spy);
+
+
     html = `<table class="cycle-table">
       <thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th><th>VWAP</th></tr></thead>
       <tbody>${contract.days.slice().reverse().map(r => `<tr>
@@ -398,8 +432,6 @@ function renderMartTable() {
     </table>`;
   }
 
-  document.getElementById("mart-table-title").textContent = title;
-  document.getElementById("mart-record-count").textContent = count;
   document.getElementById("mart-table-container").innerHTML = html;
 }
 
