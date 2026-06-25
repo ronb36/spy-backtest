@@ -209,6 +209,7 @@
       <button class="tab-btn active" id="tab-log-btn" onclick="showTab('log')">📋 Cycle Log</button>
       <button class="tab-btn" id="tab-chart-btn" onclick="showTab('chart')">📈 Chart</button>
       <button class="tab-btn" id="tab-heatmap-btn" onclick="showTab('heatmap')" style="display:none">⊞ Heatmap</button>
+      <button class="tab-btn" id="tab-mart-btn" onclick="showTab('mart')">🗄 Data Mart</button>
     </div>
 
     <!-- Chart tab -->
@@ -246,6 +247,44 @@
     </div>
   </div>
 
+  <!-- Data Mart tab — lives outside results-tabs so always accessible -->
+  <div id="tab-mart" class="tab-content" style="display:none; margin-bottom:16px;">
+
+    <!-- Summary cards -->
+    <div class="summary-grid" id="mart-summary" style="margin-bottom:12px;"></div>
+
+    <!-- Selector row -->
+    <div class="controls-panel" style="padding:12px 16px; margin-bottom:12px;">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <div class="ctrl" style="flex:0 0 auto;">
+          <label>Dataset</label>
+          <select id="mart-dataset" onchange="renderMartTable()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;">
+            <option value="spy">SPY Daily</option>
+            <option value="vix">VIX Daily</option>
+            <option value="calls">Options Contracts</option>
+          </select>
+        </div>
+        <div class="ctrl" style="flex:1 1 240px;" id="mart-contract-wrap">
+          <label>Contract</label>
+          <select id="mart-contract" onchange="renderMartTable()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;width:100%;"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data table -->
+    <div class="chart-panel">
+      <div class="chart-header" style="justify-content:space-between;">
+        <span class="chart-title" id="mart-table-title">—</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text-muted);" id="mart-record-count">—</span>
+      </div>
+      <div class="chart-body">
+        <div class="cycle-table-wrap" style="max-height:400px;overflow-y:auto;">
+          <div id="mart-table-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="footer-note">
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest). Option prices are EOD closes.
     P&amp;L reflects premium collected + mark-to-market. SPY equity appreciation tracked separately.
@@ -259,6 +298,109 @@ const DATA_URL = "https://raw.githubusercontent.com/ronb36/spy-backtest/main/dat
 let DM = null; // loaded data mart
 
 // ── Load data on page load ─────────────────────────────────────────────────
+// ── Data Mart Viewer ──────────────────────────────────────────────────────
+function renderMartSummary() {
+  if (!DM) return;
+  const spy = DM.spy;
+  const vix = DM.vix;
+  const opts = Object.entries(DM.options);
+
+  const spyStart = spy[0]?.date, spyEnd = spy[spy.length-1]?.date;
+  const vixStart = vix[0]?.date, vixEnd = vix[vix.length-1]?.date;
+  const optCount = opts.length;
+  const totalOptDays = opts.reduce((s,[,c]) => s + c.days.length, 0);
+  const expiries = [...new Set(opts.map(([,c]) => c.expiry))].sort();
+
+  document.getElementById("mart-summary").innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">SPY</div>
+      <div class="stat-value accent">${spy.length}</div>
+      <div class="stat-sub">${spyStart} → ${spyEnd}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">VIX</div>
+      <div class="stat-value accent">${vix.length}</div>
+      <div class="stat-sub">${vixStart} → ${vixEnd}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Option Contracts</div>
+      <div class="stat-value accent">${optCount}</div>
+      <div class="stat-sub">${expiries.length} expiries · ${totalOptDays.toLocaleString()} day records</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Last Updated</div>
+      <div class="stat-value green" style="font-size:13px">${DM.metadata.last_updated}</div>
+      <div class="stat-sub">OTM targets: ${DM.metadata.otm_targets.map(t => (t*100).toFixed(0)+"%").join(", ")}</div>
+    </div>
+  `;
+
+  // Populate contract dropdown
+  const sel = document.getElementById("mart-contract");
+  sel.innerHTML = opts
+    .sort(([,a],[,b]) => a.expiry.localeCompare(b.expiry) || a.strike - b.strike)
+    .map(([ticker, c]) =>
+      `<option value="${ticker}">${ticker.replace("O:","").replace("C","C$")} · ${(c.otm_pct*100).toFixed(0)}% OTM · ${c.days.length}d</option>`
+    ).join("");
+
+  renderMartTable();
+}
+
+function renderMartTable() {
+  if (!DM) return;
+  const dataset = document.getElementById("mart-dataset").value;
+  const contractWrap = document.getElementById("mart-contract-wrap");
+  contractWrap.style.display = dataset === "calls" ? "block" : "none";
+
+  let html = "", title = "", count = "";
+
+  if (dataset === "spy") {
+    title = "SPY Daily OHLCV";
+    count = DM.spy.length + " records";
+    html = `<table class="cycle-table">
+      <thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr></thead>
+      <tbody>${DM.spy.slice().reverse().map(r => `<tr>
+        <td class="muted">${r.date}</td>
+        <td>$${fmt(r.o)}</td><td>$${fmt(r.h)}</td><td>$${fmt(r.l)}</td>
+        <td class="accent">$${fmt(r.c)}</td>
+        <td class="muted">${(r.v/1e6).toFixed(1)}M</td>
+      </tr>`).join("")}</tbody>
+    </table>`;
+
+  } else if (dataset === "vix") {
+    title = "VIX Daily Close";
+    count = DM.vix.length + " records";
+    html = `<table class="cycle-table">
+      <thead><tr><th>Date</th><th>VIX Close</th><th>Regime</th></tr></thead>
+      <tbody>${DM.vix.slice().reverse().map(r => {
+        const regime = r.c < 15 ? "Low" : r.c < 20 ? "Normal" : r.c < 25 ? "Elevated" : "High";
+        const cls = r.c < 15 ? "green" : r.c < 20 ? "accent" : r.c < 25 ? "yellow" : "red";
+        return `<tr><td class="muted">${r.date}</td><td class="${cls}">${fmt(r.c,2)}</td><td class="${cls}">${regime}</td></tr>`;
+      }).join("")}</tbody>
+    </table>`;
+
+  } else {
+    const ticker = document.getElementById("mart-contract").value;
+    const contract = DM.options[ticker];
+    if (!contract) { document.getElementById("mart-table-container").innerHTML = ""; return; }
+    title = ticker.replace("O:","") + " · $" + contract.strike + " · " + contract.expiry;
+    count = contract.days.length + " trading days · entry SPY $" + fmt(contract.entry_spy);
+    html = `<table class="cycle-table">
+      <thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th><th>VWAP</th></tr></thead>
+      <tbody>${contract.days.slice().reverse().map(r => `<tr>
+        <td class="muted">${r.date}</td>
+        <td>$${fmt(r.o)}</td><td>$${fmt(r.h)}</td><td>$${fmt(r.l)}</td>
+        <td class="accent">$${fmt(r.c)}</td>
+        <td class="muted">${r.v}</td>
+        <td class="muted">$${fmt(r.vw)}</td>
+      </tr>`).join("")}</tbody>
+    </table>`;
+  }
+
+  document.getElementById("mart-table-title").textContent = title;
+  document.getElementById("mart-record-count").textContent = count;
+  document.getElementById("mart-table-container").innerHTML = html;
+}
+
 async function loadData() {
   const status = document.getElementById("data-status");
   try {
@@ -274,6 +416,7 @@ async function loadData() {
     document.getElementById("run-btn").disabled = false;
     document.getElementById("opt-btn").disabled = false;
     populateInitDates();
+    renderMartSummary();
   } catch(e) {
     status.textContent = "✗ Could not load data mart: " + e.message;
     status.style.color = "var(--red)";
@@ -311,16 +454,9 @@ function autoSelectExpiry() {
     ? expiries.filter(e => quarterMonths.has(parseInt(e.split("-")[1])))
     : expiries;
 
-  // Find the expiry closest to targetDTE from today
-  let best = filtered[0], bestDiff = Infinity;
-  for (const e of filtered) {
-    const exp = new Date(e + "T00:00:00");
-    const dte = Math.round((exp - today) / 86400000);
-    // Prefer the first expiry >= targetDTE
-    if (dte >= targetDTE && dte < bestDiff) { bestDiff = dte; best = e; }
-  }
-  // Fallback: if all expired, pick last available
-  if (bestDiff === Infinity) best = filtered[filtered.length - 1];
+  // Pick the first expiry >= 2024-06-25 (start of data mart)
+  const MART_START = "2024-06-25";
+  let best = filtered.find(e => e >= MART_START) || filtered[0] || expiries[0];
 
   document.getElementById("init-date").value = best;
   updateInitPosition();
@@ -352,7 +488,7 @@ function updateInitPosition() {
   const totalCredit = premium * 100 * contracts;
 
   document.getElementById("init-entry-date").textContent = firstDay.date;
-  document.getElementById("init-qty").textContent = shares + " shares / " + contracts + " contracts";
+  document.getElementById("init-qty").textContent = shares + " shares";
   document.getElementById("init-spy").textContent = spyOnEntry ? "$" + spyOnEntry.toFixed(2) : "—";
   document.getElementById("init-strike").textContent = "$" + contract.strike + " (" + (contract.otm_pct*100).toFixed(0) + "% OTM)";
   document.getElementById("init-credit").textContent = "+$" + totalCredit.toLocaleString("en-US", {minimumFractionDigits:0, maximumFractionDigits:0}) + "  ($" + premium.toFixed(2) + "/sh)";
@@ -573,11 +709,29 @@ function getParams() {
 }
 
 function showTab(tab) {
+  // Results tabs (inside results-tabs div)
   ["chart","log","heatmap"].forEach(t => {
-    document.getElementById("tab-"+t).style.display = t === tab ? "block" : "none";
+    const el = document.getElementById("tab-"+t);
+    if (el) el.style.display = t === tab ? "block" : "none";
     const btn = document.getElementById("tab-"+t+"-btn");
     if (btn) btn.classList.toggle("active", t === tab);
   });
+  // Mart tab (standalone)
+  const martEl  = document.getElementById("tab-mart");
+  const martBtn = document.getElementById("tab-mart-btn");
+  const isMart  = tab === "mart";
+  if (martEl)  martEl.style.display  = isMart ? "block" : "none";
+  if (martBtn) martBtn.classList.toggle("active", isMart);
+  // Show/hide results-tabs container
+  const resultsEl = document.getElementById("results-tabs");
+  if (resultsEl && resultsEl.style.display !== "none") {
+    // Keep visible but hide inner panels if mart selected
+    ["chart","log","heatmap"].forEach(t => {
+      const el = document.getElementById("tab-"+t);
+      if (el && isMart) el.style.display = "none";
+    });
+  }
+  if (isMart) renderMartSummary();
 }
 
 function logProgress(msg, cls="") {
