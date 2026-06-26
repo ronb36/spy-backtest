@@ -123,19 +123,20 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.2.5 · roll credit debug · debit filter</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.3.0 · auto init · yield-selected call · clean controls</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
-    <div class="panel-title">Initial Position <span class="init-badge">📌 Fixed — not optimized</span></div>
-    <div class="init-grid">
+    <div class="panel-title">Initial Position <span class="init-badge">📌 Long SPY — call selected by yield optimizer</span></div>
+    <div class="init-grid" style="grid-template-columns:repeat(3,1fr);">
       <div class="ctrl"><div class="mono-label">Entry Date</div><div class="display-box" id="init-entry-date">—</div></div>
       <div class="ctrl"><div class="mono-label">SPY Qty</div><div class="display-box" id="init-qty">—</div></div>
       <div class="ctrl"><div class="mono-label">SPY Price</div><div class="display-box" id="init-spy">—</div></div>
-      <div class="ctrl"><div class="mono-label">Call Expiry</div><select class="display-box" id="init-date" onchange="onInitDateChange()"></select></div>
-      <div class="ctrl"><div class="mono-label">Strike</div><div class="display-box" id="init-strike">—</div></div>
-      <div class="ctrl"><div class="mono-label">Initial Credit</div><div class="display-box" id="init-credit">—</div></div>
     </div>
+    <!-- hidden fields still used internally -->
+    <select id="init-date" style="display:none;"></select>
+    <div id="init-strike" style="display:none;"></div>
+    <div id="init-credit" style="display:none;"></div>
   </div>
 
   <!-- Controls -->
@@ -143,13 +144,15 @@ select.display-box { cursor:pointer; outline:none; }
     <div class="ctrl-row">
       <div class="toggle-group">
         <button class="toggle-btn active" id="btn-test" onclick="setMode('test')">▶ Test</button>
-        <button class="toggle-btn" id="btn-optimize" onclick="runOptimization()">⊞ Optimize</button>
+        <button class="toggle-btn" id="btn-optimize" onclick="setMode('optimize')">⊞ Optimize</button>
       </div>
       <div class="ctrl-right">
-        <!-- Shares driven by init position panel -->
+        <!-- Shares driven by mart first day -->
         <select id="shares" style="display:none;">
           <option value="600" selected>600</option>
         </select>
+        <!-- Debug always on in log, hidden toggle kept for JS compat -->
+        <input type="checkbox" id="debug-toggle" checked style="display:none;">
         <div style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--muted);">
           Rolls
           <select id="single-roll-toggle" style="background:var(--surface2);border:1px solid var(--yellow);border-radius:4px;color:var(--yellow);font-family:var(--mono);font-size:10px;padding:2px 6px;height:24px;outline:none;cursor:pointer;">
@@ -160,10 +163,7 @@ select.display-box { cursor:pointer; outline:none; }
             <option value="10">10</option>
           </select>
         </div>
-        <label style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;">
-          <input type="checkbox" id="debug-toggle" style="accent-color:var(--accent);" /> Debug
-        </label>
-        <button class="btn btn-primary" id="run-btn" onclick="runSimulation()" disabled>▶ Run</button>
+        <button class="btn btn-primary" id="run-btn" onclick="handleRun()" disabled>▶ Run</button>
       </div>
     </div>
     <!-- Parameter display -->
@@ -347,7 +347,13 @@ function yield_() { return new Promise(r => setTimeout(r, 0)); }
 function setMode(m) {
   _mode = m;
   $('btn-test').classList.toggle('active', m === 'test');
+  $('btn-optimize').classList.toggle('active', m === 'optimize');
   updateParamDisplay();
+}
+
+function handleRun() {
+  if (_mode === 'optimize') runOptimization();
+  else runSimulation();
 }
 
 function getVIXRegime(vix) {
@@ -488,11 +494,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
           continue;
         }
       }
-      // Skip if this would be a debit roll — new premium must exceed buyback cost
-      if (buybackPx > 0 && entryPx <= buybackPx) {
-        logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": debit roll (sell $" + entryPx.toFixed(2) + " < cover $" + buybackPx.toFixed(2) + ")");
-        continue;
-      }
+      // Debit rolls allowed — negative yield will sort them below credit rolls naturally
 
 
       const dm = buildDayMap(c);
@@ -530,15 +532,10 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
 
 // ── Init position display ──────────────────────────────────────────────────
 function populateInitDates() {
+  // Populate hidden expiry dropdown (used by simulation)
   const sel = $('init-date');
   const expiries = getMartExpiries();
   sel.innerHTML = expiries.map(e => `<option value="${e}">${e}</option>`).join('');
-  // Default: first expiry >= mart start + 30d (Aug 2024 for monthly)
-  const target = new Date('2024-06-25T00:00:00');
-  target.setDate(target.getDate() + 30);
-  const tStr = target.toISOString().slice(0,10);
-  const best = expiries.find(e => e >= tStr) || expiries[0];
-  sel.value = best;
   updateInitPosition();
 }
 
@@ -547,645 +544,21 @@ function onSharesChange()   { updateInitPosition(); }
 
 function updateInitPosition() {
   if (!DM) return;
-  const expiry = $('init-date').value;
-  const sharesEl = $('init-qty-input') || $('shares');
-  const shares = parseInt(sharesEl?.value || 600);
-  // Sync hidden shares select
-  const hiddenShares = $('shares');
-  if (hiddenShares && hiddenShares.value != shares) hiddenShares.value = shares;
-  const contracts = shares / 100;
-  const { spyMap } = buildMaps();
+  const firstSPY = DM.spy[0];
+  if (!firstSPY) return;
 
-  const c = findContract(expiry, STD.otmFixed);
-  if (!c || !c.days.length) { $('init-entry-date').textContent = 'No data'; return; }
-
-  const dm = buildDayMap(c);
-  const firstDay = c.days[0];
-  const entryPrice = firstDay.vw || firstDay.c;
-  const spyOnEntry = spyMap[firstDay.date]?.c;
-  const credit = entryPrice * 100 * contracts;
-
-  $('init-entry-date').textContent = firstDay.date;
-  $('init-qty').textContent        = shares + ' shares';
-  $('init-spy').textContent        = spyOnEntry ? '$' + spyOnEntry.toFixed(2) : '—';
-  $('init-strike').textContent     = '$' + c.strike + ' (' + (c.otm_pct*100).toFixed(0) + '% OTM)';
-  $('init-credit').textContent     = '+$' + credit.toLocaleString('en-US',{maximumFractionDigits:0}) + ' ($' + entryPrice.toFixed(2) + '/sh)';
+  $('init-entry-date').textContent = firstSPY.date;
+  $('init-qty').textContent        = '600 shares';
+  $('init-spy').textContent        = '$' + firstSPY.c.toFixed(2);
   $('init-panel').style.display    = 'block';
+
+  // Set hidden expiry to first available expiry >= 30d from mart start
+  const target = new Date(firstSPY.date + 'T00:00:00');
+  target.setDate(target.getDate() + 30);
+  const tStr = target.toISOString().slice(0,10);
+  const expiries = getMartExpiries();
+  const best = expiries.find(e => e >= tStr) || expiries[0];
+  if ($('init-date')) $('init-date').value = best;
 }
 
-// ── Core simulation ────────────────────────────────────────────────────────
-async function simulate(p) {
-  const { otmFixed, decayTrigger, dteFloor, deltaThreshold, maxLookahead, shares, initExpiry } = p;
-  const contracts = shares / 100;
-  const { spyMap, vixMap } = buildMaps();
-  const spyDates = DM.spy.map(r => r.date).sort();
 
-  // Init contract
-  const initC = findContract(initExpiry, otmFixed);
-  if (!initC || !initC.days.length) return null;
-  buildDayMap(initC);
-
-  const startDate = initC.days[0].date;
-  const startSPY  = spyMap[startDate]?.c || DM.spy[0].c;
-
-  logDbg(`Init: ${initC.ticker} exp=${initC.expiry} first=${startDate}`);
-
-  const cycles = [], equity = [];
-  let premPnL = 0;
-  let rollCreditTotal = 0; // cumulative net credit across all rolls
-
-  // Position state
-  let curC         = initC;
-  let posOpen      = false;
-  let entryPrice   = null;
-  let entryDate    = null;
-  let entryStrike  = null;
-  let entrySPY     = null;
-  let isInitial       = true;
-  let entryDelta_     = 0;
-  let iter            = 0;
-  let pendingContract = null;
-  const TNX        = 4.5; // approximate 10yr
-
-  for (const date of spyDates) {
-    if (date < startDate) continue;
-    const spyRow = spyMap[date];
-    if (!spyRow) continue;
-    const spy = spyRow.c;
-    const vix = vixMap[date] || 18;
-
-    // Yield to UI every 50 iterations
-    if (++iter % 50 === 0) {
-      setProgress(20 + Math.min(60, iter / 5));
-      logDbg(`  ${date} — ${cycles.length} cycles`);
-      await yield_();
-    }
-    if (iter > 6000) { logMsg('⚠ Safety limit reached', 'err'); break; }
-    // maxRolls checked after next contract found (see below)
-
-    // ── Open position on first available day ──
-    if (!posOpen) {
-      const dm  = buildDayMap(curC);
-      const key = date.trim().slice(0,10);
-      const day = dm[key];
-      if (!day) continue; // wait for data on this contract
-      entryPrice  = day.vw || day.c;
-      entryDate   = date;
-      entrySPY    = spy;
-      entryStrike = curC.strike;
-      posOpen     = true;
-      const expD_ = new Date(curC.expiry + 'T00:00:00');
-      const todD_ = new Date(date + 'T00:00:00');
-      entryDelta_ = callDelta(spy, curC.strike, Math.round((expD_-todD_)/86400000), vix, TNX);
-      const _tk = Object.keys(DM.options).find(k => DM.options[k] === curC) || '?';
-      logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${date} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
-    }
-
-    // ── Mark current position ──
-    const dm  = buildDayMap(curC);
-    const key = date.trim().slice(0,10);
-    const callDay = dm[key];
-    const callPx  = callDay ? callDay.c : null;
-
-    const expDate = new Date(curC.expiry + 'T00:00:00');
-    const todayD  = new Date(date + 'T00:00:00');
-    const dte     = Math.round((expDate - todayD) / 86400000);
-    const isExp   = date >= curC.expiry;
-    const delta   = callDelta(spy, entryStrike, dte, vix, TNX);
-
-    // ── Equity curve ──
-    const bhRet  = (spy / startSPY - 1) * 100;
-    const optPnL = (entryPrice - (callPx ?? 0)) * 100 * contracts;
-    const ccRet  = bhRet + ((premPnL + optPnL) / (startSPY * shares)) * 100;
-    equity.push({ date, cc: ccRet, bh: bhRet, spy, vix });
-
-    // ── Roll triggers (skip first 3 days) ──
-    const daysHeld_ = Math.round((new Date(date+'T00:00:00') - new Date(entryDate+'T00:00:00')) / 86400000);
-    let roll = false, reason = '';
-    if (isExp) {
-      roll = true; reason = 'expired';
-    } else if (daysHeld_ >= 3) {
-      if (callPx !== null) {
-        const decay = ((entryPrice - callPx) / entryPrice) * 100;
-        if (date >= '2024-08-05' && date <= '2024-08-10')
-          logDbg(`  ${date}: px=$${callPx.toFixed(2)} entry=$${entryPrice.toFixed(2)} decay=${decay.toFixed(1)}%`);
-        if (decay >= decayTrigger) { roll = true; reason = `${decay.toFixed(0)}% decay`; }
-      }
-      if (!roll && dte <= dteFloor)          { roll = true; reason = `${dte}d DTE`; }
-      // Delta trigger: only fire if delta has RISEN above threshold (not started there)
-      if (!roll && delta >= deltaThreshold && entryDelta_ < deltaThreshold) { roll = true; reason = `delta ${delta.toFixed(2)}`; }
-    }
-
-    if (!roll) continue;
-
-    // ── Close cycle ──
-    const exitPx = isExp ? Math.max(0, spy - entryStrike) : (callPx ?? 0);
-    const pnl    = (entryPrice - exitPx) * 100 * contracts;
-    premPnL += pnl;
-    const days   = Math.max(1, Math.round((todayD - new Date(entryDate + 'T00:00:00')) / 86400000));
-    const netPx  = entryPrice - exitPx; // positive = profit, negative = loss
-    const annYld = (netPx / entrySPY) * (365 / days) * 100;
-    const eDelta = callDelta(entrySPY, entryStrike,
-      Math.round((expDate - new Date(entryDate + 'T00:00:00')) / 86400000), vixMap[entryDate] || vix, TNX);
-
-    cycles.push({
-      entryDate, exitDate:date, expiry:curC.expiry,
-      strike:entryStrike, otmPct:curC.otm_pct,
-      entryPx:entryPrice, exitPx,
-      entrySPY, exitSPY:spy,
-      pnl, daysHeld:days, annYld, reason,
-      isExp, isInitial,
-      entryVix: vixMap[entryDate] || vix,
-      entryDelta: eDelta, exitDelta: delta,
-      approx: _gaps.some(g => g.substituted),
-    });
-
-    isInitial = false;
-    posOpen   = false;
-    entryDelta_ = 0;
-    entryPrice = entryDate = entryStrike = entrySPY = null;
-
-    // ── Find next contract ──
-    const next = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, curC.expiry + '_' + curC.strike, deltaThreshold, exitPx);
-    if (!next) {
-      logMsg(`  No contract found within ${maxLookahead}d of ${date} — done`, 'err');
-      break;
-    }
-    // Accumulate roll credit: new premium - buyback
-    const rollDayKey = date.trim().slice(0,10);
-    buildDayMap(next);
-    const nextDay = next._dm[rollDayKey] || next.days.find(d => d.date >= date);
-    const nextPx_ = nextDay ? (nextDay.vw || nextDay.c) : 0;
-    rollCreditTotal += (nextPx_ - exitPx) * 100 * contracts;
-    logDbg("  Roll credit: sell $" + (nextPx_||0).toFixed(2) + " - cover $" + exitPx.toFixed(2) + " = $" + ((nextPx_-exitPx)*100*contracts).toFixed(0) + " cumulative: $" + rollCreditTotal.toFixed(0));
-
-    curC = next;
-    // Roll is now complete: cover done + new leg found
-    if (p.maxRolls && cycles.filter(c => !c.isInitial).length >= p.maxRolls) {
-      logMsg(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok');
-      pendingContract = next; // preserve for blotter display
-      break;
-    }
-    // DO NOT continue — open new position on same roll date (exit = next entry)
-  }
-
-  if (!cycles.length) return null;
-
-  // Summary
-  const gapCount = _gaps.filter(g => g.substituted).length;
-  if (gapCount) logMsg(`⚠ ${gapCount} gap(s) — results approximate`, 'err');
-
-  const rolls = cycles.filter(c => !c.isInitial);
-  const totalPnl  = rolls.reduce((s,c) => s+c.pnl, 0);
-  const avgYld    = rolls.length ? rolls.reduce((s,c) => s+c.annYld, 0) / rolls.length : 0;
-  const winRate   = rolls.length ? rolls.filter(c => c.pnl > 0).length / rolls.length * 100 : 0;
-  const spyRet    = (DM.spy[DM.spy.length-1].c / DM.spy[0].c - 1) * 100;
-  const lastEC    = equity[equity.length-1];
-  const covRet    = lastEC?.cc || 0;
-  const maxDD     = calcMaxDD(equity.map(e => e.cc));
-
-  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal };
-}
-
-// ── Run simulation ─────────────────────────────────────────────────────────
-function renderGapsTab(gaps) {
-  const dataGaps = gaps.filter(g => g.substituted);
-  const itmSkips = gaps.filter(g => !g.substituted);
-
-  // Tab button visibility
-  const gapBtn = $('tab-btn-gaps');
-  if (gapBtn) gapBtn.style.display = dataGaps.length ? 'block' : 'none';
-
-  if (!dataGaps.length) return;
-
-  // Build table
-  const rows = dataGaps.map(g => `<tr>
-    <td class="accent">${g.expiry}</td>
-    <td class="muted">${(g.otm*100).toFixed(0)}%</td>
-    <td class="muted">${g.needed}</td>
-    <td class="red">No data in mart</td>
-  </tr>`).join('');
-
-  $('gaps-table').innerHTML = `<table class="tbl">
-    <thead><tr><th>Expiry</th><th>OTM Target</th><th>Needed On</th><th>Status</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
-
-  // Build Railway instructions
-  const tickers = dataGaps.map(g => {
-    // Build approximate Polygon ticker for gap fill
-    const d = new Date(g.expiry + 'T00:00:00');
-    const yy = String(d.getFullYear()).slice(2);
-    const mm = String(d.getMonth()+1).padStart(2,'0');
-    const dd = String(d.getDate()).padStart(2,'0');
-    // Use current SPY from mart as approximate strike basis
-    const lastSPY = DM.spy[DM.spy.length-1]?.c || 600;
-    const strike  = Math.round(lastSPY * (1+g.otm) / 5) * 5;
-    const strikeStr = String(strike * 1000).padStart(8, '0');
-    return `O:SPY${yy}${mm}${dd}C${strikeStr}`;
-  });
-
-  const instructions = dataGaps.length > 0 ? [
-    '── Gap Fill Instructions ──────────────────────────────────',
-    '',
-    '1. Copy GAP_TICKERS value below',
-    '2. Railway → spy-backtest service → Variables',
-    '3. Add: GAP_TICKERS = ' + tickers.join(','),
-    '4. Add: RUN_MODE = gap',
-    '5. Railway → Cron → Run Now',
-    '6. Wait for Pushover confirmation',
-    '7. Clear GAP_TICKERS and reset RUN_MODE = daily',
-    '8. Reload this page and re-run simulation',
-    '',
-    'Note: ITM skips (' + itmSkips.length + ') are expected — no action needed.',
-  ].join("\n") : "";;
-
-  const instrEl = $('gaps-instructions');
-  if (instrEl) {
-    instrEl.style.display = 'block';
-    instrEl.textContent = instructions;
-  }
-}
-
-async function runSimulation() {
-  if (!DM) return;
-  _gaps = [];
-
-  const p = {
-    ...getActiveParams(),
-    shares:     parseInt($('shares').value),
-    initExpiry: $('init-date').value,
-    maxRolls:   (() => { const v = parseInt($('single-roll-toggle')?.value || '0'); return v > 0 ? v : null; })(),
-    shares:     parseInt(($('init-qty').textContent || '600 shares').replace(/\D/g,'')),
-  };
-
-  $('progress-panel').classList.add('visible');
-  $('progress-log').innerHTML = '';
-  setProgress(5);
-  logMsg('Building lookups...');
-  await yield_();
-
-  logMsg(`Running — ${(p.otmFixed*100).toFixed(0)}% OTM · ${p.decayTrigger}% decay · ${p.dteFloor}d floor · Δ${p.deltaThreshold} · ${p.maxLookahead}d lookahead`);
-  await yield_();
-
-  const result = await simulate(p);
-  setProgress(95);
-
-  if (!result) {
-    logMsg('✗ No cycles — check parameters or init expiry', 'err');
-    setProgress(100);
-    return;
-  }
-
-  logMsg(`✓ ${result.rolls.length} roll cycles`, 'ok');
-  setProgress(100);
-  const progTitle = document.querySelector('#progress-panel .mono-label');
-  if (progTitle) progTitle.textContent = 'Complete';
-
-  renderSummary(result);
-  renderCycleTable(result);
-  renderEquityChart(result);
-  renderGapsTab(_gaps);
-
-  $('results-area').style.display = 'block';
-  $('tab-btn-heatmap').style.display = 'none';
-  showTab('log');
-}
-
-// ── Optimization ───────────────────────────────────────────────────────────
-async function runOptimization() {
-  if (!DM) return;
-
-  setMode('optimize');
-  _gaps = [];
-
-  $('progress-panel').classList.add('visible');
-  $('progress-log').innerHTML = '';
-  setProgress(5);
-  logMsg('Running regime optimization...');
-  await yield_();
-
-  const shares     = parseInt($('shares').value);
-  const initExpiry = $('init-date').value;
-  const decays     = [50, 60, 70, 75, 80, 90];
-  const floors     = [7, 14, 21, 30, 45];
-  const regimes    = ['low','normal','elevated','high'];
-  const vixRanges  = { low:[0,15], normal:[15,20], elevated:[20,25], high:[25,100] };
-  const total      = decays.length * floors.length * regimes.length;
-  let done = 0;
-
-  _optParams = {};
-  const allResults = {};
-
-  for (const regime of regimes) {
-    const [vMin, vMax] = vixRanges[regime];
-    allResults[regime] = { grid:{}, best:null, bestYld:-Infinity };
-    decays.forEach(d => { allResults[regime].grid[d] = {}; });
-
-    for (const decay of decays) {
-      for (const floor of floors) {
-        _gaps = [];
-        const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, shares, initExpiry });
-        let yld = null;
-        if (r?.rolls?.length >= 2) {
-          const regimeCycles = r.rolls.filter(c => c.entryVix >= vMin && c.entryVix < vMax);
-          if (regimeCycles.length >= 2)
-            yld = regimeCycles.reduce((s,c) => s + c.annYld, 0) / regimeCycles.length;
-        }
-        allResults[regime].grid[decay][floor] = yld;
-        if (yld !== null && yld > allResults[regime].bestYld) {
-          allResults[regime].bestYld = yld;
-          allResults[regime].best = { decay, floor };
-        }
-        done++;
-        setProgress(5 + Math.round((done/total)*90));
-        await yield_();
-      }
-    }
-
-    const b = allResults[regime].best;
-    _optParams[regime] = { decayTrigger: b?.decay || STD.decayTrigger, dteFloor: b?.floor || STD.dteFloor };
-    logMsg(`✓ ${regime}: best ${b?.decay}% decay / ${b?.floor}d floor → ${allResults[regime].bestYld.toFixed(1)}% yield`, 'ok');
-  }
-
-  setProgress(100);
-  renderHeatmaps(allResults, decays, floors);
-  updateParamDisplay();
-
-  $('results-area').style.display = 'block';
-  $('tab-btn-heatmap').style.display = 'block';
-  showTab('heatmap');
-}
-
-// ── Render: Summary ────────────────────────────────────────────────────────
-function renderSummary(r) {
-  const yClass = r.avgYld >= 8 ? 'green' : r.avgYld >= 4 ? 'yellow' : 'red';
-  const ddClass = r.maxDD > 20 ? 'red' : r.maxDD > 10 ? 'yellow' : 'green';
-  $('summary-grid').innerHTML = `
-    <div class="stat-card"><div class="stat-label">Avg Ann. Yield</div><div class="stat-value ${yClass}">${fmt(r.avgYld,1)}%</div><div class="stat-sub">Premium only · ${r.rolls.length} rolls</div></div>
-    <div class="stat-card"><div class="stat-label">Total Roll Credit</div><div class="stat-value ${r.rollCreditTotal>=0?'green':'red'}">${fmtD(r.rollCreditTotal)}</div><div class="stat-sub">Net premium across all rolls</div></div>
-    <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${r.winRate>=70?'green':'yellow'}">${fmt(r.winRate,0)}%</div><div class="stat-sub">Cycles with net credit</div></div>
-    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmtP(r.covRet)}</div><div class="stat-sub">vs SPY ${fmtP(r.spyRet)}</div></div>
-    <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
-    <div class="stat-card"><div class="stat-label">Total Cycles</div><div class="stat-value accent">${r.cycles.length}</div><div class="stat-sub">${r.rolls.length} rolls + 1 initial</div></div>
-  `;
-}
-
-// ── Render: Cycle table ────────────────────────────────────────────────────
-function renderCycleTable(r) {
-  const contracts = parseInt(($('init-qty').textContent || '600').replace(/\D/g,'')) / 100;
-
-  const rows = r.rolls.map((c, i) => {
-    // Net credit = new premium sold - buyback cost (roll economics)
-    // nextC is either a closed cycle (has entryPx) or a pendingContract (raw mart object)
-    const nextCycle  = r.cycles[i + 2];
-    const pending    = (i === r.rolls.length - 1) ? r.pendingContract : null;
-    const nextC      = nextCycle || pending;
-
-    // Resolve entry price: from cycle if available, else from contract daymap at roll date
-    let newPx = 0;
-    if (nextCycle) {
-      newPx = nextCycle.entryPx;
-    } else if (pending) {
-      buildDayMap(pending);
-      const rollKey = c.exitDate.trim().slice(0,10);
-      const pDay = pending._dm[rollKey] || pending.days.find(d => d.date >= c.exitDate);
-      newPx = pDay ? (pDay.vw || pDay.c) : 0;
-    }
-
-    const rollCredit = newPx > 0 ? (newPx - c.exitPx) * 100 * contracts : null;
-    const cClass     = rollCredit === null ? 'muted' : rollCredit >= 0 ? 'green' : 'red';
-
-    const rollYld = (rollCredit !== null && nextC)
-      ? ((newPx - c.exitPx) / c.exitSPY) * (365 / Math.max(1,
-          Math.round((new Date(nextC.expiry+'T00:00:00') - new Date(c.exitDate+'T00:00:00')) / 86400000)
-        )) * 100
-      : null;
-    const yClass = rollYld === null ? 'muted' : rollYld >= 5 ? 'green' : rollYld >= 0 ? 'yellow' : 'red';
-
-    const newLeg = nextC
-      ? `Sell $${nextC.strike} ${nextC.expiry} @ $${newPx > 0 ? fmt(newPx) : '—'}`
-      : '—';
-    const approx     = c.approx ? '<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>' : '';
-
-    return `<tr>
-      <td class="muted" style="font-size:10px;">${c.exitDate}${approx}</td>
-      <td class="red">Cover $${c.strike} @ $${fmt(c.exitPx)}</td>
-      <td class="accent">${newLeg}</td>
-      <td class="${cClass}" style="font-weight:600;">${rollCredit !== 0 ? fmtD(rollCredit) : '—'}</td>
-      <td class="${yClass}">${rollYld !== null ? fmt(rollYld,1)+'%' : '—'}</td>
-      <td class="muted" style="font-size:10px;">${c.reason}</td>
-    </tr>`;
-  }).join('');
-
-  // Initial position row — pulled from static init panel fields
-  const initDate   = $('init-entry-date')?.textContent || '—';
-  const initStrike = ($('init-strike')?.textContent || '').split(' ')[0]; // "$585"
-  const initExpiry = $('init-date')?.value || '—';
-  const initCredit = $('init-credit')?.textContent || '—'; // "+$222 ($0.37/sh)"
-
-  const initRow = `<tr style="border-bottom:2px solid var(--border);">
-    <td class="muted" style="font-size:10px;">${initDate}</td>
-    <td class="muted">—</td>
-    <td class="accent">Sell ${initStrike} ${initExpiry} @ ${initCredit}</td>
-    <td class="green" style="font-weight:600;">${initCredit.split(' ')[0]}</td>
-    <td class="muted">—</td>
-    <td class="muted" style="font-size:10px;">initial</td>
-  </tr>`;
-
-  $('cycle-table').innerHTML = `<table class="tbl">
-    <thead><tr>
-      <th>Date</th>
-      <th>Cover (Close)</th>
-      <th>New Leg (Open)</th>
-      <th>Roll Credit</th>
-      <th>Ann Yield</th>
-      <th>Trigger</th>
-    </tr></thead>
-    <tbody>${initRow}${rows}</tbody>
-  </table>`;
-}
-
-// ── Render: Equity chart ───────────────────────────────────────────────────
-function renderEquityChart(r) {
-  const dates = r.equity.map(e => e.date);
-  const cc    = r.equity.map(e => parseFloat(e.cc.toFixed(2)));
-  const bh    = r.equity.map(e => parseFloat(e.bh.toFixed(2)));
-  Plotly.newPlot('equity-chart', [
-    { x:dates, y:cc, name:'Covered Call', type:'scatter', mode:'lines', line:{color:'#3dd68c',width:2} },
-    { x:dates, y:bh, name:'Buy & Hold SPY', type:'scatter', mode:'lines', line:{color:'#5b8af5',width:2,dash:'dot'} },
-  ], {
-    paper_bgcolor:'#161921', plot_bgcolor:'#161921',
-    font:{family:'IBM Plex Mono',color:'#7a8299',size:10},
-    xaxis:{gridcolor:'#2a2f3d',zerolinecolor:'#2a2f3d'},
-    yaxis:{gridcolor:'#2a2f3d',zerolinecolor:'#2a2f3d',ticksuffix:'%'},
-    margin:{l:50,r:20,t:16,b:40},
-    legend:{bgcolor:'#1e2230',bordercolor:'#2a2f3d',borderwidth:1,font:{color:'#e8ecf4',size:10}},
-    hovermode:'x unified',
-  }, { responsive:true, displayModeBar:false });
-}
-
-// ── Render: Heatmaps ───────────────────────────────────────────────────────
-function renderHeatmaps(results, decays, floors) {
-  const regimes = ['low','normal','elevated','high'];
-  const labels  = { low:'Low VIX (<15)', normal:'Normal (15-20)', elevated:'Elevated (20-25)', high:'High (>25)' };
-  let html = '';
-
-  for (const regime of regimes) {
-    const r = results[regime];
-    const allVals = decays.flatMap(d => floors.map(f => r.grid[d][f])).filter(v => v !== null);
-    const minV = allVals.length ? Math.min(...allVals) : 0;
-    const maxV = allVals.length ? Math.max(...allVals) : 10;
-    const cellColor = v => {
-      if (v === null) return 'var(--surface2)';
-      const t = maxV === minV ? .5 : (v-minV)/(maxV-minV);
-      return `rgb(${Math.round(30+t*31)},${Math.round(40+t*174)},${Math.round(60+t*80)})`;
-    };
-    const textColor = v => {
-      if (v === null) return 'var(--border)';
-      const t = maxV === minV ? .5 : (v-minV)/(maxV-minV);
-      return t > .5 ? '#0d0f14' : '#e8ecf4';
-    };
-
-    html += `<div style="margin:16px;">
-      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;">
-        ${labels[regime]}
-        ${r.best ? `<span style="color:var(--green);margin-left:12px;">Best: ${r.best.decay}% / ${r.best.floor}d → ${r.bestYld.toFixed(1)}%</span>` : '<span style="color:var(--red);margin-left:12px;">Insufficient data</span>'}
-      </div>
-      <div class="heatmap-wrap" style="padding:0;"><table class="heatmap-tbl">
-        <thead><tr><th class="row-h">Decay / DTE→</th>${floors.map(f=>`<th>${f}d</th>`).join('')}</tr></thead>
-        <tbody>${decays.map(d => `<tr><td class="row-label">${d}%</td>${floors.map(f => {
-          const v = r.grid[d][f];
-          const best = r.best?.decay===d && r.best?.floor===f;
-          return `<td style="background:${cellColor(v)};color:${textColor(v)}" class="${best?'heatmap-best':''}">${v!==null?v.toFixed(1)+'%':'—'}</td>`;
-        }).join('')}</tr>`).join('')}</tbody>
-      </table></div>
-    </div>`;
-  }
-
-  $('heatmap-container').innerHTML = html;
-}
-
-// ── Data Mart viewer ───────────────────────────────────────────────────────
-function renderMartCards() {
-  if (!DM) return;
-  const spy = DM.spy, vix = DM.vix;
-  const opts = Object.entries(DM.options);
-  const totalDays = opts.reduce((s,[,c]) => s+c.days.length, 0);
-  const expiries  = [...new Set(opts.map(([,c]) => c.expiry))];
-
-  const card = (id, label, val, sub, active) => `
-    <div class="stat-card mart-card" id="mart-card-${id}" onclick="setMartView('${id}')"
-      style="cursor:pointer;border-color:${active?'var(--accent)':'var(--border)'};opacity:${active?1:.6};">
-      <div class="stat-label">${label}</div>
-      <div class="stat-value accent">${val}</div>
-      <div class="stat-sub">${sub}</div>
-    </div>`;
-
-  $('mart-cards').innerHTML =
-    card('spy',  'SPY Daily',  spy.length+' days',        spy[0]?.date+' → '+spy[spy.length-1]?.date, _martView==='spy') +
-    card('vix',  'VIX Daily',  vix.length+' days',        vix[0]?.date+' → '+vix[vix.length-1]?.date, _martView==='vix') +
-    card('calls','Options',    opts.length+' contracts',   expiries.length+' expiries · '+totalDays.toLocaleString()+' day records', _martView==='calls') +
-    `<div class="stat-card"><div class="stat-label">Last Updated</div>
-      <div class="stat-value green" style="font-size:13px;">${DM.metadata?.last_updated||'—'}</div>
-      <div class="stat-sub">OTM: ${DM.metadata?.otm_targets?.map(t=>(t*100).toFixed(0)+'%').join(', ')||'—'}</div>
-    </div>`;
-
-  // Populate expiry dropdown for options
-  const expSel = $('mart-expiry');
-  if (expSel) {
-    const uniq = [...new Set(opts.map(([,c]) => c.expiry))].sort();
-    expSel.innerHTML = uniq.map(e => `<option value="${e}">${e}</option>`).join('');
-    onMartExpiryChange();
-  }
-
-  renderMartTable();
-}
-
-function setMartView(view) {
-  _martView = view;
-  const filter = $('mart-filter');
-  if (filter) filter.style.display = view === 'calls' ? 'flex' : 'none';
-  renderMartCards();
-}
-
-function onMartExpiryChange() {
-  const exp = $('mart-expiry')?.value;
-  if (!exp) return;
-  const strikeSel = $('mart-strike');
-  const contracts = Object.entries(DM.options)
-    .filter(([,c]) => c.expiry === exp)
-    .sort(([,a],[,b]) => a.strike - b.strike);
-  strikeSel.innerHTML = contracts.map(([ticker,c]) =>
-    `<option value="${ticker}">$${c.strike} (${(c.otm_pct*100).toFixed(0)}% OTM)</option>`
-  ).join('');
-  renderMartTable();
-}
-
-function renderMartTable() {
-  if (!DM) return;
-  const cont = $('mart-table-container');
-  let html = '';
-
-  if (_martView === 'spy') {
-    html = `<table class="tbl"><thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr></thead>
-      <tbody>${DM.spy.slice().reverse().map(r => `<tr>
-        <td class="muted">${r.date}</td><td>$${fmt(r.o)}</td><td>$${fmt(r.h)}</td><td>$${fmt(r.l)}</td>
-        <td class="accent">$${fmt(r.c)}</td><td class="muted">${(r.v/1e6).toFixed(1)}M</td>
-      </tr>`).join('')}</tbody></table>`;
-
-  } else if (_martView === 'vix') {
-    html = `<table class="tbl"><thead><tr><th>Date</th><th>VIX</th><th>Regime</th></tr></thead>
-      <tbody>${DM.vix.slice().reverse().map(r => {
-        const reg = r.c<15?'Low':r.c<20?'Normal':r.c<25?'Elevated':'High';
-        const cls = r.c<15?'green':r.c<20?'accent':r.c<25?'yellow':'red';
-        return `<tr><td class="muted">${r.date}</td><td class="${cls}">${fmt(r.c,2)}</td><td class="${cls}">${reg}</td></tr>`;
-      }).join('')}</tbody></table>`;
-
-  } else {
-    const ticker   = $('mart-strike')?.value;
-    const contract = ticker ? DM.options[ticker] : null;
-    if (!contract) { cont.innerHTML = ''; return; }
-    const info = $('mart-contract-info');
-    if (info) info.textContent = (contract.otm_pct*100).toFixed(0)+'% OTM · '+contract.days.length+' days · entry SPY $'+fmt(contract.entry_spy);
-    html = `<table class="tbl"><thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>VWAP</th><th>Volume</th></tr></thead>
-      <tbody>${contract.days.slice().reverse().map(r => `<tr>
-        <td class="muted">${r.date}</td><td>$${fmt(r.o)}</td><td>$${fmt(r.h)}</td><td>$${fmt(r.l)}</td>
-        <td class="accent">$${fmt(r.c)}</td><td class="muted">$${fmt(r.vw)}</td><td class="muted">${r.v}</td>
-      </tr>`).join('')}</tbody></table>`;
-  }
-
-  cont.innerHTML = html;
-}
-
-// ── Load data ──────────────────────────────────────────────────────────────
-async function loadData() {
-  const status = $('data-status');
-  try {
-    status.textContent = 'Fetching data mart from GitHub...';
-    const res = await fetch(DATA_URL + '?t=' + Date.now());
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    DM = await res.json();
-    status.textContent = `✓ Data mart loaded — ${DM.spy.length} SPY days · ${Object.keys(DM.options).length} contracts · updated ${DM.metadata?.last_updated}`;
-    status.style.color = 'var(--green)';
-    $('run-btn').disabled = false;
-    populateInitDates();
-    updateParamDisplay();
-    // Show results area with mart tab always accessible
-    $('results-area').style.display = 'block';
-    showTab('mart');
-    // Pre-render mart
-    renderMartCards();
-    // Now switch to log (empty) as default
-    showTab('log');
-  } catch(e) {
-    status.textContent = '✗ Could not load data mart: ' + e.message;
-    status.style.color = 'var(--red)';
-  }
-}
-
-// ── Init ───────────────────────────────────────────────────────────────────
-loadData();
-</script>
-</body>
-</html>
