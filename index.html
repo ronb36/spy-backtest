@@ -660,6 +660,9 @@ function simulate(params) {
   const initContract = findContract(expiries[0], initOTM);
   if (!initContract || !initContract.days.length) return null;
 
+  logProgress(`Init expiries: ${expiries.slice(0,4).join(", ")}`);
+  logProgress(`Init contract: ${initContract.ticker} exp=${initContract.expiry} days=${initContract.days.length} first=${initContract.days[0]?.date} last=${initContract.days[initContract.days.length-1]?.date}`);
+
   const initFirstDay = initContract.days[0];
   const startSPY = spyMap[initFirstDay.date]?.c || DM.spy[0].c;
   const startDate = initFirstDay.date;
@@ -695,15 +698,27 @@ function simulate(params) {
       currentContract = foundContract;
       if (!currentContract) { currentExpIdx++; continue; }
 
-      // Find entry price (first day of contract data)
-      const firstDay = currentContract.days[0];
-      if (!firstDay) { currentContract = null; currentExpIdx++; continue; }
+      // Entry price: use TODAY's data, not first day of contract
+      // Contract may have been trading for months before we enter it
+      if (!currentContract._dayMap) {
+        currentContract._dayMap = {};
+        currentContract.days.forEach(d => { currentContract._dayMap[d.date] = d; });
+      }
+      // Find today's or nearest available day's price
+      let entryDay = currentContract._dayMap[date];
+      if (!entryDay) {
+        // Find nearest day on or before today
+        const availDays = currentContract.days.filter(d => d.date <= date);
+        entryDay = availDays[availDays.length - 1] || currentContract.days[0];
+      }
+      if (!entryDay) { currentContract = null; currentExpIdx++; continue; }
 
-      entryCallPrice = firstDay.vw || firstDay.c;  // VWAP preferred, close fallback
-      entryDate = firstDay.date;
+      entryCallPrice = entryDay.vw || entryDay.c;  // VWAP preferred
+      entryDate = date;                              // actual entry = today
       entryStrike = currentContract.strike;
-      entrySPY = spyMap[entryDate]?.c || spy;
+      entrySPY = spy;                                // SPY price today
       cyclePremiumCollected = entryCallPrice * 100 * contracts;
+      logProgress(`Contract: ${currentContract.ticker} exp=${currentContract.expiry} entry=${entryDate} price=$${entryCallPrice.toFixed(2)} entryStrike=$${entryStrike}`);
     }
 
     // Build call price lookup (cache on contract to avoid repeated find())
@@ -734,6 +749,9 @@ function simulate(params) {
     } else {
       if (callPrice !== null && entryCallPrice > 0) {
         const decayPct = ((entryCallPrice - callPrice) / entryCallPrice) * 100;
+        if (date >= "2024-08-05" && date <= "2024-08-10") {
+          logProgress(`  ${date}: callPrice=$${callPrice.toFixed(2)} entryCall=$${entryCallPrice.toFixed(2)} decay=${decayPct.toFixed(1)}% trigger=${decayTrigger}%`);
+        }
         if (decayPct >= decayTrigger) { shouldRoll = true; rollReason = `${fmt(decayPct,0)}% decay`; }
       }
       if (dte <= dteFloor && !shouldRoll) { shouldRoll = true; rollReason = `${dte}d DTE floor`; }
