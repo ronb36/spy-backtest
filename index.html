@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.0.8 · risk-adjusted yield · DTE penalty</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.1.1 · shares from init panel</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -146,15 +146,13 @@ select.display-box { cursor:pointer; outline:none; }
         <button class="toggle-btn" id="btn-optimize" onclick="runOptimization()">⊞ Optimize</button>
       </div>
       <div class="ctrl-right">
-        <div style="display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--muted);">
-          Shares
-          <select id="shares" onchange="onSharesChange()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:28px;outline:none;">
-            <option value="600" selected>600</option>
-            <option value="100">100</option>
-            <option value="200">200</option>
-            <option value="300">300</option>
-          </select>
-        </div>
+        <!-- Shares driven by init position panel -->
+        <select id="shares" style="display:none;">
+          <option value="600" selected>600</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;">
+          <input type="checkbox" id="single-roll-toggle" style="accent-color:var(--yellow);" /> 1 Roll
+        </label>
         <label style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;">
           <input type="checkbox" id="debug-toggle" style="accent-color:var(--accent);" /> Debug
         </label>
@@ -521,7 +519,11 @@ function onSharesChange()   { updateInitPosition(); }
 function updateInitPosition() {
   if (!DM) return;
   const expiry = $('init-date').value;
-  const shares = parseInt($('shares').value);
+  const sharesEl = $('init-qty-input') || $('shares');
+  const shares = parseInt(sharesEl?.value || 600);
+  // Sync hidden shares select
+  const hiddenShares = $('shares');
+  if (hiddenShares && hiddenShares.value != shares) hiddenShares.value = shares;
   const contracts = shares / 100;
   const { spyMap } = buildMaps();
 
@@ -570,6 +572,7 @@ async function simulate(p) {
   let entryStrike  = null;
   let entrySPY     = null;
   let isInitial    = true;
+  let entryDelta_  = 0;
   let iter         = 0;
   const TNX        = 4.5; // approximate 10yr
 
@@ -587,6 +590,7 @@ async function simulate(p) {
       await yield_();
     }
     if (iter > 6000) { logMsg('⚠ Safety limit reached', 'err'); break; }
+    if (p.maxRolls && cycles.filter(c => !c.isInitial).length >= p.maxRolls) { logMsg(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok'); break; }
 
     // ── Open position on first available day ──
     if (!posOpen) {
@@ -599,6 +603,9 @@ async function simulate(p) {
       entrySPY    = spy;
       entryStrike = curC.strike;
       posOpen     = true;
+      const expD_ = new Date(curC.expiry + 'T00:00:00');
+      const todD_ = new Date(date + 'T00:00:00');
+      entryDelta_ = callDelta(spy, curC.strike, Math.round((expD_-todD_)/86400000), vix, TNX);
       const _tk = Object.keys(DM.options).find(k => DM.options[k] === curC) || '?';
       logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${date} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
     }
@@ -634,7 +641,8 @@ async function simulate(p) {
         if (decay >= decayTrigger) { roll = true; reason = `${decay.toFixed(0)}% decay`; }
       }
       if (!roll && dte <= dteFloor)          { roll = true; reason = `${dte}d DTE`; }
-      if (!roll && delta >= deltaThreshold)  { roll = true; reason = `delta ${delta.toFixed(2)}`; }
+      // Delta trigger: only fire if delta has RISEN above threshold (not started there)
+      if (!roll && delta >= deltaThreshold && entryDelta_ < deltaThreshold) { roll = true; reason = `delta ${delta.toFixed(2)}`; }
     }
 
     if (!roll) continue;
@@ -662,6 +670,7 @@ async function simulate(p) {
 
     isInitial = false;
     posOpen   = false;
+    entryDelta_ = 0;
     entryPrice = entryDate = entryStrike = entrySPY = null;
 
     // ── Find next contract ──
@@ -671,7 +680,7 @@ async function simulate(p) {
       break;
     }
     curC = next;
-    continue; // skip to next date — don't open new position on same day as roll
+    // DO NOT continue — open new position on same roll date (exit = next entry)
   }
 
   if (!cycles.length) return null;
@@ -760,6 +769,8 @@ async function runSimulation() {
     ...getActiveParams(),
     shares:     parseInt($('shares').value),
     initExpiry: $('init-date').value,
+    maxRolls:   $('single-roll-toggle')?.checked ? 1 : null,
+    shares:     parseInt(($('init-qty').textContent || '600 shares').replace(/\D/g,'')),
   };
 
   $('progress-panel').classList.add('visible');
