@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.1.5 · blotter roll log</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.1.6 · roll credit · running→complete</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -801,6 +801,8 @@ async function runSimulation() {
 
   logMsg(`✓ ${result.rolls.length} roll cycles`, 'ok');
   setProgress(100);
+  const progTitle = document.querySelector('#progress-panel .mono-label');
+  if (progTitle) progTitle.textContent = 'Complete';
 
   renderSummary(result);
   renderCycleTable(result);
@@ -893,47 +895,59 @@ function renderSummary(r) {
 
 // ── Render: Cycle table ────────────────────────────────────────────────────
 function renderCycleTable(r) {
-  // Blotter style: Cover (exit) first, then new entry, net credit, yield, trigger
-  // Build rows: each roll shows the close of the prior leg and open of the new leg
-  const rows = r.rolls.map((c, i) => {
-    const pClass  = c.pnl >= 0 ? 'green' : 'red';
-    const yClass  = c.annYld >= 5 ? 'green' : c.annYld >= 0 ? 'yellow' : 'red';
-    const approx  = c.approx ? '<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>' : '';
+  const contracts = parseInt(($('init-qty').textContent || '600').replace(/\D/g,'')) / 100;
 
-    // Next contract info (what we rolled INTO)
-    const nextC   = r.cycles[i + 2]; // +1 for initial, +1 for next roll
-    const nextStr = nextC
-      ? `$${nextC.strike} ${nextC.expiry}`
+  const rows = r.rolls.map((c, i) => {
+    // Net credit = new premium sold - buyback cost (roll economics)
+    const nextC      = r.cycles[i + 2]; // cycles[0]=initial, cycles[1]=roll1, cycles[2]=roll2...
+    const newPx      = nextC ? nextC.entryPx : 0;
+    const rollCredit = (newPx - c.exitPx) * 100 * contracts; // net cash on the roll
+    const cClass     = rollCredit >= 0 ? 'green' : 'red';
+
+    // Annualized yield on the roll credit relative to SPY at roll date
+    const rollYld    = nextC
+      ? ((newPx - c.exitPx) / c.exitSPY) * (365 / Math.max(1,
+          Math.round((new Date(nextC.expiry+'T00:00:00') - new Date(c.exitDate+'T00:00:00')) / 86400000)
+        )) * 100
+      : null;
+    const yClass     = rollYld === null ? 'muted' : rollYld >= 5 ? 'green' : rollYld >= 0 ? 'yellow' : 'red';
+
+    const newLeg     = nextC
+      ? `Sell $${nextC.strike} ${nextC.expiry} @ $${fmt(nextC.entryPx)}`
       : '—';
-    const nextPx  = nextC ? `$${fmt(nextC.entryPx)}` : '—';
+    const approx     = c.approx ? '<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>' : '';
 
     return `<tr>
       <td class="muted" style="font-size:10px;">${c.exitDate}${approx}</td>
       <td class="red">Cover $${c.strike} @ $${fmt(c.exitPx)}</td>
-      <td class="accent">Sell ${nextStr} @ ${nextPx}</td>
-      <td class="${pClass}" style="font-weight:600;">${fmtD(c.pnl)}</td>
-      <td class="${yClass}">${fmt(c.annYld,1)}%</td>
+      <td class="accent">${newLeg}</td>
+      <td class="${cClass}" style="font-weight:600;">${rollCredit !== 0 ? fmtD(rollCredit) : '—'}</td>
+      <td class="${yClass}">${rollYld !== null ? fmt(rollYld,1)+'%' : '—'}</td>
       <td class="muted" style="font-size:10px;">${c.reason}</td>
     </tr>`;
   }).join('');
 
-  // Initial position row
-  const init = r.cycles[0];
-  const initRow = init ? `<tr style="border-bottom:2px solid var(--border);">
-    <td class="muted" style="font-size:10px;">${init.entryDate}</td>
+  // Initial position row — pulled from static init panel fields
+  const initDate   = $('init-entry-date')?.textContent || '—';
+  const initStrike = ($('init-strike')?.textContent || '').split(' ')[0]; // "$585"
+  const initExpiry = $('init-date')?.value || '—';
+  const initCredit = $('init-credit')?.textContent || '—'; // "+$222 ($0.37/sh)"
+
+  const initRow = `<tr style="border-bottom:2px solid var(--border);">
+    <td class="muted" style="font-size:10px;">${initDate}</td>
     <td class="muted">—</td>
-    <td class="accent">Open $${init.strike} ${init.expiry} @ $${fmt(init.entryPx)}</td>
-    <td class="muted">—</td>
+    <td class="accent">Sell ${initStrike} ${initExpiry} @ ${initCredit}</td>
+    <td class="green" style="font-weight:600;">${initCredit.split(' ')[0]}</td>
     <td class="muted">—</td>
     <td class="muted" style="font-size:10px;">initial</td>
-  </tr>` : '';
+  </tr>`;
 
   $('cycle-table').innerHTML = `<table class="tbl">
     <thead><tr>
       <th>Date</th>
       <th>Cover (Close)</th>
       <th>New Leg (Open)</th>
-      <th>Net Credit</th>
+      <th>Roll Credit</th>
       <th>Ann Yield</th>
       <th>Trigger</th>
     </tr></thead>
