@@ -117,7 +117,7 @@
   <div class="header-eyebrow">SPY Covered Call</div>
   <h1>Backtest & Roll Optimizer</h1>
   <div class="header-sub" id="data-status">Loading data mart from GitHub...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.J — missing DOM elements fixed</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.K — deduped elements · error isolation</div>
 
   <!-- Initial Position -->
   <div class="init-panel" id="init-panel" style="display:none">
@@ -184,9 +184,6 @@
         <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">OTM</div><div style="font-family:var(--mono);font-size:13px;" id="p-otm">5%</div></div>
         <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">Decay</div><div style="font-family:var(--mono);font-size:13px;" id="p-decay">75%</div></div>
         <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">DTE Floor</div><div style="font-family:var(--mono);font-size:13px;" id="p-dte">21d</div></div>
-        <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">Delta</div><div style="font-family:var(--mono);font-size:13px;" id="p-delta">0.35</div></div>
-        <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">Max Lookahead</div><div style="font-family:var(--mono);font-size:13px;" id="p-lookahead">90d</div></div>
-        <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">Regime</div><div style="font-family:var(--mono);font-size:13px;" id="p-regime">All</div></div>
         <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">Delta</div><div style="font-family:var(--mono);font-size:13px;" id="p-delta">0.35</div></div>
         <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">Max Lookahead</div><div style="font-family:var(--mono);font-size:13px;" id="p-lookahead">90d</div></div>
         <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">Regime</div><div style="font-family:var(--mono);font-size:13px;" id="p-regime">All</div></div>
@@ -452,9 +449,9 @@ async function loadData() {
     status.textContent = `✓ Data mart loaded — ${spy_days} SPY days · ${opt_count} option contracts · updated ${last}`;
     status.style.color = "var(--green)";
     document.getElementById("run-btn").disabled = false;
-    updateParamDisplay();
-    populateInitDates();
-    renderMartSummary();
+    try { updateParamDisplay(); } catch(e) { console.error("updateParamDisplay:", e); }
+    try { populateInitDates(); } catch(e) { console.error("populateInitDates:", e); }
+    try { renderMartSummary(); } catch(e) { console.error("renderMartSummary:", e); }
   } catch(e) {
     status.textContent = "✗ Could not load data mart: " + e.message;
     status.style.color = "var(--red)";
