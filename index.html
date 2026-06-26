@@ -117,7 +117,7 @@
   <div class="header-eyebrow">SPY Covered Call</div>
   <h1>Backtest & Roll Optimizer</h1>
   <div class="header-sub" id="data-status">Loading data mart from GitHub...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.E — min DTE at entry · entry day guard · positionOpen</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.F — safety counter · null contract guard · min DTE</div>
 
   <!-- Initial Position -->
   <div class="init-panel" id="init-panel" style="display:none">
@@ -781,12 +781,16 @@ function simulate(params) {
   let positionOpen = false;
 
   // Walk through time day by day starting from initiation date
+  let iterCount = 0;
   for (const date of spyDates) {
     if (date < startDate) continue;
     const spyRow = spyMap[date];
     if (!spyRow) continue;
     const spy = spyRow.c;
     const vix = vixMap[date] || 18;
+    iterCount++;
+    if (iterCount % 100 === 0) logDebug(`  Walking ${date} — ${cycles.length} cycles so far`);
+    if (iterCount > 5000) { logProgress("⚠ Safety limit hit — possible infinite loop", "err"); break; }
 
     // Open new position if not yet entered
     if (!positionOpen) {
@@ -897,12 +901,12 @@ function simulate(params) {
       cycleIsInitial = false;
 
       // Find next contract: monthly-first, step forward up to maxLookahead
-      const { contract: nextContract, hardStop } = findBestContract(date, otmFixed, spy, MAX_LOOKAHEAD);
-      if (hardStop) {
+      const findResult = findBestContract(date, otmFixed, spy, MAX_LOOKAHEAD);
+      if (findResult.hardStop || !findResult.contract) {
         logProgress(`  No contract found within ${MAX_LOOKAHEAD}d of ${date} — simulation ended`, "err");
         break;
       }
-      currentContract = nextContract;
+      currentContract = findResult.contract;
       entryCallPrice = null;
       entryDate = null;
       entryStrike = null;
