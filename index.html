@@ -178,6 +178,11 @@
         <input type="range" id="dte-floor" min="7" max="45" step="7" value="21" oninput="document.getElementById('dte-val').textContent=this.value+'d'" />
       </div>
       <div class="ctrl">
+        <label>Delta Trigger — Roll if above (<span id="delta-val">0.35</span>)</label>
+        <input type="range" id="delta-trigger" min="0.20" max="0.50" step="0.05" value="0.35"
+          oninput="document.getElementById('delta-val').textContent=parseFloat(this.value).toFixed(2)" />
+      </div>
+      <div class="ctrl">
         <label>Shares</label>
         <select id="shares" onchange="updateInitPosition()">
           <option value="600" selected>600 shares</option>
@@ -466,6 +471,12 @@ function buildLookups() {
   return { spyMap, vixMap };
 }
 
+// TNX rate from input field (used in delta calc)
+function getTNX() {
+  const el = document.getElementById("tnx");
+  return el ? parseFloat(el.value) || 4.5 : 4.5;
+}
+
 // ── Initial position setup ────────────────────────────────────────────────
 function populateInitDates() {
   const expiries = [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
@@ -526,7 +537,7 @@ function updateInitPosition() {
 
   const firstDay = contract.days[0];
   const spyOnEntry = spyMap[firstDay.date]?.c;
-  const premium = firstDay.c;
+  const premium = firstDay.vw || firstDay.c;  // VWAP preferred
   const totalCredit = premium * 100 * contracts;
 
   document.getElementById("init-entry-date").textContent = firstDay.date;
@@ -549,6 +560,36 @@ function vixOTM(vix) {
   if (vix < 20) return 0.05;
   if (vix < 25) return 0.07;
   return 0.10;
+}
+
+// ── Black-Scholes delta for a call option ─────────────────────────────────
+function bsDelta(S, K, T, r, sigma) {
+  // S = underlying price, K = strike, T = DTE/365
+  // r = risk-free rate (TNX/100), sigma = implied vol (VIX/100)
+  if (T <= 0 || sigma <= 0 || S <= 0 || K <= 0) return 0;
+  const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+  return normalCDF(d1);
+}
+
+function normalCDF(x) {
+  // Abramowitz & Stegun approximation — accurate to 7 decimal places
+  const a1=0.254829592, a2=-0.284496736, a3=1.421413741,
+        a4=-1.453152027, a5=1.061405429, p=0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+  return 0.5 * (1 + sign * y);
+}
+
+// Convenience: get delta for a position on a given date
+function calcDelta(spy, strike, dte, vix, tnx) {
+  const S     = spy;
+  const K     = strike;
+  const T     = Math.max(dte, 1) / 365;
+  const r     = (tnx || 4.5) / 100;
+  const sigma = Math.max((vix || 15), 5) / 100;
+  return bsDelta(S, K, T, r, sigma);
 }
 
 // ── Find best matching option contract ────────────────────────────────
@@ -592,7 +633,7 @@ function getExpiriesFromData(freq) {
 
 // ── Core simulation engine ─────────────────────────────────────────────────
 function simulate(params) {
-  const { rollFreq, otmMode, otmFixed, decayTrigger, dteFloor, shares, initExpiry } = params;
+  const { rollFreq, otmMode, otmFixed, decayTrigger, dteFloor, deltaThreshold, shares, initExpiry } = params;
   const { spyMap, vixMap } = buildLookups();
   const contracts = parseInt(shares) / 100;
 
@@ -642,6 +683,7 @@ function simulate(params) {
     // Initialize or roll position
     if (!currentContract) {
       // Find next expiry
+      // Skip expiries that have already passed (including the one we just closed)
       while (currentExpIdx < expiries.length && expiries[currentExpIdx] <= date) currentExpIdx++;
       if (currentExpIdx >= expiries.length) break;
       const exp = expiries[currentExpIdx];
@@ -657,44 +699,66 @@ function simulate(params) {
       const firstDay = currentContract.days[0];
       if (!firstDay) { currentContract = null; currentExpIdx++; continue; }
 
-      entryCallPrice = firstDay.c;
+      entryCallPrice = firstDay.vw || firstDay.c;  // VWAP preferred, close fallback
       entryDate = firstDay.date;
       entryStrike = currentContract.strike;
       entrySPY = spyMap[entryDate]?.c || spy;
       cyclePremiumCollected = entryCallPrice * 100 * contracts;
     }
 
-    // Find today's call price
-    const callDay = currentContract.days.find(d => d.date === date);
+    // Build call price lookup (cache on contract to avoid repeated find())
+    if (!currentContract._dayMap) {
+      currentContract._dayMap = {};
+      currentContract.days.forEach(d => { currentContract._dayMap[d.date] = d; });
+    }
+    const callDay = currentContract._dayMap[date];
     const callPrice = callDay ? callDay.c : null;
 
     // Calculate DTE
     const expDate = new Date(currentContract.expiry + "T00:00:00");
-    const today = new Date(date + "T00:00:00");
-    const dte = Math.round((expDate - today) / 86400000);
+    const todayDate = new Date(date + "T00:00:00");
+    const dte = Math.round((expDate - todayDate) / 86400000);
+
+    // Check if contract has expired
+    const isExpired = date >= currentContract.expiry;
+
+    // Calculate Black-Scholes delta for today
+    const delta = calcDelta(spy, entryStrike, dte, vix, getTNX());
 
     // Check roll triggers
     let shouldRoll = false;
     let rollReason = "";
-    if (callPrice !== null && entryCallPrice > 0) {
-      const decayPct = ((entryCallPrice - callPrice) / entryCallPrice) * 100;
-      if (decayPct >= decayTrigger) { shouldRoll = true; rollReason = `${fmt(decayPct,0)}% decay`; }
+    if (isExpired) {
+      shouldRoll = true;
+      rollReason = "expired";
+    } else {
+      if (callPrice !== null && entryCallPrice > 0) {
+        const decayPct = ((entryCallPrice - callPrice) / entryCallPrice) * 100;
+        if (decayPct >= decayTrigger) { shouldRoll = true; rollReason = `${fmt(decayPct,0)}% decay`; }
+      }
+      if (dte <= dteFloor && !shouldRoll) { shouldRoll = true; rollReason = `${dte}d DTE floor`; }
+      if (deltaThreshold > 0 && delta >= deltaThreshold && !shouldRoll) {
+        shouldRoll = true; rollReason = `delta ${delta.toFixed(2)} ≥ ${deltaThreshold}`;
+      }
     }
-    if (dte <= dteFloor && !shouldRoll) { shouldRoll = true; rollReason = `${dte}d DTE floor`; }
-    if (date >= currentContract.expiry) { shouldRoll = true; rollReason = "expired"; }
 
     // Record equity curve point
     const buyholdValue = (spy / startSPY - 1) * 100;
-    const callMark = callPrice !== null ? callPrice : (callDay ? callDay.c : entryCallPrice);
-    const optionPnL = entryCallPrice !== null && callMark !== null
-      ? (entryCallPrice - callMark) * 100 * contracts
-      : 0;
+    const callMark = callPrice !== null ? callPrice : 0;
+    const optionPnL = (entryCallPrice - callMark) * 100 * contracts;
     const coveredCallValue = buyholdValue + ((premiumPnL + optionPnL) / (startSPY * shares)) * 100;
     equityCurve.push({ date, covered_call: coveredCallValue, buyhold: buyholdValue, spy, vix });
 
     if (shouldRoll) {
-      const exitCallPrice = callPrice || entryCallPrice;
-      const isExpiry = date >= currentContract.expiry;
+      // On expiry: OTM call expires worthless (exitPrice=0), ITM call has intrinsic value
+      let exitCallPrice;
+      if (isExpired) {
+        const intrinsic = Math.max(0, spy - entryStrike);
+        exitCallPrice = intrinsic; // 0 if OTM (keep full premium), intrinsic if ITM (assignment)
+      } else {
+        exitCallPrice = callPrice || 0;
+      }
+      const isExpiry = isExpired;
 
       // For expiry: keep full remaining value if OTM, lose intrinsic if ITM
       // For early roll: net credit = premium_collected_on_entry - buyback_cost
@@ -710,6 +774,10 @@ function simulate(params) {
       // Net credit = what we kept from this leg
       const netCredit = cyclePnL;
 
+      const entryDelta = calcDelta(entrySPY, entryStrike,
+        Math.round((new Date(currentContract.expiry) - new Date(entryDate)) / 86400000),
+        vixMap[entryDate] || vix, getTNX());
+
       cycles.push({
         entryDate, exitDate: date, expiry: currentContract.expiry,
         strike: entryStrike, otmPct: currentContract.otm_pct,
@@ -722,6 +790,8 @@ function simulate(params) {
         isExpiry,
         isInitial: cycleIsInitial,
         entryVix: vixMap[entryDate] || vix,
+        entryDelta,
+        exitDelta: delta,
       });
 
       cycleIsInitial = false;
@@ -763,7 +833,8 @@ function getParams() {
     decayTrigger: parseFloat(document.getElementById("decay-trigger").value),
     dteFloor:     parseInt(document.getElementById("dte-floor").value),
     shares:       parseInt(document.getElementById("shares").value),
-    initExpiry:   document.getElementById("init-date")?.value || null,
+    initExpiry:      document.getElementById("init-date")?.value || null,
+    deltaThreshold:  parseFloat(document.getElementById("delta-trigger").value) || 0,
   };
 }
 
@@ -862,17 +933,20 @@ function runOptimization() {
 
   const decayTriggers = [50, 60, 70, 75, 80, 90];
   const dteFloors     = [7, 14, 21, 30, 45];
+  const deltaThresholds = [0, 0.25, 0.30, 0.35, 0.40];
+  // Run optimization over decay × DTE (delta fixed at current selection)
+  const fixedDelta = baseParams.deltaThreshold;
   const total = decayTriggers.length * dteFloors.length;
   let done = 0;
 
-  const grid = {}; // grid[decay][dte] = annYield
+  const grid = {};
   decayTriggers.forEach(d => { grid[d] = {}; });
 
   setTimeout(() => {
     for (const decay of decayTriggers) {
       for (const dte of dteFloors) {
-        const result = simulate({ ...baseParams, decayTrigger: decay, dteFloor: dte });
-        grid[decay][dte] = result ? result.avgAnnYield : null;
+        const result = simulate({ ...baseParams, decayTrigger: decay, dteFloor: dte, deltaThreshold: fixedDelta });
+        grid[decay][dte] = result && !result.gap ? result.avgAnnYield : null;
         done++;
         setProgress(Math.round((done / total) * 90));
       }
@@ -1018,7 +1092,7 @@ function renderCycleTable(result) {
   const thead = `<thead><tr>
     <th>Entry</th><th>Exit</th><th>Strike</th><th>OTM%</th>
     <th>Entry Call</th><th>Buyback</th><th>Net Credit</th><th>Ann. Yield</th>
-    <th>Days</th><th>Trigger</th><th>VIX</th>
+    <th>Δ Entry</th><th>Δ Exit</th><th>Days</th><th>Trigger</th><th>VIX</th>
   </tr></thead>`;
 
   // Skip the initial cycle — it's displayed in the Initial Position panel
@@ -1036,6 +1110,8 @@ function renderCycleTable(result) {
       <td class="red">-$${fmt(c.exitCall)}</td>
       <td class="${pnlClass}">${fmtDollar(c.cyclePnL)}</td>
       <td class="${yClass}">${fmt(c.annYield,1)}%</td>
+      <td class="muted">${fmt(c.entryDelta,3)}</td>
+      <td class="${c.exitDelta >= 0.35 ? 'yellow' : 'muted'}">${fmt(c.exitDelta,3)}</td>
       <td class="muted">${c.daysHeld}d</td>
       <td class="muted">${c.rollReason}</td>
       <td class="muted">${fmt(c.entryVix,1)}</td>
