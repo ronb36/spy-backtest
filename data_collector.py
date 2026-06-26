@@ -429,6 +429,66 @@ def daily_append(dm):
     return dm
 
 
+# ── Gap fill ──────────────────────────────────────────────────────────────
+def gap_fill(dm):
+    log("=" * 60)
+    log("GAP FILL — fetching missing contracts from GAP_TICKERS")
+    log("=" * 60)
+
+    gap_tickers_raw = os.environ.get("GAP_TICKERS", "").strip()
+    if not gap_tickers_raw:
+        log("GAP_TICKERS env var is empty — nothing to fill")
+        return dm
+
+    gap_tickers = [t.strip() for t in gap_tickers_raw.split(",") if t.strip()]
+    log(f"  {len(gap_tickers)} gap contract(s) to fill: {', '.join(gap_tickers)}")
+
+    spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
+    filled = 0
+
+    for raw_ticker in gap_tickers:
+        log(f"  Processing: {raw_ticker}")
+
+        # Parse expiry and OTM from ticker format: O:SPY241220C00580000 or O:SPYYYMMDDCC [X%OTM]
+        # Try to parse as real Polygon ticker first
+        import re
+        m = re.match(r"O:SPY(\d{6})C(\d{8})", raw_ticker)
+        if m:
+            date_str = m.group(1)  # YYMMDD
+            strike_raw = int(m.group(2)) / 1000
+            expiry = f"20{date_str[:2]}-{date_str[2:4]}-{date_str[4:6]}"
+            ticker = raw_ticker
+
+            # Fetch full history for this contract
+            start = (datetime.strptime(expiry, "%Y-%m-%d") - timedelta(days=365)).strftime("%Y-%m-%d")
+            end   = expiry
+            log(f"    Fetching {ticker} {start} → {end}...")
+            days = fetch_option_history(ticker, start, end)
+            if days:
+                first_day_spy = spy_by_date.get(days[0]["date"], 0)
+                # Determine approximate OTM pct
+                otm_pct = round((strike_raw / first_day_spy - 1), 2) if first_day_spy else 0.05
+                dm["options"][ticker] = {
+                    "strike":    strike_raw,
+                    "expiry":    expiry,
+                    "otm_pct":   otm_pct,
+                    "entry_spy": first_day_spy,
+                    "days":      days,
+                }
+                filled += 1
+                log(f"    ✓ {len(days)} trading days added")
+            else:
+                log(f"    ⚠ No data returned for {ticker}")
+        else:
+            log(f"    ⚠ Could not parse ticker format: {raw_ticker}")
+            log(f"    Expected format: O:SPY241220C00580000")
+
+    log(f"\nGap fill complete: {filled}/{len(gap_tickers)} contracts filled")
+    log("NOTE: Please clear GAP_TICKERS env var in Railway to avoid re-fetching on next run")
+    dm["metadata"]["last_updated"] = today_str()
+    return dm
+
+
 # ── Main ───────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     log("SPY Backtest Data Collector starting...")
@@ -437,6 +497,13 @@ if __name__ == "__main__":
     if RUN_MODE == "full":
         # Full load from scratch
         dm = full_load()
+    elif RUN_MODE == "gap":
+        # Gap fill — fetch specific missing contracts from GAP_TICKERS env var
+        dm, sha = github_get_file(DATA_PATH)
+        if dm is None:
+            log("No existing data mart found — cannot fill gaps without base data")
+            exit(1)
+        dm = gap_fill(dm)
     else:
         # Daily append — load existing data first
         log("Loading existing data mart from GitHub...")
@@ -470,6 +537,11 @@ if __name__ == "__main__":
             body = ("Full load complete\n"
                     f"SPY {spy_count} days | VIX {len(dm['vix'])} days | {opt_count} contracts\n"
                     f"OTM targets: {otm_str}")
+        elif RUN_MODE == "gap":
+            gap_count = len(os.environ.get("GAP_TICKERS","").split(","))
+            body = (f"Gap fill complete\n"
+                    f"{opt_count} total contracts in mart\n"
+                    f"Clear GAP_TICKERS in Railway variables")
         else:
             body = ("Daily append complete\n"
                     f"SPY ${spy_close} ({spy_date})\n"

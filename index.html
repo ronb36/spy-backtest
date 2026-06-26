@@ -476,21 +476,23 @@ function populateInitDates() {
 }
 
 function autoSelectExpiry() {
-  // Pick expiry closest to target DTE based on roll frequency
   const freq = document.getElementById("roll-freq").value;
   const targetDTE = freq === "monthly" ? 30 : 90;
-  const today = new Date();
-  const expiries = [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
+  const MART_START = new Date("2024-06-25T00:00:00");
 
-  // Filter to quarterly expiries if quarterly selected
+  const expiries = [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
   const quarterMonths = new Set([3, 6, 9, 12]);
   const filtered = freq === "quarterly"
     ? expiries.filter(e => quarterMonths.has(parseInt(e.split("-")[1])))
     : expiries;
 
-  // Pick the first expiry >= 2024-06-25 (start of data mart)
-  const MART_START = "2024-06-25";
-  let best = filtered.find(e => e >= MART_START) || filtered[0] || expiries[0];
+  // Find expiry closest to MART_START + targetDTE
+  const targetDate = new Date(MART_START);
+  targetDate.setDate(targetDate.getDate() + targetDTE);
+  const targetStr = targetDate.toISOString().split("T")[0];
+
+  // Pick first expiry >= targetStr
+  let best = filtered.find(e => e >= targetStr) || filtered[0] || expiries[0];
 
   document.getElementById("init-date").value = best;
   updateInitPosition();
@@ -543,9 +545,10 @@ function vixOTM(vix) {
   return 0.10;
 }
 
-// ── Find best matching option contract ────────────────────────────────────
+// ── Find best matching option contract ────────────────────────────────
+let _gapContracts = [];
+
 function findContract(targetExpiry, targetOTM) {
-  // Find contract in DM.options closest to targetExpiry and targetOTM
   let best = null, bestScore = Infinity;
   for (const [ticker, c] of Object.entries(DM.options)) {
     if (c.expiry !== targetExpiry) continue;
@@ -553,6 +556,20 @@ function findContract(targetExpiry, targetOTM) {
     if (otmDiff < bestScore) { bestScore = otmDiff; best = { ticker, ...c }; }
   }
   return best;
+}
+
+function buildTickerStr(expiry, otm_pct) {
+  return "O:SPY" + expiry.replace(/-/g,"").slice(2) + "C [" + (otm_pct*100).toFixed(0) + "%OTM]";
+}
+
+function findContractOrGap(targetExpiry, targetOTM, onDate) {
+  const contract = findContract(targetExpiry, targetOTM);
+  if (contract) return { contract, gap: false };
+  const gapTicker = buildTickerStr(targetExpiry, targetOTM);
+  if (!_gapContracts.find(g => g.ticker === gapTicker)) {
+    _gapContracts.push({ ticker: gapTicker, expiry: targetExpiry, otm_pct: targetOTM, needed: onDate });
+  }
+  return { contract: null, gap: true };
 }
 
 // ── Get monthly/quarterly expiries from data ───────────────────────────────
@@ -625,7 +642,9 @@ function simulate(params) {
 
       // Determine OTM target
       const otm = otmMode === "vix" ? vixOTM(vix) : otmFixed;
-      currentContract = findContract(exp, otm);
+      const { contract: foundContract, gap } = findContractOrGap(exp, otm, date);
+      if (gap) return { gap: true, gapExpiry: exp, gapOTM: otm, gapDate: date };
+      currentContract = foundContract;
       if (!currentContract) { currentExpIdx++; continue; }
 
       // Find entry price (first day of contract data)
@@ -791,6 +810,7 @@ function runSimulation() {
     setProgress(30);
     logProgress(`Running ${params.rollFreq} simulation — ${params.otmMode === "vix" ? "VIX-adaptive" : (params.otmFixed*100).toFixed(0)+"% OTM"} · ${params.decayTrigger}% decay trigger · ${params.dteFloor}d DTE floor`);
 
+    _gapContracts = []; // reset gaps
     const result = simulate(params);
     setProgress(80);
 
@@ -800,7 +820,18 @@ function runSimulation() {
       return;
     }
 
-    logProgress(`✓ ${result.cycles.length} cycles simulated`, "ok");
+    // Check for gap
+    if (result.gap) {
+      setProgress(100);
+      logProgress("⚠ Simulation stopped — missing contract", "err");
+      renderGapReport(result);
+      document.getElementById("results-tabs").style.display = "block";
+      document.getElementById("tab-heatmap-btn").style.display = "none";
+      showTab("log");
+      return;
+    }
+
+    logProgress(`✓ ${result.cycles.length} cycles · no gaps`, "ok");
     setProgress(100);
 
     renderSummary(result);
@@ -852,6 +883,34 @@ function runOptimization() {
 }
 
 // ── Render functions ───────────────────────────────────────────────────────
+function renderGapReport(result) {
+  const { gapExpiry, gapOTM, gapDate } = result;
+  const ticker = buildTickerStr(gapExpiry, gapOTM);
+  const instructions = [
+    "1. Copy ticker above",
+    "2. Railway → spy-backtest → Variables → GAP_TICKERS = " + ticker,
+    "3. Set RUN_MODE = gap",
+    "4. Railway → Cron → Run Now",
+    "5. Wait for Pushover confirmation",
+    "6. Reload page and re-run simulation",
+  ].join("\n");
+
+  document.getElementById("summary-grid").innerHTML = `
+    <div class="stat-card" style="border-color:var(--red);grid-column:1/-1;">
+      <div class="stat-label" style="color:var(--red)">⚠ Simulation Stopped — Missing Contract</div>
+      <div style="margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--text);">
+        <div style="margin-bottom:6px;">Needed: <span style="color:var(--yellow)">${ticker}</span>
+          &nbsp;·&nbsp; Expiry: ${gapExpiry}
+          &nbsp;·&nbsp; ${(gapOTM*100).toFixed(0)}% OTM
+          &nbsp;·&nbsp; Needed on: ${gapDate}
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:10px;white-space:pre;color:var(--text-muted);font-size:10px;line-height:1.8;">${instructions}</div>
+      </div>
+    </div>
+  `;
+  document.getElementById("cycle-table-container").innerHTML = "";
+}
+
 function renderSummary(result) {
   const { totalPremium, avgAnnYield, winRate, spyReturn, covReturn, maxDD, cycles, params } = result;
   const yieldClass = avgAnnYield >= 8 ? "green" : avgAnnYield >= 4 ? "yellow" : "red";
@@ -956,22 +1015,19 @@ function renderCycleTable(result) {
     <th>Days</th><th>Trigger</th><th>VIX</th>
   </tr></thead>`;
 
-  const tbody = cycles.map(c => {
+  // Skip the initial cycle — it's displayed in the Initial Position panel
+  const rollCycles = cycles.filter(c => !c.isInitial);
+
+  const tbody = rollCycles.map(c => {
     const pnlClass = c.cyclePnL >= 0 ? "green" : "red";
     const yClass   = c.annYield >= 8 ? "green" : c.annYield >= 4 ? "yellow" : "muted";
-    const typeTag = c.isInitial
-      ? '<span style="color:var(--accent);font-size:9px">INIT</span>'
-      : '<span style="color:var(--text-muted);font-size:9px">ROLL</span>';
-    const buybackCell = c.isInitial
-      ? '<td class="muted">—</td>'
-      : `<td class="red">-$${fmt(c.exitCall)}</td>`;
     return `<tr>
-      <td>${c.entryDate} ${typeTag}</td>
+      <td>${c.entryDate}</td>
       <td>${c.exitDate}</td>
       <td class="accent">$${c.strike}</td>
       <td class="muted">${(c.otmPct*100).toFixed(0)}%</td>
       <td>$${fmt(c.entryCall)} × ${Math.round(c.premiumCollected / (c.entryCall * 100))}ct</td>
-      ${buybackCell}
+      <td class="red">-$${fmt(c.exitCall)}</td>
       <td class="${pnlClass}">${fmtDollar(c.cyclePnL)}</td>
       <td class="${yClass}">${fmt(c.annYield,1)}%</td>
       <td class="muted">${c.daysHeld}d</td>
