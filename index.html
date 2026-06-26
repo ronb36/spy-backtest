@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.1.2 · rolls selector (1/3/5/10/all)</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.1.5 · blotter roll log</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -196,7 +196,7 @@ select.display-box { cursor:pointer; outline:none; }
   <!-- Results tabs -->
   <div id="results-area" style="display:none">
     <div class="tab-bar">
-      <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Cycle Log</button>
+      <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Roll Log</button>
       <button class="tab-btn" id="tab-btn-chart" onclick="showTab('chart')">📈 Chart</button>
       <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Heatmap</button>
       <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
@@ -659,7 +659,8 @@ async function simulate(p) {
     const pnl    = (entryPrice - exitPx) * 100 * contracts;
     premPnL += pnl;
     const days   = Math.max(1, Math.round((todayD - new Date(entryDate + 'T00:00:00')) / 86400000));
-    const annYld = (entryPrice / entrySPY) * (365 / days) * 100;
+    const netPx  = entryPrice - exitPx; // positive = profit, negative = loss
+    const annYld = (netPx / entrySPY) * (365 / days) * 100;
     const eDelta = callDelta(entrySPY, entryStrike,
       Math.round((expDate - new Date(entryDate + 'T00:00:00')) / 86400000), vixMap[entryDate] || vix, TNX);
 
@@ -892,35 +893,51 @@ function renderSummary(r) {
 
 // ── Render: Cycle table ────────────────────────────────────────────────────
 function renderCycleTable(r) {
-  const rows = r.rolls.map(c => {
-    const pClass = c.pnl >= 0 ? 'green' : 'red';
-    const yClass = c.annYld >= 8 ? 'green' : c.annYld >= 4 ? 'yellow' : 'muted';
-    const dClass = c.exitDelta >= 0.35 ? 'yellow' : 'muted';
-    const approx = c.approx ? '<span style="color:var(--yellow);font-size:9px">~</span>' : '';
+  // Blotter style: Cover (exit) first, then new entry, net credit, yield, trigger
+  // Build rows: each roll shows the close of the prior leg and open of the new leg
+  const rows = r.rolls.map((c, i) => {
+    const pClass  = c.pnl >= 0 ? 'green' : 'red';
+    const yClass  = c.annYld >= 5 ? 'green' : c.annYld >= 0 ? 'yellow' : 'red';
+    const approx  = c.approx ? '<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>' : '';
+
+    // Next contract info (what we rolled INTO)
+    const nextC   = r.cycles[i + 2]; // +1 for initial, +1 for next roll
+    const nextStr = nextC
+      ? `$${nextC.strike} ${nextC.expiry}`
+      : '—';
+    const nextPx  = nextC ? `$${fmt(nextC.entryPx)}` : '—';
+
     return `<tr>
-      <td>${c.entryDate}${approx}</td>
-      <td>${c.exitDate}</td>
-      <td class="accent">$${c.strike}</td>
-      <td class="muted">${(c.otmPct*100).toFixed(0)}%</td>
-      <td>$${fmt(c.entryPx)} × ${Math.round(c.pnl/(c.entryPx-c.exitPx)||1)}ct</td>
-      <td class="red">-$${fmt(c.exitPx)}</td>
-      <td class="${pClass}">${fmtD(c.pnl)}</td>
+      <td class="muted" style="font-size:10px;">${c.exitDate}${approx}</td>
+      <td class="red">Cover $${c.strike} @ $${fmt(c.exitPx)}</td>
+      <td class="accent">Sell ${nextStr} @ ${nextPx}</td>
+      <td class="${pClass}" style="font-weight:600;">${fmtD(c.pnl)}</td>
       <td class="${yClass}">${fmt(c.annYld,1)}%</td>
-      <td class="muted">${fmt(c.entryDelta,3)}</td>
-      <td class="${dClass}">${fmt(c.exitDelta,3)}</td>
-      <td class="muted">${c.daysHeld}d</td>
-      <td class="muted">${c.reason}</td>
-      <td class="muted">${fmt(c.entryVix,1)}</td>
+      <td class="muted" style="font-size:10px;">${c.reason}</td>
     </tr>`;
   }).join('');
 
+  // Initial position row
+  const init = r.cycles[0];
+  const initRow = init ? `<tr style="border-bottom:2px solid var(--border);">
+    <td class="muted" style="font-size:10px;">${init.entryDate}</td>
+    <td class="muted">—</td>
+    <td class="accent">Open $${init.strike} ${init.expiry} @ $${fmt(init.entryPx)}</td>
+    <td class="muted">—</td>
+    <td class="muted">—</td>
+    <td class="muted" style="font-size:10px;">initial</td>
+  </tr>` : '';
+
   $('cycle-table').innerHTML = `<table class="tbl">
     <thead><tr>
-      <th>Entry</th><th>Exit</th><th>Strike</th><th>OTM</th>
-      <th>Entry Call</th><th>Buyback</th><th>Net P&L</th><th>Ann Yield</th>
-      <th>Δ Entry</th><th>Δ Exit</th><th>Days</th><th>Trigger</th><th>VIX</th>
+      <th>Date</th>
+      <th>Cover (Close)</th>
+      <th>New Leg (Open)</th>
+      <th>Net Credit</th>
+      <th>Ann Yield</th>
+      <th>Trigger</th>
     </tr></thead>
-    <tbody>${rows}</tbody>
+    <tbody>${initRow}${rows}</tbody>
   </table>`;
 }
 
