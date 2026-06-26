@@ -118,7 +118,7 @@
   <div id="js-error-banner" style="display:none;background:#2d1515;border:1px solid var(--red);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;color:var(--red);white-space:pre-wrap;"></div>
   <h1>Backtest & Roll Optimizer</h1>
   <div class="header-sub" id="data-status">Loading data mart from GitHub...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.L — visible error banner · global handler</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.M — restored getParams</div>
 
   <!-- Initial Position -->
   <div class="init-panel" id="init-panel" style="display:none">
@@ -765,6 +765,20 @@ function findBestContract(afterDate, targetOTM, currentSPY, maxLookahead) {
 
 // simulate() replaced by simulateAsync() above
 
+
+function getParams(regimeOverride) {
+  const p = getActiveParams(regimeOverride);
+  return {
+    otmMode:        "fixed",
+    otmFixed:       p.otmFixed,
+    decayTrigger:   p.decayTrigger,
+    dteFloor:       p.dteFloor,
+    deltaThreshold: p.deltaThreshold,
+    maxLookahead:   p.maxLookahead || 90,
+    shares:         parseInt(document.getElementById("shares").value),
+    initExpiry:     document.getElementById("init-date")?.value || null,
+  };
+}
 
 async function runSimulation() {
   if (!DM) return;
