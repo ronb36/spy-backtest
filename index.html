@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.3.0 · auto init · yield-selected call · clean controls</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.3.1 · trigger log · roll credit fix · roll log header</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -666,6 +666,7 @@ async function simulate(p) {
     }
 
     if (!roll) continue;
+    logDbg(`  → TRIGGER: ${reason} on ${date} (SPY=$${spy.toFixed(2)} K=$${entryStrike} delta=${delta.toFixed(3)} dte=${dte} callPx=${callPx?.toFixed(2)||'null'})`);
 
     // ── Close cycle ──
     const exitPx = isExp ? Math.max(0, spy-entryStrike) : (callPx??0);
@@ -698,12 +699,17 @@ async function simulate(p) {
     if (!next) { logMsg(`  No contract found within ${maxLookahead}d of ${date} — done`,'err'); break; }
 
     // Accumulate roll credit
-    const rollDayKey = date.trim().slice(0,10);
+    // Roll credit: use same entry price logic as Open block (exact day match only)
     buildDayMap(next);
-    const nextDay = next._dm[rollDayKey] || next.days.find(d=>d.date>=date);
-    const nextPx_ = nextDay ? (nextDay.vw||nextDay.c) : 0;
-    rollCreditTotal += (nextPx_-exitPx)*100*contracts;
-    logDbg(`  Roll credit: sell $${(nextPx_||0).toFixed(2)} - cover $${exitPx.toFixed(2)} = $${((nextPx_-exitPx)*100*contracts).toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
+    const rollDayKey = date.trim().slice(0,10);
+    const nextRollDay = next._dm[rollDayKey]; // exact date match
+    const nextPx_ = nextRollDay ? (nextRollDay.vw||nextRollDay.c) : 0;
+    if (nextPx_ > 0) {
+      rollCreditTotal += (nextPx_-exitPx)*100*contracts;
+      logDbg(`  Roll credit: sell $${nextPx_.toFixed(2)} - cover $${exitPx.toFixed(2)} = $${((nextPx_-exitPx)*100*contracts).toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
+    } else {
+      logDbg(`  Roll credit: no price data for ${next.expiry} on ${date} — skipping accumulation`);
+    }
 
     curC = next;
     if (p.maxRolls && cycles.filter(c=>!c.isInitial).length >= p.maxRolls) {
