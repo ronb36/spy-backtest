@@ -710,6 +710,16 @@ function findBestContract(afterDate, targetOTM, currentSPY, maxLookahead) {
   for (const exp of candidates) {
     const contract = findContract(exp, targetOTM, currentSPY);
     if (contract) {
+      // Verify strike is actually OTM (above current SPY)
+      if (contract.strike <= currentSPY) {
+        // Strike is ITM — record as gap, try next expiry
+        const gapTicker = buildTickerStr(exp, targetOTM);
+        if (!_gapContracts.find(g => g.ticker === gapTicker)) {
+          _gapContracts.push({ ticker: gapTicker, expiry: exp, otm_pct: targetOTM, needed: afterDate, usedAlternative: true });
+        }
+        logDebug(`  Skip ${exp}: strike $${contract.strike} is ITM (SPY=$${currentSPY.toFixed(0)})`);
+        continue;
+      }
       // Check contract has data on or after afterDate
       if (!contract._dayMap) {
         contract._dayMap = {};
@@ -718,7 +728,7 @@ function findBestContract(afterDate, targetOTM, currentSPY, maxLookahead) {
       const hasData = contract.days.some(d => d.date >= afterDate);
       if (hasData) return { contract, expiry: exp, gap: false };
     }
-    // No match for this expiry — record as gap and try next month
+    // No contract found for this expiry — record as gap
     const gapTicker = buildTickerStr(exp, targetOTM);
     if (!_gapContracts.find(g => g.ticker === gapTicker)) {
       _gapContracts.push({ ticker: gapTicker, expiry: exp, otm_pct: targetOTM, needed: afterDate, usedAlternative: true });
@@ -757,11 +767,12 @@ function simulate(params) {
   const spyDates = DM.spy.map(r => r.date).sort();
 
   let currentContract = initContract;
-  let entrySPY = startSPY;
+  let entrySPY = null;
   let entryCallPrice = null;
-  let entryDate = startDate;
-  let entryStrike = initContract.strike;
+  let entryDate = null;
+  let entryStrike = null;
   let cycleIsInitial = true;
+  let positionOpen = false;
 
   // Walk through time day by day starting from initiation date
   for (const date of spyDates) {
@@ -771,8 +782,8 @@ function simulate(params) {
     const spy = spyRow.c;
     const vix = vixMap[date] || 18;
 
-    // Initialize entry price on first day
-    if (!entryCallPrice) {
+    // Open new position if not yet entered
+    if (!positionOpen) {
       if (!currentContract._dayMap) {
         currentContract._dayMap = {};
         currentContract.days.forEach(d => { currentContract._dayMap[d.date.trim().slice(0,10)] = d; });
@@ -784,10 +795,11 @@ function simulate(params) {
         entryDate = date;
         entrySPY = spy;
         entryStrike = currentContract.strike;
+        positionOpen = true;
         logDebug(`Contract: ${currentContract.ticker} exp=${currentContract.expiry} entry=${entryDate} price=$${entryCallPrice.toFixed(2)} strike=$${entryStrike} SPY=$${spy.toFixed(2)}`);
       }
     }
-    if (!entryCallPrice) continue; // wait for data
+    if (!positionOpen) continue; // wait for data
 
     // Build call price lookup (cache on contract to avoid repeated find())
     if (!currentContract._dayMap) {
@@ -888,6 +900,7 @@ function simulate(params) {
       entryDate = null;
       entryStrike = null;
       entrySPY = null;
+      positionOpen = false; // will re-enter on first day of new contract
     }  }
 
   if (cycles.length === 0) return null;
