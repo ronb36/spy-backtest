@@ -525,7 +525,7 @@ function updateInitPosition() {
   // Find first available day for this contract
   const { spyMap, vixMap } = buildLookups();
   const otm = otmFixed;
-  const contract = findContract(expiry, otm);
+  const contract = findContract(expiry, otm); // no SPY override for display
 
   if (!contract || !contract.days.length) {
     document.getElementById("init-spy").textContent = "No data";
@@ -595,12 +595,20 @@ function calcDelta(spy, strike, dte, vix, tnx) {
 // ── Find best matching option contract ────────────────────────────────
 let _gapContracts = [];
 
-function findContract(targetExpiry, targetOTM) {
+function findContract(targetExpiry, targetOTM, currentSPY) {
+  // If currentSPY provided, find contract whose strike is closest to currentSPY * (1 + targetOTM)
+  // Otherwise fall back to stored otm_pct matching
   let best = null, bestScore = Infinity;
   for (const [ticker, c] of Object.entries(DM.options)) {
     if (c.expiry !== targetExpiry) continue;
-    const otmDiff = Math.abs(c.otm_pct - targetOTM);
-    if (otmDiff < bestScore) { bestScore = otmDiff; best = { ticker, ...c }; }
+    let score;
+    if (currentSPY) {
+      const targetStrike = currentSPY * (1 + targetOTM);
+      score = Math.abs(c.strike - targetStrike);
+    } else {
+      score = Math.abs(c.otm_pct - targetOTM);
+    }
+    if (score < bestScore) { bestScore = score; best = { ticker, ...c }; }
   }
   return best;
 }
@@ -609,8 +617,8 @@ function buildTickerStr(expiry, otm_pct) {
   return "O:SPY" + expiry.replace(/-/g,"").slice(2) + "C [" + (otm_pct*100).toFixed(0) + "%OTM]";
 }
 
-function findContractOrGap(targetExpiry, targetOTM, onDate) {
-  const contract = findContract(targetExpiry, targetOTM);
+function findContractOrGap(targetExpiry, targetOTM, onDate, currentSPY) {
+  const contract = findContract(targetExpiry, targetOTM, currentSPY);
   if (contract) return { contract, gap: false };
   const gapTicker = buildTickerStr(targetExpiry, targetOTM);
   if (!_gapContracts.find(g => g.ticker === gapTicker)) {
@@ -693,7 +701,7 @@ function simulate(params) {
 
       // Determine OTM target
       const otm = otmMode === "vix" ? vixOTM(vix) : otmFixed;
-      const { contract: foundContract, gap } = findContractOrGap(exp, otm, date);
+      const { contract: foundContract, gap } = findContractOrGap(exp, otm, date, spy);
       if (gap) return { gap: true, gapExpiry: exp, gapOTM: otm, gapDate: date };
       currentContract = foundContract;
       if (!currentContract) { currentExpIdx++; continue; }
@@ -724,10 +732,19 @@ function simulate(params) {
     // Build call price lookup (cache on contract to avoid repeated find())
     if (!currentContract._dayMap) {
       currentContract._dayMap = {};
-      currentContract.days.forEach(d => { currentContract._dayMap[d.date] = d; });
+      currentContract.days.forEach(d => {
+        const key = d.date.trim().slice(0, 10); // normalize to YYYY-MM-DD
+        currentContract._dayMap[key] = d;
+      });
     }
-    const callDay = currentContract._dayMap[date];
+    const lookupKey = date.trim().slice(0, 10);
+    const callDay = currentContract._dayMap[lookupKey];
     const callPrice = callDay ? callDay.c : null;
+    // Debug missing dates in key window
+    if (!callDay && date >= "2024-08-05" && date <= "2024-08-10") {
+      const availKeys = Object.keys(currentContract._dayMap).filter(k => k >= "2024-08-04" && k <= "2024-08-11");
+      logProgress("  " + date + ": NO callDay — nearby keys: " + availKeys.join(", "));
+    }
 
     // Calculate DTE
     const expDate = new Date(currentContract.expiry + "T00:00:00");
