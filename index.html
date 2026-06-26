@@ -117,7 +117,7 @@
   <div class="header-eyebrow">SPY Covered Call</div>
   <h1>Backtest & Roll Optimizer</h1>
   <div class="header-sub" id="data-status">Loading data mart from GitHub...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.F — safety counter · null contract guard · min DTE</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.G — async simulation · UI yields · min DTE guard</div>
 
   <!-- Initial Position -->
   <div class="init-panel" id="init-panel" style="display:none">
@@ -744,15 +744,65 @@ function findBestContract(afterDate, targetOTM, currentSPY, maxLookahead) {
   return { contract: null, expiry: null, gap: true, hardStop: true };
 }
 
-// ── Core simulation engine ─────────────────────────────────────────────────
-function simulate(params) {
+// simulate() replaced by simulateAsync() above
+
+
+async function runSimulation() {
+  if (!DM) return;
+  const params = getParams();
+
+  document.getElementById("progress-panel").classList.add("visible");
+  document.getElementById("progress-log").innerHTML = "";
+  setProgress(10);
+  logProgress("Building lookups...");
+
+  await new Promise(r => setTimeout(r, 50)); // yield to UI
+
+  setProgress(30);
+  logProgress(`Running simulation — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold} · ${params.maxLookahead}d max lookahead`);
+
+  await new Promise(r => setTimeout(r, 20)); // yield before heavy work
+
+  _gapContracts = []; // reset gaps
+  const result = await simulateAsync(params);
+  setProgress(80);
+
+  if (!result) {
+    logProgress("✗ No cycles found — check parameters", "err");
+    setProgress(100);
+    return;
+  }
+
+  if (result.gap) {
+    setProgress(100);
+    logProgress("⚠ Simulation stopped — missing contract", "err");
+    renderGapReport(result);
+    document.getElementById("results-tabs").style.display = "block";
+    document.getElementById("tab-heatmap-btn").style.display = "none";
+    showTab("log");
+    return;
+  }
+
+  logProgress(`✓ ${result.cycles.length} cycles · no gaps`, "ok");
+  setProgress(100);
+
+  renderSummary(result);
+  renderEquityCurve(result);
+  renderCycleTable(result);
+
+  document.getElementById("results-tabs").style.display = "block";
+  document.getElementById("tab-heatmap-btn").style.display = "none";
+  showTab("log");
+}
+
+// Async wrapper that yields to UI every 50 SPY dates
+async function simulateAsync(params) {
   const { otmFixed, decayTrigger, dteFloor, deltaThreshold, maxLookahead, shares, initExpiry } = params;
-  const otmMode = "fixed"; // always fixed OTM in new design
+  const otmMode = "fixed";
   const { spyMap, vixMap } = buildLookups();
   const contracts = parseInt(shares) / 100;
   const MAX_LOOKAHEAD = maxLookahead || 90;
 
-  // ── Seed from initial position ─────────────────────────────────────────
   const initContract = findContract(initExpiry, otmFixed);
   if (!initContract || !initContract.days.length) return null;
 
@@ -779,18 +829,23 @@ function simulate(params) {
   let entryStrike = null;
   let cycleIsInitial = true;
   let positionOpen = false;
-
-  // Walk through time day by day starting from initiation date
   let iterCount = 0;
+
   for (const date of spyDates) {
     if (date < startDate) continue;
     const spyRow = spyMap[date];
     if (!spyRow) continue;
     const spy = spyRow.c;
     const vix = vixMap[date] || 18;
+
+    // Yield to UI every 50 iterations so progress log updates
     iterCount++;
-    if (iterCount % 100 === 0) logDebug(`  Walking ${date} — ${cycles.length} cycles so far`);
-    if (iterCount > 5000) { logProgress("⚠ Safety limit hit — possible infinite loop", "err"); break; }
+    if (iterCount % 50 === 0) {
+      setProgress(30 + Math.min(45, Math.round(iterCount / spyDates.length * 50)));
+      logDebug(`  Walking ${date} — ${cycles.length} cycles so far`);
+      await new Promise(r => setTimeout(r, 0));
+    }
+    if (iterCount > 5000) { logProgress("⚠ Safety limit — possible infinite loop", "err"); break; }
 
     // Open new position if not yet entered
     if (!positionOpen) {
@@ -809,38 +864,32 @@ function simulate(params) {
         logDebug(`Contract: ${currentContract.ticker} exp=${currentContract.expiry} entry=${entryDate} price=$${entryCallPrice.toFixed(2)} strike=$${entryStrike} SPY=$${spy.toFixed(2)}`);
       }
     }
-    if (!positionOpen) continue; // wait for data
+    if (!positionOpen) continue;
 
-    // Build call price lookup (cache on contract to avoid repeated find())
+    // Build call price lookup
     if (!currentContract._dayMap) {
       currentContract._dayMap = {};
       currentContract.days.forEach(d => {
-        const key = d.date.trim().slice(0, 10); // normalize to YYYY-MM-DD
+        const key = d.date.trim().slice(0, 10);
         currentContract._dayMap[key] = d;
       });
     }
     const lookupKey = date.trim().slice(0, 10);
     const callDay = currentContract._dayMap[lookupKey];
     const callPrice = callDay ? callDay.c : null;
-    // Debug missing dates in key window
+
     if (!callDay && date >= "2024-08-05" && date <= "2024-08-10") {
       const availKeys = Object.keys(currentContract._dayMap).filter(k => k >= "2024-08-04" && k <= "2024-08-11");
       logDebug("  " + date + ": NO callDay — nearby keys: " + availKeys.join(", "));
     }
 
-    // Calculate DTE
     const expDate = new Date(currentContract.expiry + "T00:00:00");
     const todayDate = new Date(date + "T00:00:00");
     const dte = Math.round((expDate - todayDate) / 86400000);
-
-    // Check if contract has expired
     const isExpired = date >= currentContract.expiry;
-
-    // Calculate Black-Scholes delta for today
     const delta = calcDelta(spy, entryStrike, dte, vix, getTNX());
-
-    // Check roll triggers — skip on entry day
     const isEntryDay = date === entryDate;
+
     let shouldRoll = false;
     let rollReason = "";
     if (isExpired) {
@@ -860,7 +909,6 @@ function simulate(params) {
       }
     }
 
-    // Record equity curve point
     const buyholdValue = (spy / startSPY - 1) * 100;
     const callMark = callPrice !== null ? callPrice : 0;
     const optionPnL = (entryCallPrice - callMark) * 100 * contracts;
@@ -900,7 +948,6 @@ function simulate(params) {
 
       cycleIsInitial = false;
 
-      // Find next contract: monthly-first, step forward up to maxLookahead
       const findResult = findBestContract(date, otmFixed, spy, MAX_LOOKAHEAD);
       if (findResult.hardStop || !findResult.contract) {
         logProgress(`  No contract found within ${MAX_LOOKAHEAD}d of ${date} — simulation ended`, "err");
@@ -911,18 +958,15 @@ function simulate(params) {
       entryDate = null;
       entryStrike = null;
       entrySPY = null;
-      positionOpen = false; // will re-enter on first day of new contract
-    }  }
+      positionOpen = false;
+    }
+  }
 
   if (cycles.length === 0) return null;
 
-  // Gap summary
   const gapCount = _gapContracts.filter(g => g.usedAlternative).length;
-  if (gapCount > 0) {
-    logProgress(`⚠ ${gapCount} gap(s) — substitutions used, results are approximate`, "err");
-  }
+  if (gapCount > 0) logProgress(`⚠ ${gapCount} gap(s) — substitutions used, results approximate`, "err");
 
-  // Summary stats
   const totalPremium = cycles.reduce((s, c) => s + c.cyclePnL, 0);
   const avgAnnYield = cycles.reduce((s, c) => s + c.annYield, 0) / cycles.length;
   const winRate = cycles.filter(c => c.cyclePnL > 0).length / cycles.length * 100;
@@ -932,119 +976,6 @@ function simulate(params) {
   const maxDD = calcMaxDrawdown(equityCurve.map(e => e.covered_call));
 
   return { cycles, equityCurve, totalPremium, avgAnnYield, winRate, spyReturn, covReturn, maxDD, params };
-}
-
-function calcMaxDrawdown(values) {
-  let peak = -Infinity, maxDD = 0;
-  for (const v of values) {
-    if (v > peak) peak = v;
-    const dd = peak - v;
-    if (dd > maxDD) maxDD = dd;
-  }
-  return maxDD;
-}
-
-// ── Run single simulation ──────────────────────────────────────────────────
-function getParams(regimeOverride) {
-  const p = getActiveParams(regimeOverride);
-  return {
-    otmMode:        "fixed",
-    otmFixed:       p.otmFixed,
-    decayTrigger:   p.decayTrigger,
-    dteFloor:       p.dteFloor,
-    deltaThreshold: p.deltaThreshold,
-    maxLookahead:   p.maxLookahead || 90,
-    shares:         parseInt(document.getElementById("shares").value),
-    initExpiry:     document.getElementById("init-date")?.value || null,
-  };
-}
-function showTab(tab) {
-  // Results tabs (inside results-tabs div)
-  ["chart","log","heatmap"].forEach(t => {
-    const el = document.getElementById("tab-"+t);
-    if (el) el.style.display = t === tab ? "block" : "none";
-    const btn = document.getElementById("tab-"+t+"-btn");
-    if (btn) btn.classList.toggle("active", t === tab);
-  });
-  // Mart tab (standalone)
-  const martEl  = document.getElementById("tab-mart");
-  const martBtn = document.getElementById("tab-mart-btn");
-  const isMart  = tab === "mart";
-  if (martEl)  martEl.style.display  = isMart ? "block" : "none";
-  if (martBtn) martBtn.classList.toggle("active", isMart);
-  // Show/hide results-tabs container
-  const resultsEl = document.getElementById("results-tabs");
-  if (resultsEl && resultsEl.style.display !== "none") {
-    // Keep visible but hide inner panels if mart selected
-    ["chart","log","heatmap"].forEach(t => {
-      const el = document.getElementById("tab-"+t);
-      if (el && isMart) el.style.display = "none";
-    });
-  }
-  if (isMart) renderMartSummary();
-}
-
-function logProgress(msg, cls="") {
-  const el = document.getElementById("progress-log");
-  el.innerHTML += `<div class="${cls}">${msg}</div>`;
-  el.scrollTop = el.scrollHeight;
-}
-
-function logDebug(msg) {
-  if (document.getElementById("debug-toggle")?.checked) {
-    logProgress(msg, "debug");
-  }
-}
-
-function setProgress(pct) {
-  document.getElementById("progress-bar").style.width = pct + "%";
-}
-
-function runSimulation() {
-  if (!DM) return;
-  const params = getParams();
-
-  document.getElementById("progress-panel").classList.add("visible");
-  document.getElementById("progress-log").innerHTML = "";
-  setProgress(10);
-  logProgress("Building lookups...");
-
-  setTimeout(() => {
-    setProgress(30);
-    logProgress(`Running simulation — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold} · ${params.maxLookahead}d max lookahead`);
-
-    _gapContracts = []; // reset gaps
-    const result = simulate(params);
-    setProgress(80);
-
-    if (!result) {
-      logProgress("✗ No cycles found — check parameters", "err");
-      setProgress(100);
-      return;
-    }
-
-    // Check for gap
-    if (result.gap) {
-      setProgress(100);
-      logProgress("⚠ Simulation stopped — missing contract", "err");
-      renderGapReport(result);
-      document.getElementById("results-tabs").style.display = "block";
-      document.getElementById("tab-heatmap-btn").style.display = "none";
-      showTab("log");
-      return;
-    }
-
-    logProgress(`✓ ${result.cycles.length} cycles · no gaps`, "ok");
-    setProgress(100);
-
-    renderSummary(result);
-    renderEquityCurve(result);
-    renderCycleTable(result);
-
-    document.getElementById("results-tabs").style.display = "block";
-    document.getElementById("tab-heatmap-btn").style.display = "none";
-    showTab("log");
-  }, 50);
 }
 
 // ── Optimization grid — per VIX regime ────────────────────────────────────
