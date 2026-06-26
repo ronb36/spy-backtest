@@ -115,9 +115,10 @@
 <body>
 <div class="app">
   <div class="header-eyebrow">SPY Covered Call</div>
+  <div id="js-error-banner" style="display:none;background:#2d1515;border:1px solid var(--red);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;color:var(--red);white-space:pre-wrap;"></div>
   <h1>Backtest & Roll Optimizer</h1>
   <div class="header-sub" id="data-status">Loading data mart from GitHub...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.K — deduped elements · error isolation</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.L — visible error banner · global handler</div>
 
   <!-- Initial Position -->
   <div class="init-panel" id="init-panel" style="display:none">
@@ -296,6 +297,24 @@
 </div>
 
 <script>
+// ── Global error handler ──────────────────────────────────────────────────
+window.onerror = function(msg, src, line, col, err) {
+  const banner = document.getElementById("js-error-banner");
+  if (banner) {
+    banner.style.display = "block";
+    banner.textContent = "JS Error: " + msg + "\nLine: " + line + "\n" + (err ? err.stack : "");
+  }
+  return false;
+};
+
+window.addEventListener("unhandledrejection", function(e) {
+  const banner = document.getElementById("js-error-banner");
+  if (banner) {
+    banner.style.display = "block";
+    banner.textContent += "\nUnhandled Promise: " + (e.reason?.message || e.reason);
+  }
+});
+
 // ── Data mart ──────────────────────────────────────────────────────────────
 const DATA_URL = "https://raw.githubusercontent.com/ronb36/spy-backtest/main/data/spy_data.json";
 let DM = null; // loaded data mart
