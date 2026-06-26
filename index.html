@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SPY Covered Call Backtest</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#0d0f14; --surface:#161921; --surface2:#1e2230; --border:#2a2f3d;
+  --text:#e8ecf4; --muted:#7a8299; --green:#3dd68c; --red:#f56565;
+  --accent:#5b8af5; --yellow:#f6c90e;
+  --mono:"IBM Plex Mono",monospace; --sans:"IBM Plex Sans",sans-serif;
+}
+body { background:var(--bg); color:var(--text); font-family:var(--sans); }
+.app { max-width:1200px; margin:0 auto; padding:24px 16px 60px; }
+
+/* Typography helpers */
+.eyebrow { font-family:var(--mono); font-size:10px; letter-spacing:.15em; color:var(--accent); text-transform:uppercase; margin-bottom:8px; }
+.mono-label { font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+.green { color:var(--green); } .red { color:var(--red); } .accent { color:var(--accent); } .yellow { color:var(--yellow); } .muted { color:var(--muted); }
+
+/* Panels */
+.panel { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:16px; }
+.panel-accent { border-color:var(--accent); }
+.panel-title { font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+
+/* Error banner */
+#err-banner { display:none; background:#2d1515; border:1px solid var(--red); border-radius:6px; padding:10px 14px; margin-bottom:12px; font-family:var(--mono); font-size:11px; color:var(--red); white-space:pre-wrap; }
+
+/* Init position */
+.init-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; }
+.ctrl { display:flex; flex-direction:column; gap:5px; }
+.ctrl .mono-label { margin-bottom:2px; }
+.display-box { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:6px 10px; font-family:var(--mono); font-size:12px; color:var(--text); height:34px; display:flex; align-items:center; }
+.init-badge { display:inline-flex; align-items:center; gap:4px; background:rgba(91,138,245,.12); border:1px solid rgba(91,138,245,.3); border-radius:3px; padding:2px 8px; font-family:var(--mono); font-size:9px; letter-spacing:.08em; color:var(--accent); margin-left:8px; }
+select.display-box { cursor:pointer; outline:none; }
+
+/* Controls */
+.ctrl-row { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+.ctrl-right { display:flex; gap:10px; align-items:center; }
+.btn { display:flex; align-items:center; gap:6px; border:none; border-radius:4px; font-family:var(--mono); font-size:11px; padding:0 16px; height:30px; cursor:pointer; transition:opacity .15s; white-space:nowrap; }
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-primary:hover { opacity:.85; }
+.btn-primary:disabled { opacity:.4; cursor:not-allowed; }
+
+/* Toggle buttons */
+.toggle-group { display:flex; }
+.toggle-btn { font-family:var(--mono); font-size:11px; padding:0 14px; height:30px; border:1px solid var(--border); background:var(--surface2); color:var(--muted); cursor:pointer; transition:all .15s; }
+.toggle-btn:first-child { border-radius:4px 0 0 4px; }
+.toggle-btn:last-child { border-radius:0 4px 4px 0; }
+.toggle-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* Param display */
+.param-box { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:10px 14px; }
+.param-grid { display:flex; gap:24px; flex-wrap:wrap; margin-top:8px; }
+.param-item .param-val { font-family:var(--mono); font-size:13px; color:var(--text); }
+
+/* Progress */
+.progress-panel { display:none; }
+.progress-panel.visible { display:block; }
+.progress-bar-bg { background:var(--surface2); border-radius:4px; height:6px; margin-bottom:8px; overflow:hidden; }
+.progress-bar-fill { height:100%; background:var(--accent); border-radius:4px; transition:width .3s ease; width:0%; }
+.progress-log { font-family:var(--mono); font-size:11px; color:var(--muted); line-height:1.9; max-height:200px; overflow-y:auto; }
+.progress-log .ok { color:var(--green); }
+.progress-log .err { color:var(--red); }
+.progress-log .dbg { color:#3a4560; font-size:10px; }
+
+/* Summary cards */
+.summary-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; margin-bottom:16px; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:12px 14px; }
+.stat-label { font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:5px; }
+.stat-value { font-family:var(--mono); font-size:16px; font-weight:600; }
+.stat-sub { font-size:10px; color:var(--muted); margin-top:2px; }
+
+/* Tabs */
+.tab-bar { display:flex; gap:4px; margin-bottom:12px; }
+.tab-btn { font-family:var(--mono); font-size:10px; letter-spacing:.08em; padding:0 16px; height:32px; border:1px solid var(--border); background:var(--surface); color:var(--muted); border-radius:4px; cursor:pointer; transition:all .15s; }
+.tab-btn:hover { border-color:var(--accent); color:var(--text); }
+.tab-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* Chart panel */
+.chart-panel { background:var(--surface); border:1px solid var(--border); border-radius:8px; margin-bottom:16px; overflow:hidden; }
+.chart-header { padding:12px 16px; border-bottom:1px solid var(--border); }
+.chart-title { font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+
+/* Cycle table */
+.tbl-wrap { overflow-x:auto; }
+.tbl { width:100%; border-collapse:collapse; }
+.tbl th { font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:8px 12px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; position:sticky; top:0; background:var(--surface); z-index:2; }
+.tbl td { font-family:var(--mono); font-size:11px; padding:8px 12px; border-bottom:1px solid var(--border); white-space:nowrap; }
+.tbl tr:last-child td { border-bottom:none; }
+.tbl-wrap { max-height:420px; overflow-y:auto; }
+
+/* Heatmap */
+.heatmap-wrap { overflow-x:auto; padding:16px; }
+.heatmap-tbl { border-collapse:collapse; font-family:var(--mono); font-size:11px; }
+.heatmap-tbl th { padding:6px 12px; color:var(--muted); font-size:9px; letter-spacing:.08em; text-transform:uppercase; text-align:center; white-space:nowrap; }
+.heatmap-tbl th.row-h { text-align:left; min-width:130px; }
+.heatmap-tbl td { padding:8px 12px; text-align:center; white-space:nowrap; border-radius:3px; font-weight:500; }
+.heatmap-tbl td.row-label { text-align:left; color:var(--muted); font-size:10px; background:transparent !important; }
+.heatmap-best { outline:2px solid var(--green); outline-offset:-2px; }
+
+/* Data mart */
+.mart-card { cursor:pointer; transition:all .15s; }
+.mart-card:hover { border-color:var(--accent); }
+#mart-table-container table thead th { position:sticky; top:0; background:var(--surface); z-index:2; box-shadow:0 1px 0 var(--border); }
+
+/* Gap report */
+.gap-box { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:10px; white-space:pre; color:var(--muted); font-size:10px; line-height:1.8; margin-top:10px; }
+
+.footer { font-size:11px; color:var(--muted); border-top:1px solid var(--border); padding-top:12px; margin-top:8px; line-height:1.6; }
+@media(max-width:700px) { .init-grid { grid-template-columns:repeat(3,1fr); } .summary-grid { grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="eyebrow">SPY Covered Call</div>
+  <div id="err-banner"></div>
+  <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
+  <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.2.5 · roll credit debug · debit filter</div>
+
+  <!-- Initial Position -->
+  <div class="panel panel-accent" id="init-panel" style="display:none">
+    <div class="panel-title">Initial Position <span class="init-badge">📌 Fixed — not optimized</span></div>
+    <div class="init-grid">
+      <div class="ctrl"><div class="mono-label">Entry Date</div><div class="display-box" id="init-entry-date">—</div></div>
+      <div class="ctrl"><div class="mono-label">SPY Qty</div><div class="display-box" id="init-qty">—</div></div>
+      <div class="ctrl"><div class="mono-label">SPY Price</div><div class="display-box" id="init-spy">—</div></div>
+      <div class="ctrl"><div class="mono-label">Call Expiry</div><select class="display-box" id="init-date" onchange="onInitDateChange()"></select></div>
+      <div class="ctrl"><div class="mono-label">Strike</div><div class="display-box" id="init-strike">—</div></div>
+      <div class="ctrl"><div class="mono-label">Initial Credit</div><div class="display-box" id="init-credit">—</div></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="panel">
+    <div class="ctrl-row">
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="btn-test" onclick="setMode('test')">▶ Test</button>
+        <button class="toggle-btn" id="btn-optimize" onclick="runOptimization()">⊞ Optimize</button>
+      </div>
+      <div class="ctrl-right">
+        <!-- Shares driven by init position panel -->
+        <select id="shares" style="display:none;">
+          <option value="600" selected>600</option>
+        </select>
+        <div style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--muted);">
+          Rolls
+          <select id="single-roll-toggle" style="background:var(--surface2);border:1px solid var(--yellow);border-radius:4px;color:var(--yellow);font-family:var(--mono);font-size:10px;padding:2px 6px;height:24px;outline:none;cursor:pointer;">
+            <option value="0">All</option>
+            <option value="1">1</option>
+            <option value="3" selected>3</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+        <label style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;">
+          <input type="checkbox" id="debug-toggle" style="accent-color:var(--accent);" /> Debug
+        </label>
+        <button class="btn btn-primary" id="run-btn" onclick="runSimulation()" disabled>▶ Run</button>
+      </div>
+    </div>
+    <!-- Parameter display -->
+    <div class="param-box">
+      <div class="mono-label" id="param-label">Standard Parameters (Test Mode)</div>
+      <div class="param-grid">
+        <div class="param-item"><div class="mono-label">OTM</div><div class="param-val" id="p-otm">5%</div></div>
+        <div class="param-item"><div class="mono-label">Decay</div><div class="param-val" id="p-decay">75%</div></div>
+        <div class="param-item"><div class="mono-label">DTE Floor</div><div class="param-val" id="p-dte">21d</div></div>
+        <div class="param-item"><div class="mono-label">Delta</div><div class="param-val" id="p-delta">0.35</div></div>
+        <div class="param-item"><div class="mono-label">Max Lookahead</div><div class="param-val" id="p-lookahead">90d</div></div>
+        <div class="param-item"><div class="mono-label">Regime</div><div class="param-val" id="p-regime">All</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="panel progress-panel" id="progress-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div class="mono-label">Running...</div>
+      <button onclick="copyDebugLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="copy-log-btn">Copy Log</button>
+    </div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar"></div></div>
+    <div class="progress-log" id="progress-log"></div>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="summary-grid" id="summary-grid"></div>
+
+  <!-- Results tabs -->
+  <div id="results-area" style="display:none">
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Roll Log</button>
+      <button class="tab-btn" id="tab-btn-chart" onclick="showTab('chart')">📈 Chart</button>
+      <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Heatmap</button>
+      <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
+      <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
+    </div>
+
+    <!-- Log tab -->
+    <div id="tab-log">
+      <div class="chart-panel">
+        <div class="chart-header"><span class="chart-title">Roll Cycle Log</span></div>
+        <div class="tbl-wrap"><div id="cycle-table"></div></div>
+      </div>
+    </div>
+
+    <!-- Chart tab -->
+    <div id="tab-chart" style="display:none">
+      <div class="chart-panel">
+        <div class="chart-header"><span class="chart-title">Equity Curve — Covered Call vs Buy &amp; Hold SPY</span></div>
+        <div id="equity-chart" style="height:340px;"></div>
+      </div>
+    </div>
+
+    <!-- Heatmap tab -->
+    <div id="tab-heatmap" style="display:none">
+      <div class="chart-panel">
+        <div class="chart-header"><span class="chart-title">Regime Optimization — Ann. Yield % by Decay × DTE Floor</span></div>
+        <div id="heatmap-container"></div>
+      </div>
+    </div>
+
+    <!-- Gaps tab -->
+    <div id="tab-gaps" style="display:none">
+      <div class="chart-panel">
+        <div class="chart-header"><span class="chart-title">⚠ Data Mart Gaps Found During Simulation</span></div>
+        <div class="tbl-wrap"><div id="gaps-table"></div></div>
+      </div>
+      <div id="gaps-instructions" style="display:none;margin-top:12px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.9;"></div>
+    </div>
+
+    <!-- Data Mart tab -->
+    <div id="tab-mart" style="display:none">
+      <!-- Summary cards -->
+      <div class="summary-grid" id="mart-cards" style="margin-bottom:12px;"></div>
+      <!-- Contract filter (options only) -->
+      <div id="mart-filter" style="display:none;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="ctrl">
+          <div class="mono-label">Expiry</div>
+          <select id="mart-expiry" onchange="onMartExpiryChange()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;min-width:130px;"></select>
+        </div>
+        <div class="ctrl">
+          <div class="mono-label">Strike</div>
+          <select id="mart-strike" onchange="renderMartTable()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;min-width:130px;"></select>
+        </div>
+        <div class="ctrl">
+          <div class="mono-label" style="visibility:hidden;">x</div>
+          <div class="display-box" id="mart-contract-info" style="color:var(--muted);font-size:10px;min-width:200px;">—</div>
+        </div>
+      </div>
+      <!-- Table -->
+      <div class="chart-panel">
+        <div class="tbl-wrap"><div id="mart-table-container"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
+    Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
+    SPY equity appreciation tracked separately. Not financial advice.
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Global error handlers ──────────────────────────────────────────────────
+window.onerror = (msg, src, line, col, err) => {
+  showError('JS Error: ' + msg + '\nLine ' + line + (err ? '\n' + err.stack : ''));
+};
+window.addEventListener('unhandledrejection', e => {
+  showError('Promise Error: ' + (e.reason?.message || e.reason));
+});
+function showError(msg) {
+  const el = document.getElementById('err-banner');
+  if (el) { el.style.display = 'block'; el.textContent += msg + '\n'; }
+}
+
+// ── Constants ──────────────────────────────────────────────────────────────
+const DATA_URL = 'https://raw.githubusercontent.com/ronb36/spy-backtest/main/data/spy_data.json';
+
+const STD = {
+  otmFixed:       0.05,
+  decayTrigger:   75,
+  dteFloor:       21,
+  deltaThreshold: 0.35,
+  maxLookahead:   90,
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let DM = null;           // data mart
+let _mode = 'test';      // 'test' | 'optimize'
+let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
+let _martView = 'spy';   // active data mart tab
+let _gaps = [];          // gap contracts found during simulation
+
+// ── Utility ───────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmt = (n, d=2) => (n == null || isNaN(n)) ? '—' : n.toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d});
+const fmtD = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+$':'-$') + fmt(Math.abs(n), 0);
+const fmtP = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+':'') + fmt(n,1) + '%';
+
+function copyDebugLog() {
+  const el = document.getElementById('progress-log');
+  if (!el) return;
+  const text = el.innerText || el.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-log-btn');
+    if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.getElementById('copy-log-btn');
+    if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
+  });
+}
+
+function setProgress(pct) {
+  const el = $('progress-bar');
+  if (el) el.style.width = pct + '%';
+}
+function logMsg(msg, cls='') {
+  const el = $('progress-log');
+  if (!el) return;
+  el.innerHTML += `<div class="${cls}">${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+function logDbg(msg) {
+  if ($('debug-toggle')?.checked) logMsg(msg, 'dbg');
+}
+function yield_() { return new Promise(r => setTimeout(r, 0)); }
+
+// ── Mode ───────────────────────────────────────────────────────────────────
+function setMode(m) {
+  _mode = m;
+  $('btn-test').classList.toggle('active', m === 'test');
+  updateParamDisplay();
+}
+
+function getVIXRegime(vix) {
+  if (vix < 15) return 'low';
+  if (vix < 20) return 'normal';
+  if (vix < 25) return 'elevated';
+  return 'high';
+}
+
+function getActiveParams(regime) {
+  if (_mode === 'test' || !_optParams) return { ...STD };
+  return { ...STD, ...(_optParams[regime || getVIXRegime(18)] || {}) };
+}
+
+function updateParamDisplay(regime) {
+  const p = getActiveParams(regime);
+  const r = regime || getVIXRegime(18);
+  const isOpt = _mode === 'optimize' && _optParams;
+  $('param-label').textContent = isOpt
+    ? `Optimized — ${r.charAt(0).toUpperCase()+r.slice(1)} VIX Regime`
+    : 'Standard Parameters (Test Mode)';
+  $('p-otm').textContent     = (p.otmFixed*100).toFixed(0) + '%';
+  $('p-decay').textContent   = p.decayTrigger + '%';
+  $('p-dte').textContent     = p.dteFloor + 'd';
+  $('p-delta').textContent   = p.deltaThreshold.toFixed(2);
+  $('p-lookahead').textContent = p.maxLookahead + 'd';
+  $('p-regime').textContent  = isOpt ? r.charAt(0).toUpperCase()+r.slice(1) : 'All';
+  ['p-otm','p-decay','p-dte','p-delta'].forEach(id => $('p-otm') && ($( id).style.color = 'var(--text)'));
+  if (isOpt) {
+    if (p.decayTrigger   !== STD.decayTrigger)   $('p-decay').style.color = 'var(--green)';
+    if (p.dteFloor       !== STD.dteFloor)       $('p-dte').style.color   = 'var(--green)';
+    if (p.deltaThreshold !== STD.deltaThreshold) $('p-delta').style.color = 'var(--green)';
+  }
+}
+
+// ── Tab management ─────────────────────────────────────────────────────────
+function showTab(tab) {
+  ['log','chart','heatmap','gaps','mart'].forEach(t => {
+    const el = $('tab-' + t);
+    const btn = $('tab-btn-' + t);
+    if (el)  el.style.display  = t === tab ? 'block' : 'none';
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  if (tab === 'mart') renderMartCards();
+}
+
+// ── Black-Scholes delta ────────────────────────────────────────────────────
+function normalCDF(x) {
+  const a1=.254829592, a2=-.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=.3275911;
+  const s = x < 0 ? -1 : 1, v = Math.abs(x);
+  const t = 1 / (1 + p * v);
+  const y = 1 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-v*v);
+  return 0.5 * (1 + s * y);
+}
+function callDelta(S, K, dte, vix, tnx) {
+  const T = Math.max(dte, 1) / 365;
+  const sig = Math.max((vix || 15), 5) / 100;
+  const r   = (tnx || 4.5) / 100;
+  if (T <= 0 || sig <= 0 || S <= 0 || K <= 0) return 0;
+  const d1 = (Math.log(S/K) + (r + .5*sig*sig)*T) / (sig*Math.sqrt(T));
+  return normalCDF(d1);
+}
+function calcMaxDD(vals) {
+  let peak = -Infinity, dd = 0;
+  for (const v of vals) { if (v > peak) peak = v; if (peak-v > dd) dd = peak-v; }
+  return dd;
+}
+
+// ── Data mart lookup helpers ───────────────────────────────────────────────
+function buildMaps() {
+  const spyMap = {}, vixMap = {};
+  DM.spy.forEach(r => spyMap[r.date] = r);
+  DM.vix.forEach(r => vixMap[r.date] = r.c);
+  return { spyMap, vixMap };
+}
+
+function buildDayMap(contract) {
+  if (!contract._dm) {
+    contract._dm = {};
+    contract.days.forEach(d => { contract._dm[d.date.trim().slice(0,10)] = d; });
+  }
+  return contract._dm;
+}
+
+// Find contract for a given expiry closest to targetOTM, using currentSPY for strike matching
+function findContract(expiry, targetOTM, currentSPY) {
+  let best = null, bestScore = Infinity;
+  for (const [ticker, c] of Object.entries(DM.options)) {
+    if (c.expiry !== expiry) continue;
+    const score = currentSPY
+      ? Math.abs(c.strike - currentSPY * (1 + targetOTM))
+      : Math.abs(c.otm_pct - targetOTM);
+    if (score < bestScore) { bestScore = score; best = { ticker, ...c }; }
+  }
+  return best;
+}
+
+// Get all expiries available in mart
+function getMartExpiries() {
+  return [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
+}
+
+// Find best contract to roll into: yield-maximizing across all candidates
+// Yield = (entryPremium / SPY) * (365 / DTE) — highest annualized yield wins
+function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFloor, excludeKey, deltaThreshold, buybackPx) {
+  const afterD  = new Date(afterDate + 'T00:00:00');
+  const maxDate = new Date(afterDate + 'T00:00:00');
+  maxDate.setDate(maxDate.getDate() + maxLookahead * 2); // 2x window to handle gaps
+  const maxStr  = maxDate.toISOString().slice(0, 10);
+
+  const allExp = getMartExpiries().filter(e => {
+    if (e <= afterDate || e > maxStr) return false;
+    const dte = Math.round((new Date(e+'T00:00:00') - afterD) / 86400000);
+    return dte > Math.max(dteFloor * 2, dteFloor + 21); // need 2x floor to avoid immediate re-trigger
+  });
+
+  let bestContract = null, bestYield = -Infinity;
+
+  for (const exp of allExp) {
+    const expContracts = Object.values(DM.options).filter(c => c.expiry === exp);
+
+    if (!expContracts.length) {
+      _gaps.push({ expiry: exp, otm: targetOTM, needed: afterDate, substituted: true });
+      logDbg("  Gap " + exp + ": no contracts in mart");
+      continue;
+    }
+
+    for (const c of expContracts) {
+      if (c.strike <= currentSPY) continue; // must be OTM
+      // Skip the contract we just closed
+      if (excludeKey && (c.expiry + '_' + c.strike) === excludeKey) continue;
+      // Skip if entry delta already exceeds threshold — we'd be re-entering same risk
+      if (deltaThreshold > 0) {
+        const candDTE   = Math.round((new Date(c.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
+        const candDelta = callDelta(currentSPY, c.strike, candDTE, 18, 4.5);
+        if (candDelta >= deltaThreshold) {
+          logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= threshold " + deltaThreshold);
+          continue;
+        }
+      }
+      // Skip if this would be a debit roll — new premium must exceed buyback cost
+      if (buybackPx > 0 && entryPx <= buybackPx) {
+        logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": debit roll (sell $" + entryPx.toFixed(2) + " < cover $" + buybackPx.toFixed(2) + ")");
+        continue;
+      }
+
+
+      const dm = buildDayMap(c);
+      // Find entry day: exact match or next available trading day
+      const entryDay = dm[afterDate] || c.days.find(d => d.date > afterDate);
+      if (!entryDay) continue;
+
+      const entryPx = entryDay.vw || entryDay.c;
+      if (!entryPx || entryPx <= 0) continue;
+
+      const dte = Math.round((new Date(exp+'T00:00:00') - afterD) / 86400000);
+      if (dte <= 0) continue;
+
+      const rawYield = (entryPx / currentSPY) * (365 / dte) * 100;
+      // Risk-adjusted: penalize very short DTE (under 45d) to avoid chasing gamma
+      const dtePenalty = Math.min(1, dte / 45);
+      const adjYield = rawYield * dtePenalty;
+      const candDelta_ = callDelta(currentSPY, c.strike, dte, 18, 4.5);
+      const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
+      logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
+
+      if (adjYield > bestYield) { bestYield = adjYield; bestContract = c; }
+    }
+  }
+
+  if (bestContract) {
+    const bestDTE_   = Math.round((new Date(bestContract.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
+    const bestDelta_ = callDelta(currentSPY, bestContract.strike, bestDTE_, 18, 4.5);
+    const bestOTM_ = ((bestContract.strike - currentSPY) / currentSPY * 100).toFixed(1);
+    logDbg("  → Best: " + bestContract.expiry + " $" + bestContract.strike + " (" + bestOTM_ + "% OTM) Δ=" + bestDelta_.toFixed(3) + " adj.yld=" + bestYield.toFixed(1) + "%");
+    return bestContract;
+  }
+  return null;
+}
+
+// ── Init position display ──────────────────────────────────────────────────
+function populateInitDates() {
+  const sel = $('init-date');
+  const expiries = getMartExpiries();
+  sel.innerHTML = expiries.map(e => `<option value="${e}">${e}</option>`).join('');
+  // Default: first expiry >= mart start + 30d (Aug 2024 for monthly)
+  const target = new Date('2024-06-25T00:00:00');
+  target.setDate(target.getDate() + 30);
+  const tStr = target.toISOString().slice(0,10);
+  const best = expiries.find(e => e >= tStr) || expiries[0];
+  sel.value = best;
+  updateInitPosition();
+}
+
+function onInitDateChange() { updateInitPosition(); }
+function onSharesChange()   { updateInitPosition(); }
+
+function updateInitPosition() {
+  if (!DM) return;
+  const expiry = $('init-date').value;
+  const sharesEl = $('init-qty-input') || $('shares');
+  const shares = parseInt(sharesEl?.value || 600);
+  // Sync hidden shares select
+  const hiddenShares = $('shares');
+  if (hiddenShares && hiddenShares.value != shares) hiddenShares.value = shares;
+  const contracts = shares / 100;
+  const { spyMap } = buildMaps();
+
+  const c = findContract(expiry, STD.otmFixed);
+  if (!c || !c.days.length) { $('init-entry-date').textContent = 'No data'; return; }
+
+  const dm = buildDayMap(c);
+  const firstDay = c.days[0];
+  const entryPrice = firstDay.vw || firstDay.c;
+  const spyOnEntry = spyMap[firstDay.date]?.c;
+  const credit = entryPrice * 100 * contracts;
+
+  $('init-entry-date').textContent = firstDay.date;
+  $('init-qty').textContent        = shares + ' shares';
+  $('init-spy').textContent        = spyOnEntry ? '$' + spyOnEntry.toFixed(2) : '—';
+  $('init-strike').textContent     = '$' + c.strike + ' (' + (c.otm_pct*100).toFixed(0) + '% OTM)';
+  $('init-credit').textContent     = '+$' + credit.toLocaleString('en-US',{maximumFractionDigits:0}) + ' ($' + entryPrice.toFixed(2) + '/sh)';
+  $('init-panel').style.display    = 'block';
+}
+
+// ── Core simulation ────────────────────────────────────────────────────────
+async function simulate(p) {
+  const { otmFixed, decayTrigger, dteFloor, deltaThreshold, maxLookahead, shares, initExpiry } = p;
+  const contracts = shares / 100;
+  const { spyMap, vixMap } = buildMaps();
+  const spyDates = DM.spy.map(r => r.date).sort();
+
+  // Init contract
+  const initC = findContract(initExpiry, otmFixed);
+  if (!initC || !initC.days.length) return null;
+  buildDayMap(initC);
+
+  const startDate = initC.days[0].date;
+  const startSPY  = spyMap[startDate]?.c || DM.spy[0].c;
+
+  logDbg(`Init: ${initC.ticker} exp=${initC.expiry} first=${startDate}`);
+
+  const cycles = [], equity = [];
+  let premPnL = 0;
+  let rollCreditTotal = 0; // cumulative net credit across all rolls
+
+  // Position state
+  let curC         = initC;
+  let posOpen      = false;
+  let entryPrice   = null;
+  let entryDate    = null;
+  let entryStrike  = null;
+  let entrySPY     = null;
+  let isInitial       = true;
+  let entryDelta_     = 0;
+  let iter            = 0;
+  let pendingContract = null;
+  const TNX        = 4.5; // approximate 10yr
+
+  for (const date of spyDates) {
+    if (date < startDate) continue;
+    const spyRow = spyMap[date];
+    if (!spyRow) continue;
+    const spy = spyRow.c;
+    const vix = vixMap[date] || 18;
+
+    // Yield to UI every 50 iterations
+    if (++iter % 50 === 0) {
+      setProgress(20 + Math.min(60, iter / 5));
+      logDbg(`  ${date} — ${cycles.length} cycles`);
+      await yield_();
+    }
+    if (iter > 6000) { logMsg('⚠ Safety limit reached', 'err'); break; }
+    // maxRolls checked after next contract found (see below)
+
+    // ── Open position on first available day ──
+    if (!posOpen) {
+      const dm  = buildDayMap(curC);
+      const key = date.trim().slice(0,10);
+      const day = dm[key];
+      if (!day) continue; // wait for data on this contract
+      entryPrice  = day.vw || day.c;
+      entryDate   = date;
+      entrySPY    = spy;
+      entryStrike = curC.strike;
+      posOpen     = true;
+      const expD_ = new Date(curC.expiry + 'T00:00:00');
+      const todD_ = new Date(date + 'T00:00:00');
+      entryDelta_ = callDelta(spy, curC.strike, Math.round((expD_-todD_)/86400000), vix, TNX);
+      const _tk = Object.keys(DM.options).find(k => DM.options[k] === curC) || '?';
+      logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${date} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
+    }
+
+    // ── Mark current position ──
+    const dm  = buildDayMap(curC);
+    const key = date.trim().slice(0,10);
+    const callDay = dm[key];
+    const callPx  = callDay ? callDay.c : null;
+
+    const expDate = new Date(curC.expiry + 'T00:00:00');
+    const todayD  = new Date(date + 'T00:00:00');
+    const dte     = Math.round((expDate - todayD) / 86400000);
+    const isExp   = date >= curC.expiry;
+    const delta   = callDelta(spy, entryStrike, dte, vix, TNX);
+
+    // ── Equity curve ──
+    const bhRet  = (spy / startSPY - 1) * 100;
+    const optPnL = (entryPrice - (callPx ?? 0)) * 100 * contracts;
+    const ccRet  = bhRet + ((premPnL + optPnL) / (startSPY * shares)) * 100;
+    equity.push({ date, cc: ccRet, bh: bhRet, spy, vix });
+
+    // ── Roll triggers (skip first 3 days) ──
+    const daysHeld_ = Math.round((new Date(date+'T00:00:00') - new Date(entryDate+'T00:00:00')) / 86400000);
+    let roll = false, reason = '';
+    if (isExp) {
+      roll = true; reason = 'expired';
+    } else if (daysHeld_ >= 3) {
+      if (callPx !== null) {
+        const decay = ((entryPrice - callPx) / entryPrice) * 100;
+        if (date >= '2024-08-05' && date <= '2024-08-10')
+          logDbg(`  ${date}: px=$${callPx.toFixed(2)} entry=$${entryPrice.toFixed(2)} decay=${decay.toFixed(1)}%`);
+        if (decay >= decayTrigger) { roll = true; reason = `${decay.toFixed(0)}% decay`; }
+      }
+      if (!roll && dte <= dteFloor)          { roll = true; reason = `${dte}d DTE`; }
+      // Delta trigger: only fire if delta has RISEN above threshold (not started there)
+      if (!roll && delta >= deltaThreshold && entryDelta_ < deltaThreshold) { roll = true; reason = `delta ${delta.toFixed(2)}`; }
+    }
+
+    if (!roll) continue;
+
+    // ── Close cycle ──
+    const exitPx = isExp ? Math.max(0, spy - entryStrike) : (callPx ?? 0);
+    const pnl    = (entryPrice - exitPx) * 100 * contracts;
+    premPnL += pnl;
+    const days   = Math.max(1, Math.round((todayD - new Date(entryDate + 'T00:00:00')) / 86400000));
+    const netPx  = entryPrice - exitPx; // positive = profit, negative = loss
+    const annYld = (netPx / entrySPY) * (365 / days) * 100;
+    const eDelta = callDelta(entrySPY, entryStrike,
+      Math.round((expDate - new Date(entryDate + 'T00:00:00')) / 86400000), vixMap[entryDate] || vix, TNX);
+
+    cycles.push({
+      entryDate, exitDate:date, expiry:curC.expiry,
+      strike:entryStrike, otmPct:curC.otm_pct,
+      entryPx:entryPrice, exitPx,
+      entrySPY, exitSPY:spy,
+      pnl, daysHeld:days, annYld, reason,
+      isExp, isInitial,
+      entryVix: vixMap[entryDate] || vix,
+      entryDelta: eDelta, exitDelta: delta,
+      approx: _gaps.some(g => g.substituted),
+    });
+
+    isInitial = false;
+    posOpen   = false;
+    entryDelta_ = 0;
+    entryPrice = entryDate = entryStrike = entrySPY = null;
+
+    // ── Find next contract ──
+    const next = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, curC.expiry + '_' + curC.strike, deltaThreshold, exitPx);
+    if (!next) {
+      logMsg(`  No contract found within ${maxLookahead}d of ${date} — done`, 'err');
+      break;
+    }
+    // Accumulate roll credit: new premium - buyback
+    const rollDayKey = date.trim().slice(0,10);
+    buildDayMap(next);
+    const nextDay = next._dm[rollDayKey] || next.days.find(d => d.date >= date);
+    const nextPx_ = nextDay ? (nextDay.vw || nextDay.c) : 0;
+    rollCreditTotal += (nextPx_ - exitPx) * 100 * contracts;
+    logDbg("  Roll credit: sell $" + (nextPx_||0).toFixed(2) + " - cover $" + exitPx.toFixed(2) + " = $" + ((nextPx_-exitPx)*100*contracts).toFixed(0) + " cumulative: $" + rollCreditTotal.toFixed(0));
+
+    curC = next;
+    // Roll is now complete: cover done + new leg found
+    if (p.maxRolls && cycles.filter(c => !c.isInitial).length >= p.maxRolls) {
+      logMsg(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok');
+      pendingContract = next; // preserve for blotter display
+      break;
+    }
+    // DO NOT continue — open new position on same roll date (exit = next entry)
+  }
+
+  if (!cycles.length) return null;
+
+  // Summary
+  const gapCount = _gaps.filter(g => g.substituted).length;
+  if (gapCount) logMsg(`⚠ ${gapCount} gap(s) — results approximate`, 'err');
+
+  const rolls = cycles.filter(c => !c.isInitial);
+  const totalPnl  = rolls.reduce((s,c) => s+c.pnl, 0);
+  const avgYld    = rolls.length ? rolls.reduce((s,c) => s+c.annYld, 0) / rolls.length : 0;
+  const winRate   = rolls.length ? rolls.filter(c => c.pnl > 0).length / rolls.length * 100 : 0;
+  const spyRet    = (DM.spy[DM.spy.length-1].c / DM.spy[0].c - 1) * 100;
+  const lastEC    = equity[equity.length-1];
+  const covRet    = lastEC?.cc || 0;
+  const maxDD     = calcMaxDD(equity.map(e => e.cc));
+
+  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal };
+}
+
+// ── Run simulation ─────────────────────────────────────────────────────────
+function renderGapsTab(gaps) {
+  const dataGaps = gaps.filter(g => g.substituted);
+  const itmSkips = gaps.filter(g => !g.substituted);
+
+  // Tab button visibility
+  const gapBtn = $('tab-btn-gaps');
+  if (gapBtn) gapBtn.style.display = dataGaps.length ? 'block' : 'none';
+
+  if (!dataGaps.length) return;
+
+  // Build table
+  const rows = dataGaps.map(g => `<tr>
+    <td class="accent">${g.expiry}</td>
+    <td class="muted">${(g.otm*100).toFixed(0)}%</td>
+    <td class="muted">${g.needed}</td>
+    <td class="red">No data in mart</td>
+  </tr>`).join('');
+
+  $('gaps-table').innerHTML = `<table class="tbl">
+    <thead><tr><th>Expiry</th><th>OTM Target</th><th>Needed On</th><th>Status</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+
+  // Build Railway instructions
+  const tickers = dataGaps.map(g => {
+    // Build approximate Polygon ticker for gap fill
+    const d = new Date(g.expiry + 'T00:00:00');
+    const yy = String(d.getFullYear()).slice(2);
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    // Use current SPY from mart as approximate strike basis
+    const lastSPY = DM.spy[DM.spy.length-1]?.c || 600;
+    const strike  = Math.round(lastSPY * (1+g.otm) / 5) * 5;
+    const strikeStr = String(strike * 1000).padStart(8, '0');
+    return `O:SPY${yy}${mm}${dd}C${strikeStr}`;
+  });
+
+  const instructions = dataGaps.length > 0 ? [
+    '── Gap Fill Instructions ──────────────────────────────────',
+    '',
+    '1. Copy GAP_TICKERS value below',
+    '2. Railway → spy-backtest service → Variables',
+    '3. Add: GAP_TICKERS = ' + tickers.join(','),
+    '4. Add: RUN_MODE = gap',
+    '5. Railway → Cron → Run Now',
+    '6. Wait for Pushover confirmation',
+    '7. Clear GAP_TICKERS and reset RUN_MODE = daily',
+    '8. Reload this page and re-run simulation',
+    '',
+    'Note: ITM skips (' + itmSkips.length + ') are expected — no action needed.',
+  ].join("\n") : "";;
+
+  const instrEl = $('gaps-instructions');
+  if (instrEl) {
+    instrEl.style.display = 'block';
+    instrEl.textContent = instructions;
+  }
+}
+
+async function runSimulation() {
+  if (!DM) return;
+  _gaps = [];
+
+  const p = {
+    ...getActiveParams(),
+    shares:     parseInt($('shares').value),
+    initExpiry: $('init-date').value,
+    maxRolls:   (() => { const v = parseInt($('single-roll-toggle')?.value || '0'); return v > 0 ? v : null; })(),
+    shares:     parseInt(($('init-qty').textContent || '600 shares').replace(/\D/g,'')),
+  };
+
+  $('progress-panel').classList.add('visible');
+  $('progress-log').innerHTML = '';
+  setProgress(5);
+  logMsg('Building lookups...');
+  await yield_();
+
+  logMsg(`Running — ${(p.otmFixed*100).toFixed(0)}% OTM · ${p.decayTrigger}% decay · ${p.dteFloor}d floor · Δ${p.deltaThreshold} · ${p.maxLookahead}d lookahead`);
+  await yield_();
+
+  const result = await simulate(p);
+  setProgress(95);
+
+  if (!result) {
+    logMsg('✗ No cycles — check parameters or init expiry', 'err');
+    setProgress(100);
+    return;
+  }
+
+  logMsg(`✓ ${result.rolls.length} roll cycles`, 'ok');
+  setProgress(100);
+  const progTitle = document.querySelector('#progress-panel .mono-label');
+  if (progTitle) progTitle.textContent = 'Complete';
+
+  renderSummary(result);
+  renderCycleTable(result);
+  renderEquityChart(result);
+  renderGapsTab(_gaps);
+
+  $('results-area').style.display = 'block';
+  $('tab-btn-heatmap').style.display = 'none';
+  showTab('log');
+}
+
+// ── Optimization ───────────────────────────────────────────────────────────
+async function runOptimization() {
+  if (!DM) return;
+
+  setMode('optimize');
+  _gaps = [];
+
+  $('progress-panel').classList.add('visible');
+  $('progress-log').innerHTML = '';
+  setProgress(5);
+  logMsg('Running regime optimization...');
+  await yield_();
+
+  const shares     = parseInt($('shares').value);
+  const initExpiry = $('init-date').value;
+  const decays     = [50, 60, 70, 75, 80, 90];
+  const floors     = [7, 14, 21, 30, 45];
+  const regimes    = ['low','normal','elevated','high'];
+  const vixRanges  = { low:[0,15], normal:[15,20], elevated:[20,25], high:[25,100] };
+  const total      = decays.length * floors.length * regimes.length;
+  let done = 0;
+
+  _optParams = {};
+  const allResults = {};
+
+  for (const regime of regimes) {
+    const [vMin, vMax] = vixRanges[regime];
+    allResults[regime] = { grid:{}, best:null, bestYld:-Infinity };
+    decays.forEach(d => { allResults[regime].grid[d] = {}; });
+
+    for (const decay of decays) {
+      for (const floor of floors) {
+        _gaps = [];
+        const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, shares, initExpiry });
+        let yld = null;
+        if (r?.rolls?.length >= 2) {
+          const regimeCycles = r.rolls.filter(c => c.entryVix >= vMin && c.entryVix < vMax);
+          if (regimeCycles.length >= 2)
+            yld = regimeCycles.reduce((s,c) => s + c.annYld, 0) / regimeCycles.length;
+        }
+        allResults[regime].grid[decay][floor] = yld;
+        if (yld !== null && yld > allResults[regime].bestYld) {
+          allResults[regime].bestYld = yld;
+          allResults[regime].best = { decay, floor };
+        }
+        done++;
+        setProgress(5 + Math.round((done/total)*90));
+        await yield_();
+      }
+    }
+
+    const b = allResults[regime].best;
+    _optParams[regime] = { decayTrigger: b?.decay || STD.decayTrigger, dteFloor: b?.floor || STD.dteFloor };
+    logMsg(`✓ ${regime}: best ${b?.decay}% decay / ${b?.floor}d floor → ${allResults[regime].bestYld.toFixed(1)}% yield`, 'ok');
+  }
+
+  setProgress(100);
+  renderHeatmaps(allResults, decays, floors);
+  updateParamDisplay();
+
+  $('results-area').style.display = 'block';
+  $('tab-btn-heatmap').style.display = 'block';
+  showTab('heatmap');
+}
+
+// ── Render: Summary ────────────────────────────────────────────────────────
+function renderSummary(r) {
+  const yClass = r.avgYld >= 8 ? 'green' : r.avgYld >= 4 ? 'yellow' : 'red';
+  const ddClass = r.maxDD > 20 ? 'red' : r.maxDD > 10 ? 'yellow' : 'green';
+  $('summary-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Avg Ann. Yield</div><div class="stat-value ${yClass}">${fmt(r.avgYld,1)}%</div><div class="stat-sub">Premium only · ${r.rolls.length} rolls</div></div>
+    <div class="stat-card"><div class="stat-label">Total Roll Credit</div><div class="stat-value ${r.rollCreditTotal>=0?'green':'red'}">${fmtD(r.rollCreditTotal)}</div><div class="stat-sub">Net premium across all rolls</div></div>
+    <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${r.winRate>=70?'green':'yellow'}">${fmt(r.winRate,0)}%</div><div class="stat-sub">Cycles with net credit</div></div>
+    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmtP(r.covRet)}</div><div class="stat-sub">vs SPY ${fmtP(r.spyRet)}</div></div>
+    <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
+    <div class="stat-card"><div class="stat-label">Total Cycles</div><div class="stat-value accent">${r.cycles.length}</div><div class="stat-sub">${r.rolls.length} rolls + 1 initial</div></div>
+  `;
+}
+
+// ── Render: Cycle table ────────────────────────────────────────────────────
+function renderCycleTable(r) {
+  const contracts = parseInt(($('init-qty').textContent || '600').replace(/\D/g,'')) / 100;
+
+  const rows = r.rolls.map((c, i) => {
+    // Net credit = new premium sold - buyback cost (roll economics)
+    // nextC is either a closed cycle (has entryPx) or a pendingContract (raw mart object)
+    const nextCycle  = r.cycles[i + 2];
+    const pending    = (i === r.rolls.length - 1) ? r.pendingContract : null;
+    const nextC      = nextCycle || pending;
+
+    // Resolve entry price: from cycle if available, else from contract daymap at roll date
+    let newPx = 0;
+    if (nextCycle) {
+      newPx = nextCycle.entryPx;
+    } else if (pending) {
+      buildDayMap(pending);
+      const rollKey = c.exitDate.trim().slice(0,10);
+      const pDay = pending._dm[rollKey] || pending.days.find(d => d.date >= c.exitDate);
+      newPx = pDay ? (pDay.vw || pDay.c) : 0;
+    }
+
+    const rollCredit = newPx > 0 ? (newPx - c.exitPx) * 100 * contracts : null;
+    const cClass     = rollCredit === null ? 'muted' : rollCredit >= 0 ? 'green' : 'red';
+
+    const rollYld = (rollCredit !== null && nextC)
+      ? ((newPx - c.exitPx) / c.exitSPY) * (365 / Math.max(1,
+          Math.round((new Date(nextC.expiry+'T00:00:00') - new Date(c.exitDate+'T00:00:00')) / 86400000)
+        )) * 100
+      : null;
+    const yClass = rollYld === null ? 'muted' : rollYld >= 5 ? 'green' : rollYld >= 0 ? 'yellow' : 'red';
+
+    const newLeg = nextC
+      ? `Sell $${nextC.strike} ${nextC.expiry} @ $${newPx > 0 ? fmt(newPx) : '—'}`
+      : '—';
+    const approx     = c.approx ? '<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>' : '';
+
+    return `<tr>
+      <td class="muted" style="font-size:10px;">${c.exitDate}${approx}</td>
+      <td class="red">Cover $${c.strike} @ $${fmt(c.exitPx)}</td>
+      <td class="accent">${newLeg}</td>
+      <td class="${cClass}" style="font-weight:600;">${rollCredit !== 0 ? fmtD(rollCredit) : '—'}</td>
+      <td class="${yClass}">${rollYld !== null ? fmt(rollYld,1)+'%' : '—'}</td>
+      <td class="muted" style="font-size:10px;">${c.reason}</td>
+    </tr>`;
+  }).join('');
+
+  // Initial position row — pulled from static init panel fields
+  const initDate   = $('init-entry-date')?.textContent || '—';
+  const initStrike = ($('init-strike')?.textContent || '').split(' ')[0]; // "$585"
+  const initExpiry = $('init-date')?.value || '—';
+  const initCredit = $('init-credit')?.textContent || '—'; // "+$222 ($0.37/sh)"
+
+  const initRow = `<tr style="border-bottom:2px solid var(--border);">
+    <td class="muted" style="font-size:10px;">${initDate}</td>
+    <td class="muted">—</td>
+    <td class="accent">Sell ${initStrike} ${initExpiry} @ ${initCredit}</td>
+    <td class="green" style="font-weight:600;">${initCredit.split(' ')[0]}</td>
+    <td class="muted">—</td>
+    <td class="muted" style="font-size:10px;">initial</td>
+  </tr>`;
+
+  $('cycle-table').innerHTML = `<table class="tbl">
+    <thead><tr>
+      <th>Date</th>
+      <th>Cover (Close)</th>
+      <th>New Leg (Open)</th>
+      <th>Roll Credit</th>
+      <th>Ann Yield</th>
+      <th>Trigger</th>
+    </tr></thead>
+    <tbody>${initRow}${rows}</tbody>
+  </table>`;
+}
+
+// ── Render: Equity chart ───────────────────────────────────────────────────
+function renderEquityChart(r) {
+  const dates = r.equity.map(e => e.date);
+  const cc    = r.equity.map(e => parseFloat(e.cc.toFixed(2)));
+  const bh    = r.equity.map(e => parseFloat(e.bh.toFixed(2)));
+  Plotly.newPlot('equity-chart', [
+    { x:dates, y:cc, name:'Covered Call', type:'scatter', mode:'lines', line:{color:'#3dd68c',width:2} },
+    { x:dates, y:bh, name:'Buy & Hold SPY', type:'scatter', mode:'lines', line:{color:'#5b8af5',width:2,dash:'dot'} },
+  ], {
+    paper_bgcolor:'#161921', plot_bgcolor:'#161921',
+    font:{family:'IBM Plex Mono',color:'#7a8299',size:10},
+    xaxis:{gridcolor:'#2a2f3d',zerolinecolor:'#2a2f3d'},
+    yaxis:{gridcolor:'#2a2f3d',zerolinecolor:'#2a2f3d',ticksuffix:'%'},
+    margin:{l:50,r:20,t:16,b:40},
+    legend:{bgcolor:'#1e2230',bordercolor:'#2a2f3d',borderwidth:1,font:{color:'#e8ecf4',size:10}},
+    hovermode:'x unified',
+  }, { responsive:true, displayModeBar:false });
+}
+
+// ── Render: Heatmaps ───────────────────────────────────────────────────────
+function renderHeatmaps(results, decays, floors) {
+  const regimes = ['low','normal','elevated','high'];
+  const labels  = { low:'Low VIX (<15)', normal:'Normal (15-20)', elevated:'Elevated (20-25)', high:'High (>25)' };
+  let html = '';
+
+  for (const regime of regimes) {
+    const r = results[regime];
+    const allVals = decays.flatMap(d => floors.map(f => r.grid[d][f])).filter(v => v !== null);
+    const minV = allVals.length ? Math.min(...allVals) : 0;
+    const maxV = allVals.length ? Math.max(...allVals) : 10;
+    const cellColor = v => {
+      if (v === null) return 'var(--surface2)';
+      const t = maxV === minV ? .5 : (v-minV)/(maxV-minV);
+      return `rgb(${Math.round(30+t*31)},${Math.round(40+t*174)},${Math.round(60+t*80)})`;
+    };
+    const textColor = v => {
+      if (v === null) return 'var(--border)';
+      const t = maxV === minV ? .5 : (v-minV)/(maxV-minV);
+      return t > .5 ? '#0d0f14' : '#e8ecf4';
+    };
+
+    html += `<div style="margin:16px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;">
+        ${labels[regime]}
+        ${r.best ? `<span style="color:var(--green);margin-left:12px;">Best: ${r.best.decay}% / ${r.best.floor}d → ${r.bestYld.toFixed(1)}%</span>` : '<span style="color:var(--red);margin-left:12px;">Insufficient data</span>'}
+      </div>
+      <div class="heatmap-wrap" style="padding:0;"><table class="heatmap-tbl">
+        <thead><tr><th class="row-h">Decay / DTE→</th>${floors.map(f=>`<th>${f}d</th>`).join('')}</tr></thead>
+        <tbody>${decays.map(d => `<tr><td class="row-label">${d}%</td>${floors.map(f => {
+          const v = r.grid[d][f];
+          const best = r.best?.decay===d && r.best?.floor===f;
+          return `<td style="background:${cellColor(v)};color:${textColor(v)}" class="${best?'heatmap-best':''}">${v!==null?v.toFixed(1)+'%':'—'}</td>`;
+        }).join('')}</tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  $('heatmap-container').innerHTML = html;
+}
+
+// ── Data Mart viewer ───────────────────────────────────────────────────────
+function renderMartCards() {
+  if (!DM) return;
+  const spy = DM.spy, vix = DM.vix;
+  const opts = Object.entries(DM.options);
+  const totalDays = opts.reduce((s,[,c]) => s+c.days.length, 0);
+  const expiries  = [...new Set(opts.map(([,c]) => c.expiry))];
+
+  const card = (id, label, val, sub, active) => `
+    <div class="stat-card mart-card" id="mart-card-${id}" onclick="setMartView('${id}')"
+      style="cursor:pointer;border-color:${active?'var(--accent)':'var(--border)'};opacity:${active?1:.6};">
+      <div class="stat-label">${label}</div>
+      <div class="stat-value accent">${val}</div>
+      <div class="stat-sub">${sub}</div>
+    </div>`;
+
+  $('mart-cards').innerHTML =
+    card('spy',  'SPY Daily',  spy.length+' days',        spy[0]?.date+' → '+spy[spy.length-1]?.date, _martView==='spy') +
+    card('vix',  'VIX Daily',  vix.length+' days',        vix[0]?.date+' → '+vix[vix.length-1]?.date, _martView==='vix') +
+    card('calls','Options',    opts.length+' contracts',   expiries.length+' expiries · '+totalDays.toLocaleString()+' day records', _martView==='calls') +
+    `<div class="stat-card"><div class="stat-label">Last Updated</div>
+      <div class="stat-value green" style="font-size:13px;">${DM.metadata?.last_updated||'—'}</div>
+      <div class="stat-sub">OTM: ${DM.metadata?.otm_targets?.map(t=>(t*100).toFixed(0)+'%').join(', ')||'—'}</div>
+    </div>`;
+
+  // Populate expiry dropdown for options
+  const expSel = $('mart-expiry');
+  if (expSel) {
+    const uniq = [...new Set(opts.map(([,c]) => c.expiry))].sort();
+    expSel.innerHTML = uniq.map(e => `<option value="${e}">${e}</option>`).join('');
+    onMartExpiryChange();
+  }
+
+  renderMartTable();
+}
+
+function setMartView(view) {
+  _martView = view;
+  const filter = $('mart-filter');
+  if (filter) filter.style.display = view === 'calls' ? 'flex' : 'none';
+  renderMartCards();
+}
+
+function onMartExpiryChange() {
+  const exp = $('mart-expiry')?.value;
+  if (!exp) return;
+  const strikeSel = $('mart-strike');
+  const contracts = Object.entries(DM.options)
+    .filter(([,c]) => c.expiry === exp)
+    .sort(([,a],[,b]) => a.strike - b.strike);
+  strikeSel.innerHTML = contracts.map(([ticker,c]) =>
+    `<option value="${ticker}">$${c.strike} (${(c.otm_pct*100).toFixed(0)}% OTM)</option>`
+  ).join('');
+  renderMartTable();
+}
+
+function renderMartTable() {
+  if (!DM) return;
+  const cont = $('mart-table-container');
+  let html = '';
+
+  if (_martView === 'spy') {
+    html = `<table class="tbl"><thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr></thead>
+      <tbody>${DM.spy.slice().reverse().map(r => `<tr>
+        <td class="muted">${r.date}</td><td>$${fmt(r.o)}</td><td>$${fmt(r.h)}</td><td>$${fmt(r.l)}</td>
+        <td class="accent">$${fmt(r.c)}</td><td class="muted">${(r.v/1e6).toFixed(1)}M</td>
+      </tr>`).join('')}</tbody></table>`;
+
+  } else if (_martView === 'vix') {
+    html = `<table class="tbl"><thead><tr><th>Date</th><th>VIX</th><th>Regime</th></tr></thead>
+      <tbody>${DM.vix.slice().reverse().map(r => {
+        const reg = r.c<15?'Low':r.c<20?'Normal':r.c<25?'Elevated':'High';
+        const cls = r.c<15?'green':r.c<20?'accent':r.c<25?'yellow':'red';
+        return `<tr><td class="muted">${r.date}</td><td class="${cls}">${fmt(r.c,2)}</td><td class="${cls}">${reg}</td></tr>`;
+      }).join('')}</tbody></table>`;
+
+  } else {
+    const ticker   = $('mart-strike')?.value;
+    const contract = ticker ? DM.options[ticker] : null;
+    if (!contract) { cont.innerHTML = ''; return; }
+    const info = $('mart-contract-info');
+    if (info) info.textContent = (contract.otm_pct*100).toFixed(0)+'% OTM · '+contract.days.length+' days · entry SPY $'+fmt(contract.entry_spy);
+    html = `<table class="tbl"><thead><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>VWAP</th><th>Volume</th></tr></thead>
+      <tbody>${contract.days.slice().reverse().map(r => `<tr>
+        <td class="muted">${r.date}</td><td>$${fmt(r.o)}</td><td>$${fmt(r.h)}</td><td>$${fmt(r.l)}</td>
+        <td class="accent">$${fmt(r.c)}</td><td class="muted">$${fmt(r.vw)}</td><td class="muted">${r.v}</td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+
+  cont.innerHTML = html;
+}
+
+// ── Load data ──────────────────────────────────────────────────────────────
+async function loadData() {
+  const status = $('data-status');
+  try {
+    status.textContent = 'Fetching data mart from GitHub...';
+    const res = await fetch(DATA_URL + '?t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    DM = await res.json();
+    status.textContent = `✓ Data mart loaded — ${DM.spy.length} SPY days · ${Object.keys(DM.options).length} contracts · updated ${DM.metadata?.last_updated}`;
+    status.style.color = 'var(--green)';
+    $('run-btn').disabled = false;
+    populateInitDates();
+    updateParamDisplay();
+    // Show results area with mart tab always accessible
+    $('results-area').style.display = 'block';
+    showTab('mart');
+    // Pre-render mart
+    renderMartCards();
+    // Now switch to log (empty) as default
+    showTab('log');
+  } catch(e) {
+    status.textContent = '✗ Could not load data mart: ' + e.message;
+    status.style.color = 'var(--red)';
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
