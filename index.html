@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.1.9 · resolve pending price from daymap</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.2.3 · OTM% in candidate debug log</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -452,7 +452,7 @@ function getMartExpiries() {
 
 // Find best contract to roll into: yield-maximizing across all candidates
 // Yield = (entryPremium / SPY) * (365 / DTE) — highest annualized yield wins
-function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFloor) {
+function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFloor, excludeKey, deltaThreshold) {
   const afterD  = new Date(afterDate + 'T00:00:00');
   const maxDate = new Date(afterDate + 'T00:00:00');
   maxDate.setDate(maxDate.getDate() + maxLookahead * 2); // 2x window to handle gaps
@@ -477,6 +477,18 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
 
     for (const c of expContracts) {
       if (c.strike <= currentSPY) continue; // must be OTM
+      // Skip the contract we just closed
+      if (excludeKey && (c.expiry + '_' + c.strike) === excludeKey) continue;
+      // Skip if entry delta already exceeds threshold — we'd be re-entering same risk
+      if (deltaThreshold > 0) {
+        const candDTE   = Math.round((new Date(c.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
+        const candDelta = callDelta(currentSPY, c.strike, candDTE, 18, 4.5);
+        if (candDelta >= deltaThreshold) {
+          logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= threshold " + deltaThreshold);
+          continue;
+        }
+      }
+
 
       const dm = buildDayMap(c);
       // Find entry day: exact match or next available trading day
@@ -493,14 +505,19 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       // Risk-adjusted: penalize very short DTE (under 45d) to avoid chasing gamma
       const dtePenalty = Math.min(1, dte / 45);
       const adjYield = rawYield * dtePenalty;
-      logDbg("  Candidate " + exp + " $" + c.strike + ": px=$" + entryPx.toFixed(2) + " DTE=" + dte + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
+      const candDelta_ = callDelta(currentSPY, c.strike, dte, 18, 4.5);
+      const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
+      logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
 
       if (adjYield > bestYield) { bestYield = adjYield; bestContract = c; }
     }
   }
 
   if (bestContract) {
-    logDbg("  → Best: " + bestContract.expiry + " $" + bestContract.strike + " adj.yld=" + bestYield.toFixed(1) + "%");
+    const bestDTE_   = Math.round((new Date(bestContract.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
+    const bestDelta_ = callDelta(currentSPY, bestContract.strike, bestDTE_, 18, 4.5);
+    const bestOTM_ = ((bestContract.strike - currentSPY) / currentSPY * 100).toFixed(1);
+    logDbg("  → Best: " + bestContract.expiry + " $" + bestContract.strike + " (" + bestOTM_ + "% OTM) Δ=" + bestDelta_.toFixed(3) + " adj.yld=" + bestYield.toFixed(1) + "%");
     return bestContract;
   }
   return null;
@@ -570,6 +587,7 @@ async function simulate(p) {
 
   const cycles = [], equity = [];
   let premPnL = 0;
+  let rollCreditTotal = 0; // cumulative net credit across all rolls
 
   // Position state
   let curC         = initC;
@@ -683,11 +701,18 @@ async function simulate(p) {
     entryPrice = entryDate = entryStrike = entrySPY = null;
 
     // ── Find next contract ──
-    const next = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor);
+    const next = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, curC.expiry + '_' + curC.strike, deltaThreshold);
     if (!next) {
       logMsg(`  No contract found within ${maxLookahead}d of ${date} — done`, 'err');
       break;
     }
+    // Accumulate roll credit: new premium - buyback
+    const rollDayKey = date.trim().slice(0,10);
+    buildDayMap(next);
+    const nextDay = next._dm[rollDayKey] || next.days.find(d => d.date >= date);
+    const nextPx_ = nextDay ? (nextDay.vw || nextDay.c) : 0;
+    rollCreditTotal += (nextPx_ - exitPx) * 100 * contracts;
+
     curC = next;
     // Roll is now complete: cover done + new leg found
     if (p.maxRolls && cycles.filter(c => !c.isInitial).length >= p.maxRolls) {
@@ -713,7 +738,7 @@ async function simulate(p) {
   const covRet    = lastEC?.cc || 0;
   const maxDD     = calcMaxDD(equity.map(e => e.cc));
 
-  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract };
+  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal };
 }
 
 // ── Run simulation ─────────────────────────────────────────────────────────
@@ -892,7 +917,7 @@ function renderSummary(r) {
   const ddClass = r.maxDD > 20 ? 'red' : r.maxDD > 10 ? 'yellow' : 'green';
   $('summary-grid').innerHTML = `
     <div class="stat-card"><div class="stat-label">Avg Ann. Yield</div><div class="stat-value ${yClass}">${fmt(r.avgYld,1)}%</div><div class="stat-sub">Premium only · ${r.rolls.length} rolls</div></div>
-    <div class="stat-card"><div class="stat-label">Total Premium P&L</div><div class="stat-value ${r.totalPnl>=0?'green':'red'}">${fmtD(r.totalPnl)}</div><div class="stat-sub">Net of buybacks</div></div>
+    <div class="stat-card"><div class="stat-label">Total Roll Credit</div><div class="stat-value ${r.rollCreditTotal>=0?'green':'red'}">${fmtD(r.rollCreditTotal)}</div><div class="stat-sub">Net premium across all rolls</div></div>
     <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${r.winRate>=70?'green':'yellow'}">${fmt(r.winRate,0)}%</div><div class="stat-sub">Cycles with net credit</div></div>
     <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmtP(r.covRet)}</div><div class="stat-sub">vs SPY ${fmtP(r.spyRet)}</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
