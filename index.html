@@ -117,7 +117,7 @@
   <div class="header-eyebrow">SPY Covered Call</div>
   <h1>Backtest & Roll Optimizer</h1>
   <div class="header-sub" id="data-status">Loading data mart from GitHub...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.G — async simulation · UI yields · min DTE guard</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.I — async setTimeout callbacks</div>
 
   <!-- Initial Position -->
   <div class="init-panel" id="init-panel" style="display:none">
@@ -979,7 +979,7 @@ async function simulateAsync(params) {
 }
 
 // ── Optimization grid — per VIX regime ────────────────────────────────────
-function runOptimization() {
+async function runOptimization() {
   if (!DM) return;
 
   document.getElementById("progress-panel").classList.add("visible");
@@ -997,7 +997,7 @@ function runOptimization() {
   // Results per regime
   const regimeResults = {};
 
-  setTimeout(() => {
+  setTimeout(async () => {
     for (const regime of regimes) {
       const [vixMin, vixMax] = vixRanges[regime];
       regimeResults[regime] = { grid: {}, bestDecay: null, bestDTE: null, bestYield: -Infinity };
@@ -1009,7 +1009,7 @@ function runOptimization() {
           const params = { ...STANDARD_PARAMS, decayTrigger: decay, dteFloor: dte,
                            shares: parseInt(document.getElementById("shares").value),
                            initExpiry: document.getElementById("init-date")?.value };
-          const result = simulate(params);
+          const result = await simulateAsync(params);
           let yield_ = null;
           if (result && !result.hardStop && result.cycles.length > 0) {
             // Only count cycles where entry VIX matches regime
