@@ -486,13 +486,19 @@ function autoSelectExpiry() {
     ? expiries.filter(e => quarterMonths.has(parseInt(e.split("-")[1])))
     : expiries;
 
-  // Find expiry closest to MART_START + targetDTE
-  const targetDate = new Date(MART_START);
-  targetDate.setDate(targetDate.getDate() + targetDTE);
-  const targetStr = targetDate.toISOString().split("T")[0];
-
-  // Pick first expiry >= targetStr
-  let best = filtered.find(e => e >= targetStr) || filtered[0] || expiries[0];
+  // For quarterly: find the first quarterly expiry on or after MART_START
+  // For monthly: find first monthly expiry ~targetDTE days after MART_START
+  const martStartStr = "2024-06-25";
+  let best;
+  if (freq === "quarterly") {
+    // First quarterly expiry >= mart start
+    best = filtered.find(e => e >= martStartStr) || filtered[0] || expiries[0];
+  } else {
+    const targetDate = new Date(MART_START);
+    targetDate.setDate(targetDate.getDate() + targetDTE);
+    const targetStr = targetDate.toISOString().split("T")[0];
+    best = filtered.find(e => e >= targetStr) || filtered[0] || expiries[0];
+  }
 
   document.getElementById("init-date").value = best;
   updateInitPosition();
