@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.1.8 · pendingContract for last row</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.1.9 · resolve pending price from daymap</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -906,21 +906,34 @@ function renderCycleTable(r) {
 
   const rows = r.rolls.map((c, i) => {
     // Net credit = new premium sold - buyback cost (roll economics)
-    const nextC      = r.cycles[i + 2] || (i === r.rolls.length - 1 ? r.pendingContract : null);
-    const newPx      = nextC ? nextC.entryPx : 0;
-    const rollCredit = (newPx - c.exitPx) * 100 * contracts; // net cash on the roll
-    const cClass     = rollCredit >= 0 ? 'green' : 'red';
+    // nextC is either a closed cycle (has entryPx) or a pendingContract (raw mart object)
+    const nextCycle  = r.cycles[i + 2];
+    const pending    = (i === r.rolls.length - 1) ? r.pendingContract : null;
+    const nextC      = nextCycle || pending;
 
-    // Annualized yield on the roll credit relative to SPY at roll date
-    const rollYld    = nextC
+    // Resolve entry price: from cycle if available, else from contract daymap at roll date
+    let newPx = 0;
+    if (nextCycle) {
+      newPx = nextCycle.entryPx;
+    } else if (pending) {
+      buildDayMap(pending);
+      const rollKey = c.exitDate.trim().slice(0,10);
+      const pDay = pending._dm[rollKey] || pending.days.find(d => d.date >= c.exitDate);
+      newPx = pDay ? (pDay.vw || pDay.c) : 0;
+    }
+
+    const rollCredit = newPx > 0 ? (newPx - c.exitPx) * 100 * contracts : null;
+    const cClass     = rollCredit === null ? 'muted' : rollCredit >= 0 ? 'green' : 'red';
+
+    const rollYld = (rollCredit !== null && nextC)
       ? ((newPx - c.exitPx) / c.exitSPY) * (365 / Math.max(1,
           Math.round((new Date(nextC.expiry+'T00:00:00') - new Date(c.exitDate+'T00:00:00')) / 86400000)
         )) * 100
       : null;
-    const yClass     = rollYld === null ? 'muted' : rollYld >= 5 ? 'green' : rollYld >= 0 ? 'yellow' : 'red';
+    const yClass = rollYld === null ? 'muted' : rollYld >= 5 ? 'green' : rollYld >= 0 ? 'yellow' : 'red';
 
-    const newLeg     = nextC
-      ? `Sell $${nextC.strike} ${nextC.expiry} @ $${fmt(nextC.entryPx)}`
+    const newLeg = nextC
+      ? `Sell $${nextC.strike} ${nextC.expiry} @ $${newPx > 0 ? fmt(newPx) : '—'}`
       : '—';
     const approx     = c.approx ? '<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>' : '';
 
