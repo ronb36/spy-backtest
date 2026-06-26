@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.0.5 · yield-maximizing contract selector</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.0.8 · risk-adjusted yield · DTE penalty</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -177,7 +177,10 @@ select.display-box { cursor:pointer; outline:none; }
 
   <!-- Progress -->
   <div class="panel progress-panel" id="progress-panel">
-    <div class="mono-label" style="margin-bottom:8px;">Running...</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div class="mono-label">Running...</div>
+      <button onclick="copyDebugLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="copy-log-btn">Copy Log</button>
+    </div>
     <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar"></div></div>
     <div class="progress-log" id="progress-log"></div>
   </div>
@@ -299,6 +302,26 @@ const $ = id => document.getElementById(id);
 const fmt = (n, d=2) => (n == null || isNaN(n)) ? '—' : n.toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d});
 const fmtD = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+$':'-$') + fmt(Math.abs(n), 0);
 const fmtP = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+':'') + fmt(n,1) + '%';
+
+function copyDebugLog() {
+  const el = document.getElementById('progress-log');
+  if (!el) return;
+  const text = el.innerText || el.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-log-btn');
+    if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.getElementById('copy-log-btn');
+    if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
+  });
+}
 
 function setProgress(pct) {
   const el = $('progress-bar');
@@ -433,7 +456,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
   const allExp = getMartExpiries().filter(e => {
     if (e <= afterDate || e > maxStr) return false;
     const dte = Math.round((new Date(e+'T00:00:00') - afterD) / 86400000);
-    return dte > dteFloor + 7;
+    return dte > Math.max(dteFloor * 2, dteFloor + 21); // need 2x floor to avoid immediate re-trigger
   });
 
   let bestContract = null, bestYield = -Infinity;
@@ -461,15 +484,18 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       const dte = Math.round((new Date(exp+'T00:00:00') - afterD) / 86400000);
       if (dte <= 0) continue;
 
-      const annYield = (entryPx / currentSPY) * (365 / dte) * 100;
-      logDbg("  Candidate " + exp + " $" + c.strike + ": px=$" + entryPx.toFixed(2) + " DTE=" + dte + " yld=" + annYield.toFixed(1) + "%");
+      const rawYield = (entryPx / currentSPY) * (365 / dte) * 100;
+      // Risk-adjusted: penalize very short DTE (under 45d) to avoid chasing gamma
+      const dtePenalty = Math.min(1, dte / 45);
+      const adjYield = rawYield * dtePenalty;
+      logDbg("  Candidate " + exp + " $" + c.strike + ": px=$" + entryPx.toFixed(2) + " DTE=" + dte + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
 
-      if (annYield > bestYield) { bestYield = annYield; bestContract = c; }
+      if (adjYield > bestYield) { bestYield = adjYield; bestContract = c; }
     }
   }
 
   if (bestContract) {
-    logDbg("  Best: " + bestContract.expiry + " $" + bestContract.strike + " yld=" + bestYield.toFixed(1) + "%");
+    logDbg("  → Best: " + bestContract.expiry + " $" + bestContract.strike + " adj.yld=" + bestYield.toFixed(1) + "%");
     return bestContract;
   }
   return null;
@@ -573,7 +599,8 @@ async function simulate(p) {
       entrySPY    = spy;
       entryStrike = curC.strike;
       posOpen     = true;
-      logDbg(`Open: ${curC.ticker} exp=${curC.expiry} entry=${date} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
+      const _tk = Object.keys(DM.options).find(k => DM.options[k] === curC) || '?';
+      logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${date} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
     }
 
     // ── Mark current position ──
@@ -594,11 +621,12 @@ async function simulate(p) {
     const ccRet  = bhRet + ((premPnL + optPnL) / (startSPY * shares)) * 100;
     equity.push({ date, cc: ccRet, bh: bhRet, spy, vix });
 
-    // ── Roll triggers (skip on entry day) ──
+    // ── Roll triggers (skip first 3 days) ──
+    const daysHeld_ = Math.round((new Date(date+'T00:00:00') - new Date(entryDate+'T00:00:00')) / 86400000);
     let roll = false, reason = '';
     if (isExp) {
       roll = true; reason = 'expired';
-    } else if (date !== entryDate) {
+    } else if (daysHeld_ >= 3) {
       if (callPx !== null) {
         const decay = ((entryPrice - callPx) / entryPrice) * 100;
         if (date >= '2024-08-05' && date <= '2024-08-10')
