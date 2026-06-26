@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.0.1 · ITM skip fix · strict open</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.0.3 · gaps tab · Railway instructions</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -191,6 +191,7 @@ select.display-box { cursor:pointer; outline:none; }
       <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Cycle Log</button>
       <button class="tab-btn" id="tab-btn-chart" onclick="showTab('chart')">📈 Chart</button>
       <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Heatmap</button>
+      <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
       <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
     </div>
 
@@ -216,6 +217,15 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="chart-header"><span class="chart-title">Regime Optimization — Ann. Yield % by Decay × DTE Floor</span></div>
         <div id="heatmap-container"></div>
       </div>
+    </div>
+
+    <!-- Gaps tab -->
+    <div id="tab-gaps" style="display:none">
+      <div class="chart-panel">
+        <div class="chart-header"><span class="chart-title">⚠ Data Mart Gaps Found During Simulation</span></div>
+        <div class="tbl-wrap"><div id="gaps-table"></div></div>
+      </div>
+      <div id="gaps-instructions" style="display:none;margin-top:12px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.9;"></div>
     </div>
 
     <!-- Data Mart tab -->
@@ -347,7 +357,7 @@ function updateParamDisplay(regime) {
 
 // ── Tab management ─────────────────────────────────────────────────────────
 function showTab(tab) {
-  ['log','chart','heatmap','mart'].forEach(t => {
+  ['log','chart','heatmap','gaps','mart'].forEach(t => {
     const el = $('tab-' + t);
     const btn = $('tab-btn-' + t);
     if (el)  el.style.display  = t === tab ? 'block' : 'none';
@@ -434,8 +444,9 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       continue;
     }
     if (c.strike <= currentSPY) {
-      // Strike is ITM — skip silently, try next expiry (not a data gap)
+      // Strike is ITM — skip, try next expiry (not a data gap, no fill needed)
       logDbg(`  Skip ${exp}: $${c.strike} ITM (SPY=$${currentSPY.toFixed(0)})`);
+      _gaps.push({ expiry: exp, otm: targetOTM, needed: afterDate, substituted: false, reason: 'ITM' });
       continue;
     }
     buildDayMap(c);
@@ -445,7 +456,23 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
     }
     return c;
   }
-  return null; // hard stop — nothing within lookahead
+  // Try extended lookahead (up to 2x) before giving up
+  const extDate = new Date(afterDate + 'T00:00:00');
+  extDate.setDate(extDate.getDate() + maxLookahead * 2);
+  const extStr = extDate.toISOString().slice(0, 10);
+  const extCandidates = allExp.filter(e => e > maxStr && e <= extStr && (() => {
+    const dte = Math.round((new Date(e+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
+    return dte > dteFloor + 7;
+  })());
+  for (const exp of extCandidates) {
+    const c = findContract(exp, targetOTM, currentSPY);
+    if (!c || c.strike <= currentSPY) continue;
+    buildDayMap(c);
+    if (!c.days.some(d => d.date >= afterDate)) continue;
+    logDbg(`  Extended lookahead — found ${exp}`);
+    return c;
+  }
+  return null; // hard stop
 }
 
 // ── Init position display ──────────────────────────────────────────────────
@@ -637,6 +664,65 @@ async function simulate(p) {
 }
 
 // ── Run simulation ─────────────────────────────────────────────────────────
+function renderGapsTab(gaps) {
+  const dataGaps = gaps.filter(g => g.substituted);
+  const itmSkips = gaps.filter(g => !g.substituted);
+
+  // Tab button visibility
+  const gapBtn = $('tab-btn-gaps');
+  if (gapBtn) gapBtn.style.display = dataGaps.length ? 'block' : 'none';
+
+  if (!dataGaps.length) return;
+
+  // Build table
+  const rows = dataGaps.map(g => `<tr>
+    <td class="accent">${g.expiry}</td>
+    <td class="muted">${(g.otm*100).toFixed(0)}%</td>
+    <td class="muted">${g.needed}</td>
+    <td class="red">No data in mart</td>
+  </tr>`).join('');
+
+  $('gaps-table').innerHTML = `<table class="tbl">
+    <thead><tr><th>Expiry</th><th>OTM Target</th><th>Needed On</th><th>Status</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+
+  // Build Railway instructions
+  const tickers = dataGaps.map(g => {
+    // Build approximate Polygon ticker for gap fill
+    const d = new Date(g.expiry + 'T00:00:00');
+    const yy = String(d.getFullYear()).slice(2);
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    // Use current SPY from mart as approximate strike basis
+    const lastSPY = DM.spy[DM.spy.length-1]?.c || 600;
+    const strike  = Math.round(lastSPY * (1+g.otm) / 5) * 5;
+    const strikeStr = String(strike * 1000).padStart(8, '0');
+    return `O:SPY${yy}${mm}${dd}C${strikeStr}`;
+  });
+
+  const instructions = dataGaps.length > 0 ? [
+    '── Gap Fill Instructions ──────────────────────────────────',
+    '',
+    '1. Copy GAP_TICKERS value below',
+    '2. Railway → spy-backtest service → Variables',
+    '3. Add: GAP_TICKERS = ' + tickers.join(','),
+    '4. Add: RUN_MODE = gap',
+    '5. Railway → Cron → Run Now',
+    '6. Wait for Pushover confirmation',
+    '7. Clear GAP_TICKERS and reset RUN_MODE = daily',
+    '8. Reload this page and re-run simulation',
+    '',
+    'Note: ITM skips (' + itmSkips.length + ') are expected — no action needed.',
+  ].join("\n") : "";;
+
+  const instrEl = $('gaps-instructions');
+  if (instrEl) {
+    instrEl.style.display = 'block';
+    instrEl.textContent = instructions;
+  }
+}
+
 async function runSimulation() {
   if (!DM) return;
   _gaps = [];
@@ -671,6 +757,7 @@ async function runSimulation() {
   renderSummary(result);
   renderCycleTable(result);
   renderEquityChart(result);
+  renderGapsTab(_gaps);
 
   $('results-area').style.display = 'block';
   $('tab-btn-heatmap').style.display = 'none';
