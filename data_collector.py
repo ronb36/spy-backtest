@@ -7,8 +7,8 @@ Runs as a Railway service — initial full load on first run, daily append there
 Data collected:
   - SPY daily OHLCV (2 years)
   - VIX daily close (2 years)
-  - Option contracts: 4 strikes (3%, 5%, 7%, 10% OTM) × all monthly/quarterly expiries
-    Each contract: daily OHLCV + IV + delta for its active life
+  - Option contracts: 7 strikes (3%, 4%, 5%, 6%, 7%, 8%, 10% OTM) × all monthly expiries
+    Each contract: full life history from first available trade date to expiry
 
 Output: spy_data.json committed to ronb36/spy-backtest via GitHub API
 
@@ -30,14 +30,16 @@ from zoneinfo import ZoneInfo
 ET = ZoneInfo("America/New_York")
 
 # ── Credentials ────────────────────────────────────────────────────────────
-POLYGON_KEY  = os.environ["POLYGON_KEY"]
-GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
-GITHUB_REPO  = os.environ.get("GITHUB_REPO", "ronb36/spy-backtest")
-RUN_MODE     = os.environ.get("RUN_MODE", "daily")
-DATA_PATH    = "data/spy_data.json"
+POLYGON_KEY    = os.environ["POLYGON_KEY"]
+GITHUB_TOKEN   = os.environ["GITHUB_TOKEN"]
+GITHUB_REPO    = os.environ.get("GITHUB_REPO", "ronb36/spy-backtest")
+RUN_MODE       = os.environ.get("RUN_MODE", "daily")
+DATA_PATH      = "data/spy_data.json"
+PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
+PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
 # ── OTM target levels to store per expiry ─────────────────────────────────
-OTM_TARGETS = [0.03, 0.05, 0.07, 0.10]   # 3%, 5%, 7%, 10%
+OTM_TARGETS = [0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.10]  # 3%,4%,5%,6%,7%,8%,10%
 
 # ── Rate limiting ──────────────────────────────────────────────────────────
 CALL_DELAY = 0.25   # 4 calls/sec — safely under Polygon's 5/sec limit
@@ -46,6 +48,21 @@ CALL_DELAY = 0.25   # 4 calls/sec — safely under Polygon's 5/sec limit
 def log(msg):
     print(f"{datetime.now(ET).strftime('%H:%M:%S ET')} — {msg}", flush=True)
 
+
+
+def send_push(title, body):
+    if not PUSHOVER_USER or not PUSHOVER_TOKEN:
+        return
+    try:
+        requests.post("https://api.pushover.net/1/messages.json", data={
+            "token":   PUSHOVER_TOKEN,
+            "user":    PUSHOVER_USER,
+            "title":   title,
+            "message": body,
+            "sound":   "pushover",
+        }, timeout=10)
+    except Exception as e:
+        log(f"  Pushover error: {e}")
 
 # ── Date helpers ───────────────────────────────────────────────────────────
 def today_str():
@@ -251,61 +268,64 @@ def full_load():
     log(f"  ✓ {len(dm['vix'])} VIX trading days")
 
     # ── Options ──────────────────────────────────────────────────────────
-    # Get all monthly expiries in the window
     expiries = get_monthly_expiries(start, end)
-    log(f"Processing {len(expiries)} monthly expiries × {len(OTM_TARGETS)} OTM targets "
-        f"= {len(expiries) * len(OTM_TARGETS)} contracts")
+    total_contracts = len(expiries) * len(OTM_TARGETS)
+    log(f"Processing {len(expiries)} expiries x {len(OTM_TARGETS)} OTM targets = {total_contracts} contracts")
 
-    # Build SPY price lookup for fast access
     spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
-
     contracts_fetched = 0
+    contract_num = 0
+
     for exp in expiries:
-        # Find SPY price ~150 days before expiry (entry date)
-        entry_date = (datetime.strptime(exp, "%Y-%m-%d") - timedelta(days=150)).strftime("%Y-%m-%d")
-        # Find nearest available SPY price
+        exp_dt = datetime.strptime(exp, "%Y-%m-%d")
+
+        # Use SPY price ~365 days before expiry for strike selection
+        far_date = (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d")
         spy_price = None
-        for days_back in range(0, 10):
-            d = (datetime.strptime(entry_date, "%Y-%m-%d") - timedelta(days=days_back)).strftime("%Y-%m-%d")
+        for days_back in range(0, 14):
+            d = (datetime.strptime(far_date, "%Y-%m-%d") - timedelta(days=days_back)).strftime("%Y-%m-%d")
             if d in spy_by_date:
                 spy_price = spy_by_date[d]
                 break
-
         if not spy_price:
-            log(f"  ⚠ No SPY price found near {entry_date}, skipping {exp}")
+            # Fall back to 30 DTE reference
+            ref_date = (exp_dt - timedelta(days=30)).strftime("%Y-%m-%d")
+            for days_back in range(0, 14):
+                d = (datetime.strptime(ref_date, "%Y-%m-%d") - timedelta(days=days_back)).strftime("%Y-%m-%d")
+                if d in spy_by_date:
+                    spy_price = spy_by_date[d]
+                    break
+        if not spy_price:
+            log(f"  No SPY price found for {exp}, skipping")
             continue
 
+        # Full contract life: from max(start, expiry-365) to expiry
+        opt_start = max(start, (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
+        opt_end   = exp
+
         for otm_pct in OTM_TARGETS:
+            contract_num += 1
             strike = find_nearest_strike(spy_price, otm_pct)
             ticker = build_option_ticker(exp, strike)
-
-            # Fetch option daily history from entry_date to expiry
-            opt_start = entry_date
-            opt_end   = exp
-            log(f"  Fetching {ticker} ({otm_pct*100:.0f}% OTM @ ${strike}) "
-                f"{opt_start} → {opt_end}...")
-
+            log(f"  [{contract_num}/{total_contracts}] {ticker} ({otm_pct*100:.0f}% OTM @ ${strike}) {opt_start} to {opt_end}...")
             days = fetch_option_history(ticker, opt_start, opt_end)
-
             if days:
+                first_day_spy = spy_by_date.get(days[0]["date"], spy_price)
                 dm["options"][ticker] = {
-                    "strike":   strike,
-                    "expiry":   exp,
-                    "otm_pct":  otm_pct,
-                    "entry_spy": spy_price,
-                    "days":     days,
+                    "strike":    strike,
+                    "expiry":    exp,
+                    "otm_pct":   otm_pct,
+                    "entry_spy": first_day_spy,
+                    "days":      days,
                 }
                 contracts_fetched += 1
-                log(f"    ✓ {len(days)} trading days")
+                log(f"    {len(days)} trading days")
             else:
-                log(f"    ⚠ No data returned — contract may not have traded")
+                log(f"    No data returned")
 
-    log(f"\n✓ Full load complete:")
-    log(f"  SPY:     {len(dm['spy'])} days")
-    log(f"  VIX:     {len(dm['vix'])} days")
-    log(f"  Options: {contracts_fetched} contracts")
-
+    log(f"Full load complete: SPY {len(dm['spy'])} days | VIX {len(dm['vix'])} days | Options {contracts_fetched}/{total_contracts} contracts")
     dm["metadata"]["last_updated"] = today_str()
+    dm["metadata"]["otm_targets"]  = OTM_TARGETS
     return dm
 
 
@@ -381,10 +401,10 @@ def daily_append(dm):
     spy_by_date  = {r["date"]: r["c"] for r in dm["spy"]}
 
     for exp in all_expiries:
-        entry_date = (datetime.strptime(exp, "%Y-%m-%d") - timedelta(days=150)).strftime("%Y-%m-%d")
-        # If entry date is today, this is a new contract to start tracking
-        if entry_date != today_str():
-            continue
+        exp_dt = datetime.strptime(exp, "%Y-%m-%d")
+        window_start = (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d")
+        if window_start > today_str():
+            continue  # too far out, not yet in window
         spy_price = spy_by_date.get(yesterday)
         if not spy_price:
             continue
@@ -393,7 +413,7 @@ def daily_append(dm):
             ticker = build_option_ticker(exp, strike)
             if ticker not in dm["options"]:
                 log(f"  New contract entering window: {ticker}")
-                days = fetch_option_history(ticker, today_str(), exp)
+                days = fetch_option_history(ticker, window_start, exp)
                 if days:
                     dm["options"][ticker] = {
                         "strike":    strike,
@@ -402,7 +422,7 @@ def daily_append(dm):
                         "entry_spy": spy_price,
                         "days":      days,
                     }
-                    log(f"    ✓ Added {ticker}")
+                    log(f"    Added {ticker} ({len(days)} days)")
 
     log(f"  ✓ Daily append complete — {appended} option day records added")
     dm["metadata"]["last_updated"] = today_str()
@@ -435,5 +455,23 @@ if __name__ == "__main__":
     log("Committing data mart to GitHub...")
     existing, sha = github_get_file(DATA_PATH)
     msg = f"Data update {today_str()} — {RUN_MODE} load"
-    github_commit_file(DATA_PATH, dm, msg, sha=sha)
+    success = github_commit_file(DATA_PATH, dm, msg, sha=sha)
     log("Done.")
+
+    # Pushover notification
+    if success:
+        spy_count = len(dm["spy"])
+        opt_count = len(dm["options"])
+        last_spy  = dm["spy"][-1] if dm["spy"] else {}
+        spy_close = last_spy.get("c", "—")
+        spy_date  = last_spy.get("date", "—")
+        otm_str   = ", ".join(str(int(t*100))+"%" for t in OTM_TARGETS)
+        if RUN_MODE == "full":
+            body = ("Full load complete\n"
+                    f"SPY {spy_count} days | VIX {len(dm['vix'])} days | {opt_count} contracts\n"
+                    f"OTM targets: {otm_str}")
+        else:
+            body = ("Daily append complete\n"
+                    f"SPY ${spy_close} ({spy_date})\n"
+                    f"{opt_count} contracts tracked through {spy_date}")
+        send_push("📊 SPY Data Mart", body)
