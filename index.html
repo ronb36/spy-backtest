@@ -118,7 +118,7 @@
   <div id="js-error-banner" style="display:none;background:#2d1515;border:1px solid var(--red);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;color:var(--red);white-space:pre-wrap;"></div>
   <h1>Backtest & Roll Optimizer</h1>
   <div class="header-sub" id="data-status">Loading data mart from GitHub...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.M — restored getParams</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.N — restored all utility functions</div>
 
   <!-- Initial Position -->
   <div class="init-panel" id="init-panel" style="display:none">
@@ -765,6 +765,56 @@ function findBestContract(afterDate, targetOTM, currentSPY, maxLookahead) {
 
 // simulate() replaced by simulateAsync() above
 
+
+function setProgress(pct) {
+  const el = document.getElementById("progress-bar");
+  if (el) el.style.width = pct + "%";
+}
+
+function logProgress(msg, cls="") {
+  const el = document.getElementById("progress-log");
+  if (!el) return;
+  el.innerHTML += `<div class="${cls}">${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function logDebug(msg) {
+  if (document.getElementById("debug-toggle")?.checked) {
+    logProgress(msg, "debug");
+  }
+}
+
+function showTab(tab) {
+  ["chart","log","heatmap"].forEach(t => {
+    const el = document.getElementById("tab-"+t);
+    if (el) el.style.display = t === tab ? "block" : "none";
+    const btn = document.getElementById("tab-"+t+"-btn");
+    if (btn) btn.classList.toggle("active", t === tab);
+  });
+  const martEl  = document.getElementById("tab-mart");
+  const martBtn = document.getElementById("tab-mart-btn");
+  const isMart  = tab === "mart";
+  if (martEl)  martEl.style.display  = isMart ? "block" : "none";
+  if (martBtn) martBtn.classList.toggle("active", isMart);
+  const resultsEl = document.getElementById("results-tabs");
+  if (resultsEl && resultsEl.style.display !== "none") {
+    ["chart","log","heatmap"].forEach(t => {
+      const el = document.getElementById("tab-"+t);
+      if (el && isMart) el.style.display = "none";
+    });
+  }
+  if (isMart) renderMartSummary();
+}
+
+function calcMaxDrawdown(values) {
+  let peak = -Infinity, maxDD = 0;
+  for (const v of values) {
+    if (v > peak) peak = v;
+    const dd = peak - v;
+    if (dd > maxDD) maxDD = dd;
+  }
+  return maxDD;
+}
 
 function getParams(regimeOverride) {
   const p = getActiveParams(regimeOverride);
