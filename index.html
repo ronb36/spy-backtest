@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.1.6 · roll credit · running→complete</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.1.7 · complete roll = cover + new leg</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -597,7 +597,7 @@ async function simulate(p) {
       await yield_();
     }
     if (iter > 6000) { logMsg('⚠ Safety limit reached', 'err'); break; }
-    if (p.maxRolls && cycles.filter(c => !c.isInitial).length >= p.maxRolls) { logMsg(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok'); break; }
+    // maxRolls checked after next contract found (see below)
 
     // ── Open position on first available day ──
     if (!posOpen) {
@@ -688,6 +688,11 @@ async function simulate(p) {
       break;
     }
     curC = next;
+    // Roll is now complete: cover done + new leg found
+    if (p.maxRolls && cycles.filter(c => !c.isInitial).length >= p.maxRolls) {
+      logMsg(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok');
+      break;
+    }
     // DO NOT continue — open new position on same roll date (exit = next entry)
   }
 
