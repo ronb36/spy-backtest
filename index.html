@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.0.0 · clean rebuild</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.0.1 · ITM skip fix · strict open</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -428,19 +428,24 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
   for (const exp of candidates) {
     const c = findContract(exp, targetOTM, currentSPY);
     if (!c) {
+      // No contract in mart for this expiry at this OTM — record gap, keep looking
       _gaps.push({ expiry: exp, otm: targetOTM, needed: afterDate, substituted: true });
+      logDbg(`  Gap ${exp}: no contract in mart`);
       continue;
     }
     if (c.strike <= currentSPY) {
+      // Strike is ITM — skip silently, try next expiry (not a data gap)
       logDbg(`  Skip ${exp}: $${c.strike} ITM (SPY=$${currentSPY.toFixed(0)})`);
-      _gaps.push({ expiry: exp, otm: targetOTM, needed: afterDate, substituted: true });
       continue;
     }
-    const dm = buildDayMap(c);
-    if (!c.days.some(d => d.date >= afterDate)) continue;
+    buildDayMap(c);
+    if (!c.days.some(d => d.date >= afterDate)) {
+      logDbg(`  Skip ${exp}: no data from ${afterDate}`);
+      continue;
+    }
     return c;
   }
-  return null; // hard stop
+  return null; // hard stop — nothing within lookahead
 }
 
 // ── Init position display ──────────────────────────────────────────────────
@@ -532,10 +537,10 @@ async function simulate(p) {
 
     // ── Open position on first available day ──
     if (!posOpen) {
-      const dm = buildDayMap(curC);
+      const dm  = buildDayMap(curC);
       const key = date.trim().slice(0,10);
-      const day = dm[key] || (() => { const d = curC.days.filter(x => x.date <= date); return d[d.length-1]; })();
-      if (!day) continue;
+      const day = dm[key];
+      if (!day) continue; // wait for data on this contract
       entryPrice  = day.vw || day.c;
       entryDate   = date;
       entrySPY    = spy;
