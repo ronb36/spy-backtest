@@ -44,7 +44,7 @@
   .progress-title { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
   .progress-bar-wrap { background: var(--surface2); border-radius: 4px; height: 6px; margin-bottom: 8px; overflow: hidden; }
   .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s ease; }
-  .progress-log { font-family: var(--mono); font-size: 10px; color: var(--text-muted); line-height: 1.8; max-height: 120px; overflow-y: auto; }
+  .progress-log { font-family: var(--mono); font-size: 11px; color: var(--text-muted); line-height: 1.9; max-height: 200px; overflow-y: auto; }
   .progress-log .ok { color: var(--green); }
   .progress-log .err { color: var(--red); }
 
@@ -86,6 +86,7 @@
   .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 13px; }
   .empty-state .icon { font-size: 32px; margin-bottom: 12px; }
 
+  .progress-log .debug { color: #4a5568; font-size: 10px; }
   .spinner { display: inline-block; width: 9px; height: 9px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -150,56 +151,50 @@
 
   <!-- Controls -->
   <div class="controls-panel">
-    <div class="controls-title">Simulation Parameters</div>
-    <div class="controls-grid">
-      <div class="ctrl">
-        <label>Roll Frequency</label>
-        <select id="roll-freq" onchange="autoSelectExpiry()">
-          <option value="monthly">Monthly (~30 DTE)</option>
-          <option value="quarterly" selected>Quarterly (~90 DTE)</option>
-        </select>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+      <div class="view-toggle visible" style="margin-bottom:0;">
+        <button class="vtog-btn active" id="mode-test-btn" onclick="setMode('test')">▶ Test</button>
+        <button class="vtog-btn" id="mode-opt-btn" onclick="setMode('optimize')">⊞ Optimize</button>
       </div>
-      <div class="ctrl">
-        <label>OTM Target</label>
-        <select id="otm-target" onchange="updateInitPosition()">
-          <option value="0.03">3% OTM</option>
-          <option value="0.05" selected>5% OTM</option>
-          <option value="0.07">7% OTM</option>
-          <option value="0.10">10% OTM</option>
-          <option value="vix">VIX-Adaptive</option>
-        </select>
-      </div>
-      <div class="ctrl">
-        <label>Roll Trigger — % Decay (<span id="decay-val">75%</span>)</label>
-        <input type="range" id="decay-trigger" min="50" max="90" step="5" value="75" oninput="document.getElementById('decay-val').textContent=this.value+'%'" />
-      </div>
-      <div class="ctrl">
-        <label>DTE Floor — Roll if below (<span id="dte-val">21d</span>)</label>
-        <input type="range" id="dte-floor" min="7" max="45" step="7" value="21" oninput="document.getElementById('dte-val').textContent=this.value+'d'" />
-      </div>
-      <div class="ctrl">
-        <label>Delta Trigger — Roll if above (<span id="delta-val">0.35</span>)</label>
-        <input type="range" id="delta-trigger" min="0.20" max="0.50" step="0.05" value="0.35"
-          oninput="document.getElementById('delta-val').textContent=parseFloat(this.value).toFixed(2)" />
-      </div>
-      <div class="ctrl">
-        <label>Shares</label>
-        <select id="shares" onchange="updateInitPosition()">
-          <option value="600" selected>600 shares</option>
-          <option value="100">100 shares</option>
-          <option value="200">200 shares</option>
-          <option value="300">300 shares</option>
-        </select>
-      </div>
-      <div class="ctrl" style="display:flex;flex-direction:row;gap:8px;align-items:flex-end;">
-        <button class="run-btn" id="run-btn" onclick="runSimulation()" disabled>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div class="ctrl" style="flex-direction:row;align-items:center;gap:6px;">
+          <label style="margin:0;">Shares</label>
+          <select id="shares" onchange="updateInitPosition()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;">
+            <option value="600" selected>600</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+            <option value="300">300</option>
+          </select>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--text-muted);cursor:pointer;white-space:nowrap;">
+          <input type="checkbox" id="debug-toggle" style="accent-color:var(--accent);" />
+          Debug
+        </label>
+        <button class="run-btn" id="run-btn" onclick="runSimulation()" disabled style="height:30px;">
           <span id="run-icon">▶</span> Run
-        </button>
-        <button class="run-btn optimize-btn" id="opt-btn" onclick="runOptimization()" disabled>
-          ⊞ Optimize
         </button>
       </div>
     </div>
+
+    <!-- Parameter display panel -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;" id="param-label">Standard Parameters</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;">
+        <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">OTM</div><div style="font-family:var(--mono);font-size:13px;" id="p-otm">5%</div></div>
+        <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">Decay</div><div style="font-family:var(--mono);font-size:13px;" id="p-decay">75%</div></div>
+        <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">DTE Floor</div><div style="font-family:var(--mono);font-size:13px;" id="p-dte">21d</div></div>
+        <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">Delta</div><div style="font-family:var(--mono);font-size:13px;" id="p-delta">0.35</div></div>
+        <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">Max Lookahead</div><div style="font-family:var(--mono);font-size:13px;" id="p-lookahead">90d</div></div>
+        <div><div style="font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:2px;">Regime</div><div style="font-family:var(--mono);font-size:13px;" id="p-regime">All</div></div>
+      </div>
+    </div>
+
+    <!-- Hidden inputs for backward compat -->
+    <input type="hidden" id="roll-freq" value="monthly" />
+    <input type="hidden" id="otm-target" value="0.05" />
+    <input type="hidden" id="decay-trigger" value="75" />
+    <input type="hidden" id="dte-floor" value="21" />
+    <input type="hidden" id="delta-trigger" value="0.35" />
   </div>
 
   <!-- Progress -->
@@ -595,6 +590,76 @@ function calcDelta(spy, strike, dte, vix, tnx) {
 // ── Find best matching option contract ────────────────────────────────
 let _gapContracts = [];
 
+// ── Standard (Test) parameters ────────────────────────────────────────────
+const STANDARD_PARAMS = {
+  otmFixed:       0.05,   // 5% OTM
+  decayTrigger:   75,     // 75% premium decay
+  dteFloor:       21,     // 21 day DTE floor
+  deltaThreshold: 0.35,   // 0.35 delta
+  maxLookahead:   90,     // 90 day max expiry lookahead
+};
+
+// ── Optimized params storage (per regime) ─────────────────────────────────
+let _optimizedParams = null; // {low, normal, elevated, high} each with same keys as STANDARD_PARAMS
+
+let _simMode = "test"; // "test" or "optimize"
+
+function setMode(mode) {
+  _simMode = mode;
+  ["test","optimize"].forEach(m => {
+    document.getElementById("mode-"+m+"-btn").classList.toggle("active", m === mode);
+  });
+  updateParamDisplay();
+}
+
+function getCurrentVIXRegime() {
+  // Read current VIX from the tracker if available, else default Normal
+  const vixEl = document.getElementById("vix");
+  const vix = vixEl ? parseFloat(vixEl.value) : 18;
+  if (vix < 15) return "low";
+  if (vix < 20) return "normal";
+  if (vix < 25) return "elevated";
+  return "high";
+}
+
+function getActiveParams(regime) {
+  // regime: "low","normal","elevated","high" or null for all
+  if (_simMode === "test" || !_optimizedParams) return { ...STANDARD_PARAMS };
+  const r = regime || getCurrentVIXRegime();
+  return { ...STANDARD_PARAMS, ...(_optimizedParams[r] || {}) };
+}
+
+function updateParamDisplay(regime) {
+  const p = getActiveParams(regime);
+  const r = regime || getCurrentVIXRegime();
+  const isOpt = _simMode === "optimize" && _optimizedParams;
+
+  document.getElementById("p-otm").textContent     = (p.otmFixed*100).toFixed(0) + "%";
+  document.getElementById("p-decay").textContent   = p.decayTrigger + "%";
+  document.getElementById("p-dte").textContent     = p.dteFloor + "d";
+  document.getElementById("p-delta").textContent   = p.deltaThreshold.toFixed(2);
+  document.getElementById("p-lookahead").textContent = p.maxLookahead + "d";
+  document.getElementById("p-regime").textContent  = isOpt ? r.charAt(0).toUpperCase()+r.slice(1) : "All";
+  document.getElementById("param-label").textContent = isOpt
+    ? `Optimized Parameters — ${r.charAt(0).toUpperCase()+r.slice(1)} VIX Regime`
+    : "Standard Parameters (Test Mode)";
+
+  // Color changed values green vs standard
+  ["p-otm","p-decay","p-dte","p-delta"].forEach(id => {
+    document.getElementById(id).style.color = "var(--text)";
+  });
+  if (isOpt) {
+    if (p.decayTrigger   !== STANDARD_PARAMS.decayTrigger)   document.getElementById("p-decay").style.color = "var(--green)";
+    if (p.dteFloor       !== STANDARD_PARAMS.dteFloor)       document.getElementById("p-dte").style.color   = "var(--green)";
+    if (p.deltaThreshold !== STANDARD_PARAMS.deltaThreshold) document.getElementById("p-delta").style.color = "var(--green)";
+  }
+
+  // Sync hidden inputs for getParams()
+  document.getElementById("decay-trigger").value = p.decayTrigger;
+  document.getElementById("dte-floor").value     = p.dteFloor;
+  document.getElementById("delta-trigger").value = p.deltaThreshold;
+}
+
 function findContract(targetExpiry, targetOTM, currentSPY) {
   // If currentSPY provided, find contract whose strike is closest to currentSPY * (1 + targetOTM)
   // Otherwise fall back to stored otm_pct matching
@@ -627,61 +692,76 @@ function findContractOrGap(targetExpiry, targetOTM, onDate, currentSPY) {
   return { contract: null, gap: true };
 }
 
-// ── Get monthly/quarterly expiries from data ───────────────────────────────
-function getExpiriesFromData(freq) {
-  const expiries = [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
-  if (freq === "quarterly") {
-    return expiries.filter(e => {
-      const m = parseInt(e.split("-")[1]);
-      return [3, 6, 9, 12].includes(m);
-    });
+// ── Get all monthly expiries from data mart ───────────────────────────────
+function getAllExpiries() {
+  return [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
+}
+
+// ── Find best contract: monthly-first, step forward up to maxLookahead ───
+function findBestContract(afterDate, targetOTM, currentSPY, maxLookahead) {
+  const allExp = getAllExpiries();
+  // Only consider expiries after the roll date and within lookahead window
+  const maxDate = new Date(afterDate + "T00:00:00");
+  maxDate.setDate(maxDate.getDate() + maxLookahead);
+  const maxStr = maxDate.toISOString().split("T")[0];
+
+  const candidates = allExp.filter(e => e > afterDate && e <= maxStr);
+
+  for (const exp of candidates) {
+    const contract = findContract(exp, targetOTM, currentSPY);
+    if (contract) {
+      // Check contract has data on or after afterDate
+      if (!contract._dayMap) {
+        contract._dayMap = {};
+        contract.days.forEach(d => { contract._dayMap[d.date.trim().slice(0,10)] = d; });
+      }
+      const hasData = contract.days.some(d => d.date >= afterDate);
+      if (hasData) return { contract, expiry: exp, gap: false };
+    }
+    // No match for this expiry — record as gap and try next month
+    const gapTicker = buildTickerStr(exp, targetOTM);
+    if (!_gapContracts.find(g => g.ticker === gapTicker)) {
+      _gapContracts.push({ ticker: gapTicker, expiry: exp, otm_pct: targetOTM, needed: afterDate, usedAlternative: true });
+    }
   }
-  return expiries;
+  // Nothing found within lookahead — hard stop
+  return { contract: null, expiry: null, gap: true, hardStop: true };
 }
 
 // ── Core simulation engine ─────────────────────────────────────────────────
 function simulate(params) {
-  const { rollFreq, otmMode, otmFixed, decayTrigger, dteFloor, deltaThreshold, shares, initExpiry } = params;
+  const { otmFixed, decayTrigger, dteFloor, deltaThreshold, maxLookahead, shares, initExpiry } = params;
+  const otmMode = "fixed"; // always fixed OTM in new design
   const { spyMap, vixMap } = buildLookups();
   const contracts = parseInt(shares) / 100;
+  const MAX_LOOKAHEAD = maxLookahead || 90;
 
-  // Get all expiries, starting from initExpiry
-  const allExpiries = getExpiriesFromData(rollFreq);
-  // Find starting index — first expiry >= initExpiry
-  let startExpIdx = 0;
-  if (initExpiry) {
-    startExpIdx = allExpiries.findIndex(e => e >= initExpiry);
-    if (startExpIdx < 0) startExpIdx = 0;
+  // ── Seed from initial position ─────────────────────────────────────────
+  const initContract = findContract(initExpiry, otmFixed);
+  if (!initContract || !initContract.days.length) return null;
+
+  if (!initContract._dayMap) {
+    initContract._dayMap = {};
+    initContract.days.forEach(d => { initContract._dayMap[d.date.trim().slice(0,10)] = d; });
   }
-  const expiries = allExpiries.slice(startExpIdx);
-  if (expiries.length === 0) return null;
+
+  logDebug(`Init contract: ${initContract.ticker} exp=${initContract.expiry} days=${initContract.days.length} first=${initContract.days[0]?.date} last=${initContract.days[initContract.days.length-1]?.date}`);
+
+  const initFirstDay = initContract.days[0];
+  const startSPY = spyMap[initFirstDay.date]?.c || DM.spy[0].c;
+  const startDate = initFirstDay.date;
 
   const cycles = [];
   const equityCurve = [];
   let premiumPnL = 0;
   const spyDates = DM.spy.map(r => r.date).sort();
 
-  // ── Seed from initial position ──────────────────────────────────────────
-  // The first cycle uses the selected initial expiry — this is the "buy SPY + sell call" trade
-  // Subsequent cycles are rolls: buy back old call, sell new call
-  const initOTM = otmMode === "vix" ? 0.05 : otmFixed;
-  const initContract = findContract(expiries[0], initOTM);
-  if (!initContract || !initContract.days.length) return null;
-
-  logProgress(`Init expiries: ${expiries.slice(0,4).join(", ")}`);
-  logProgress(`Init contract: ${initContract.ticker} exp=${initContract.expiry} days=${initContract.days.length} first=${initContract.days[0]?.date} last=${initContract.days[initContract.days.length-1]?.date}`);
-
-  const initFirstDay = initContract.days[0];
-  const startSPY = spyMap[initFirstDay.date]?.c || DM.spy[0].c;
-  const startDate = initFirstDay.date;
-
-  let currentExpIdx = 0;
-  let currentContract = null;
-  let entrySPY = null;
+  let currentContract = initContract;
+  let entrySPY = startSPY;
   let entryCallPrice = null;
-  let entryDate = null;
-  let entryStrike = null;
-  let cycleIsInitial = true; // flag first cycle
+  let entryDate = startDate;
+  let entryStrike = initContract.strike;
+  let cycleIsInitial = true;
 
   // Walk through time day by day starting from initiation date
   for (const date of spyDates) {
@@ -691,43 +771,23 @@ function simulate(params) {
     const spy = spyRow.c;
     const vix = vixMap[date] || 18;
 
-    // Initialize or roll position
-    if (!currentContract) {
-      // Find next expiry
-      // Skip expiries that have already passed (including the one we just closed)
-      while (currentExpIdx < expiries.length && expiries[currentExpIdx] <= date) currentExpIdx++;
-      if (currentExpIdx >= expiries.length) break;
-      const exp = expiries[currentExpIdx];
-
-      // Determine OTM target
-      const otm = otmMode === "vix" ? vixOTM(vix) : otmFixed;
-      const { contract: foundContract, gap } = findContractOrGap(exp, otm, date, spy);
-      if (gap) return { gap: true, gapExpiry: exp, gapOTM: otm, gapDate: date };
-      currentContract = foundContract;
-      if (!currentContract) { currentExpIdx++; continue; }
-
-      // Entry price: use TODAY's data, not first day of contract
-      // Contract may have been trading for months before we enter it
+    // Initialize entry price on first day
+    if (!entryCallPrice) {
       if (!currentContract._dayMap) {
         currentContract._dayMap = {};
-        currentContract.days.forEach(d => { currentContract._dayMap[d.date] = d; });
+        currentContract.days.forEach(d => { currentContract._dayMap[d.date.trim().slice(0,10)] = d; });
       }
-      // Find today's or nearest available day's price
-      let entryDay = currentContract._dayMap[date];
-      if (!entryDay) {
-        // Find nearest day on or before today
-        const availDays = currentContract.days.filter(d => d.date <= date);
-        entryDay = availDays[availDays.length - 1] || currentContract.days[0];
+      const entryDay = currentContract._dayMap[date] ||
+        (() => { const d = currentContract.days.filter(x => x.date <= date); return d[d.length-1]; })();
+      if (entryDay) {
+        entryCallPrice = entryDay.vw || entryDay.c;
+        entryDate = date;
+        entrySPY = spy;
+        entryStrike = currentContract.strike;
+        logDebug(`Contract: ${currentContract.ticker} exp=${currentContract.expiry} entry=${entryDate} price=$${entryCallPrice.toFixed(2)} strike=$${entryStrike} SPY=$${spy.toFixed(2)}`);
       }
-      if (!entryDay) { currentContract = null; currentExpIdx++; continue; }
-
-      entryCallPrice = entryDay.vw || entryDay.c;  // VWAP preferred
-      entryDate = date;                              // actual entry = today
-      entryStrike = currentContract.strike;
-      entrySPY = spy;                                // SPY price today
-      cyclePremiumCollected = entryCallPrice * 100 * contracts;
-      logProgress(`Contract: ${currentContract.ticker} exp=${currentContract.expiry} entry=${entryDate} price=$${entryCallPrice.toFixed(2)} entryStrike=$${entryStrike}`);
     }
+    if (!entryCallPrice) continue; // wait for data
 
     // Build call price lookup (cache on contract to avoid repeated find())
     if (!currentContract._dayMap) {
@@ -743,7 +803,7 @@ function simulate(params) {
     // Debug missing dates in key window
     if (!callDay && date >= "2024-08-05" && date <= "2024-08-10") {
       const availKeys = Object.keys(currentContract._dayMap).filter(k => k >= "2024-08-04" && k <= "2024-08-11");
-      logProgress("  " + date + ": NO callDay — nearby keys: " + availKeys.join(", "));
+      logDebug("  " + date + ": NO callDay — nearby keys: " + availKeys.join(", "));
     }
 
     // Calculate DTE
@@ -767,7 +827,7 @@ function simulate(params) {
       if (callPrice !== null && entryCallPrice > 0) {
         const decayPct = ((entryCallPrice - callPrice) / entryCallPrice) * 100;
         if (date >= "2024-08-05" && date <= "2024-08-10") {
-          logProgress(`  ${date}: callPrice=$${callPrice.toFixed(2)} entryCall=$${entryCallPrice.toFixed(2)} decay=${decayPct.toFixed(1)}% trigger=${decayTrigger}%`);
+          logDebug(`  ${date}: callPrice=$${callPrice.toFixed(2)} entryCall=$${entryCallPrice.toFixed(2)} decay=${decayPct.toFixed(1)}% trigger=${decayTrigger}%`);
         }
         if (decayPct >= decayTrigger) { shouldRoll = true; rollReason = `${fmt(decayPct,0)}% decay`; }
       }
@@ -785,30 +845,18 @@ function simulate(params) {
     equityCurve.push({ date, covered_call: coveredCallValue, buyhold: buyholdValue, spy, vix });
 
     if (shouldRoll) {
-      // On expiry: OTM call expires worthless (exitPrice=0), ITM call has intrinsic value
       let exitCallPrice;
       if (isExpired) {
-        const intrinsic = Math.max(0, spy - entryStrike);
-        exitCallPrice = intrinsic; // 0 if OTM (keep full premium), intrinsic if ITM (assignment)
+        exitCallPrice = Math.max(0, spy - entryStrike);
       } else {
         exitCallPrice = callPrice || 0;
       }
-      const isExpiry = isExpired;
 
-      // For expiry: keep full remaining value if OTM, lose intrinsic if ITM
-      // For early roll: net credit = premium_collected_on_entry - buyback_cost
-      //   The NEW premium from replacement call is credited in the next cycle
-      //   So this cycle P&L is the partial premium kept = entryCall - exitCall
       const cyclePnL = (entryCallPrice - exitCallPrice) * 100 * contracts;
       premiumPnL += cyclePnL;
-
       const exitSPY = spy;
       const daysHeld = Math.max(1, Math.round((new Date(date) - new Date(entryDate)) / 86400000));
-      // Annualized yield based on premium collected at entry vs SPY price
       const annYield = (entryCallPrice / entrySPY) * (365 / daysHeld) * 100;
-      // Net credit = what we kept from this leg
-      const netCredit = cyclePnL;
-
       const entryDelta = calcDelta(entrySPY, entryStrike,
         Math.round((new Date(currentContract.expiry) - new Date(entryDate)) / 86400000),
         vixMap[entryDate] || vix, getTNX());
@@ -817,25 +865,38 @@ function simulate(params) {
         entryDate, exitDate: date, expiry: currentContract.expiry,
         strike: entryStrike, otmPct: currentContract.otm_pct,
         entryCall: entryCallPrice, exitCall: exitCallPrice,
-        entrySPY, exitSPY,
-        cyclePnL: netCredit,
+        entrySPY, exitSPY, cyclePnL,
         premiumCollected: entryCallPrice * 100 * contracts,
         buybackCost: exitCallPrice * 100 * contracts,
         daysHeld, annYield, rollReason,
-        isExpiry,
-        isInitial: cycleIsInitial,
+        isExpiry: isExpired, isInitial: cycleIsInitial,
         entryVix: vixMap[entryDate] || vix,
-        entryDelta,
-        exitDelta: delta,
+        entryDelta, exitDelta: delta,
+        approximate: _gapContracts.some(g => g.usedAlternative),
       });
 
       cycleIsInitial = false;
-      currentContract = null;
-      currentExpIdx++;
-    }
-  }
+
+      // Find next contract: monthly-first, step forward up to maxLookahead
+      const { contract: nextContract, hardStop } = findBestContract(date, otmFixed, spy, MAX_LOOKAHEAD);
+      if (hardStop) {
+        logProgress(`  No contract found within ${MAX_LOOKAHEAD}d of ${date} — simulation ended`, "err");
+        break;
+      }
+      currentContract = nextContract;
+      entryCallPrice = null;
+      entryDate = null;
+      entryStrike = null;
+      entrySPY = null;
+    }  }
 
   if (cycles.length === 0) return null;
+
+  // Gap summary
+  const gapCount = _gapContracts.filter(g => g.usedAlternative).length;
+  if (gapCount > 0) {
+    logProgress(`⚠ ${gapCount} gap(s) — substitutions used, results are approximate`, "err");
+  }
 
   // Summary stats
   const totalPremium = cycles.reduce((s, c) => s + c.cyclePnL, 0);
@@ -860,19 +921,19 @@ function calcMaxDrawdown(values) {
 }
 
 // ── Run single simulation ──────────────────────────────────────────────────
-function getParams() {
+function getParams(regimeOverride) {
+  const p = getActiveParams(regimeOverride);
   return {
-    rollFreq:     document.getElementById("roll-freq").value,
-    otmMode:      document.getElementById("otm-target").value === "vix" ? "vix" : "fixed",
-    otmFixed:     parseFloat(document.getElementById("otm-target").value) || 0.05,
-    decayTrigger: parseFloat(document.getElementById("decay-trigger").value),
-    dteFloor:     parseInt(document.getElementById("dte-floor").value),
-    shares:       parseInt(document.getElementById("shares").value),
-    initExpiry:      document.getElementById("init-date")?.value || null,
-    deltaThreshold:  parseFloat(document.getElementById("delta-trigger").value) || 0,
+    otmMode:        "fixed",
+    otmFixed:       p.otmFixed,
+    decayTrigger:   p.decayTrigger,
+    dteFloor:       p.dteFloor,
+    deltaThreshold: p.deltaThreshold,
+    maxLookahead:   p.maxLookahead || 90,
+    shares:         parseInt(document.getElementById("shares").value),
+    initExpiry:     document.getElementById("init-date")?.value || null,
   };
 }
-
 function showTab(tab) {
   // Results tabs (inside results-tabs div)
   ["chart","log","heatmap"].forEach(t => {
@@ -905,6 +966,12 @@ function logProgress(msg, cls="") {
   el.scrollTop = el.scrollHeight;
 }
 
+function logDebug(msg) {
+  if (document.getElementById("debug-toggle")?.checked) {
+    logProgress(msg, "debug");
+  }
+}
+
 function setProgress(pct) {
   document.getElementById("progress-bar").style.width = pct + "%";
 }
@@ -920,7 +987,7 @@ function runSimulation() {
 
   setTimeout(() => {
     setProgress(30);
-    logProgress(`Running ${params.rollFreq} simulation — ${params.otmMode === "vix" ? "VIX-adaptive" : (params.otmFixed*100).toFixed(0)+"% OTM"} · ${params.decayTrigger}% decay trigger · ${params.dteFloor}d DTE floor`);
+    logProgress(`Running simulation — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold} · ${params.maxLookahead}d max lookahead`);
 
     _gapContracts = []; // reset gaps
     const result = simulate(params);
@@ -956,41 +1023,79 @@ function runSimulation() {
   }, 50);
 }
 
-// ── Optimization grid ──────────────────────────────────────────────────────
+// ── Optimization grid — per VIX regime ────────────────────────────────────
 function runOptimization() {
   if (!DM) return;
-  const baseParams = getParams();
 
   document.getElementById("progress-panel").classList.add("visible");
   document.getElementById("progress-log").innerHTML = "";
   setProgress(5);
-  logProgress("Running optimization grid...");
+  logProgress("Running regime-based optimization...");
 
   const decayTriggers = [50, 60, 70, 75, 80, 90];
   const dteFloors     = [7, 14, 21, 30, 45];
-  const deltaThresholds = [0, 0.25, 0.30, 0.35, 0.40];
-  // Run optimization over decay × DTE (delta fixed at current selection)
-  const fixedDelta = baseParams.deltaThreshold;
-  const total = decayTriggers.length * dteFloors.length;
+  const regimes = ["low","normal","elevated","high"];
+  const vixRanges = { low:[0,15], normal:[15,20], elevated:[20,25], high:[25,100] };
+  const total = decayTriggers.length * dteFloors.length * regimes.length;
   let done = 0;
 
-  const grid = {};
-  decayTriggers.forEach(d => { grid[d] = {}; });
+  // Results per regime
+  const regimeResults = {};
 
   setTimeout(() => {
-    for (const decay of decayTriggers) {
-      for (const dte of dteFloors) {
-        const result = simulate({ ...baseParams, decayTrigger: decay, dteFloor: dte, deltaThreshold: fixedDelta });
-        grid[decay][dte] = result && !result.gap ? result.avgAnnYield : null;
-        done++;
-        setProgress(Math.round((done / total) * 90));
+    for (const regime of regimes) {
+      const [vixMin, vixMax] = vixRanges[regime];
+      regimeResults[regime] = { grid: {}, bestDecay: null, bestDTE: null, bestYield: -Infinity };
+      decayTriggers.forEach(d => { regimeResults[regime].grid[d] = {}; });
+
+      for (const decay of decayTriggers) {
+        for (const dte of dteFloors) {
+          // Filter simulation to only cycles where entry VIX is in this regime
+          const params = { ...STANDARD_PARAMS, decayTrigger: decay, dteFloor: dte,
+                           shares: parseInt(document.getElementById("shares").value),
+                           initExpiry: document.getElementById("init-date")?.value };
+          const result = simulate(params);
+          let yield_ = null;
+          if (result && !result.hardStop && result.cycles.length > 0) {
+            // Only count cycles where entry VIX matches regime
+            const regimeCycles = result.cycles.filter(c => {
+              const v = c.entryVix;
+              return v >= vixMin && v < vixMax;
+            });
+            if (regimeCycles.length >= 2) { // need at least 2 cycles for meaningful stat
+              yield_ = regimeCycles.reduce((s,c) => s + c.annYield, 0) / regimeCycles.length;
+            }
+          }
+          regimeResults[regime].grid[decay][dte] = yield_;
+          if (yield_ !== null && yield_ > regimeResults[regime].bestYield) {
+            regimeResults[regime].bestYield = yield_;
+            regimeResults[regime].bestDecay = decay;
+            regimeResults[regime].bestDTE   = dte;
+          }
+          done++;
+          setProgress(Math.round((done / total) * 90));
+        }
       }
+      logProgress(`✓ ${regime.charAt(0).toUpperCase()+regime.slice(1)} regime: best ${regimeResults[regime].bestDecay}% decay / ${regimeResults[regime].bestDTE}d floor → ${regimeResults[regime].bestYield.toFixed(1)}% yield`, "ok");
     }
 
-    logProgress(`✓ ${total} combinations tested`, "ok");
     setProgress(100);
 
-    renderHeatmap(grid, decayTriggers, dteFloors);
+    // Store optimized params
+    _optimizedParams = {};
+    for (const regime of regimes) {
+      _optimizedParams[regime] = {
+        decayTrigger:   regimeResults[regime].bestDecay || STANDARD_PARAMS.decayTrigger,
+        dteFloor:       regimeResults[regime].bestDTE   || STANDARD_PARAMS.dteFloor,
+        deltaThreshold: STANDARD_PARAMS.deltaThreshold,
+        otmFixed:       STANDARD_PARAMS.otmFixed,
+        maxLookahead:   STANDARD_PARAMS.maxLookahead,
+      };
+    }
+
+    // Show results
+    renderRegimeOptResults(regimeResults);
+    updateParamDisplay();
     document.getElementById("results-tabs").style.display = "block";
     document.getElementById("tab-heatmap-btn").style.display = "block";
     showTab("heatmap");
@@ -998,6 +1103,54 @@ function runOptimization() {
 }
 
 // ── Render functions ───────────────────────────────────────────────────────
+function renderRegimeOptResults(regimeResults) {
+  const regimes = ["low","normal","elevated","high"];
+  const regimeLabels = { low:"Low (<15)", normal:"Normal (15-20)", elevated:"Elevated (20-25)", high:"High (>25)" };
+  const decayTriggers = [50,60,70,75,80,90];
+  const dteFloors = [7,14,21,30,45];
+
+  // Build a heatmap per regime
+  let html = "";
+  for (const regime of regimes) {
+    const r = regimeResults[regime];
+    const allVals = decayTriggers.flatMap(d => dteFloors.map(dte => r.grid[d][dte])).filter(v => v !== null);
+    const minV = allVals.length ? Math.min(...allVals) : 0;
+    const maxV = allVals.length ? Math.max(...allVals) : 10;
+
+    function cellColor(v) {
+      if (v === null) return "var(--surface2)";
+      const t = maxV === minV ? 0.5 : (v - minV) / (maxV - minV);
+      return `rgb(${Math.round(30+t*31)},${Math.round(40+t*174)},${Math.round(60+t*80)})`;
+    }
+    function textColor(v) {
+      if (v === null) return "var(--border)";
+      const t = maxV === minV ? 0.5 : (v - minV) / (maxV - minV);
+      return t > 0.5 ? "#0d0f14" : "#e8ecf4";
+    }
+
+    html += `<div style="margin-bottom:20px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text-muted);margin-bottom:6px;letter-spacing:0.08em;">
+        ${regimeLabels[regime]} VIX
+        ${r.bestDecay ? `<span style="color:var(--green);margin-left:12px;">Best: ${r.bestDecay}% decay / ${r.bestDTE}d floor → ${r.bestYield.toFixed(1)}% yield</span>` : '<span style="color:var(--red);margin-left:12px;">Insufficient data</span>'}
+      </div>
+      <div class="heatmap-wrap" style="padding:0;">
+        <table class="heatmap-table"><thead><tr><th class="row-h">Decay / DTE→</th>`;
+    for (const dte of dteFloors) html += `<th>${dte}d</th>`;
+    html += `</tr></thead><tbody>`;
+    for (const decay of decayTriggers) {
+      html += `<tr><td class="row-label">${decay}%</td>`;
+      for (const dte of dteFloors) {
+        const v = r.grid[decay][dte];
+        const isBest = decay === r.bestDecay && dte === r.bestDTE;
+        html += `<td style="background:${cellColor(v)};color:${textColor(v)}" class="${isBest?"heatmap-best":""}">${v !== null ? v.toFixed(1)+"%" : "—"}</td>`;
+      }
+      html += `</tr>`;
+    }
+    html += `</tbody></table></div></div>`;
+  }
+  document.getElementById("heatmap-container").innerHTML = html;
+}
+
 function renderGapReport(result) {
   const { gapExpiry, gapOTM, gapDate } = result;
   const ticker = buildTickerStr(gapExpiry, gapOTM);
