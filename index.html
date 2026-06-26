@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.2.3 · OTM% in candidate debug log</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.2.5 · roll credit debug · debit filter</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -452,7 +452,7 @@ function getMartExpiries() {
 
 // Find best contract to roll into: yield-maximizing across all candidates
 // Yield = (entryPremium / SPY) * (365 / DTE) — highest annualized yield wins
-function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFloor, excludeKey, deltaThreshold) {
+function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFloor, excludeKey, deltaThreshold, buybackPx) {
   const afterD  = new Date(afterDate + 'T00:00:00');
   const maxDate = new Date(afterDate + 'T00:00:00');
   maxDate.setDate(maxDate.getDate() + maxLookahead * 2); // 2x window to handle gaps
@@ -487,6 +487,11 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
           logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= threshold " + deltaThreshold);
           continue;
         }
+      }
+      // Skip if this would be a debit roll — new premium must exceed buyback cost
+      if (buybackPx > 0 && entryPx <= buybackPx) {
+        logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": debit roll (sell $" + entryPx.toFixed(2) + " < cover $" + buybackPx.toFixed(2) + ")");
+        continue;
       }
 
 
@@ -701,7 +706,7 @@ async function simulate(p) {
     entryPrice = entryDate = entryStrike = entrySPY = null;
 
     // ── Find next contract ──
-    const next = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, curC.expiry + '_' + curC.strike, deltaThreshold);
+    const next = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, curC.expiry + '_' + curC.strike, deltaThreshold, exitPx);
     if (!next) {
       logMsg(`  No contract found within ${maxLookahead}d of ${date} — done`, 'err');
       break;
@@ -712,6 +717,7 @@ async function simulate(p) {
     const nextDay = next._dm[rollDayKey] || next.days.find(d => d.date >= date);
     const nextPx_ = nextDay ? (nextDay.vw || nextDay.c) : 0;
     rollCreditTotal += (nextPx_ - exitPx) * 100 * contracts;
+    logDbg("  Roll credit: sell $" + (nextPx_||0).toFixed(2) + " - cover $" + exitPx.toFixed(2) + " = $" + ((nextPx_-exitPx)*100*contracts).toFixed(0) + " cumulative: $" + rollCreditTotal.toFixed(0));
 
     curC = next;
     // Roll is now complete: cover done + new leg found
