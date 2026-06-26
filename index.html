@@ -448,7 +448,7 @@ async function loadData() {
     status.textContent = `✓ Data mart loaded — ${spy_days} SPY days · ${opt_count} option contracts · updated ${last}`;
     status.style.color = "var(--green)";
     document.getElementById("run-btn").disabled = false;
-    document.getElementById("opt-btn").disabled = false;
+    updateParamDisplay();
     populateInitDates();
     renderMartSummary();
   } catch(e) {
