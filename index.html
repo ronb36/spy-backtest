@@ -117,7 +117,7 @@
   <div class="header-eyebrow">SPY Covered Call</div>
   <h1>Backtest & Roll Optimizer</h1>
   <div class="header-sub" id="data-status">Loading data mart from GitHub...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.D — entry day guard · positionOpen · ITM guard</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#3a4060;margin-bottom:8px;">v2026.06.26.E — min DTE at entry · entry day guard · positionOpen</div>
 
   <!-- Initial Position -->
   <div class="init-panel" id="init-panel" style="display:none">
@@ -706,7 +706,12 @@ function findBestContract(afterDate, targetOTM, currentSPY, maxLookahead) {
   maxDate.setDate(maxDate.getDate() + maxLookahead);
   const maxStr = maxDate.toISOString().split("T")[0];
 
-  const candidates = allExp.filter(e => e > afterDate && e <= maxStr);
+  const candidates = allExp.filter(e => {
+    if (e <= afterDate || e > maxStr) return false;
+    // Skip expiries where DTE at entry is too short — would trigger roll immediately
+    const dteAtEntry = Math.round((new Date(e) - new Date(afterDate)) / 86400000);
+    return dteAtEntry > dteFloor + 7; // need meaningful time to hold
+  });
 
   for (const exp of candidates) {
     const contract = findContract(exp, targetOTM, currentSPY);
