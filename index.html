@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.0.3 · gaps tab · Railway instructions</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.0.5 · yield-maximizing contract selector</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -422,57 +422,57 @@ function getMartExpiries() {
   return [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
 }
 
-// Find best contract to roll into: monthly-first, min DTE, ITM guard
+// Find best contract to roll into: yield-maximizing across all candidates
+// Yield = (entryPremium / SPY) * (365 / DTE) — highest annualized yield wins
 function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFloor) {
-  const allExp = getMartExpiries();
+  const afterD  = new Date(afterDate + 'T00:00:00');
   const maxDate = new Date(afterDate + 'T00:00:00');
-  maxDate.setDate(maxDate.getDate() + maxLookahead);
-  const maxStr = maxDate.toISOString().slice(0, 10);
+  maxDate.setDate(maxDate.getDate() + maxLookahead * 2); // 2x window to handle gaps
+  const maxStr  = maxDate.toISOString().slice(0, 10);
 
-  const candidates = allExp.filter(e => {
+  const allExp = getMartExpiries().filter(e => {
     if (e <= afterDate || e > maxStr) return false;
-    const dte = Math.round((new Date(e + 'T00:00:00') - new Date(afterDate + 'T00:00:00')) / 86400000);
-    return dte > dteFloor + 7; // must have meaningful time above floor
+    const dte = Math.round((new Date(e+'T00:00:00') - afterD) / 86400000);
+    return dte > dteFloor + 7;
   });
 
-  for (const exp of candidates) {
-    const c = findContract(exp, targetOTM, currentSPY);
-    if (!c) {
-      // No contract in mart for this expiry at this OTM — record gap, keep looking
+  let bestContract = null, bestYield = -Infinity;
+
+  for (const exp of allExp) {
+    const expContracts = Object.values(DM.options).filter(c => c.expiry === exp);
+
+    if (!expContracts.length) {
       _gaps.push({ expiry: exp, otm: targetOTM, needed: afterDate, substituted: true });
-      logDbg(`  Gap ${exp}: no contract in mart`);
+      logDbg("  Gap " + exp + ": no contracts in mart");
       continue;
     }
-    if (c.strike <= currentSPY) {
-      // Strike is ITM — skip, try next expiry (not a data gap, no fill needed)
-      logDbg(`  Skip ${exp}: $${c.strike} ITM (SPY=$${currentSPY.toFixed(0)})`);
-      _gaps.push({ expiry: exp, otm: targetOTM, needed: afterDate, substituted: false, reason: 'ITM' });
-      continue;
+
+    for (const c of expContracts) {
+      if (c.strike <= currentSPY) continue; // must be OTM
+
+      const dm = buildDayMap(c);
+      // Find entry day: exact match or next available trading day
+      const entryDay = dm[afterDate] || c.days.find(d => d.date > afterDate);
+      if (!entryDay) continue;
+
+      const entryPx = entryDay.vw || entryDay.c;
+      if (!entryPx || entryPx <= 0) continue;
+
+      const dte = Math.round((new Date(exp+'T00:00:00') - afterD) / 86400000);
+      if (dte <= 0) continue;
+
+      const annYield = (entryPx / currentSPY) * (365 / dte) * 100;
+      logDbg("  Candidate " + exp + " $" + c.strike + ": px=$" + entryPx.toFixed(2) + " DTE=" + dte + " yld=" + annYield.toFixed(1) + "%");
+
+      if (annYield > bestYield) { bestYield = annYield; bestContract = c; }
     }
-    buildDayMap(c);
-    if (!c.days.some(d => d.date >= afterDate)) {
-      logDbg(`  Skip ${exp}: no data from ${afterDate}`);
-      continue;
-    }
-    return c;
   }
-  // Try extended lookahead (up to 2x) before giving up
-  const extDate = new Date(afterDate + 'T00:00:00');
-  extDate.setDate(extDate.getDate() + maxLookahead * 2);
-  const extStr = extDate.toISOString().slice(0, 10);
-  const extCandidates = allExp.filter(e => e > maxStr && e <= extStr && (() => {
-    const dte = Math.round((new Date(e+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
-    return dte > dteFloor + 7;
-  })());
-  for (const exp of extCandidates) {
-    const c = findContract(exp, targetOTM, currentSPY);
-    if (!c || c.strike <= currentSPY) continue;
-    buildDayMap(c);
-    if (!c.days.some(d => d.date >= afterDate)) continue;
-    logDbg(`  Extended lookahead — found ${exp}`);
-    return c;
+
+  if (bestContract) {
+    logDbg("  Best: " + bestContract.expiry + " $" + bestContract.strike + " yld=" + bestYield.toFixed(1) + "%");
+    return bestContract;
   }
-  return null; // hard stop
+  return null;
 }
 
 // ── Init position display ──────────────────────────────────────────────────
@@ -643,6 +643,7 @@ async function simulate(p) {
       break;
     }
     curC = next;
+    continue; // skip to next date — don't open new position on same day as roll
   }
 
   if (!cycles.length) return null;
