@@ -438,15 +438,10 @@ function logMsg(msg, cls='') {
   if (mirror) { mirror.innerHTML += div; mirror.scrollTop = mirror.scrollHeight; }
 }
 function logDbg(msg) {
+  // OPT mode: suppress everything — sweep headers and winner use logMsg directly
+  if (_mode === 'optimize') return;
+  // STD mode: always show structural lines; candidates only in debug mode
   const isStructural = msg.includes('TRIGGER') || msg.includes('→ Best') || msg.includes('Open:') || msg.includes('Init:') || msg.includes('Roll ') || msg.includes('Initial sell') || msg.includes('cycles');
-
-  if (_mode === 'optimize') {
-    // OPT: always show structural lines, suppress candidates
-    if (!isStructural) return;
-    logMsg(msg, 'dbg');
-    return;
-  }
-  // STD: always show structural lines; candidates only in debug mode
   if (!isStructural && !_debugMode) return;
   logMsg(msg, 'dbg');
 }
@@ -1050,7 +1045,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.25 · SPY Covered Call Backtest');
+  logMsg('v2.5.26 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
