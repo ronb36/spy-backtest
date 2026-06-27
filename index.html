@@ -234,15 +234,11 @@ select.display-box { cursor:pointer; outline:none; }
     </div>
   </div>
 
-  <!-- Progress -->
-  <div class="panel progress-panel" id="progress-panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <div class="mono-label">Running...</div>
-      <button onclick="copyDebugLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="copy-log-btn">Copy Log</button>
-    </div>
-    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar"></div></div>
-    <div class="progress-log" id="progress-log"></div>
-  </div>
+  <!-- Progress bar — sits between param grid and results -->
+  <div class="progress-bar-bg" style="margin:8px 0;"><div class="progress-bar-fill" id="progress-bar"></div></div>
+
+  <!-- Hidden log sink - content mirrors to Logs tab -->
+  <div style="display:none"><div id="progress-log"></div></div>
 
   <!-- Summary stats -->
   <div class="summary-grid" id="summary-grid"></div>
@@ -295,7 +291,7 @@ select.display-box { cursor:pointer; outline:none; }
     <div id="tab-runlog" style="display:none">
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="chart-title">📄 Run Log</span>
+          <span class="chart-title" id="runlog-status">📄 Run Log</span>
           <button onclick="copyDebugLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="copy-log-btn2">Copy Log</button>
         </div>
         <div class="progress-log" id="runlog-mirror" style="max-height:480px;overflow-y:auto;"></div>
@@ -424,6 +420,12 @@ function copyDebugLog() {
 function setProgress(pct) {
   const el = $('progress-bar');
   if (el) el.style.width = pct + '%';
+}
+function hideProgressPanel() {
+  setTimeout(() => {
+
+
+  }, 800);
 }
 function logMsg(msg, cls='') {
   const el = $('progress-log');
@@ -583,9 +585,9 @@ function handleRun() {
   $('progress-log').innerHTML = '';
   const mirror = $('runlog-mirror');
   if (mirror) mirror.innerHTML = '';
-  $('progress-panel').classList.add('visible');
-  const progTitle = document.querySelector('#progress-panel .mono-label');
-  if (progTitle) progTitle.textContent = 'Running';
+  
+  
+  
   setProgress(0);
 
   if (anySweepActive()) runOptimization();
@@ -1048,7 +1050,7 @@ async function runSimulation() {
     maxLookahead: _lookahead,
   };
 
-  $('progress-panel').classList.add('visible');
+  
   $('progress-log').innerHTML = '';
   setProgress(0);
   await yield_();
@@ -1062,12 +1064,13 @@ async function runSimulation() {
 
   const result = await simulate(params);
   setProgress(95);
-  if (!result) { logMsg('✗ No cycles — check parameters','err'); setProgress(100); return; }
+  if (!result) { logMsg('✗ No cycles — check parameters','err'); setProgress(100);  return; }
 
   logMsg(`✓ ${result.rolls.length} roll cycles`,'ok');
   setProgress(100);
-  const progTitle2 = document.querySelector('#progress-panel .mono-label');
-  if (progTitle2) progTitle2.textContent = 'Complete';
+  
+  
+  
 
   renderSummary(result);
   renderCycleTable(result);
@@ -1086,7 +1089,7 @@ async function runOptimization() {
   _optParams = null;
   _gaps = [];
 
-  $('progress-panel').classList.add('visible');
+  
   $('progress-log').innerHTML = '';
   setProgress(5);
 
@@ -1159,8 +1162,9 @@ async function runOptimization() {
     }
 
     setProgress(100);
-    const progTitleOpt = document.querySelector('#progress-panel .mono-label');
-    if (progTitleOpt) progTitleOpt.textContent = 'Complete';
+    
+    
+    
     renderOptResults(allResults, decays, floors, deltas, otms);
     updateParamDisplay();
 
@@ -1190,8 +1194,8 @@ async function runOptimization() {
     logMsg(msg, 'err');
     console.error(msg, outerErr);
     setProgress(100);
-    const progTitleErr = document.querySelector('#progress-panel .mono-label');
-    if (progTitleErr) progTitleErr.textContent = 'Error';
+    
+    
   }
 }
 
