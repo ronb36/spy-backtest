@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.5 · optimizer error trapping</div>
+  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.6 · optimizer respects roll limit</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -882,7 +882,8 @@ async function runOptimization() {
         for (const floor of floors) {
           try {
             _gaps = [];
-            const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, shares });
+            const maxRolls = (() => { const v=parseInt($('single-roll-toggle')?.value||'0'); return v>0?v:null; })();
+            const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, shares, maxRolls });
             let yld = null;
             if (r?.rolls?.length >= 2) {
               const rc = r.rolls.filter(c=>c.entryVix>=vMin&&c.entryVix<vMax);
