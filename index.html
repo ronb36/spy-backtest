@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.3 · fix entryDate overwrite in open block</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.4 · clean open log · SPY on entry date</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -629,15 +629,14 @@ async function simulate(p) {
         entryPrice = day.vw || day.c;
         entryDate  = date;
       }
-      entrySPY    = spy;
+      entrySPY    = spyMap[entryDate]?.c || spy;
       entryStrike = curC.strike;
       const expD_ = new Date(curC.expiry+'T00:00:00');
       const todD_ = new Date(date+'T00:00:00');
       entryDelta_ = callDelta(spy, curC.strike, Math.round((expD_-todD_)/86400000), vix, TNX);
       posOpen = true;
       const _tk = Object.keys(DM.options).find(k=>DM.options[k]===curC)||'?';
-      const _execNote = entryDate !== date ? ` (triggered ${date}, filled ${entryDate})` : '';
-      logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${entryDate}${_execNote} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
+      logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${entryDate} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
     }
 
     // ── Mark ──
