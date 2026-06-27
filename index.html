@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.12 · debug mode · optimizer perf fixes</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.13 · regime dropped · flat optimizer · eval counter fixed</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -509,7 +509,7 @@ function updateEvalCount() {
     return;
   }
   const g = getSweepGrid();
-  const evals = g.decay.length * g.dte.length * g.delta.length * g.otm.length * 4;
+  const evals = g.decay.length * g.dte.length * g.delta.length * g.otm.length;
   btn.textContent = '▶ Run';
   counter.textContent = evals.toLocaleString() + ' evals' + (_debugMode ? ' (debug)' : '');
   counter.style.display = 'block';
@@ -535,30 +535,24 @@ function getVIXRegime(vix) {
   return 'high';
 }
 
-function getActiveParams(regime) {
-  if (_mode === 'test' || !_optParams) return { ...STD };
-  return { ...STD, ...(_optParams[regime || getVIXRegime(18)] || {}) };
+function getActiveParams() {
+  if (!_optParams) return { ...STD };
+  return { ...STD, ..._optParams };
 }
 
-function updateParamDisplay(regime) {
-  const p = getActiveParams(regime);
-  const r = regime || getVIXRegime(18);
-  const isOpt = anySweepActive() && _optParams;
-
-  // Regime card
-  const regLabel = isOpt ? r.charAt(0).toUpperCase()+r.slice(1) : 'All';
-  const pr = $('p-regime'); if (pr) pr.textContent = regLabel;
-  const prs = $('p-regime-sub'); if (prs) prs.textContent = isOpt ? 'VIX regime active' : 'Updates after optimize';
-
-  // Legacy param display IDs — guard in case old param-box removed
+function updateParamDisplay() {
+  const p = getActiveParams();
+  const isOpt = anySweepActive() && _optParams && _optParams.decayTrigger;
+  const pr  = $('p-regime');     if (pr)  pr.textContent  = 'All';
+  const prs = $('p-regime-sub'); if (prs) prs.textContent = isOpt ? 'Optimized (full period)' : 'Updates after optimize';
+  const rv  = parseInt($('single-roll-toggle')?.value || '0');
+  const pr2 = $('p-rolls');      if (pr2) pr2.textContent = rv > 0 ? rv : 'All';
   const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
   set('p-otm',   (p.otmFixed*100).toFixed(0) + '%');
   set('p-decay', p.decayTrigger + '%');
   set('p-dte',   p.dteFloor + 'd');
   set('p-delta', p.deltaThreshold.toFixed(2));
-  set('param-label', isOpt
-    ? `Optimized — ${regLabel} VIX Regime`
-    : anySweepActive() ? 'Sweep pending — click ▶ Run' : 'Standard Parameters');
+  set('param-label', isOpt ? 'Optimized Parameters' : anySweepActive() ? 'Sweep pending — click ▶ Run' : 'Standard Parameters');
 }
 
 // ── Tab management ─────────────────────────────────────────────────────────
@@ -980,7 +974,7 @@ async function runSimulation() {
   $('progress-panel').classList.add('visible');
   $('progress-log').innerHTML = '';
   setProgress(5);
-  logMsg('v2.5.12 · SPY Covered Call Backtest');
+  logMsg('v2.5.13 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1025,79 +1019,67 @@ async function runOptimization() {
   const otms   = g.otm;
 
   const sweepDesc = ['decay','dte','delta','otm'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
-  logMsg(`Running regime optimization — sweeping: ${sweepDesc}${_debugMode?' [DEBUG]':''}...`);
+  logMsg(`Running optimization — sweeping: ${sweepDesc}${_debugMode?' [DEBUG]':''}...`);
   await yield_();
 
-  const shares     = 600;
-  const regimes    = ['low','normal','elevated','high'];
-  const vixRanges  = { low:[0,15], normal:[15,20], elevated:[20,25], high:[25,100] };
-  const total      = decays.length*floors.length*deltas.length*otms.length*regimes.length;
+  const shares = 600;
+  const total  = decays.length * floors.length * deltas.length * otms.length;
   let done = 0;
 
-  _optParams = {};
-  const allResults = {};
+  // Flat results — no regime dimension
+  const allResults = { grid:{}, best:null, bestYld:-Infinity, rows:[] };
+  decays.forEach(d=>{ allResults.grid[d]={}; floors.forEach(f=>{ allResults.grid[d][f]=null; }); });
 
-  // Suppress debug logging during optimization for performance
+  // Suppress candidate logging during sweep
   const origChecked = $('debug-toggle')?.checked;
   if ($('debug-toggle')) $('debug-toggle').checked = false;
 
   try {
-    for (const regime of regimes) {
-      logMsg(`⟳ Optimizing regime: ${regime}...`);
-      const [vMin,vMax] = vixRanges[regime];
-      allResults[regime] = { grid:{}, best:null, bestYld:-Infinity };
-      decays.forEach(d=>{ allResults[regime].grid[d]={}; floors.forEach(f=>{ allResults[regime].grid[d][f]=null; }); });
-
-      for (const decay of decays) {
-        for (const floor of floors) {
-          for (const delta of deltas) {
-            for (const otm of otms) {
-          try {
-            _gaps = [];
-            // Always run without roll limit during optimization — need full history for regime scoring
-            const maxLookahead = parseInt($('lookahead-select')?.value || '90');
-            const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed:otm, shares, maxRolls:null, maxLookahead });
-            let yld = null;
-            if (r?.rolls?.length >= 2) {
-              const rc = r.rolls.filter(c=>c.entryVix>=vMin&&c.entryVix<vMax);
-              if (rc.length>=2) yld = rc.reduce((s,c)=>s+c.annYld,0)/rc.length;
+    for (const decay of decays) {
+      logMsg(`\u27f3 Sweeping decay=${decay}%...`);
+      for (const floor of floors) {
+        for (const delta of deltas) {
+          for (const otm of otms) {
+            try {
+              _gaps = [];
+              const maxLookahead = parseInt($('lookahead-select')?.value || '90');
+              const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed:otm, shares, maxRolls:null, maxLookahead });
+              let yld = null;
+              if (r?.rolls?.length >= 2) {
+                yld = r.rolls.reduce((s,c)=>s+c.annYld,0) / r.rolls.length;
+              }
+              if (yld !== null && (allResults.grid[decay][floor] === null || yld > allResults.grid[decay][floor])) {
+                allResults.grid[decay][floor] = yld;
+              }
+              allResults.rows.push({ decay, floor, delta, otm, yld, rolls: r?.rolls?.length ?? 0 });
+              if (yld !== null && yld > allResults.bestYld) {
+                allResults.bestYld = yld;
+                allResults.best = { decay, floor, delta, otm };
+              }
+            } catch(innerErr) {
+              const msg = `\u2717 Error decay=${decay} floor=${floor}: ${innerErr.message}`;
+              logMsg(msg,'err');
+              console.error(msg, innerErr);
             }
-            if (yld !== null && (allResults[regime].grid[decay][floor] === null || yld > allResults[regime].grid[decay][floor])) {
-              allResults[regime].grid[decay][floor] = yld;
-            }
-            if (yld!==null && yld>allResults[regime].bestYld) {
-              allResults[regime].bestYld=yld;
-              allResults[regime].best={decay,floor,delta,otm};
-            }
-          } catch(innerErr) {
-            const msg = `✗ Error decay=${decay} floor=${floor} delta=${delta} otm=${otm} regime=${regime}: ${innerErr.message}`;
-            logMsg(msg,'err');
-            console.error(msg, innerErr);
+            done++;
+            setProgress(5+Math.round((done/total)*90));
+            await yield_();
           }
-          done++;
-          setProgress(5+Math.round((done/total)*90));
-          await yield_();
-            } // otm
-          } // delta
         }
-      }
-
-      const b = allResults[regime].best;
-      _optParams[regime] = {
-        decayTrigger:  b?.decay  || STD.decayTrigger,
-        dteFloor:      b?.floor  || STD.dteFloor,
-        deltaThreshold:b?.delta  || STD.deltaThreshold,
-        otmFixed:      b?.otm    || STD.otmFixed
-      };
-      if (b) {
-        logMsg(`✓ ${regime}: best decay=${b.decay}% / dte=${b.floor}d / Δ${b.delta} / otm=${(b.otm*100).toFixed(0)}% → ${allResults[regime].bestYld.toFixed(1)}% yield`,'ok');
-      } else {
-        logMsg(`⚠ ${regime}: insufficient data — using STD params`,'err');
       }
     }
 
-    // Restore debug logging state
+    // Restore debug logging
     if ($('debug-toggle') && origChecked !== undefined) $('debug-toggle').checked = origChecked;
+
+    const b = allResults.best;
+    _optParams = b ? { decayTrigger:b.decay, dteFloor:b.floor, deltaThreshold:b.delta, otmFixed:b.otm } : { ...STD };
+
+    if (b) {
+      logMsg(`\u2713 Best: decay=${b.decay}% / dte=${b.floor}d / \u0394${b.delta} / otm=${(b.otm*100).toFixed(0)}% \u2192 ${allResults.bestYld.toFixed(1)}% ann.yld`,'ok');
+    } else {
+      logMsg('\u26a0 No qualifying results — using STD params','err');
+    }
 
     setProgress(100);
     const progTitleOpt = document.querySelector('#progress-panel .mono-label');
@@ -1105,21 +1087,20 @@ async function runOptimization() {
     renderOptResults(allResults, decays, floors, deltas, otms);
     updateParamDisplay();
 
-    // Update var cards with optimized results (use normal regime as representative)
-    const repRegime = _optParams['normal'] || _optParams['elevated'] || Object.values(_optParams)[0];
-    if (repRegime) {
+    // Update var cards with winning values
+    if (b) {
       const cardUpdates = {
-        decay: repRegime.decayTrigger + '%',
-        dte:   repRegime.dteFloor + 'd',
-        delta: repRegime.deltaThreshold?.toFixed(2),
-        otm:   repRegime.otmFixed ? (repRegime.otmFixed*100).toFixed(0)+'%' : null,
+        decay: b.decay + '%',
+        dte:   b.floor + 'd',
+        delta: b.delta?.toFixed(2),
+        otm:   b.otm ? (b.otm*100).toFixed(0)+'%' : null,
       };
       for (const [v, winVal] of Object.entries(cardUpdates)) {
         if (!_sweepVars[v] || !winVal) continue;
         const val = $('vval-' + v);
         const sub = $('vsub-' + v);
         if (val) { val.textContent = winVal; val.style.color = 'var(--green)'; val.style.fontSize = '14px'; val.style.letterSpacing = '0'; }
-        if (sub) sub.textContent = 'optimized ✓';
+        if (sub) sub.textContent = 'optimized \u2713';
       }
     }
 
@@ -1128,7 +1109,7 @@ async function runOptimization() {
     showTab('heatmap');
 
   } catch(outerErr) {
-    const msg = `✗ OPTIMIZER CRASHED: ${outerErr.message}`;
+    const msg = `\u2717 OPTIMIZER CRASHED: ${outerErr.message}`;
     logMsg(msg, 'err');
     console.error(msg, outerErr);
     if ($('debug-toggle') && origChecked !== undefined) $('debug-toggle').checked = origChecked;
@@ -1247,75 +1228,60 @@ function renderEquityChart(r) {
 
 // ── Render: Heatmaps ───────────────────────────────────────────────────────
 function renderOptResults(results, decays, floors, deltas, otms) {
-  const regimes   = ['low','normal','elevated','high'];
-  const vixLabels = { low:'Low VIX  (<15)', normal:'Normal  (15-20)', elevated:'Elevated  (20-25)', high:'High  (>25)' };
-  const TOP_N     = 5;
+  const TOP_N = 8;
 
-  let html = '';
+  // results.rows has every combo; sort by yield descending
+  const rows = (results.rows || [])
+    .filter(r => r.yld !== null)
+    .sort((a, b) => b.yld - a.yld);
 
-  for (const regime of regimes) {
-    const r = results[regime];
+  const top    = rows.slice(0, TOP_N);
+  const stdRow = rows.find(r => r.decay === 75 && r.floor === 21) ?? null;
+  const stdYld = stdRow?.yld ?? null;
 
-    // Flatten all decay×floor grid entries into ranked list
-    const rows = [];
-    for (const d of decays) {
-      for (const f of floors) {
-        const yld = r.grid[d]?.[f];
-        if (yld === null || yld === undefined) continue;
-        const isBestCombo = r.best && r.best.decay === d && r.best.floor === f;
-        rows.push({ d, f, yld, isBestCombo });
-      }
+  const b = results.best;
+  const bestStr = b
+    ? `\u2605 Best: decay=${b.decay}% / dte=${b.floor}d`
+      + (b.delta && _sweepVars.delta ? ` / \u0394${b.delta}` : '')
+      + (b.otm   && _sweepVars.otm   ? ` / otm=${(b.otm*100).toFixed(0)}%` : '')
+      + ` \u2192 ${results.bestYld.toFixed(1)}% ann.yld`
+    : '\u26a0 No qualifying results';
+
+  let html = `
+    <div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+      ${bestStr}
+    </div>`;
+
+  if (top.length === 0) {
+    html += `<div class="opt-insufficient">No qualifying results — all combos had fewer than 2 rolls.</div>`;
+  } else {
+    html += `<table class="opt-result-tbl">
+      <thead><tr>
+        <th>Params</th>
+        <th>Rolls</th>
+        <th>Ann. Yield</th>
+        <th>vs STD</th>
+      </tr></thead><tbody>`;
+
+    for (const row of top) {
+      const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.otm === b.otm;
+      const vsDelta  = stdYld !== null ? row.yld - stdYld : null;
+      const vsStr    = vsDelta !== null ? (vsDelta >= 0 ? '+' : '') + vsDelta.toFixed(1) + '%' : '\u2014';
+      const vsClass  = vsDelta === null ? 'muted' : vsDelta >= 0 ? 'green' : 'red';
+      const yldClass = row.yld >= 3 ? 'green' : row.yld >= 0 ? 'yellow' : 'red';
+      const paramStr = `decay=${row.decay}% / dte=${row.floor}d`
+        + (row.delta && _sweepVars.delta ? ` / \u0394${row.delta}` : '')
+        + (row.otm   && _sweepVars.otm   ? ` / otm=${(row.otm*100).toFixed(0)}%` : '');
+      const winFlag  = isBest ? ' <span style="color:var(--green);font-size:9px;">\u2605</span>' : '';
+
+      html += `<tr class="${isBest ? 'opt-best' : ''}">
+        <td style="color:var(--text);">${paramStr}${winFlag}</td>
+        <td class="muted">${row.rolls}</td>
+        <td class="${yldClass}">${row.yld.toFixed(1)}%</td>
+        <td class="${vsClass}">${vsStr}</td>
+      </tr>`;
     }
-    rows.sort((a, b) => b.yld - a.yld);
-    const top = rows.slice(0, TOP_N);
-
-    const bestStr = r.best
-      ? `Best: decay=${r.best.decay}% / dte=${r.best.floor}d`
-        + (r.best.delta ? ` / Δ${r.best.delta}` : '')
-        + (r.best.otm   ? ` / otm=${(r.best.otm*100).toFixed(0)}%` : '')
-        + ` → ${r.bestYld.toFixed(1)}% ann.yld`
-      : null;
-
-    html += `<div class="opt-regime-block">
-      <div class="opt-regime-label">
-        <span>${vixLabels[regime]}</span>
-        ${bestStr
-          ? `<span class="opt-regime-best">★ ${bestStr}</span>`
-          : `<span class="opt-regime-none">⚠ Insufficient data — using STD params</span>`}
-      </div>`;
-
-    if (top.length === 0) {
-      html += `<div class="opt-insufficient">No qualifying results for this regime.</div>`;
-    } else {
-      // find STD row for vs-STD comparison
-      const stdYld = rows.find(r => r.d === 75 && r.f === 21)?.yld ?? null;
-
-      html += `<table class="opt-result-tbl">
-        <thead><tr>
-          <th>Params</th>
-          <th>Ann. Yield</th>
-          <th>vs STD</th>
-        </tr></thead><tbody>`;
-
-      for (const row of top) {
-        const vsDelta  = stdYld !== null ? row.yld - stdYld : null;
-        const vsStr    = vsDelta !== null ? (vsDelta >= 0 ? '+' : '') + vsDelta.toFixed(1) + '%' : '—';
-        const vsClass  = vsDelta === null ? 'muted' : vsDelta >= 0 ? 'green' : 'red';
-        const yldClass = row.yld >= 3 ? 'green' : row.yld >= 0 ? 'yellow' : 'red';
-        const paramStr = `decay=${row.d}% / dte=${row.f}d`
-          + (r.best?.delta && _sweepVars.delta ? ` / Δ${r.best.delta}` : '')
-          + (r.best?.otm   && _sweepVars.otm   ? ` / otm=${(r.best.otm*100).toFixed(0)}%` : '');
-        const winFlag  = row.isBestCombo ? ' <span style="color:var(--green);font-size:9px;">★</span>' : '';
-
-        html += `<tr class="${row.isBestCombo ? 'opt-best' : ''}">
-          <td style="color:var(--text);">${paramStr}${winFlag}</td>
-          <td class="${yldClass}">${row.yld.toFixed(1)}%</td>
-          <td class="${vsClass}">${vsStr}</td>
-        </tr>`;
-      }
-      html += `</tbody></table>`;
-    }
-    html += `</div>`;
+    html += `</tbody></table>`;
   }
 
   $('heatmap-container').innerHTML = `<div style="padding:16px;">${html}</div>`;
