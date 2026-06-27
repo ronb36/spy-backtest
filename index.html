@@ -134,7 +134,13 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.11 · optimizer results log — heatmap replaced</div>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.12 · debug mode · optimizer perf fixes</div>
+    <button id="debug-mode-btn" onclick="toggleDebugMode()"
+      style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
+      Debug Off
+    </button>
+  </div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -185,7 +191,7 @@ select.display-box { cursor:pointer; outline:none; }
       <div class="stat-card">
         <div class="stat-label">Roll Limit</div>
         <div style="margin-top:6px;">
-          <select id="single-roll-toggle" onchange="updateParamDisplay()" style="background:var(--surface2);border:1px solid var(--yellow);border-radius:4px;color:var(--yellow);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
+          <select id="single-roll-toggle" onchange="updateParamDisplay()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
             <option value="0">All</option>
             <option value="1">1</option>
             <option value="3" selected>3</option>
@@ -217,12 +223,12 @@ select.display-box { cursor:pointer; outline:none; }
       </div>
 
       <!-- Run button — bottom right -->
-      <div class="stat-card" style="display:flex;flex-direction:column;justify-content:center;align-items:stretch;gap:4px;">
+      <div class="stat-card" style="display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;padding:12px;gap:0;">
         <button class="btn btn-primary" id="run-btn" onclick="handleRun()" disabled
-          style="flex:1;font-family:var(--mono);font-size:12px;letter-spacing:.04em;min-height:36px;">
+          style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;height:36px;width:100%;">
           ▶ Run
         </button>
-        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;"></div>
+        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;margin-top:6px;"></div>
       </div>
 
     </div>
@@ -415,7 +421,45 @@ function logDbg(msg) {
 function yield_() { return new Promise(r => setTimeout(r, 0)); }
 
 // ── Mode ───────────────────────────────────────────────────────────────────
-// ── Optimizer variable sweep state ─────────────────────────────────────────
+// ── Debug mode ─────────────────────────────────────────────────────────────
+let _debugMode = false;
+
+function toggleDebugMode() {
+  _debugMode = !_debugMode;
+  const btn = $('debug-mode-btn');
+  if (btn) {
+    btn.textContent = _debugMode ? 'Debug ON' : 'Debug Off';
+    btn.style.background    = _debugMode ? 'rgba(255,200,0,.15)' : 'var(--surface2)';
+    btn.style.borderColor   = _debugMode ? 'var(--yellow)' : 'var(--border)';
+    btn.style.color         = _debugMode ? 'var(--yellow)' : 'var(--muted)';
+  }
+  // Lock/unlock roll limit dropdown
+  const rollSel = $('single-roll-toggle');
+  if (rollSel) {
+    if (_debugMode) {
+      rollSel.value    = '0';
+      rollSel.disabled = true;
+      rollSel.style.opacity = '.5';
+      rollSel.style.cursor  = 'not-allowed';
+    } else {
+      rollSel.disabled = false;
+      rollSel.style.opacity = '1';
+      rollSel.style.cursor  = 'pointer';
+    }
+  }
+  updateEvalCount();
+  updateParamDisplay();
+}
+
+function getSweepGrid() {
+  // Returns sweep arrays for each variable — reduced in debug mode
+  return {
+    decay: _sweepVars.decay ? (_debugMode ? [70,80]            : [50,60,70,75,80,90])  : [75],
+    dte:   _sweepVars.dte   ? (_debugMode ? [21,30]            : [7,14,21,30,45])       : [21],
+    delta: _sweepVars.delta ? (_debugMode ? [0.30,0.35]        : [0.25,0.30,0.35,0.40]) : [0.35],
+    otm:   _sweepVars.otm   ? (_debugMode ? [0.05,0.07]        : [0.03,0.05,0.07,0.10]) : [0.05],
+  };
+}
 const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 
 // Sweep ranges shown on cards
@@ -458,15 +502,10 @@ function updateEvalCount() {
     counter.style.display = 'none';
     return;
   }
-  const counts = {
-    decay: _sweepVars.decay ? 6 : 1,
-    dte:   _sweepVars.dte   ? 5 : 1,
-    delta: _sweepVars.delta ? 4 : 1,
-    otm:   _sweepVars.otm   ? 4 : 1,
-  };
-  const evals = counts.decay * counts.dte * counts.delta * counts.otm * 4; // ×4 regimes
+  const g = getSweepGrid();
+  const evals = g.decay.length * g.dte.length * g.delta.length * g.otm.length * 4;
   btn.textContent = '▶ Run';
-  counter.textContent = evals.toLocaleString() + ' evals';
+  counter.textContent = evals.toLocaleString() + ' evals' + (_debugMode ? ' (debug)' : '');
   counter.style.display = 'block';
 }
 
@@ -935,7 +974,7 @@ async function runSimulation() {
   $('progress-panel').classList.add('visible');
   $('progress-log').innerHTML = '';
   setProgress(5);
-  logMsg('v2.5.11 · SPY Covered Call Backtest');
+  logMsg('v2.5.12 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -972,14 +1011,15 @@ async function runOptimization() {
   $('progress-log').innerHTML = '';
   setProgress(5);
 
-  // Build grid from active sweep vars
-  const decays  = _sweepVars.decay  ? [50,60,70,75,80,90]  : [STD.decayTrigger];
-  const floors  = _sweepVars.dte    ? [7,14,21,30,45]       : [STD.dteFloor];
-  const deltas  = _sweepVars.delta  ? [0.25,0.30,0.35,0.40] : [STD.deltaThreshold];
-  const otms    = _sweepVars.otm    ? [0.03,0.05,0.07,0.10] : [STD.otmFixed];
+  // Build grid from sweep state — respects debug mode
+  const g      = getSweepGrid();
+  const decays = g.decay;
+  const floors = g.dte;
+  const deltas = g.delta;
+  const otms   = g.otm;
 
   const sweepDesc = ['decay','dte','delta','otm'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
-  logMsg(`Running regime optimization — sweeping: ${sweepDesc}...`);
+  logMsg(`Running regime optimization — sweeping: ${sweepDesc}${_debugMode?' [DEBUG]':''}...`);
   await yield_();
 
   const shares     = 600;
@@ -990,6 +1030,10 @@ async function runOptimization() {
 
   _optParams = {};
   const allResults = {};
+
+  // Suppress debug logging during optimization for performance
+  const origChecked = $('debug-toggle')?.checked;
+  if ($('debug-toggle')) $('debug-toggle').checked = false;
 
   try {
     for (const regime of regimes) {
@@ -1004,15 +1048,14 @@ async function runOptimization() {
             for (const otm of otms) {
           try {
             _gaps = [];
-            const maxRolls = (() => { const v=parseInt($('single-roll-toggle')?.value||'0'); return v>0?v:null; })();
+            // Always run without roll limit during optimization — need full history for regime scoring
             const maxLookahead = parseInt($('lookahead-select')?.value || '90');
-            const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed:otm, shares, maxRolls, maxLookahead });
+            const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed:otm, shares, maxRolls:null, maxLookahead });
             let yld = null;
             if (r?.rolls?.length >= 2) {
               const rc = r.rolls.filter(c=>c.entryVix>=vMin&&c.entryVix<vMax);
               if (rc.length>=2) yld = rc.reduce((s,c)=>s+c.annYld,0)/rc.length;
             }
-            // Store in grid (decay x floor for heatmap; best tracks full combo)
             if (yld !== null && (allResults[regime].grid[decay][floor] === null || yld > allResults[regime].grid[decay][floor])) {
               allResults[regime].grid[decay][floor] = yld;
             }
@@ -1047,6 +1090,9 @@ async function runOptimization() {
       }
     }
 
+    // Restore debug logging state
+    if ($('debug-toggle') && origChecked !== undefined) $('debug-toggle').checked = origChecked;
+
     setProgress(100);
     const progTitleOpt = document.querySelector('#progress-panel .mono-label');
     if (progTitleOpt) progTitleOpt.textContent = 'Complete';
@@ -1079,6 +1125,7 @@ async function runOptimization() {
     const msg = `✗ OPTIMIZER CRASHED: ${outerErr.message}`;
     logMsg(msg, 'err');
     console.error(msg, outerErr);
+    if ($('debug-toggle') && origChecked !== undefined) $('debug-toggle').checked = origChecked;
     setProgress(100);
     const progTitleErr = document.querySelector('#progress-panel .mono-label');
     if (progTitleErr) progTitleErr.textContent = 'Error';
