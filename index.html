@@ -101,13 +101,18 @@ select.display-box { cursor:pointer; outline:none; }
 .tbl-wrap { max-height:420px; overflow-y:auto; }
 
 /* Heatmap */
-.heatmap-wrap { overflow-x:auto; padding:16px; }
-.heatmap-tbl { border-collapse:collapse; font-family:var(--mono); font-size:11px; }
-.heatmap-tbl th { padding:6px 12px; color:var(--muted); font-size:9px; letter-spacing:.08em; text-transform:uppercase; text-align:center; white-space:nowrap; }
-.heatmap-tbl th.row-h { text-align:left; min-width:130px; }
-.heatmap-tbl td { padding:8px 12px; text-align:center; white-space:nowrap; border-radius:3px; font-weight:500; }
-.heatmap-tbl td.row-label { text-align:left; color:var(--muted); font-size:10px; background:transparent !important; }
-.heatmap-best { outline:2px solid var(--green); outline-offset:-2px; }
+.opt-regime-block { margin-bottom:20px; }
+.opt-regime-label { font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.opt-regime-best { color:var(--green); font-size:10px; }
+.opt-regime-none { color:var(--red); font-size:10px; }
+.opt-result-tbl { width:100%; border-collapse:collapse; font-family:var(--mono); font-size:11px; }
+.opt-result-tbl th { padding:5px 12px; color:var(--muted); font-size:9px; letter-spacing:.08em; text-transform:uppercase; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap; }
+.opt-result-tbl th:first-child { text-align:left; }
+.opt-result-tbl td { padding:6px 12px; text-align:right; white-space:nowrap; border-bottom:1px solid rgba(255,255,255,.03); }
+.opt-result-tbl td:first-child { text-align:left; }
+.opt-result-tbl tr.opt-best td { background:rgba(0,200,120,.06); }
+.opt-result-tbl tr.opt-best td:first-child { border-left:2px solid var(--green); padding-left:10px; }
+.opt-insufficient { font-family:var(--mono); font-size:11px; color:var(--muted); padding:12px; font-style:italic; }
 
 /* Data mart */
 .mart-card { cursor:pointer; transition:all .15s; }
@@ -129,7 +134,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.10 · 4×4 param grid · eval counter · lookahead selector</div>
+  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.11 · optimizer results log — heatmap replaced</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -241,7 +246,7 @@ select.display-box { cursor:pointer; outline:none; }
     <div class="tab-bar">
       <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Roll Log</button>
       <button class="tab-btn" id="tab-btn-chart" onclick="showTab('chart')">📈 Chart</button>
-      <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Heatmap</button>
+      <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Opt Results</button>
       <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
       <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
     </div>
@@ -930,7 +935,7 @@ async function runSimulation() {
   $('progress-panel').classList.add('visible');
   $('progress-log').innerHTML = '';
   setProgress(5);
-  logMsg('v2.5.10 · SPY Covered Call Backtest');
+  logMsg('v2.5.11 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1045,7 +1050,7 @@ async function runOptimization() {
     setProgress(100);
     const progTitleOpt = document.querySelector('#progress-panel .mono-label');
     if (progTitleOpt) progTitleOpt.textContent = 'Complete';
-    renderHeatmaps(allResults, decays, floors);
+    renderOptResults(allResults, decays, floors, deltas, otms);
     updateParamDisplay();
 
     // Update var cards with optimized results (use normal regime as representative)
@@ -1188,32 +1193,79 @@ function renderEquityChart(r) {
 }
 
 // ── Render: Heatmaps ───────────────────────────────────────────────────────
-function renderHeatmaps(results, decays, floors) {
-  const regimes=['low','normal','elevated','high'];
-  const labels={low:'Low VIX (<15)',normal:'Normal (15-20)',elevated:'Elevated (20-25)',high:'High (>25)'};
-  let html='';
+function renderOptResults(results, decays, floors, deltas, otms) {
+  const regimes   = ['low','normal','elevated','high'];
+  const vixLabels = { low:'Low VIX  (<15)', normal:'Normal  (15-20)', elevated:'Elevated  (20-25)', high:'High  (>25)' };
+  const TOP_N     = 5;
+
+  let html = '';
+
   for (const regime of regimes) {
-    const r=results[regime];
-    const allVals=decays.flatMap(d=>floors.map(f=>r.grid[d][f])).filter(v=>v!==null);
-    const minV=allVals.length?Math.min(...allVals):0;
-    const maxV=allVals.length?Math.max(...allVals):10;
-    const cc=v=>v===null?'var(--surface2)':`rgb(${Math.round(30+(v-minV)/(maxV-minV||1)*31)},${Math.round(40+(v-minV)/(maxV-minV||1)*174)},${Math.round(60+(v-minV)/(maxV-minV||1)*80)})`;
-    const tc=v=>v===null?'var(--border)':((v-minV)/(maxV-minV||1))>0.5?'#0d0f14':'#e8ecf4';
-    html+=`<div style="margin:16px;">
-      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;">
-        ${labels[regime]}
-        ${r.best?`<span style="color:var(--green);margin-left:12px;">Best: ${r.best.decay}% / ${r.best.floor}d → ${r.bestYld.toFixed(1)}%</span>`:'<span style="color:var(--red);margin-left:12px;">Insufficient data</span>'}
-      </div>
-      <div class="heatmap-wrap" style="padding:0;"><table class="heatmap-tbl">
-        <thead><tr><th class="row-h">Decay / DTE→</th>${floors.map(f=>`<th>${f}d</th>`).join('')}</tr></thead>
-        <tbody>${decays.map(d=>`<tr><td class="row-label">${d}%</td>${floors.map(f=>{
-          const v=r.grid[d][f];const best=r.best?.decay===d&&r.best?.floor===f;
-          return `<td style="background:${cc(v)};color:${tc(v)}" class="${best?'heatmap-best':''}">${v!==null?v.toFixed(1)+'%':'—'}</td>`;
-        }).join('')}</tr>`).join('')}</tbody>
-      </table></div>
-    </div>`;
+    const r = results[regime];
+
+    // Flatten all decay×floor grid entries into ranked list
+    const rows = [];
+    for (const d of decays) {
+      for (const f of floors) {
+        const yld = r.grid[d]?.[f];
+        if (yld === null || yld === undefined) continue;
+        const isBestCombo = r.best && r.best.decay === d && r.best.floor === f;
+        rows.push({ d, f, yld, isBestCombo });
+      }
+    }
+    rows.sort((a, b) => b.yld - a.yld);
+    const top = rows.slice(0, TOP_N);
+
+    const bestStr = r.best
+      ? `Best: decay=${r.best.decay}% / dte=${r.best.floor}d`
+        + (r.best.delta ? ` / Δ${r.best.delta}` : '')
+        + (r.best.otm   ? ` / otm=${(r.best.otm*100).toFixed(0)}%` : '')
+        + ` → ${r.bestYld.toFixed(1)}% ann.yld`
+      : null;
+
+    html += `<div class="opt-regime-block">
+      <div class="opt-regime-label">
+        <span>${vixLabels[regime]}</span>
+        ${bestStr
+          ? `<span class="opt-regime-best">★ ${bestStr}</span>`
+          : `<span class="opt-regime-none">⚠ Insufficient data — using STD params</span>`}
+      </div>`;
+
+    if (top.length === 0) {
+      html += `<div class="opt-insufficient">No qualifying results for this regime.</div>`;
+    } else {
+      // find STD row for vs-STD comparison
+      const stdYld = rows.find(r => r.d === 75 && r.f === 21)?.yld ?? null;
+
+      html += `<table class="opt-result-tbl">
+        <thead><tr>
+          <th>Params</th>
+          <th>Ann. Yield</th>
+          <th>vs STD</th>
+        </tr></thead><tbody>`;
+
+      for (const row of top) {
+        const vsDelta  = stdYld !== null ? row.yld - stdYld : null;
+        const vsStr    = vsDelta !== null ? (vsDelta >= 0 ? '+' : '') + vsDelta.toFixed(1) + '%' : '—';
+        const vsClass  = vsDelta === null ? 'muted' : vsDelta >= 0 ? 'green' : 'red';
+        const yldClass = row.yld >= 3 ? 'green' : row.yld >= 0 ? 'yellow' : 'red';
+        const paramStr = `decay=${row.d}% / dte=${row.f}d`
+          + (r.best?.delta && _sweepVars.delta ? ` / Δ${r.best.delta}` : '')
+          + (r.best?.otm   && _sweepVars.otm   ? ` / otm=${(r.best.otm*100).toFixed(0)}%` : '');
+        const winFlag  = row.isBestCombo ? ' <span style="color:var(--green);font-size:9px;">★</span>' : '';
+
+        html += `<tr class="${row.isBestCombo ? 'opt-best' : ''}">
+          <td style="color:var(--text);">${paramStr}${winFlag}</td>
+          <td class="${yldClass}">${row.yld.toFixed(1)}%</td>
+          <td class="${vsClass}">${vsStr}</td>
+        </tr>`;
+      }
+      html += `</tbody></table>`;
+    }
+    html += `</div>`;
   }
-  $('heatmap-container').innerHTML=html;
+
+  $('heatmap-container').innerHTML = `<div style="padding:16px;">${html}</div>`;
 }
 
 // ── Render: Gaps tab ───────────────────────────────────────────────────────
