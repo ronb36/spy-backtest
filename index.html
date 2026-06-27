@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.2 · consistent date key in scorer</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.3 · fix entryDate overwrite in open block</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -500,12 +500,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       const dm = buildDayMap(c);
       // Find entry day: trigger day price (spread trades on same day)
       const afterKey = afterDate.trim().slice(0,10);
-      const dmHit = dm[afterKey];
-      const entryDay = dmHit || c.days.find(d => d.date.trim().slice(0,10) >= afterKey);
-      if (c.strike === 610 && c.expiry === '2024-12-20') {
-        const dmKeys = Object.keys(dm).filter(k => k >= '2024-07-08' && k <= '2024-07-12');
-        logDbg('  [DEBUG] Dec610 afterKey=' + afterKey + ' dmHit=' + (dmHit?dmHit.date:'null') + ' dmKeys=' + JSON.stringify(dmKeys));
-      }
+      const entryDay = dm[afterKey] || c.days.find(d => d.date.trim().slice(0,10) >= afterKey);
       if (!entryDay) continue;
 
       const entryPx = entryDay.vw || entryDay.c;
@@ -632,8 +627,8 @@ async function simulate(p) {
         const day = curC._dm[key] || curC.days.find(d => d.date >= date);
         if (!day) continue;
         entryPrice = day.vw || day.c;
+        entryDate  = date;
       }
-      entryDate   = date;
       entrySPY    = spy;
       entryStrike = curC.strike;
       const expD_ = new Date(curC.expiry+'T00:00:00');
