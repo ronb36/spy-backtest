@@ -55,6 +55,9 @@ select.display-box { cursor:pointer; outline:none; }
 .var-btn { font-family:var(--mono); font-size:10px; letter-spacing:.04em; padding:0 12px; height:26px; border:1px solid var(--border); border-radius:4px; background:var(--surface2); color:var(--muted); cursor:pointer; transition:all .15s; }
 .var-btn.active { background:var(--green); border-color:var(--green); color:#0a1628; font-weight:600; }
 .var-btn:hover { border-color:var(--green); color:var(--green); }
+.var-card { transition:all .15s; user-select:none; }
+.var-card:hover { border-color:var(--accent) !important; }
+.var-card.active { border-color:var(--green) !important; background:rgba(0,200,120,.07) !important; }
 
 /* Param display */
 .param-box { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:10px 14px; }
@@ -131,10 +134,23 @@ select.display-box { cursor:pointer; outline:none; }
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
     <div class="panel-title">Initial Position <span class="init-badge">📌 Long SPY — call selected by yield optimizer</span></div>
-    <div class="init-grid" style="grid-template-columns:repeat(3,1fr);">
+    <div class="init-grid" style="grid-template-columns:repeat(3,1fr) auto auto;">
       <div class="ctrl"><div class="mono-label">Entry Date</div><div class="display-box" id="init-entry-date">—</div></div>
       <div class="ctrl"><div class="mono-label">SPY Qty</div><div class="display-box" id="init-qty">—</div></div>
       <div class="ctrl"><div class="mono-label">SPY Price</div><div class="display-box" id="init-spy">—</div></div>
+      <div class="ctrl" style="min-width:110px;">
+        <div class="mono-label">Rolls</div>
+        <select id="single-roll-toggle" style="background:var(--surface2);border:1px solid var(--yellow);border-radius:4px;color:var(--yellow);font-family:var(--mono);font-size:10px;padding:2px 6px;height:28px;outline:none;cursor:pointer;width:100%;">
+          <option value="0">All</option>
+          <option value="1">1</option>
+          <option value="3" selected>3</option>
+          <option value="5">5</option>
+          <option value="10">10</option>
+        </select>
+      </div>
+      <div class="ctrl" style="display:flex;align-items:flex-end;">
+        <button class="btn btn-primary" id="run-btn" onclick="handleRun()" disabled style="height:28px;white-space:nowrap;">▶ Run</button>
+      </div>
     </div>
     <!-- hidden fields still used internally -->
     <select id="init-date" style="display:none;"></select>
@@ -144,35 +160,39 @@ select.display-box { cursor:pointer; outline:none; }
 
   <!-- Controls -->
   <div class="panel">
-    <!-- Top row: Rolls + Run -->
-    <div class="ctrl-row" style="margin-bottom:12px;">
-      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.04em;">SPY Covered Call Backtester</div>
-      <div class="ctrl-right">
-        <!-- hidden legacy fields kept for JS compat -->
-        <select id="shares" style="display:none;"><option value="600" selected>600</option></select>
-        <input type="checkbox" id="debug-toggle" checked style="display:none;">
-        <div style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--muted);">
-          Rolls
-          <select id="single-roll-toggle" style="background:var(--surface2);border:1px solid var(--yellow);border-radius:4px;color:var(--yellow);font-family:var(--mono);font-size:10px;padding:2px 6px;height:24px;outline:none;cursor:pointer;">
-            <option value="0">All</option>
-            <option value="1">1</option>
-            <option value="3" selected>3</option>
-            <option value="5">5</option>
-            <option value="10">10</option>
-          </select>
-        </div>
-        <button class="btn btn-primary" id="run-btn" onclick="handleRun()" disabled>▶ Run</button>
-      </div>
-    </div>
+    <!-- hidden legacy selects kept for JS compat -->
+    <select id="shares" style="display:none;"><option value="600" selected>600</option></select>
+    <input type="checkbox" id="debug-toggle" checked style="display:none;">
 
-    <!-- Variable toggle buttons -->
-    <div style="margin-bottom:12px;">
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:7px;">Optimize — select variables to sweep · none selected = STD backtest</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="var-btn" id="vbtn-decay" onclick="toggleVar('decay')">Decay</button>
-        <button class="var-btn" id="vbtn-dte" onclick="toggleVar('dte')">DTE Floor</button>
-        <button class="var-btn" id="vbtn-delta" onclick="toggleVar('delta')">Delta Δ</button>
-        <button class="var-btn" id="vbtn-otm" onclick="toggleVar('otm')">OTM %</button>
+    <!-- Variable toggle buttons — stat-card style -->
+    <div style="margin-bottom:10px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Parameters — select to sweep · none = STD backtest</div>
+      <div class="summary-grid" style="grid-template-columns:repeat(4,1fr);gap:8px;">
+
+        <div class="stat-card var-card" id="vcard-decay" onclick="toggleVar('decay')" style="cursor:pointer;">
+          <div class="stat-label">Decay Trigger</div>
+          <div class="stat-value" id="vval-decay" style="font-size:14px;">75%</div>
+          <div class="stat-sub" id="vsub-decay">STD · click to sweep</div>
+        </div>
+
+        <div class="stat-card var-card" id="vcard-dte" onclick="toggleVar('dte')" style="cursor:pointer;">
+          <div class="stat-label">DTE Floor</div>
+          <div class="stat-value" id="vval-dte" style="font-size:14px;">21d</div>
+          <div class="stat-sub" id="vsub-dte">STD · click to sweep</div>
+        </div>
+
+        <div class="stat-card var-card" id="vcard-delta" onclick="toggleVar('delta')" style="cursor:pointer;">
+          <div class="stat-label">Delta Δ</div>
+          <div class="stat-value" id="vval-delta" style="font-size:14px;">0.35</div>
+          <div class="stat-sub" id="vsub-delta">STD · click to sweep</div>
+        </div>
+
+        <div class="stat-card var-card" id="vcard-otm" onclick="toggleVar('otm')" style="cursor:pointer;">
+          <div class="stat-label">OTM %</div>
+          <div class="stat-value" id="vval-otm" style="font-size:14px;">5%</div>
+          <div class="stat-sub" id="vsub-otm">STD · click to sweep</div>
+        </div>
+
       </div>
     </div>
 
@@ -380,9 +400,29 @@ function yield_() { return new Promise(r => setTimeout(r, 0)); }
 // ── Optimizer variable sweep state ─────────────────────────────────────────
 const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 
+// Sweep ranges shown on cards
+const _sweepRanges = {
+  decay: { std: '75%', sweep: '50–90%', label: 'Decay Trigger' },
+  dte:   { std: '21d', sweep: '7–45d',  label: 'DTE Floor' },
+  delta: { std: '0.35', sweep: '0.25–0.40', label: 'Delta Δ' },
+  otm:   { std: '5%',  sweep: '3–10%', label: 'OTM %' },
+};
+
 function toggleVar(v) {
   _sweepVars[v] = !_sweepVars[v];
-  $('vbtn-' + v).classList.toggle('active', _sweepVars[v]);
+  const active = _sweepVars[v];
+  const card = $('vcard-' + v);
+  const val  = $('vval-' + v);
+  const sub  = $('vsub-' + v);
+  const info = _sweepRanges[v];
+  if (card) card.classList.toggle('active', active);
+  if (val)  { val.textContent = active ? 'OPTIMIZE' : info.std;
+               val.style.color = active ? 'var(--green)' : 'var(--accent)';
+               val.style.fontSize = active ? '11px' : '14px';
+               val.style.letterSpacing = active ? '.08em' : '0'; }
+  if (sub)  sub.textContent = active ? 'sweeping ' + info.sweep : 'STD · click to sweep';
+  // legacy btn compat
+  const btn = $('vbtn-' + v); if (btn) btn.classList.toggle('active', active);
   updateParamDisplay();
 }
 
@@ -975,6 +1015,24 @@ async function runOptimization() {
     if (progTitleOpt) progTitleOpt.textContent = 'Complete';
     renderHeatmaps(allResults, decays, floors);
     updateParamDisplay();
+
+    // Update var cards with optimized results (use normal regime as representative)
+    const repRegime = _optParams['normal'] || _optParams['elevated'] || Object.values(_optParams)[0];
+    if (repRegime) {
+      const cardUpdates = {
+        decay: repRegime.decayTrigger + '%',
+        dte:   repRegime.dteFloor + 'd',
+        delta: repRegime.deltaThreshold?.toFixed(2),
+        otm:   repRegime.otmFixed ? (repRegime.otmFixed*100).toFixed(0)+'%' : null,
+      };
+      for (const [v, winVal] of Object.entries(cardUpdates)) {
+        if (!_sweepVars[v] || !winVal) continue;
+        const val = $('vval-' + v);
+        const sub = $('vsub-' + v);
+        if (val) { val.textContent = winVal; val.style.color = 'var(--green)'; val.style.fontSize = '14px'; val.style.letterSpacing = '0'; }
+        if (sub) sub.textContent = 'optimized ✓';
+      }
+    }
 
     $('results-area').style.display = 'block';
     $('tab-btn-heatmap').style.display = 'block';
