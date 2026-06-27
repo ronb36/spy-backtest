@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.15 · fix _entryPx cache flush · suppress candidate log in optimizer</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.16 · optimizer scores by stratYld · clean reset on each Run</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -530,6 +530,13 @@ function setMode(m) {
 }
 
 function handleRun() {
+  // Always reset progress panel and clear stale results before any run
+  $('progress-log').innerHTML = '';
+  $('progress-panel').classList.add('visible');
+  const progTitle = document.querySelector('#progress-panel .mono-label');
+  if (progTitle) progTitle.textContent = 'Running';
+  setProgress(0);
+
   if (anySweepActive()) runOptimization();
   else runSimulation();
 }
@@ -985,7 +992,7 @@ async function runSimulation() {
   $('progress-panel').classList.add('visible');
   $('progress-log').innerHTML = '';
   setProgress(5);
-  logMsg('v2.5.15 · SPY Covered Call Backtest');
+  logMsg('v2.5.16 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1054,9 +1061,10 @@ async function runOptimization() {
               _gaps = [];
               const maxLookahead = parseInt($('lookahead-select')?.value || '90');
               const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed:otm, shares, maxRolls:null, maxLookahead });
+              // Score by total roll credit / SPY basis, annualized — same metric as summary
               let yld = null;
-              if (r?.rolls?.length >= 2) {
-                yld = r.rolls.reduce((s,c)=>s+c.annYld,0) / r.rolls.length;
+              if (r?.rolls?.length >= 2 && r.stratYld !== undefined) {
+                yld = r.stratYld;
               }
               if (yld !== null && (allResults.grid[decay][floor] === null || yld > allResults.grid[decay][floor])) {
                 allResults.grid[decay][floor] = yld;
