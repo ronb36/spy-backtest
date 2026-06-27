@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.19 · roll default All · card border fix · Trade Blotter · Logs tab</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.20 · card border explicit inline reset on deselect</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -512,7 +512,11 @@ function toggleVar(v) {
   const val  = $('vval-' + v);
   const sub  = $('vsub-' + v);
   const info = _sweepRanges[v];
-  if (card) card.classList.toggle('active', active);
+  if (card) {
+    card.classList.toggle('active', active);
+    card.style.borderColor = active ? 'var(--green)' : '';
+    card.style.background  = active ? 'rgba(0,200,120,.07)' : '';
+  }
   if (val)  { val.textContent = active ? 'OPTIMIZE' : info.std;
                val.style.color = active ? 'var(--green)' : 'var(--accent)';
                val.style.fontSize = active ? '11px' : '14px';
