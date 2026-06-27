@@ -668,7 +668,20 @@ async function simulate(p) {
     buildDayMap(curC);
     const key = date.trim().slice(0,10);
     const callDay = curC._dm[key];
-    const callPx  = callDay ? (callDay.vw || callDay.c) : null; // VWAP for realistic execution
+    let callPx  = callDay ? (callDay.vw || callDay.c) : null; // VWAP for realistic execution
+
+    // If no price today, walk back up to 3 prior trading days to find last known VWAP.
+    // This prevents null buyback prices from inflating roll credits when Polygon
+    // has no data for a specific date (e.g. expiry day, low-volume strike).
+    if (callPx === null) {
+      const sortedDates = Object.keys(curC._dm).sort();
+      const priorDates  = sortedDates.filter(d => d < key);
+      for (let pb = priorDates.length - 1; pb >= Math.max(0, priorDates.length - 3); pb--) {
+        const pd = curC._dm[priorDates[pb]];
+        const px = pd ? (pd.vw || pd.c) : null;
+        if (px) { callPx = px; break; }
+      }
+    }
 
     const expDate = new Date(curC.expiry+'T00:00:00');
     const todayD  = new Date(date+'T00:00:00');
