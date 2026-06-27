@@ -311,12 +311,35 @@ const fmtP = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+':'') + fmt(n,1) + '
 function copyDebugLog() {
   const el = document.getElementById('progress-log');
   if (!el) return;
-  const text = el.innerText || el.textContent;
+  let text = el.innerText || el.textContent;
+
+  // ── Append Roll Log blotter ──────────────────────────────────────────────
+  const blotterRows = document.querySelectorAll('#roll-log-body tr');
+  if (blotterRows.length) {
+    text += '\n\n── ROLL LOG ─────────────────────────────────────────────────────\n';
+    text += ['Date','Cover (Close)','New Leg (Open)','Roll Credit','Ann Yield','Trigger'].join('\t') + '\n';
+    blotterRows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+      text += Array.from(cells).map(td => td.innerText.trim().replace(/\n/g,' ')).join('\t') + '\n';
+    });
+  }
+
+  // ── Append Performance Summary ───────────────────────────────────────────
+  const statCards = document.querySelectorAll('#summary-grid .stat-card');
+  if (statCards.length) {
+    text += '\n── PERFORMANCE SUMMARY ──────────────────────────────────────────\n';
+    statCards.forEach(card => {
+      const label = card.querySelector('.stat-label')?.innerText?.trim() || '';
+      const value = card.querySelector('.stat-value')?.innerText?.trim() || '';
+      const sub   = card.querySelector('.stat-sub')?.innerText?.trim()   || '';
+      text += `${label}: ${value}  (${sub})\n`;
+    });
+  }
+
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.getElementById('copy-log-btn');
     if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
   }).catch(() => {
-    // Fallback for older browsers
     const ta = document.createElement('textarea');
     ta.value = text;
     document.body.appendChild(ta);
