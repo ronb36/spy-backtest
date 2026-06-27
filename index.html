@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.4 · optimizer Complete fix · regime null guard</div>
+  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.5 · optimizer error trapping</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -871,48 +871,66 @@ async function runOptimization() {
   _optParams = {};
   const allResults = {};
 
-  for (const regime of regimes) {
-    const [vMin,vMax] = vixRanges[regime];
-    allResults[regime] = { grid:{}, best:null, bestYld:-Infinity };
-    decays.forEach(d=>{ allResults[regime].grid[d]={}; });
+  try {
+    for (const regime of regimes) {
+      logMsg(`⟳ Optimizing regime: ${regime}...`);
+      const [vMin,vMax] = vixRanges[regime];
+      allResults[regime] = { grid:{}, best:null, bestYld:-Infinity };
+      decays.forEach(d=>{ allResults[regime].grid[d]={}; });
 
-    for (const decay of decays) {
-      for (const floor of floors) {
-        _gaps = [];
-        const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, shares });
-        let yld = null;
-        if (r?.rolls?.length >= 2) {
-          const rc = r.rolls.filter(c=>c.entryVix>=vMin&&c.entryVix<vMax);
-          if (rc.length>=2) yld = rc.reduce((s,c)=>s+c.annYld,0)/rc.length;
+      for (const decay of decays) {
+        for (const floor of floors) {
+          try {
+            _gaps = [];
+            const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, shares });
+            let yld = null;
+            if (r?.rolls?.length >= 2) {
+              const rc = r.rolls.filter(c=>c.entryVix>=vMin&&c.entryVix<vMax);
+              if (rc.length>=2) yld = rc.reduce((s,c)=>s+c.annYld,0)/rc.length;
+            }
+            allResults[regime].grid[decay][floor] = yld;
+            if (yld!==null && yld>allResults[regime].bestYld) {
+              allResults[regime].bestYld=yld; allResults[regime].best={decay,floor};
+            }
+          } catch(innerErr) {
+            const msg = `✗ Error decay=${decay} floor=${floor} regime=${regime}: ${innerErr.message}`;
+            logMsg(msg,'err');
+            console.error(msg, innerErr);
+            allResults[regime].grid[decay][floor] = null;
+          }
+          done++;
+          setProgress(5+Math.round((done/total)*90));
+          await yield_();
         }
-        allResults[regime].grid[decay][floor] = yld;
-        if (yld!==null && yld>allResults[regime].bestYld) {
-          allResults[regime].bestYld=yld; allResults[regime].best={decay,floor};
-        }
-        done++;
-        setProgress(5+Math.round((done/total)*90));
-        await yield_();
+      }
+
+      const b = allResults[regime].best;
+      _optParams[regime] = { decayTrigger:b?.decay||STD.decayTrigger, dteFloor:b?.floor||STD.dteFloor };
+      if (b) {
+        logMsg(`✓ ${regime}: best ${b.decay}% / ${b.floor}d → ${allResults[regime].bestYld.toFixed(1)}% yield`,'ok');
+      } else {
+        logMsg(`⚠ ${regime}: insufficient data — using STD params`,'err');
       }
     }
 
-    const b = allResults[regime].best;
-    _optParams[regime] = { decayTrigger:b?.decay||STD.decayTrigger, dteFloor:b?.floor||STD.dteFloor };
-    if (b) {
-      logMsg(`✓ ${regime}: best ${b.decay}% / ${b.floor}d → ${allResults[regime].bestYld.toFixed(1)}% yield`,'ok');
-    } else {
-      logMsg(`⚠ ${regime}: insufficient data (< 2 rolls in regime) — using STD params`,'err');
-    }
+    setProgress(100);
+    const progTitleOpt = document.querySelector('#progress-panel .mono-label');
+    if (progTitleOpt) progTitleOpt.textContent = 'Complete';
+    renderHeatmaps(allResults, decays, floors);
+    updateParamDisplay();
+
+    $('results-area').style.display = 'block';
+    $('tab-btn-heatmap').style.display = 'block';
+    showTab('heatmap');
+
+  } catch(outerErr) {
+    const msg = `✗ OPTIMIZER CRASHED: ${outerErr.message}`;
+    logMsg(msg, 'err');
+    console.error(msg, outerErr);
+    setProgress(100);
+    const progTitleErr = document.querySelector('#progress-panel .mono-label');
+    if (progTitleErr) progTitleErr.textContent = 'Error';
   }
-
-  setProgress(100);
-  const progTitleOpt = document.querySelector('#progress-panel .mono-label');
-  if (progTitleOpt) progTitleOpt.textContent = 'Complete';
-  renderHeatmaps(allResults, decays, floors);
-  updateParamDisplay();
-
-  $('results-area').style.display = 'block';
-  $('tab-btn-heatmap').style.display = 'block';
-  showTab('heatmap');
 }
 
 // ── Render: Summary ────────────────────────────────────────────────────────
