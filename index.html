@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.15 · fix _entryPx cache flush between optimizer sweeps</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.15 · fix _entryPx cache flush · suppress candidate log in optimizer</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -416,7 +416,13 @@ function logMsg(msg, cls='') {
   el.scrollTop = el.scrollHeight;
 }
 function logDbg(msg) {
-  if ($('debug-toggle')?.checked) logMsg(msg, 'dbg');
+  if (!$('debug-toggle')?.checked) return;
+  // In optimizer mode suppress noisy candidate/skip lines — keep triggers & selections
+  if (_mode === 'optimize') {
+    const keep = msg.includes('TRIGGER') || msg.includes('→ Best') || msg.includes('Open:') || msg.includes('Init:') || msg.includes('Roll ') || msg.includes('Initial sell') || msg.includes('cycles');
+    if (!keep) return;
+  }
+  logMsg(msg, 'dbg');
 }
 function yield_() { return new Promise(r => setTimeout(r, 0)); }
 
