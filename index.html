@@ -52,6 +52,9 @@ select.display-box { cursor:pointer; outline:none; }
 .toggle-btn:first-child { border-radius:4px 0 0 4px; }
 .toggle-btn:last-child { border-radius:0 4px 4px 0; }
 .toggle-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.var-btn { font-family:var(--mono); font-size:10px; letter-spacing:.04em; padding:0 12px; height:26px; border:1px solid var(--border); border-radius:4px; background:var(--surface2); color:var(--muted); cursor:pointer; transition:all .15s; }
+.var-btn.active { background:var(--green); border-color:var(--green); color:#0a1628; font-weight:600; }
+.var-btn:hover { border-color:var(--green); color:var(--green); }
 
 /* Param display */
 .param-box { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:10px 14px; }
@@ -166,6 +169,18 @@ select.display-box { cursor:pointer; outline:none; }
         <button class="btn btn-primary" id="run-btn" onclick="handleRun()" disabled>▶ Run</button>
       </div>
     </div>
+
+    <!-- Optimizer variable toggles — visible only in optimize mode -->
+    <div id="opt-var-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Sweep Variables — lit = optimized · unlit = held at STD</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="var-btn active" id="vbtn-decay" onclick="toggleVar('decay')">Decay</button>
+        <button class="var-btn active" id="vbtn-dte" onclick="toggleVar('dte')">DTE Floor</button>
+        <button class="var-btn" id="vbtn-delta" onclick="toggleVar('delta')">Delta Δ</button>
+        <button class="var-btn" id="vbtn-otm" onclick="toggleVar('otm')">OTM %</button>
+      </div>
+    </div>
+
     <!-- Parameter display -->
     <div class="param-box">
       <div class="mono-label" id="param-label">Standard Parameters (Test Mode)</div>
@@ -367,10 +382,19 @@ function logDbg(msg) {
 function yield_() { return new Promise(r => setTimeout(r, 0)); }
 
 // ── Mode ───────────────────────────────────────────────────────────────────
+// ── Optimizer variable sweep state ─────────────────────────────────────────
+const _sweepVars = { decay: true, dte: true, delta: false, otm: false };
+
+function toggleVar(v) {
+  _sweepVars[v] = !_sweepVars[v];
+  $('vbtn-' + v).classList.toggle('active', _sweepVars[v]);
+}
+
 function setMode(m) {
   _mode = m;
   $('btn-test').classList.toggle('active', m === 'test');
   $('btn-optimize').classList.toggle('active', m === 'optimize');
+  $('opt-var-row').style.display = m === 'optimize' ? 'block' : 'none';
   updateParamDisplay();
 }
 
@@ -870,15 +894,21 @@ async function runOptimization() {
   $('progress-panel').classList.add('visible');
   $('progress-log').innerHTML = '';
   setProgress(5);
-  logMsg('Running regime optimization...');
+
+  // Build grid from active sweep vars
+  const decays  = _sweepVars.decay  ? [50,60,70,75,80,90]  : [STD.decayTrigger];
+  const floors  = _sweepVars.dte    ? [7,14,21,30,45]       : [STD.dteFloor];
+  const deltas  = _sweepVars.delta  ? [0.25,0.30,0.35,0.40] : [STD.deltaThreshold];
+  const otms    = _sweepVars.otm    ? [0.03,0.05,0.07,0.10] : [STD.otmFixed];
+
+  const sweepDesc = ['decay','dte','delta','otm'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
+  logMsg(`Running regime optimization — sweeping: ${sweepDesc}...`);
   await yield_();
 
   const shares     = 600;
-  const decays     = [50,60,70,75,80,90];
-  const floors     = [7,14,21,30,45];
   const regimes    = ['low','normal','elevated','high'];
   const vixRanges  = { low:[0,15], normal:[15,20], elevated:[20,25], high:[25,100] };
-  const total      = decays.length*floors.length*regimes.length;
+  const total      = decays.length*floors.length*deltas.length*otms.length*regimes.length;
   let done = 0;
 
   _optParams = {};
@@ -889,39 +919,51 @@ async function runOptimization() {
       logMsg(`⟳ Optimizing regime: ${regime}...`);
       const [vMin,vMax] = vixRanges[regime];
       allResults[regime] = { grid:{}, best:null, bestYld:-Infinity };
-      decays.forEach(d=>{ allResults[regime].grid[d]={}; });
+      decays.forEach(d=>{ allResults[regime].grid[d]={}; floors.forEach(f=>{ allResults[regime].grid[d][f]=null; }); });
 
       for (const decay of decays) {
         for (const floor of floors) {
+          for (const delta of deltas) {
+            for (const otm of otms) {
           try {
             _gaps = [];
             const maxRolls = (() => { const v=parseInt($('single-roll-toggle')?.value||'0'); return v>0?v:null; })();
-            const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, shares, maxRolls });
+            const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed:otm, shares, maxRolls });
             let yld = null;
             if (r?.rolls?.length >= 2) {
               const rc = r.rolls.filter(c=>c.entryVix>=vMin&&c.entryVix<vMax);
               if (rc.length>=2) yld = rc.reduce((s,c)=>s+c.annYld,0)/rc.length;
             }
-            allResults[regime].grid[decay][floor] = yld;
+            // Store in grid (decay x floor for heatmap; best tracks full combo)
+            if (yld !== null && (allResults[regime].grid[decay][floor] === null || yld > allResults[regime].grid[decay][floor])) {
+              allResults[regime].grid[decay][floor] = yld;
+            }
             if (yld!==null && yld>allResults[regime].bestYld) {
-              allResults[regime].bestYld=yld; allResults[regime].best={decay,floor};
+              allResults[regime].bestYld=yld;
+              allResults[regime].best={decay,floor,delta,otm};
             }
           } catch(innerErr) {
-            const msg = `✗ Error decay=${decay} floor=${floor} regime=${regime}: ${innerErr.message}`;
+            const msg = `✗ Error decay=${decay} floor=${floor} delta=${delta} otm=${otm} regime=${regime}: ${innerErr.message}`;
             logMsg(msg,'err');
             console.error(msg, innerErr);
-            allResults[regime].grid[decay][floor] = null;
           }
           done++;
           setProgress(5+Math.round((done/total)*90));
           await yield_();
+            } // otm
+          } // delta
         }
       }
 
       const b = allResults[regime].best;
-      _optParams[regime] = { decayTrigger:b?.decay||STD.decayTrigger, dteFloor:b?.floor||STD.dteFloor };
+      _optParams[regime] = {
+        decayTrigger:  b?.decay  || STD.decayTrigger,
+        dteFloor:      b?.floor  || STD.dteFloor,
+        deltaThreshold:b?.delta  || STD.deltaThreshold,
+        otmFixed:      b?.otm    || STD.otmFixed
+      };
       if (b) {
-        logMsg(`✓ ${regime}: best ${b.decay}% / ${b.floor}d → ${allResults[regime].bestYld.toFixed(1)}% yield`,'ok');
+        logMsg(`✓ ${regime}: best decay=${b.decay}% / dte=${b.floor}d / Δ${b.delta} / otm=${(b.otm*100).toFixed(0)}% → ${allResults[regime].bestYld.toFixed(1)}% yield`,'ok');
       } else {
         logMsg(`⚠ ${regime}: insufficient data — using STD params`,'err');
       }
