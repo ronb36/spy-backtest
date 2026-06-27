@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.3.1 · trigger log · roll credit fix · roll log header</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.3.3 · fix cycle index in blotter</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -588,7 +588,7 @@ async function simulate(p) {
   logDbg(`Init: ${Object.keys(DM.options).find(k=>DM.options[k]===initC)||'?'} exp=${initC.expiry}`);
 
   const cycles = [], equity = [];
-  let premPnL = 0, rollCreditTotal = 0;
+  let premPnL = 0;
   let curC = initC;
   let posOpen = false, entryPrice = null, entryDate = null;
   let entryStrike = null, entrySPY = null, entryDelta_ = 0;
@@ -699,17 +699,7 @@ async function simulate(p) {
     if (!next) { logMsg(`  No contract found within ${maxLookahead}d of ${date} — done`,'err'); break; }
 
     // Accumulate roll credit
-    // Roll credit: use same entry price logic as Open block (exact day match only)
-    buildDayMap(next);
-    const rollDayKey = date.trim().slice(0,10);
-    const nextRollDay = next._dm[rollDayKey]; // exact date match
-    const nextPx_ = nextRollDay ? (nextRollDay.vw||nextRollDay.c) : 0;
-    if (nextPx_ > 0) {
-      rollCreditTotal += (nextPx_-exitPx)*100*contracts;
-      logDbg(`  Roll credit: sell $${nextPx_.toFixed(2)} - cover $${exitPx.toFixed(2)} = $${((nextPx_-exitPx)*100*contracts).toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
-    } else {
-      logDbg(`  Roll credit: no price data for ${next.expiry} on ${date} — skipping accumulation`);
-    }
+    // rollCreditTotal calculated post-simulation from actual cycle entry/exit prices
 
     curC = next;
     if (p.maxRolls && cycles.filter(c=>!c.isInitial).length >= p.maxRolls) {
@@ -732,6 +722,19 @@ async function simulate(p) {
   const lastEC   = equity[equity.length-1];
   const covRet   = lastEC?.cc||0;
   const maxDD    = calcMaxDD(equity.map(e=>e.cc));
+
+  // Calculate roll credit from actual cycle prices:
+  // each roll's credit = new leg entry price - prior leg exit price
+  let rollCreditTotal = 0;
+  // Roll credit: for each roll row, credit = new leg entry - cover price
+  // rolls[i] is the contract just closed (cover), cycles[i+1] is what opened next (new leg)
+  for (let i = 0; i < rolls.length; i++) {
+    const closedCycle = rolls[i];          // what we covered
+    const newCycle    = cycles[i+1];       // what we opened (new leg)
+    if (!newCycle) continue;
+    rollCreditTotal += (newCycle.entryPx - closedCycle.exitPx) * 100 * contracts;
+    logDbg(`  Roll ${i+1} credit: sell $${newCycle.entryPx.toFixed(2)} - cover $${closedCycle.exitPx.toFixed(2)} = $${((newCycle.entryPx-closedCycle.exitPx)*100*contracts).toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
+  }
 
   return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal };
 }
@@ -874,7 +877,7 @@ function renderCycleTable(r) {
   </tr>` : '';
 
   const rows = r.rolls.map((c,i) => {
-    const nextCycle = r.cycles[i+2];
+    const nextCycle = r.cycles[i+1]; // cycles[0]=initial, cycles[1]=roll1, etc. new leg after rolls[i] is cycles[i+1]
     const pending   = (i===r.rolls.length-1) ? r.pendingContract : null;
     const nextC     = nextCycle || pending;
 
