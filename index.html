@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.8 · delta buffer on candidates · reset hot entry delta</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.9 · revert buffer · keep low-water mark</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -489,9 +489,8 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       if (deltaThreshold > 0) {
         const candDTE   = Math.round((new Date(c.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
         const candDelta = callDelta(currentSPY, c.strike, candDTE, 18, 4.5);
-        const deltaBuffer = deltaThreshold * 0.85; // 15% headroom for price movement between scoring and entry
-        if (candDelta >= deltaBuffer) {
-          logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= buffer " + deltaBuffer.toFixed(3));
+        if (candDelta >= deltaThreshold) {
+          logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= threshold " + deltaThreshold);
           continue;
         }
       }
