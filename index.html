@@ -56,7 +56,7 @@ select.display-box { cursor:pointer; outline:none; }
 .var-btn.active { background:var(--green); border-color:var(--green); color:#0a1628; font-weight:600; }
 .var-btn:hover { border-color:var(--green); color:var(--green); }
 .var-card { transition:all .15s; user-select:none; }
-.var-card:hover { border-color:var(--accent) !important; }
+.var-card:not(.active):hover { border-color:var(--accent) !important; }
 .var-card.active { border-color:var(--green) !important; background:rgba(0,200,120,.07) !important; }
 
 /* Param display */
@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.18 · fix mode reset · STD uses raw STD params · progress resets to 0</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.19 · roll default All · card border fix · Trade Blotter · Logs tab</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -192,9 +192,9 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="stat-label">Roll Limit</div>
         <div style="margin-top:6px;">
           <select id="single-roll-toggle" onchange="updateParamDisplay()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
-            <option value="0">All</option>
+            <option value="0" selected>All</option>
             <option value="1">1</option>
-            <option value="3" selected>3</option>
+            <option value="3">3</option>
             <option value="5">5</option>
             <option value="10">10</option>
           </select>
@@ -250,10 +250,11 @@ select.display-box { cursor:pointer; outline:none; }
   <!-- Results tabs -->
   <div id="results-area" style="display:none">
     <div class="tab-bar">
-      <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Roll Log</button>
+      <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Trade Blotter</button>
       <button class="tab-btn" id="tab-btn-chart" onclick="showTab('chart')">📈 Chart</button>
       <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Opt Results</button>
       <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
+      <button class="tab-btn" id="tab-btn-runlog" onclick="showTab('runlog')">📄 Logs</button>
       <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
     </div>
 
@@ -288,6 +289,17 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="tbl-wrap"><div id="gaps-table"></div></div>
       </div>
       <div id="gaps-instructions" style="display:none;margin-top:12px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.9;"></div>
+    </div>
+
+    <!-- Logs tab -->
+    <div id="tab-runlog" style="display:none">
+      <div class="chart-panel">
+        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="chart-title">📄 Run Log</span>
+          <button onclick="copyDebugLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="copy-log-btn2">Copy Log</button>
+        </div>
+        <div class="progress-log" id="runlog-mirror" style="max-height:480px;overflow-y:auto;"></div>
+      </div>
     </div>
 
     <!-- Data Mart tab -->
@@ -391,8 +403,10 @@ function copyDebugLog() {
   }
 
   navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById('copy-log-btn');
-    if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
+    ['copy-log-btn','copy-log-btn2'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
+    });
   }).catch(() => {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -400,8 +414,10 @@ function copyDebugLog() {
     ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
-    const btn = document.getElementById('copy-log-btn');
-    if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
+    ['copy-log-btn','copy-log-btn2'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
+    });
   });
 }
 
@@ -412,8 +428,12 @@ function setProgress(pct) {
 function logMsg(msg, cls='') {
   const el = $('progress-log');
   if (!el) return;
-  el.innerHTML += `<div class="${cls}">${msg}</div>`;
+  const div = `<div class="${cls}">${msg}</div>`;
+  el.innerHTML += div;
   el.scrollTop = el.scrollHeight;
+  // Keep Logs tab mirror in sync if it's visible
+  const mirror = $('runlog-mirror');
+  if (mirror) { mirror.innerHTML += div; mirror.scrollTop = mirror.scrollHeight; }
 }
 function logDbg(msg) {
   // In optimizer mode: always log triggers/selections, suppress candidates regardless of debug
@@ -559,6 +579,8 @@ function handleRun() {
   // Reset mode and UI before any run
   _mode = 'test';
   $('progress-log').innerHTML = '';
+  const mirror = $('runlog-mirror');
+  if (mirror) mirror.innerHTML = '';
   $('progress-panel').classList.add('visible');
   const progTitle = document.querySelector('#progress-panel .mono-label');
   if (progTitle) progTitle.textContent = 'Running';
@@ -597,13 +619,19 @@ function updateParamDisplay() {
 
 // ── Tab management ─────────────────────────────────────────────────────────
 function showTab(tab) {
-  ['log','chart','heatmap','gaps','mart'].forEach(t => {
+  ['log','chart','heatmap','gaps','runlog','mart'].forEach(t => {
     const el = $('tab-' + t);
     const btn = $('tab-btn-' + t);
     if (el)  el.style.display  = t === tab ? 'block' : 'none';
     if (btn) btn.classList.toggle('active', t === tab);
   });
   if (tab === 'mart') renderMartCards();
+  if (tab === 'runlog') {
+    // Sync mirror with live progress-log content
+    const src = $('progress-log');
+    const dst = $('runlog-mirror');
+    if (src && dst) { dst.innerHTML = src.innerHTML; dst.scrollTop = dst.scrollHeight; }
+  }
 }
 
 // ── Black-Scholes delta ────────────────────────────────────────────────────
@@ -1023,7 +1051,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.18 · SPY Covered Call Backtest');
+  logMsg('v2.5.19 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
