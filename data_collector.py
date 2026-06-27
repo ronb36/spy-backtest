@@ -275,7 +275,8 @@ def full_load():
     log(f"  ✓ {len(dm['vix'])} VIX trading days")
 
     # ── Options ──────────────────────────────────────────────────────────
-    expiries = get_monthly_expiries(start, end)
+    future_end = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
+    expiries = get_monthly_expiries(start, future_end)
     total_contracts = len(expiries) * len(OTM_TARGETS)
     log(f"Processing {len(expiries)} expiries x {len(OTM_TARGETS)} OTM targets = {total_contracts} contracts")
 
@@ -287,11 +288,13 @@ def full_load():
         exp_dt = datetime.strptime(exp, "%Y-%m-%d")
 
         # Use SPY price ON the expiry date (or nearest prior trading day)
-        # This anchors strikes to where SPY actually was at expiration time,
-        # so strikes stay relevant as SPY drifts across 2 years
+        # For future expiries, use the most recent available SPY price
         spy_price = None
-        for days_back in range(0, 14):
-            d = (exp_dt - timedelta(days=days_back)).strftime("%Y-%m-%d")
+        today_iso = date.today().strftime("%Y-%m-%d")
+        lookup_anchor = min(exp, today_iso)  # don't look past today for future expiries
+        lookup_dt = datetime.strptime(lookup_anchor, "%Y-%m-%d")
+        for days_back in range(0, 30):
+            d = (lookup_dt - timedelta(days=days_back)).strftime("%Y-%m-%d")
             if d in spy_by_date:
                 spy_price = spy_by_date[d]
                 break
@@ -299,9 +302,9 @@ def full_load():
             log(f"  No SPY price found near {exp}, skipping")
             continue
 
-        # Full contract life: from max(start, expiry-365) to expiry
+        # Full contract life: from max(start, expiry-365) to min(expiry, today)
         opt_start = max(start, (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
-        opt_end   = exp
+        opt_end   = min(exp, date.today().strftime("%Y-%m-%d"))
 
         log(f"  {exp} — SPY=${spy_price:.2f} → strikes: " +
             ", ".join(f"${find_nearest_strike(spy_price, p)}" for p in OTM_TARGETS))
@@ -370,7 +373,7 @@ def daily_append(dm):
     else:
         log(f"  VIX {yesterday} already in dataset")
 
-    # ── Options — append to existing contracts ────────────────────────────
+    # ── Options — append yesterday to existing contracts ─────────────────
     log(f"Appending option data for {yesterday}...")
     appended = 0
     for ticker, contract in dm["options"].items():
@@ -393,41 +396,73 @@ def daily_append(dm):
                     "vw":   round(r.get("vw", 0), 4),
                 })
                 appended += 1
+    log(f"  ✓ {appended} option day records appended")
 
-    # ── Check for new expiries to add ─────────────────────────────────────
-    # Look ahead 150 days — if a new expiry is entering our window, add it
-    future_date = (date.today() + timedelta(days=150)).strftime("%Y-%m-%d")
-    all_expiries = get_monthly_expiries(
-        (date.today() - timedelta(days=730)).strftime("%Y-%m-%d"),
-        future_date
-    )
-    spy_by_date  = {r["date"]: r["c"] for r in dm["spy"]}
+    # ── Dynamic strike sync — ensure today's 22 OTM targets exist ─────────
+    # For every future expiry within 180 days, compute the 22 strikes that
+    # matter relative to TODAY's SPY. Add any that aren't already in the mart,
+    # fetching their full history. This means the mart self-heals after SPY
+    # moves — new strikes get added, old ones stay (harmless extra data).
+    log("Syncing dynamic strikes for future expiries...")
+    spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
 
-    for exp in all_expiries:
-        exp_dt = datetime.strptime(exp, "%Y-%m-%d")
-        window_start = (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d")
-        if window_start > today_str():
-            continue  # too far out, not yet in window
-        spy_price = spy_by_date.get(yesterday)
-        if not spy_price:
-            continue
-        for otm_pct in OTM_TARGETS:
-            strike = find_nearest_strike(spy_price, otm_pct)
-            ticker = build_option_ticker(exp, strike)
-            if ticker not in dm["options"]:
-                log(f"  New contract entering window: {ticker}")
-                days = fetch_option_history(ticker, window_start, exp)
+    # Get today's SPY — use yesterday's close (most recent available)
+    current_spy = spy_by_date.get(yesterday)
+    if not current_spy:
+        # Fall back to most recent date in mart
+        most_recent = max(spy_by_date.keys())
+        current_spy = spy_by_date[most_recent]
+        log(f"  Using SPY close from {most_recent} (${current_spy:.2f}) as current price")
+    else:
+        log(f"  Current SPY: ${current_spy:.2f} (from {yesterday})")
+
+    if not current_spy:
+        log("  ✗ No SPY price available — skipping dynamic strike sync")
+    else:
+        today_iso    = today_str()
+        future_date  = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
+        all_expiries = get_monthly_expiries(today_iso, future_date)
+
+        new_contracts = 0
+        skipped       = 0
+
+        for exp in all_expiries:
+            exp_dt       = datetime.strptime(exp, "%Y-%m-%d")
+            # History window: from max(2yr ago, expiry-365) to today
+            hist_start   = max(
+                (date.today() - timedelta(days=730)).strftime("%Y-%m-%d"),
+                (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d")
+            )
+            hist_end     = today_iso  # cap at today; contract may not have traded yet
+
+            for otm_pct in OTM_TARGETS:
+                strike = find_nearest_strike(current_spy, otm_pct)
+                ticker = build_option_ticker(exp, strike)
+
+                if ticker in dm["options"]:
+                    skipped += 1
+                    continue  # already have this contract
+
+                # New strike for this expiry — fetch full history and add
+                log(f"  + {ticker}  ({otm_pct*100:.0f}% OTM, exp={exp})")
+                days = fetch_option_history(ticker, hist_start, hist_end)
+                time.sleep(CALL_DELAY)
                 if days:
                     dm["options"][ticker] = {
                         "strike":    strike,
                         "expiry":    exp,
                         "otm_pct":   otm_pct,
-                        "entry_spy": spy_price,
+                        "entry_spy": current_spy,
                         "days":      days,
                     }
-                    log(f"    Added {ticker} ({len(days)} days)")
+                    log(f"    → Added {len(days)} days of history")
+                    new_contracts += 1
+                else:
+                    log(f"    → No data returned (contract may not yet trade)")
 
-    log(f"  ✓ Daily append complete — {appended} option day records added")
+        log(f"  ✓ Dynamic sync complete — {new_contracts} new contracts added, {skipped} already present")
+
+    log(f"  ✓ Daily append complete")
     dm["metadata"]["last_updated"] = today_str()
     return dm
 
