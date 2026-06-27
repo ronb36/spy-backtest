@@ -500,7 +500,12 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       const dm = buildDayMap(c);
       // Find entry day: trigger day price (spread trades on same day)
       const afterKey = afterDate.trim().slice(0,10);
-      const entryDay = dm[afterKey] || c.days.find(d => d.date.trim().slice(0,10) >= afterKey);
+      const dmHit = dm[afterKey];
+      const entryDay = dmHit || c.days.find(d => d.date.trim().slice(0,10) >= afterKey);
+      if (c.strike === 610 && c.expiry === '2024-12-20') {
+        const dmKeys = Object.keys(dm).filter(k => k >= '2024-07-08' && k <= '2024-07-12');
+        logDbg('  [DEBUG] Dec610 afterKey=' + afterKey + ' dmHit=' + (dmHit?dmHit.date:'null') + ' dmKeys=' + JSON.stringify(dmKeys));
+      }
       if (!entryDay) continue;
 
       const entryPx = entryDay.vw || entryDay.c;
