@@ -449,6 +449,13 @@ function toggleDebugMode() {
   }
   updateEvalCount();
   updateParamDisplay();
+  // Refresh sub-text on any already-active sweep cards
+  for (const v of ['decay','dte','delta','otm']) {
+    if (!_sweepVars[v]) continue;
+    const sub  = $('vsub-' + v);
+    const info = _sweepRanges[v];
+    if (sub) sub.textContent = 'sweeping ' + (_debugMode ? info.debugSweep : info.sweep);
+  }
 }
 
 function getSweepGrid() {
@@ -464,12 +471,11 @@ const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 
 // Sweep ranges shown on cards
 const _sweepRanges = {
-  decay: { std: '75%', sweep: '50–90%', label: 'Decay Trigger' },
-  dte:   { std: '21d', sweep: '7–45d',  label: 'DTE Floor' },
-  delta: { std: '0.35', sweep: '0.25–0.40', label: 'Delta Δ' },
-  otm:   { std: '5%',  sweep: '3–10%', label: 'OTM %' },
+  decay: { std: '75%', sweep: '50–90%', debugSweep: '70–80%',     label: 'Decay Trigger' },
+  dte:   { std: '21d', sweep: '7–45d',  debugSweep: '21–30d',     label: 'DTE Floor' },
+  delta: { std: '0.35', sweep: '0.25–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
+  otm:   { std: '5%',  sweep: '3–10%', debugSweep: '5–7%',        label: 'OTM %' },
 };
-
 function toggleVar(v) {
   _sweepVars[v] = !_sweepVars[v];
   const active = _sweepVars[v];
@@ -482,7 +488,7 @@ function toggleVar(v) {
                val.style.color = active ? 'var(--green)' : 'var(--accent)';
                val.style.fontSize = active ? '11px' : '14px';
                val.style.letterSpacing = active ? '.08em' : '0'; }
-  if (sub)  sub.textContent = active ? 'sweeping ' + info.sweep : 'Click to optimize';
+  if (sub)  sub.textContent = active ? 'sweeping ' + (_debugMode ? info.debugSweep : info.sweep) : 'Click to optimize';
   // legacy btn compat
   const btn = $('vbtn-' + v); if (btn) btn.classList.toggle('active', active);
   updateParamDisplay();
