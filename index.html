@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.0 · open log shows correct entry date</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.2 · consistent date key in scorer</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -499,7 +499,8 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
 
       const dm = buildDayMap(c);
       // Find entry day: trigger day price (spread trades on same day)
-      const entryDay = dm[afterDate.trim().slice(0,10)] || c.days.find(d => d.date >= afterDate);
+      const afterKey = afterDate.trim().slice(0,10);
+      const entryDay = dm[afterKey] || c.days.find(d => d.date.trim().slice(0,10) >= afterKey);
       if (!entryDay) continue;
 
       const entryPx = entryDay.vw || entryDay.c;
@@ -517,7 +518,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
       logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " net=$" + netCredit.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
 
-      if (adjYield > bestYield) { bestYield = adjYield; bestContract = c; bestContract._entryPx = entryPx; bestContract._entryDate = entryDay.date; }
+      if (adjYield > bestYield) { bestYield = adjYield; bestContract = c; bestContract._entryPx = entryPx; bestContract._entryDate = entryDay.date.trim().slice(0,10); }
     }
   }
 
@@ -635,7 +636,8 @@ async function simulate(p) {
       entryDelta_ = callDelta(spy, curC.strike, Math.round((expD_-todD_)/86400000), vix, TNX);
       posOpen = true;
       const _tk = Object.keys(DM.options).find(k=>DM.options[k]===curC)||'?';
-      logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${entryDate} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
+      const _execNote = entryDate !== date ? ` (triggered ${date}, filled ${entryDate})` : '';
+      logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${entryDate}${_execNote} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
     }
 
     // ── Mark ──
