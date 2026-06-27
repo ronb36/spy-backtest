@@ -580,16 +580,11 @@ function setMode(m) {
 }
 
 function handleRun() {
-  // Reset mode and UI before any run
   _mode = 'test';
   $('progress-log').innerHTML = '';
   const mirror = $('runlog-mirror');
   if (mirror) mirror.innerHTML = '';
-  
-  
-  
   setProgress(0);
-
   if (anySweepActive()) runOptimization();
   else runSimulation();
 }
@@ -1055,7 +1050,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.24 · SPY Covered Call Backtest');
+  logMsg('v2.5.25 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1091,6 +1086,8 @@ async function runOptimization() {
 
   
   $('progress-log').innerHTML = '';
+  setProgress(0);
+  await yield_();
   setProgress(5);
 
   // Build grid from sweep state — respects debug mode
