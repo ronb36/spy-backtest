@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.14 · debug decay [75,80] · candidate log restored in optimizer</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.15 · fix _entryPx cache flush between optimizer sweeps</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -734,6 +734,11 @@ function updateInitPosition() {
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
   const { otmFixed, decayTrigger, dteFloor, deltaThreshold, maxLookahead, shares } = p;
+  // Clear stale _entryPx/_entryDate stamped onto DM contracts by prior simulate() calls.
+  // findNextContract() mutates shared DM.options objects; without this flush each optimizer
+  // sweep inherits cached entry prices from the previous sweep, diverging trigger dates.
+  Object.values(DM.options).forEach(c => { delete c._entryPx; delete c._entryDate; });
+
   // Auto-select initExpiry: first expiry >= 30d after mart start
   const _martStart = DM.spy[0]?.date;
   const _target = new Date(_martStart + 'T00:00:00');
@@ -974,7 +979,7 @@ async function runSimulation() {
   $('progress-panel').classList.add('visible');
   $('progress-log').innerHTML = '';
   setProgress(5);
-  logMsg('v2.5.14 · SPY Covered Call Backtest');
+  logMsg('v2.5.15 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
