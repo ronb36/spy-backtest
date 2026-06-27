@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.16 · optimizer scores by stratYld · clean reset · fix candidate log gate</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.17 · roll limit locks on sweep · run btn solid blue</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -223,12 +223,12 @@ select.display-box { cursor:pointer; outline:none; }
       </div>
 
       <!-- Run button — bottom right -->
-      <div class="stat-card" style="display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;padding:12px;gap:0;">
-        <button class="btn btn-primary" id="run-btn" onclick="handleRun()" disabled
-          style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;height:36px;width:100%;">
+      <div style="display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;padding:12px;gap:0;background:var(--accent);border-radius:6px;">
+        <button class="btn" id="run-btn" onclick="handleRun()" disabled
+          style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;height:36px;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;">
           ▶ Run
         </button>
-        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;margin-top:6px;"></div>
+        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;margin-top:6px;color:rgba(255,255,255,.7);"></div>
       </div>
 
     </div>
@@ -500,6 +500,29 @@ function toggleVar(v) {
   if (sub)  sub.textContent = active ? 'sweeping ' + (_debugMode ? info.debugSweep : info.sweep) : 'Click to optimize';
   // legacy btn compat
   const btn = $('vbtn-' + v); if (btn) btn.classList.toggle('active', active);
+
+  // Lock roll limit to All when any sweep active; restore when none active
+  const rollSel = $('single-roll-toggle');
+  if (rollSel) {
+    if (anySweepActive()) {
+      rollSel.value    = '0';
+      rollSel.disabled = true;
+      rollSel.style.opacity = '.5';
+      rollSel.style.cursor  = 'not-allowed';
+    } else if (!_debugMode) {
+      rollSel.disabled = false;
+      rollSel.style.opacity = '1';
+      rollSel.style.cursor  = 'pointer';
+    }
+  }
+
+  // Update run button appearance — solid accent when optimizing
+  const runBtn = $('run-btn');
+  if (runBtn) {
+    runBtn.style.background = anySweepActive() ? 'var(--accent)' : 'var(--accent)';
+    runBtn.style.opacity = '1';
+  }
+
   updateParamDisplay();
   updateEvalCount();
 }
@@ -995,7 +1018,7 @@ async function runSimulation() {
   $('progress-panel').classList.add('visible');
   $('progress-log').innerHTML = '';
   setProgress(5);
-  logMsg('v2.5.16 · SPY Covered Call Backtest');
+  logMsg('v2.5.17 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1446,6 +1469,7 @@ async function loadData() {
     status.textContent=`✓ Data mart loaded — ${DM.spy.length} SPY days · ${Object.keys(DM.options).length} contracts · updated ${DM.metadata?.last_updated}`;
     status.style.color='var(--green)';
     $('run-btn').disabled=false;
+    $('run-btn').style.opacity='1';
     populateInitDates();
     updateParamDisplay();
     $('results-area').style.display='block';
