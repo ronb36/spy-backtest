@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.4 · clean open log · SPY on entry date</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.5 · SPY key trim fix</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -629,7 +629,7 @@ async function simulate(p) {
         entryPrice = day.vw || day.c;
         entryDate  = date;
       }
-      entrySPY    = spyMap[entryDate]?.c || spy;
+      entrySPY    = spyMap[entryDate.trim().slice(0,10)]?.c || spy;
       entryStrike = curC.strike;
       const expD_ = new Date(curC.expiry+'T00:00:00');
       const todD_ = new Date(date+'T00:00:00');
