@@ -757,20 +757,7 @@ async function simulate(p) {
   const totalPnl = rolls.reduce((s,c)=>s+c.pnl,0);
   const avgYld   = rolls.length ? rolls.reduce((s,c)=>s+c.annYld,0)/rolls.length : 0;
   const winRate  = rolls.length ? rolls.filter(c=>c.pnl>0).length/rolls.length*100 : 0;
-  // SPY total return over period (point-to-point, not annualized for now)
-  const firstSPY = DM.spy[0].c;
-  const lastSPY  = DM.spy[DM.spy.length-1].c;
-  const spyRet   = (lastSPY/firstSPY-1)*100;
-
-  // Covered call return: SPY appreciation + net premium, annualized
-  // Shares were never called away so full SPY gain is captured plus all premium
-  const spyGain    = (lastSPY - firstSPY) * shares;
-  const ccTotalRet = ((spyGain + rollCreditTotal) / (firstSPY * shares)) * 100;
-  // Annualize both for consistency
-  const annSpyRet  = (Math.pow(1 + spyRet/100, 365/dayCount) - 1) * 100;
-  const annCovRet  = (Math.pow(1 + ccTotalRet/100, 365/dayCount) - 1) * 100;
-  const covRet     = annCovRet;
-  const spyRetAnn  = annSpyRet;
+  // covRet computed below after rollCreditTotal and dayCount are available
   const maxDD    = calcMaxDD(equity.map(e=>e.cc));
 
   // Calculate roll credit from actual cycle prices:
@@ -801,7 +788,17 @@ async function simulate(p) {
   const spyBasis  = DM.spy[0].c * shares;
   const stratYld  = spyBasis > 0 ? (rollCreditTotal / spyBasis) * (365 / dayCount) * 100 : 0;
 
-  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet:spyRetAnn, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld };
+  // Covered call return: SPY appreciation + net premium (annualized)
+  // Shares never called away → full SPY gain captured plus all premium
+  const firstSPYc  = DM.spy[0].c;
+  const lastSPYc   = DM.spy[DM.spy.length-1].c;
+  const rawSpyRet  = (lastSPYc/firstSPYc-1)*100;
+  const spyGain    = (lastSPYc - firstSPYc) * shares;
+  const ccTotalRet = ((spyGain + rollCreditTotal) / (firstSPYc * shares)) * 100;
+  const spyRet     = (Math.pow(1 + rawSpyRet/100, 365/dayCount) - 1) * 100;
+  const covRet     = (Math.pow(1 + ccTotalRet/100, 365/dayCount) - 1) * 100;
+
+  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld };
 }
 
 // ── Run simulation ─────────────────────────────────────────────────────────
