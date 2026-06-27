@@ -129,45 +129,29 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.9 · param cards — 4 sweepable + 3 fixed · redundant panel removed</div>
+  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.10 · 4×4 param grid · eval counter · lookahead selector</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
     <div class="panel-title">Initial Position <span class="init-badge">📌 Long SPY — call selected by yield optimizer</span></div>
-    <div class="init-grid" style="grid-template-columns:repeat(3,1fr) auto auto;align-items:stretch;gap:8px;">
+    <div class="init-grid" style="grid-template-columns:repeat(3,1fr);gap:8px;">
       <div class="ctrl"><div class="mono-label">Entry Date</div><div class="display-box" id="init-entry-date">—</div></div>
       <div class="ctrl"><div class="mono-label">SPY Qty</div><div class="display-box" id="init-qty">—</div></div>
       <div class="ctrl"><div class="mono-label">SPY Price</div><div class="display-box" id="init-spy">—</div></div>
-      <div class="ctrl" style="min-width:110px;">
-        <div class="mono-label">Rolls</div>
-        <select id="single-roll-toggle" onchange="updateParamDisplay()" style="background:var(--surface2);border:1px solid var(--yellow);border-radius:4px;color:var(--yellow);font-family:var(--mono);font-size:10px;padding:2px 6px;height:28px;outline:none;cursor:pointer;width:100%;">
-          <option value="0">All</option>
-          <option value="1">1</option>
-          <option value="3" selected>3</option>
-          <option value="5">5</option>
-          <option value="10">10</option>
-        </select>
-      </div>
-      <div class="ctrl" style="display:flex;align-items:flex-end;">
-        <button class="btn btn-primary" id="run-btn" onclick="handleRun()" disabled style="height:28px;white-space:nowrap;align-self:flex-end;">▶ Run</button>
-      </div>
     </div>
-    <!-- hidden fields still used internally -->
     <select id="init-date" style="display:none;"></select>
     <div id="init-strike" style="display:none;"></div>
     <div id="init-credit" style="display:none;"></div>
   </div>
 
-  <!-- Controls -->
+  <!-- Controls — 4×4 grid -->
   <div class="panel">
-    <!-- hidden legacy selects kept for JS compat -->
     <select id="shares" style="display:none;"><option value="600" selected>600</option></select>
     <input type="checkbox" id="debug-toggle" checked style="display:none;">
 
-    <!-- Row 1: 4 sweepable parameter cards -->
-    <div style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Parameters — click to optimize</div>
-    <div class="summary-grid" style="grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
+    <div class="summary-grid" style="grid-template-columns:repeat(4,1fr);gap:8px;">
 
+      <!-- Row 1: sweepable param cards -->
       <div class="stat-card var-card" id="vcard-decay" onclick="toggleVar('decay')" style="cursor:pointer;">
         <div class="stat-label">Decay Trigger</div>
         <div class="stat-value" id="vval-decay" style="font-size:14px;">75%</div>
@@ -192,27 +176,48 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="stat-sub" id="vsub-otm">Click to optimize</div>
       </div>
 
-    </div>
-
-    <!-- Row 2: 3 fixed info cards — Lookahead, Regime, Rolls -->
-    <div class="summary-grid" style="grid-template-columns:repeat(3,1fr);gap:8px;">
+      <!-- Row 2: controls + run -->
+      <div class="stat-card">
+        <div class="stat-label">Roll Limit</div>
+        <div style="margin-top:6px;">
+          <select id="single-roll-toggle" onchange="updateParamDisplay()" style="background:var(--surface2);border:1px solid var(--yellow);border-radius:4px;color:var(--yellow);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
+            <option value="0">All</option>
+            <option value="1">1</option>
+            <option value="3" selected>3</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+        <div class="stat-sub" style="margin-top:4px;">Max rolls per run</div>
+      </div>
 
       <div class="stat-card">
         <div class="stat-label">Max Lookahead</div>
-        <div class="stat-value" id="p-lookahead" style="font-size:14px;">90d</div>
-        <div class="stat-sub">Candidate search window</div>
+        <div style="margin-top:6px;">
+          <select id="lookahead-select" onchange="updateParamDisplay()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
+            <option value="45">45d</option>
+            <option value="60">60d</option>
+            <option value="90" selected>90d</option>
+            <option value="120">120d</option>
+            <option value="180">180d</option>
+          </select>
+        </div>
+        <div class="stat-sub" style="margin-top:4px;">Candidate search window</div>
       </div>
 
       <div class="stat-card">
         <div class="stat-label">Regime</div>
-        <div class="stat-value" id="p-regime" style="font-size:14px;">All</div>
-        <div class="stat-sub" id="p-regime-sub">All VIX regimes</div>
+        <div class="stat-value" id="p-regime" style="font-size:14px;margin-top:6px;">All</div>
+        <div class="stat-sub" id="p-regime-sub" style="margin-top:4px;">Updates after optimize</div>
       </div>
 
-      <div class="stat-card">
-        <div class="stat-label">Roll Limit</div>
-        <div class="stat-value" id="p-rolls" style="font-size:14px;">3</div>
-        <div class="stat-sub">Max rolls per run</div>
+      <!-- Run button — bottom right -->
+      <div class="stat-card" style="display:flex;flex-direction:column;justify-content:center;align-items:stretch;gap:4px;">
+        <button class="btn btn-primary" id="run-btn" onclick="handleRun()" disabled
+          style="flex:1;font-family:var(--mono);font-size:12px;letter-spacing:.04em;min-height:36px;">
+          ▶ Run
+        </button>
+        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;"></div>
       </div>
 
     </div>
@@ -432,10 +437,32 @@ function toggleVar(v) {
   // legacy btn compat
   const btn = $('vbtn-' + v); if (btn) btn.classList.toggle('active', active);
   updateParamDisplay();
+  updateEvalCount();
 }
 
 function anySweepActive() {
   return Object.values(_sweepVars).some(Boolean);
+}
+
+function updateEvalCount() {
+  const btn = $('run-btn');
+  const counter = $('run-eval-count');
+  if (!btn || !counter) return;
+  if (!anySweepActive()) {
+    btn.textContent = '▶ Run';
+    counter.style.display = 'none';
+    return;
+  }
+  const counts = {
+    decay: _sweepVars.decay ? 6 : 1,
+    dte:   _sweepVars.dte   ? 5 : 1,
+    delta: _sweepVars.delta ? 4 : 1,
+    otm:   _sweepVars.otm   ? 4 : 1,
+  };
+  const evals = counts.decay * counts.dte * counts.delta * counts.otm * 4; // ×4 regimes
+  btn.textContent = '▶ Run';
+  counter.textContent = evals.toLocaleString() + ' evals';
+  counter.style.display = 'block';
 }
 
 function setMode(m) {
@@ -471,14 +498,7 @@ function updateParamDisplay(regime) {
   // Regime card
   const regLabel = isOpt ? r.charAt(0).toUpperCase()+r.slice(1) : 'All';
   const pr = $('p-regime'); if (pr) pr.textContent = regLabel;
-  const prs = $('p-regime-sub'); if (prs) prs.textContent = isOpt ? 'VIX regime active' : 'All VIX regimes';
-
-  // Lookahead card
-  const pl = $('p-lookahead'); if (pl) pl.textContent = p.maxLookahead + 'd';
-
-  // Roll limit card — mirror the dropdown
-  const rv = parseInt($('single-roll-toggle')?.value || '0');
-  const pr2 = $('p-rolls'); if (pr2) pr2.textContent = rv > 0 ? rv : 'All';
+  const prs = $('p-regime-sub'); if (prs) prs.textContent = isOpt ? 'VIX regime active' : 'Updates after optimize';
 
   // Legacy param display IDs — guard in case old param-box removed
   const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
@@ -898,23 +918,19 @@ async function runSimulation() {
   if (!DM) return;
   _gaps = [];
 
-  const p = {
-    ...getActiveParams(),
-    shares:   600,
-    maxRolls: (() => { const v=parseInt($('single-roll-toggle')?.value||'0'); return v>0?v:null; })(),
-    maxRolls: (() => { const v=parseInt($('single-roll-toggle')?.value||'0'); return v>0?v:null; })(),
-  };
-  // dedupe maxRolls
+  const _lookahead = parseInt($('lookahead-select')?.value || '90');
+  const _maxRolls  = (() => { const v=parseInt($('single-roll-toggle')?.value||'0'); return v>0?v:null; })();
   const params = {
     ...getActiveParams(),
-    shares:   600,
-    maxRolls: (() => { const v=parseInt($('single-roll-toggle')?.value||'0'); return v>0?v:null; })(),
+    shares:      600,
+    maxRolls:    _maxRolls,
+    maxLookahead: _lookahead,
   };
 
   $('progress-panel').classList.add('visible');
   $('progress-log').innerHTML = '';
   setProgress(5);
-  logMsg('v2.5.9 · SPY Covered Call Backtest');
+  logMsg('v2.5.10 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -984,7 +1000,8 @@ async function runOptimization() {
           try {
             _gaps = [];
             const maxRolls = (() => { const v=parseInt($('single-roll-toggle')?.value||'0'); return v>0?v:null; })();
-            const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed:otm, shares, maxRolls });
+            const maxLookahead = parseInt($('lookahead-select')?.value || '90');
+            const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed:otm, shares, maxRolls, maxLookahead });
             let yld = null;
             if (r?.rolls?.length >= 2) {
               const rc = r.rolls.filter(c=>c.entryVix>=vMin&&c.entryVix<vMax);
