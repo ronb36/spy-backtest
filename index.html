@@ -126,7 +126,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.7 · prior-day VWAP fallback for null callPx</div>
+  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.8 · unified run — variable buttons drive mode</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -144,17 +144,12 @@ select.display-box { cursor:pointer; outline:none; }
 
   <!-- Controls -->
   <div class="panel">
-    <div class="ctrl-row">
-      <div class="toggle-group">
-        <button class="toggle-btn active" id="btn-test" onclick="setMode('test')">▶ Test</button>
-        <button class="toggle-btn" id="btn-optimize" onclick="setMode('optimize')">⊞ Optimize</button>
-      </div>
+    <!-- Top row: Rolls + Run -->
+    <div class="ctrl-row" style="margin-bottom:12px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.04em;">SPY Covered Call Backtester</div>
       <div class="ctrl-right">
-        <!-- Shares driven by mart first day -->
-        <select id="shares" style="display:none;">
-          <option value="600" selected>600</option>
-        </select>
-        <!-- Debug always on in log, hidden toggle kept for JS compat -->
+        <!-- hidden legacy fields kept for JS compat -->
+        <select id="shares" style="display:none;"><option value="600" selected>600</option></select>
         <input type="checkbox" id="debug-toggle" checked style="display:none;">
         <div style="display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;color:var(--muted);">
           Rolls
@@ -170,12 +165,12 @@ select.display-box { cursor:pointer; outline:none; }
       </div>
     </div>
 
-    <!-- Optimizer variable toggles — visible only in optimize mode -->
-    <div id="opt-var-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Sweep Variables — lit = optimized · unlit = held at STD</div>
+    <!-- Variable toggle buttons -->
+    <div style="margin-bottom:12px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:7px;">Optimize — select variables to sweep · none selected = STD backtest</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="var-btn active" id="vbtn-decay" onclick="toggleVar('decay')">Decay</button>
-        <button class="var-btn active" id="vbtn-dte" onclick="toggleVar('dte')">DTE Floor</button>
+        <button class="var-btn" id="vbtn-decay" onclick="toggleVar('decay')">Decay</button>
+        <button class="var-btn" id="vbtn-dte" onclick="toggleVar('dte')">DTE Floor</button>
         <button class="var-btn" id="vbtn-delta" onclick="toggleVar('delta')">Delta Δ</button>
         <button class="var-btn" id="vbtn-otm" onclick="toggleVar('otm')">OTM %</button>
       </div>
@@ -183,7 +178,7 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Parameter display -->
     <div class="param-box">
-      <div class="mono-label" id="param-label">Standard Parameters (Test Mode)</div>
+      <div class="mono-label" id="param-label">Standard Parameters</div>
       <div class="param-grid">
         <div class="param-item"><div class="mono-label">OTM</div><div class="param-val" id="p-otm">5%</div></div>
         <div class="param-item"><div class="mono-label">Decay</div><div class="param-val" id="p-decay">75%</div></div>
@@ -383,23 +378,28 @@ function yield_() { return new Promise(r => setTimeout(r, 0)); }
 
 // ── Mode ───────────────────────────────────────────────────────────────────
 // ── Optimizer variable sweep state ─────────────────────────────────────────
-const _sweepVars = { decay: true, dte: true, delta: false, otm: false };
+const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 
 function toggleVar(v) {
   _sweepVars[v] = !_sweepVars[v];
   $('vbtn-' + v).classList.toggle('active', _sweepVars[v]);
+  updateParamDisplay();
+}
+
+function anySweepActive() {
+  return Object.values(_sweepVars).some(Boolean);
 }
 
 function setMode(m) {
   _mode = m;
-  $('btn-test').classList.toggle('active', m === 'test');
-  $('btn-optimize').classList.toggle('active', m === 'optimize');
-  $('opt-var-row').style.display = m === 'optimize' ? 'block' : 'none';
+  // Legacy compat — these buttons no longer exist in new UI but guard anyway
+  const bt = $('btn-test');     if (bt) bt.classList.toggle('active', m === 'test');
+  const bo = $('btn-optimize'); if (bo) bo.classList.toggle('active', m === 'optimize');
   updateParamDisplay();
 }
 
 function handleRun() {
-  if (_mode === 'optimize') runOptimization();
+  if (anySweepActive()) runOptimization();
   else runSimulation();
 }
 
@@ -418,10 +418,10 @@ function getActiveParams(regime) {
 function updateParamDisplay(regime) {
   const p = getActiveParams(regime);
   const r = regime || getVIXRegime(18);
-  const isOpt = _mode === 'optimize' && _optParams;
+  const isOpt = anySweepActive() && _optParams;
   $('param-label').textContent = isOpt
     ? `Optimized — ${r.charAt(0).toUpperCase()+r.slice(1)} VIX Regime`
-    : 'Standard Parameters (Test Mode)';
+    : anySweepActive() ? 'Standard Parameters — sweep pending' : 'Standard Parameters';
   $('p-otm').textContent     = (p.otmFixed*100).toFixed(0) + '%';
   $('p-decay').textContent   = p.decayTrigger + '%';
   $('p-dte').textContent     = p.dteFloor + 'd';
@@ -859,7 +859,7 @@ async function runSimulation() {
   $('progress-panel').classList.add('visible');
   $('progress-log').innerHTML = '';
   setProgress(5);
-  logMsg('v2.5.7 · SPY Covered Call Backtest');
+  logMsg('v2.5.8 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -888,7 +888,8 @@ async function runSimulation() {
 // ── Optimization ───────────────────────────────────────────────────────────
 async function runOptimization() {
   if (!DM) return;
-  setMode('optimize');
+  _mode = 'optimize';
+  _optParams = null;
   _gaps = [];
 
   $('progress-panel').classList.add('visible');
