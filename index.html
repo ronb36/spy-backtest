@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.22 · fix getSweepGrid · roll limit card panel border · neutral default</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.23 · STD mode always logs structural lines · candidates only in debug</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -436,15 +436,16 @@ function logMsg(msg, cls='') {
   if (mirror) { mirror.innerHTML += div; mirror.scrollTop = mirror.scrollHeight; }
 }
 function logDbg(msg) {
-  // In optimizer mode: always log triggers/selections, suppress candidates regardless of debug
+  const isStructural = msg.includes('TRIGGER') || msg.includes('→ Best') || msg.includes('Open:') || msg.includes('Init:') || msg.includes('Roll ') || msg.includes('Initial sell') || msg.includes('cycles');
+
   if (_mode === 'optimize') {
-    const keep = msg.includes('TRIGGER') || msg.includes('→ Best') || msg.includes('Open:') || msg.includes('Init:') || msg.includes('Roll ') || msg.includes('Initial sell') || msg.includes('cycles');
-    if (!keep) return;
+    // OPT: always show structural lines, suppress candidates
+    if (!isStructural) return;
     logMsg(msg, 'dbg');
     return;
   }
-  // In STD mode: only log if debug mode is explicitly ON
-  if (!_debugMode) return;
+  // STD: always show structural lines; candidates only in debug mode
+  if (!isStructural && !_debugMode) return;
   logMsg(msg, 'dbg');
 }
 function yield_() { return new Promise(r => setTimeout(r, 0)); }
