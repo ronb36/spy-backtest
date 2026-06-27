@@ -7,8 +7,9 @@ Runs as a Railway service — initial full load on first run, daily append there
 Data collected:
   - SPY daily OHLCV (2 years)
   - VIX daily close (2 years)
-  - Option contracts: 7 strikes (3%, 4%, 5%, 6%, 7%, 8%, 10% OTM) × all monthly expiries
+  - Option contracts: 22 strikes (1%–35% OTM in $5 grid) × all monthly expiries
     Each contract: full life history from first available trade date to expiry
+    Strike selection anchored to SPY price at each expiry date
 
 Output: spy_data.json committed to ronb36/spy-backtest via GitHub API
 
@@ -39,7 +40,13 @@ PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
 # ── OTM target levels to store per expiry ─────────────────────────────────
-OTM_TARGETS = [0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.10]  # 3%,4%,5%,6%,7%,8%,10%
+OTM_TARGETS = [
+    0.01, 0.02, 0.03, 0.04, 0.05,        # 1–5%:  tight band, near-ATM rolls
+    0.06, 0.07, 0.08, 0.09, 0.10,        # 6–10%: core covered call range
+    0.11, 0.12, 0.13, 0.14, 0.15,        # 11–15%: extended core, finer resolution
+    0.18, 0.20, 0.22, 0.25,              # 18–25%: defensive / post-crash
+    0.28, 0.30, 0.35,                    # 28–35%: deep OTM tail
+]  # 22 strikes — $5 grid per expiry; ~30MB at 5 years, well under 50MB GitHub limit
 
 # ── Rate limiting ──────────────────────────────────────────────────────────
 CALL_DELAY = 0.25   # 4 calls/sec — safely under Polygon's 5/sec limit
@@ -279,29 +286,25 @@ def full_load():
     for exp in expiries:
         exp_dt = datetime.strptime(exp, "%Y-%m-%d")
 
-        # Use SPY price ~365 days before expiry for strike selection
-        far_date = (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d")
+        # Use SPY price ON the expiry date (or nearest prior trading day)
+        # This anchors strikes to where SPY actually was at expiration time,
+        # so strikes stay relevant as SPY drifts across 2 years
         spy_price = None
         for days_back in range(0, 14):
-            d = (datetime.strptime(far_date, "%Y-%m-%d") - timedelta(days=days_back)).strftime("%Y-%m-%d")
+            d = (exp_dt - timedelta(days=days_back)).strftime("%Y-%m-%d")
             if d in spy_by_date:
                 spy_price = spy_by_date[d]
                 break
         if not spy_price:
-            # Fall back to 30 DTE reference
-            ref_date = (exp_dt - timedelta(days=30)).strftime("%Y-%m-%d")
-            for days_back in range(0, 14):
-                d = (datetime.strptime(ref_date, "%Y-%m-%d") - timedelta(days=days_back)).strftime("%Y-%m-%d")
-                if d in spy_by_date:
-                    spy_price = spy_by_date[d]
-                    break
-        if not spy_price:
-            log(f"  No SPY price found for {exp}, skipping")
+            log(f"  No SPY price found near {exp}, skipping")
             continue
 
         # Full contract life: from max(start, expiry-365) to expiry
         opt_start = max(start, (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
         opt_end   = exp
+
+        log(f"  {exp} — SPY=${spy_price:.2f} → strikes: " +
+            ", ".join(f"${find_nearest_strike(spy_price, p)}" for p in OTM_TARGETS))
 
         for otm_pct in OTM_TARGETS:
             contract_num += 1
