@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.3.8 · scoring price = open price</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.3.9 · roll date fix · total credit includes initial</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -736,10 +736,16 @@ async function simulate(p) {
   let rollCreditTotal = 0;
   // Roll credit: for each roll row, credit = new leg entry - cover price
   // rolls[i] is the contract just closed (cover), cycles[i+1] is what opened next (new leg)
-  // rolls[i] = new leg opened, cycles[i] = what was covered
+  // Include initial sell credit
+  if (cycles.length > 0) {
+    const initCredit = cycles[0].entryPx * 100 * contracts;
+    rollCreditTotal += initCredit;
+    logDbg(`  Initial sell: $${cycles[0].entryPx.toFixed(2)} × ${contracts*100}ct = $${initCredit.toFixed(0)}`);
+  }
+  // Add each roll: new leg sell - buyback
   for (let i = 0; i < rolls.length; i++) {
-    const newLeg      = rolls[i];          // what we opened (new leg)
-    const closedCycle = cycles[i];         // what we covered prior to this
+    const newLeg      = rolls[i];
+    const closedCycle = cycles[i];
     if (!closedCycle) continue;
     rollCreditTotal += (newLeg.entryPx - closedCycle.exitPx) * 100 * contracts;
     logDbg(`  Roll ${i+1} credit: sell $${newLeg.entryPx.toFixed(2)} - cover $${closedCycle.exitPx.toFixed(2)} = $${((newLeg.entryPx-closedCycle.exitPx)*100*contracts).toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
@@ -924,8 +930,10 @@ function renderCycleTable(r) {
 
     const approx  = c.approx?'<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>':'';
 
+    // Date shown = trigger/roll date = when the spread was executed
+    const rollDate = closedCycle ? closedCycle.exitDate : c.entryDate;
     return `<tr>
-      <td class="muted" style="font-size:10px;">${c.entryDate}${approx}</td>
+      <td class="muted" style="font-size:10px;">${rollDate}${approx}</td>
       <td class="red">${coverStrike ? `Cover $${coverStrike} @ $${fmt(coverPx)}` : '—'}</td>
       <td class="accent">${newLegStr}</td>
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
