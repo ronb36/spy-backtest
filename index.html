@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.3 · covRet fix · annualized returns</div>
+  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.4 · optimizer Complete fix · regime null guard</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -831,13 +831,12 @@ async function runSimulation() {
 
   const result = await simulate(params);
   setProgress(95);
-  const progTitle = document.querySelector('#progress-panel .mono-label');
-  if (progTitle) progTitle.textContent = 'Complete';
-
   if (!result) { logMsg('✗ No cycles — check parameters','err'); setProgress(100); return; }
 
   logMsg(`✓ ${result.rolls.length} roll cycles`,'ok');
   setProgress(100);
+  const progTitle2 = document.querySelector('#progress-panel .mono-label');
+  if (progTitle2) progTitle2.textContent = 'Complete';
 
   renderSummary(result);
   renderCycleTable(result);
@@ -898,10 +897,16 @@ async function runOptimization() {
 
     const b = allResults[regime].best;
     _optParams[regime] = { decayTrigger:b?.decay||STD.decayTrigger, dteFloor:b?.floor||STD.dteFloor };
-    logMsg(`✓ ${regime}: best ${b?.decay}% / ${b?.floor}d → ${allResults[regime].bestYld.toFixed(1)}% yield`,'ok');
+    if (b) {
+      logMsg(`✓ ${regime}: best ${b.decay}% / ${b.floor}d → ${allResults[regime].bestYld.toFixed(1)}% yield`,'ok');
+    } else {
+      logMsg(`⚠ ${regime}: insufficient data (< 2 rolls in regime) — using STD params`,'err');
+    }
   }
 
   setProgress(100);
+  const progTitleOpt = document.querySelector('#progress-panel .mono-label');
+  if (progTitleOpt) progTitleOpt.textContent = 'Complete';
   renderHeatmaps(allResults, decays, floors);
   updateParamDisplay();
 
