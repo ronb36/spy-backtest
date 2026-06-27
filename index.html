@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.6 · optimizer respects roll limit</div>
+  <div style="font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:20px;">v2.5.7 · prior-day VWAP fallback for null callPx</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -835,7 +835,7 @@ async function runSimulation() {
   $('progress-panel').classList.add('visible');
   $('progress-log').innerHTML = '';
   setProgress(5);
-  logMsg('v2.5.3 · SPY Covered Call Backtest');
+  logMsg('v2.5.7 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
