@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.3.3 · fix cycle index in blotter</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.3.4 · correct blotter index · roll yield for candidates</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -508,13 +508,14 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       const dte = Math.round((new Date(exp+'T00:00:00') - afterD) / 86400000);
       if (dte <= 0) continue;
 
-      const rawYield = (entryPx / currentSPY) * (365 / dte) * 100;
-      // Risk-adjusted: penalize very short DTE (under 45d) to avoid chasing gamma
+      // Roll yield = (new premium - buyback) / SPY × 365/DTE
+      const netCredit  = entryPx - (buybackPx || 0);
+      const rawYield   = (netCredit / currentSPY) * (365 / dte) * 100;
       const dtePenalty = Math.min(1, dte / 45);
-      const adjYield = rawYield * dtePenalty;
+      const adjYield   = rawYield * dtePenalty;
       const candDelta_ = callDelta(currentSPY, c.strike, dte, 18, 4.5);
       const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
-      logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
+      logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " net=$" + netCredit.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
 
       if (adjYield > bestYield) { bestYield = adjYield; bestContract = c; }
     }
@@ -728,12 +729,13 @@ async function simulate(p) {
   let rollCreditTotal = 0;
   // Roll credit: for each roll row, credit = new leg entry - cover price
   // rolls[i] is the contract just closed (cover), cycles[i+1] is what opened next (new leg)
+  // rolls[i] = new leg opened, cycles[i] = what was covered
   for (let i = 0; i < rolls.length; i++) {
-    const closedCycle = rolls[i];          // what we covered
-    const newCycle    = cycles[i+1];       // what we opened (new leg)
-    if (!newCycle) continue;
-    rollCreditTotal += (newCycle.entryPx - closedCycle.exitPx) * 100 * contracts;
-    logDbg(`  Roll ${i+1} credit: sell $${newCycle.entryPx.toFixed(2)} - cover $${closedCycle.exitPx.toFixed(2)} = $${((newCycle.entryPx-closedCycle.exitPx)*100*contracts).toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
+    const newLeg      = rolls[i];          // what we opened (new leg)
+    const closedCycle = cycles[i];         // what we covered prior to this
+    if (!closedCycle) continue;
+    rollCreditTotal += (newLeg.entryPx - closedCycle.exitPx) * 100 * contracts;
+    logDbg(`  Roll ${i+1} credit: sell $${newLeg.entryPx.toFixed(2)} - cover $${closedCycle.exitPx.toFixed(2)} = $${((newLeg.entryPx-closedCycle.exitPx)*100*contracts).toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
   }
 
   return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal };
@@ -877,39 +879,48 @@ function renderCycleTable(r) {
   </tr>` : '';
 
   const rows = r.rolls.map((c,i) => {
-    const nextCycle = r.cycles[i+1]; // cycles[0]=initial, cycles[1]=roll1, etc. new leg after rolls[i] is cycles[i+1]
-    const pending   = (i===r.rolls.length-1) ? r.pendingContract : null;
-    const nextC     = nextCycle || pending;
+    // c = rolls[i] = the NEW contract we opened (entryPx = what we sold it for)
+    // cycles[i] = the PRIOR contract we closed (exitPx = what we bought it back for)
+    // For the last row when stopped early, pending is the new leg not yet in cycles
+    const closedCycle = r.cycles[i];  // what we covered
+    const coverPx     = closedCycle ? closedCycle.exitPx : null;
+    const coverStrike = closedCycle ? closedCycle.strike : null;
 
-    let newPx = 0;
-    if (nextCycle) {
-      newPx = nextCycle.entryPx;
-    } else if (pending) {
-      buildDayMap(pending);
-      const rollKey = c.exitDate.trim().slice(0,10);
-      const pDay = pending._dm[rollKey] || pending.days.find(d=>d.date>=c.exitDate);
-      newPx = pDay ? (pDay.vw||pDay.c) : 0;
+    // New leg = c itself (rolls[i] is what we opened)
+    // For last row when stopped, try pendingContract if c has no entryPx yet
+    const isLastPending = (i === r.rolls.length - 1) && r.pendingContract && !c.entryPx;
+    const newLegC   = isLastPending ? null : c;
+    const pendingC  = isLastPending ? r.pendingContract : null;
+    let newPx = c.entryPx || 0;
+    if (!newPx && pendingC) {
+      buildDayMap(pendingC);
+      const pk = c.exitDate?.trim().slice(0,10) || '';
+      const pd = pendingC._dm[pk] || pendingC.days.find(d=>d.date>=c.exitDate);
+      newPx = pd ? (pd.vw||pd.c) : 0;
     }
+    const newLegStrike = newLegC ? c.strike : (pendingC?.strike || '—');
+    const newLegExpiry = newLegC ? c.expiry : (pendingC?.expiry || '—');
+    const newLegStr = newPx > 0
+      ? `Sell $${newLegStrike} ${newLegExpiry} @ $${fmt(newPx)}`
+      : '—';
 
-    const rollCredit = newPx > 0 ? (newPx-c.exitPx)*100*contracts : null;
+    // Roll credit = new premium sold - buyback cost
+    const rollCredit = coverPx !== null ? (newPx - coverPx) * 100 * contracts : null;
     const cClass     = rollCredit===null?'muted':rollCredit>=0?'green':'red';
 
-    const rollYld = (rollCredit!==null && nextC)
-      ? ((newPx-c.exitPx)/c.exitSPY)*(365/Math.max(1,
-          Math.round((new Date(nextC.expiry+'T00:00:00')-new Date(c.exitDate+'T00:00:00'))/86400000)
-        ))*100
+    // Roll yield = roll credit / SPY × (365 / new contract DTE)
+    const newDTE  = Math.round((new Date(c.expiry+'T00:00:00') - new Date(c.entryDate+'T00:00:00')) / 86400000);
+    const rollYld = (rollCredit!==null && newDTE > 0)
+      ? ((newPx - (coverPx||0)) / c.entrySPY) * (365 / newDTE) * 100
       : null;
-    const yClass = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
+    const yClass  = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
 
-    const newLeg = nextC
-      ? `Sell $${nextC.strike} ${nextC.expiry} @ $${newPx>0?fmt(newPx):'—'}`
-      : '—';
-    const approx = c.approx?'<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>':'';
+    const approx  = c.approx?'<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>':'';
 
     return `<tr>
-      <td class="muted" style="font-size:10px;">${c.exitDate}${approx}</td>
-      <td class="red">Cover $${c.strike} @ $${fmt(c.exitPx)}</td>
-      <td class="accent">${newLeg}</td>
+      <td class="muted" style="font-size:10px;">${c.entryDate}${approx}</td>
+      <td class="red">${coverStrike ? `Cover $${coverStrike} @ $${fmt(coverPx)}` : '—'}</td>
+      <td class="accent">${newLegStr}</td>
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
       <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
       <td class="muted" style="font-size:10px;">${c.reason}</td>
