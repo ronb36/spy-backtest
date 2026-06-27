@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div id="err-banner"></div>
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
-  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.6 · daily trace for Aug-15 $580</div>
+  <div style="font-family:var(--mono);font-size:9px;color:#2a3050;margin-bottom:20px;">v2.4.8 · delta buffer on candidates · reset hot entry delta</div>
 
   <!-- Initial Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none">
@@ -489,8 +489,9 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       if (deltaThreshold > 0) {
         const candDTE   = Math.round((new Date(c.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
         const candDelta = callDelta(currentSPY, c.strike, candDTE, 18, 4.5);
-        if (candDelta >= deltaThreshold) {
-          logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= threshold " + deltaThreshold);
+        const deltaBuffer = deltaThreshold * 0.85; // 15% headroom for price movement between scoring and entry
+        if (candDelta >= deltaBuffer) {
+          logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= buffer " + deltaBuffer.toFixed(3));
           continue;
         }
       }
@@ -634,6 +635,8 @@ async function simulate(p) {
       const expD_ = new Date(curC.expiry+'T00:00:00');
       const todD_ = new Date(date+'T00:00:00');
       entryDelta_ = callDelta(spy, curC.strike, Math.round((expD_-todD_)/86400000), vix, TNX);
+      // If already above threshold at entry, reset so low-water mark works from scratch
+      if (entryDelta_ >= deltaThreshold) entryDelta_ = 0;
       posOpen = true;
       const _tk = Object.keys(DM.options).find(k=>DM.options[k]===curC)||'?';
       logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${entryDate} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
@@ -667,12 +670,14 @@ async function simulate(p) {
         const decay = ((entryPrice-callPx)/entryPrice)*100;
         if (date >= '2024-08-05' && date <= '2024-08-10')
           logDbg(`  ${date}: px=$${callPx.toFixed(2)} entry=$${entryPrice.toFixed(2)} decay=${decay.toFixed(1)}%`);
-        // Trace Aug-15 $580 contract daily
-        if (entryStrike === 580 && curC?.expiry === '2025-08-15')
-          logDbg(`  [TRACE] ${date}: SPY=$${spy.toFixed(2)} K=$${entryStrike} callPx=$${callPx?.toFixed(2)||'null'} decay=${decay.toFixed(1)}% delta=${delta.toFixed(3)} entryDelta_=${entryDelta_.toFixed(3)} dte=${dte}`);
+
         if (decay >= decayTrigger) { roll=true; reason=`${decay.toFixed(0)}% decay`; }
       }
       if (!roll && dte <= dteFloor)                                           { roll=true; reason=`${dte}d DTE`; }
+      // Delta trigger: fire if delta rose above threshold
+      // If entry delta was already above threshold, allow trigger once delta
+      // has dipped below threshold and risen again (tracks actual movement)
+      if (delta < deltaThreshold) entryDelta_ = delta; // update low-water mark
       if (!roll && delta >= deltaThreshold && entryDelta_ < deltaThreshold)   { roll=true; reason=`delta ${delta.toFixed(2)}`; }
     }
 
