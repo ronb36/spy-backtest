@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.16 · optimizer scores by stratYld · clean reset on each Run</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.16 · optimizer scores by stratYld · clean reset · fix candidate log gate</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -416,12 +416,15 @@ function logMsg(msg, cls='') {
   el.scrollTop = el.scrollHeight;
 }
 function logDbg(msg) {
-  if (!$('debug-toggle')?.checked) return;
-  // In optimizer mode suppress noisy candidate/skip lines — keep triggers & selections
+  // In optimizer mode: always log triggers/selections, suppress candidates regardless of debug
   if (_mode === 'optimize') {
     const keep = msg.includes('TRIGGER') || msg.includes('→ Best') || msg.includes('Open:') || msg.includes('Init:') || msg.includes('Roll ') || msg.includes('Initial sell') || msg.includes('cycles');
     if (!keep) return;
+    logMsg(msg, 'dbg');
+    return;
   }
+  // In STD mode: only log if debug mode is explicitly ON
+  if (!_debugMode) return;
   logMsg(msg, 'dbg');
 }
 function yield_() { return new Promise(r => setTimeout(r, 0)); }
@@ -1048,8 +1051,7 @@ async function runOptimization() {
   const allResults = { grid:{}, best:null, bestYld:-Infinity, rows:[] };
   decays.forEach(d=>{ allResults.grid[d]={}; floors.forEach(f=>{ allResults.grid[d][f]=null; }); });
 
-  // Candidate logging runs normally during optimization
-  const origChecked = $('debug-toggle')?.checked;
+  // Candidate logging in optimizer is filtered by logDbg based on _mode
 
   try {
     for (const decay of decays) {
@@ -1087,8 +1089,7 @@ async function runOptimization() {
       }
     }
 
-    // Restore debug logging
-    if ($('debug-toggle') && origChecked !== undefined) $('debug-toggle').checked = origChecked;
+    // (debug-toggle restore no longer needed — logDbg gates on _debugMode)
 
     const b = allResults.best;
     _optParams = b ? { decayTrigger:b.decay, dteFloor:b.floor, deltaThreshold:b.delta, otmFixed:b.otm } : { ...STD };
@@ -1130,7 +1131,6 @@ async function runOptimization() {
     const msg = `\u2717 OPTIMIZER CRASHED: ${outerErr.message}`;
     logMsg(msg, 'err');
     console.error(msg, outerErr);
-    if ($('debug-toggle') && origChecked !== undefined) $('debug-toggle').checked = origChecked;
     setProgress(100);
     const progTitleErr = document.querySelector('#progress-panel .mono-label');
     if (progTitleErr) progTitleErr.textContent = 'Error';
