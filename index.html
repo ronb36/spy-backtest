@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.44 · Init line reformatted as friendly Intl: Short</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.45 · Roll 1 open uses Short not Intl:</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -940,7 +940,7 @@ async function simulate(p) {
       logDbg(`\n── ${rollNum} ${'─'.repeat(Math.max(0, 50 - rollNum.length))} ${entryDate}`);
       // Friendly open line — format expiry as M/D/YY
       const _expFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
-      const _openVerb = cycles.length === 0 ? 'Intl: Short' : 'Short';
+      const _openVerb = 'Short';
       logDbg(`${_openVerb} ${contracts*100} SPY ${_expFmt} ${entryStrike} C @ $${entryPrice.toFixed(2)}`);
     }
 
@@ -1148,7 +1148,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.44 · SPY Covered Call Backtest');
+  logMsg('v2.5.45 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
