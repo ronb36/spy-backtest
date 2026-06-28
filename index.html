@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.38 · Roll numbering fixed · browser log line-separated</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.39 · Friendly trade log: Intl/Cover/Short/Net Credit</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -910,10 +910,12 @@ async function simulate(p) {
       // If already above threshold at entry, reset so low-water mark works from scratch
       if (entryDelta_ >= deltaThreshold) entryDelta_ = 0;
       posOpen = true;
-      const _tk = Object.keys(DM.options).find(k=>DM.options[k]===curC)||'?';
       const rollNum = 'Roll ' + (cycles.length + 1);
       logDbg(`\n── ${rollNum} ${'─'.repeat(Math.max(0, 50 - rollNum.length))} ${entryDate}`);
-      logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${entryDate} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
+      // Friendly open line — format expiry as M/D/YY
+      const _expFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
+      const _openVerb = cycles.length === 0 ? 'Intl: Sell' : 'Short';
+      logDbg(`${_openVerb} ${contracts*100} SPY ${_expFmt} ${entryStrike} C @ $${entryPrice.toFixed(2)}`);
     }
 
     // ── Mark ──
@@ -1022,6 +1024,21 @@ async function simulate(p) {
     // rollCreditTotal calculated post-simulation from actual cycle entry/exit prices
 
     curC = next;
+    // ── Friendly trade summary after Best ────────────────────────────────────
+    if (_debugMode && _mode !== 'optimize') {
+      const _fmtDate = s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; };
+      const _coverExpFmt = _fmtDate(cycles[cycles.length-1].expiry);
+      const _coverStrike = cycles[cycles.length-1].strike;
+      const _coverPx     = cycles[cycles.length-1].exitPx;
+      const _newExpFmt   = _fmtDate(curC.expiry);
+      const _newStrike   = curC.strike;
+      const _newPx       = curC._entryPx || 0;
+      const _netCredit   = (_newPx - _coverPx) * 100 * contracts;
+      const _netStr      = (_netCredit >= 0 ? '+' : '') + '$' + Math.abs(_netCredit).toFixed(0);
+      logDbg(`  Cover  ${contracts*100} SPY ${_coverExpFmt} ${_coverStrike} C @ $${_coverPx.toFixed(2)}`);
+      logDbg(`  Short  ${contracts*100} SPY ${_newExpFmt} ${_newStrike} C @ $${_newPx.toFixed(2)}`);
+      logDbg(`  Net Credit: ${_netStr}`);
+    }
     if (p.maxRolls && cycles.filter(c=>!c.isInitial).length >= p.maxRolls) {
       logMsg(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok');
       pendingContract = next;
@@ -1103,7 +1120,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.38 · SPY Covered Call Backtest');
+  logMsg('v2.5.39 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
