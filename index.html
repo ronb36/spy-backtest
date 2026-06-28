@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.49 · Roll Candidates tab: trigger-date dropdown from DM data</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.50 · Yield Grid: strike×expiry heat map; chart tab auto-loads</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -261,7 +261,7 @@ select.display-box { cursor:pointer; outline:none; }
       <!-- Toggle -->
       <div style="display:flex;gap:8px;margin-bottom:12px;">
         <button id="chart-toggle-price" onclick="setChartView('price')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;">Price Chart</button>
-        <button id="chart-toggle-vol" onclick="setChartView('vol')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Vol Surface</button>
+        <button id="chart-toggle-vol" onclick="setChartView('vol')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Yield Grid</button>
       </div>
 
       <!-- Price chart panel -->
@@ -285,7 +285,7 @@ select.display-box { cursor:pointer; outline:none; }
       <!-- Roll Candidates panel -->
       <div id="chart-panel-vol" class="chart-panel" style="display:none">
         <div class="chart-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <span class="chart-title">Roll Candidates</span>
+          <span class="chart-title">Roll Candidates — Yield Grid</span>
           <label style="font-family:var(--mono);font-size:10px;color:var(--muted);">Trigger Date
             <select id="vs-roll-select" onchange="renderRollCandidates()" style="margin-left:6px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 8px;">
               <option value="">— run backtest first —</option>
@@ -694,6 +694,7 @@ function showTab(tab) {
     if (btn) btn.classList.toggle('active', t === tab);
   });
   if (tab === 'mart') renderMartCards();
+  if (tab === 'chart') setChartView('price');
   if (tab === 'runlog') {
     // Sync mirror with live progress-log content
     const src = $('progress-log');
@@ -1157,7 +1158,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.49 · SPY Covered Call Backtest');
+  logMsg('v2.5.50 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1574,11 +1575,9 @@ function renderPriceChart() {
     }, plotCfg);
   }
 }
-// ── Roll Candidates ───────────────────────────────────────────────────────
-// Populated after each backtest run from lastResult cycles + DM data.
-// Each entry: { rollNum, triggerDate, triggerReason, spyPx, closingStrike,
-//               closingExpiry, closingPx, candidates:[{expiry,strike,otmPct,
-//               px,netCredit,dte,delta,adjYield,isBest}] }
+// ── Roll Candidates — Yield Grid ──────────────────────────────────────────
+// Snapshots built after each run. Includes Intl (initial sell) + each roll.
+// Grid: strikes (rows) × expiries (cols), cell = ann yield, heat-mapped.
 let _rollSnapshots = [];
 
 function vsStatus(msg, type) {
@@ -1588,92 +1587,110 @@ function vsStatus(msg, type) {
   el.style.color = type === 'err' ? 'var(--red)' : type === 'ok' ? 'var(--green)' : 'var(--muted)';
 }
 
-// Called after simulate() to build snapshots from DM + cycle data
+// Build one snapshot for a given date: all strikes × all valid expiries from DM
+function buildSnapshot(triggerDate, spyPx, buybackPx, params) {
+  const p = params;
+  const allExpiries = [...new Set(Object.values(DM.options).map(o => o.expiry))].sort();
+  const allStrikes  = [...new Set(Object.values(DM.options).map(o => o.strike))].sort((a,b)=>a-b);
+
+  // Which expiries pass DTE floor/lookahead (or for Intl: just floor)
+  const validExpiries = allExpiries.filter(exp => {
+    const dte = Math.round((new Date(exp+'T00:00:00') - new Date(triggerDate+'T00:00:00')) / 86400000);
+    return dte >= p.dteFloor && dte <= p.maxLookahead;
+  });
+
+  // Build cell map: key = expiry_strike
+  const cells = {};
+  let bestYield = -Infinity, bestKey = null;
+
+  for (const exp of validExpiries) {
+    const dte = Math.round((new Date(exp+'T00:00:00') - new Date(triggerDate+'T00:00:00')) / 86400000);
+    for (const strike of allStrikes) {
+      const key = exp + '_' + strike;
+      const opt = Object.values(DM.options).find(o => o.expiry === exp && o.strike === strike);
+      const dm  = {};
+      if (opt) opt.days.forEach(d => dm[d.date.trim().slice(0,10)] = d);
+      const dayData = opt ? (dm[triggerDate] || opt.days.find(d => d.date >= triggerDate)) : null;
+      const px      = dayData ? (dayData.vw || dayData.c || 0) : 0;
+      const delta   = callDelta(spyPx, strike, dte, 18, 4.5);
+      const itm     = strike <= spyPx;
+      const deltaBreach = !itm && p.deltaThreshold > 0 && delta >= p.deltaThreshold;
+      const adjYield = px ? (px / spyPx) * (365 / dte) * 100 : null;
+      const otmPct   = ((strike - spyPx) / spyPx * 100);
+      const netCredit = px ? px - buybackPx : null;
+
+      cells[key] = { exp, strike, dte, px, delta, itm, deltaBreach, adjYield, otmPct, netCredit, hasData: !!px };
+
+      if (!itm && !deltaBreach && adjYield !== null && adjYield > bestYield) {
+        bestYield = adjYield; bestKey = key;
+      }
+    }
+  }
+  if (bestKey) cells[bestKey].isBest = true;
+
+  return { triggerDate, spyPx, buybackPx, validExpiries, allStrikes, cells, bestKey };
+}
+
 function buildRollSnapshots(result) {
   _rollSnapshots = [];
   if (!result?.cycles || !DM) return;
 
   const { cycles, params: p } = result;
-  const contracts = p.shares / 100;
-
-  // spyMap for quick lookup
   const spyMap = {};
   DM.spy.forEach(r => spyMap[r.date] = r.c);
 
   cycles.forEach((c, i) => {
-    if (c.isInitial) return; // skip — no roll trigger on initial sell
-
     const triggerDate = c.entryDate?.slice(0,10);
     if (!triggerDate) return;
+    const spyPx     = c.entrySPY || spyMap[triggerDate] || 0;
+    const buybackPx = c.isInitial ? 0 : (cycles[i-1]?.exitPx || 0);
+    const label     = c.isInitial ? 'Intl' : 'R' + i;
+    const reason    = c.isInitial ? 'initial sell' : (c.reason || '—');
+    const snap      = buildSnapshot(triggerDate, spyPx, buybackPx, p);
 
-    const spyPx = c.entrySPY || spyMap[triggerDate] || 0;
-    const buybackPx = cycles[i - 1]?.exitPx || 0; // what we paid to close prior leg
-
-    // Re-evaluate candidates from DM on this date (same logic as simulate)
-    const candidates = [];
-    const expiries = [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
-
-    for (const exp of expiries) {
-      const dte = Math.round((new Date(exp+'T00:00:00') - new Date(triggerDate+'T00:00:00')) / 86400000);
-      if (dte < p.dteFloor) continue;
-      if (dte > p.maxLookahead) continue;
-
-      const expContracts = Object.values(DM.options)
-        .filter(opt => opt.expiry === exp && opt.strike > spyPx)
-        .sort((a,b) => a.strike - b.strike);
-
-      for (const opt of expContracts) {
-        const dm = {};
-        opt.days.forEach(d => dm[d.date.trim().slice(0,10)] = d);
-        const dayData = dm[triggerDate] || opt.days.find(d => d.date >= triggerDate);
-        if (!dayData) continue;
-
-        const px = dayData.vw || dayData.c || 0;
-        if (!px) continue;
-
-        const delta = callDelta(spyPx, opt.strike, dte, 18, 4.5);
-        if (p.deltaThreshold > 0 && delta >= p.deltaThreshold) continue;
-
-        const otmPct = ((opt.strike - spyPx) / spyPx * 100);
-        const netCredit = px - buybackPx;
-        const adjYield  = (px / spyPx) * (365 / dte) * 100;
-
-        candidates.push({
-          expiry: exp, strike: opt.strike,
-          otmPct, px, netCredit, dte, delta, adjYield,
-        });
-      }
-    }
-
-    // Sort by adjYield desc, mark best
-    candidates.sort((a,b) => b.adjYield - a.adjYield);
-    if (candidates.length) candidates[0].isBest = true;
-
-    const rollNum = i; // cycle index, 1-based roll number
     _rollSnapshots.push({
-      rollNum,
-      triggerDate,
-      triggerReason: c.reason || '—',
-      spyPx,
-      closingStrike: cycles[i-1]?.strike,
-      closingExpiry: cycles[i-1]?.expiry,
-      closingPx: buybackPx,
+      ...snap, label, reason,
+      isInitial: c.isInitial,
       openingStrike: c.strike,
       openingExpiry: c.expiry,
-      openingPx: c.entryPx,
-      candidates,
+      openingPx:     c.entryPx,
+      closingStrike: c.isInitial ? null : cycles[i-1]?.strike,
+      closingExpiry: c.isInitial ? null : cycles[i-1]?.expiry,
+      closingPx:     buybackPx,
     });
   });
 
-  // Populate the dropdown
+  // Populate dropdown
   const sel = $('vs-roll-select');
   if (!sel) return;
-  sel.innerHTML = _rollSnapshots.map(s => {
-    const fmt = d => { const dt=new Date(d+'T00:00:00'); return `${dt.getMonth()+1}/${dt.getDate()}/${String(dt.getFullYear()).slice(2)}`; };
-    return `<option value="${s.rollNum}">R${s.rollNum} · ${fmt(s.triggerDate)} · ${s.triggerReason} · SPY $${s.spyPx.toFixed(2)}</option>`;
-  }).join('');
+  const fmt = d => { const dt=new Date(d+'T00:00:00'); return `${dt.getMonth()+1}/${dt.getDate()}/${String(dt.getFullYear()).slice(2)}`; };
+  sel.innerHTML = _rollSnapshots.map((s,i) =>
+    `<option value="${i}">${s.label} · ${fmt(s.triggerDate)} · ${s.reason} · SPY $${s.spyPx.toFixed(2)}</option>`
+  ).join('');
 
   if (_rollSnapshots.length) renderRollCandidates();
+}
+
+// Yield → color: green (high) → yellow → red (low/negative), gray for no data
+function yieldColor(yld, minYld, maxYld) {
+  if (yld === null) return { bg: '#1a1d27', fg: '#3a3f52' }; // no data
+  const range = maxYld - minYld || 1;
+  const t = Math.max(0, Math.min(1, (yld - minYld) / range)); // 0=low, 1=high
+  if (t >= 0.5) {
+    // yellow → green
+    const u = (t - 0.5) * 2;
+    const r = Math.round(245 * (1-u) + 61 * u);
+    const g = Math.round(200 * (1-u) + 214 * u);
+    const b = Math.round(66  * (1-u) + 140 * u);
+    return { bg: `rgba(${r},${g},${b},0.22)`, fg: `rgb(${r},${g},${b})` };
+  } else {
+    // red → yellow
+    const u = t * 2;
+    const r = Math.round(240 * (1-u) + 245 * u);
+    const g = Math.round(94  * (1-u) + 200 * u);
+    const b = Math.round(94  * (1-u) + 66  * u);
+    return { bg: `rgba(${r},${g},${b},0.22)`, fg: `rgb(${r},${g},${b})` };
+  }
 }
 
 function renderRollCandidates() {
@@ -1682,55 +1699,107 @@ function renderRollCandidates() {
     vsStatus('Run a backtest to populate roll dates.', '');
     return;
   }
-  const idx = _rollSnapshots.findIndex(s => s.rollNum === parseInt(sel.value));
-  const snap = _rollSnapshots[idx >= 0 ? idx : 0];
+  const snap = _rollSnapshots[parseInt(sel.value) || 0];
   if (!snap) return;
 
-  vsStatus(`${snap.candidates.length} candidates on ${snap.triggerDate} · closing $${snap.closingStrike} @ $${snap.closingPx.toFixed(2)} · opening $${snap.openingStrike} @ $${snap.openingPx?.toFixed(2)||'—'}`, 'ok');
+  const { validExpiries, allStrikes, cells, spyPx, buybackPx,
+          openingStrike, openingExpiry, closingStrike, closingExpiry, isInitial } = snap;
 
-  if (!snap.candidates.length) {
-    $('vs-grid-wrap').innerHTML = '<div style="padding:16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No candidates found for this trigger date.</div>';
+  if (!validExpiries.length) {
+    $('vs-grid-wrap').innerHTML = '<div style="padding:16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No expiries in DTE window for this date.</div>';
+    vsStatus('No valid expiries found.', 'err');
     return;
   }
 
-  const fmtExp = iso => { const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; };
-  const fmtPct = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  // Compute yield range across all valid (non-ITM, non-breached) cells for color scaling
+  const validYields = Object.values(cells)
+    .filter(c => c.hasData && !c.itm && !c.deltaBreach && c.adjYield !== null)
+    .map(c => c.adjYield);
+  const minYld = validYields.length ? Math.min(...validYields) : 0;
+  const maxYld = validYields.length ? Math.max(...validYields) : 5;
 
-  const rows = snap.candidates.map(c => {
-    const netCol  = c.netCredit >= 0 ? 'var(--green)' : 'var(--red)';
-    const yldCol  = c.adjYield  >= 0 ? 'var(--green)' : 'var(--red)';
-    const bestMark = c.isBest ? ' ★' : '';
-    const bestStyle = c.isBest ? 'background:var(--surface2);' : '';
-    const isOpened = c.expiry === snap.openingExpiry && c.strike === snap.openingStrike;
-    const openedStyle = isOpened ? 'outline:2px solid var(--accent);outline-offset:-2px;' : '';
-    return `<tr style="${bestStyle}${openedStyle}">
-      <td>${fmtExp(c.expiry)}</td>
-      <td>$${c.strike}</td>
-      <td>${c.otmPct.toFixed(1)}%</td>
-      <td>${c.dte}d</td>
-      <td>$${c.px.toFixed(2)}</td>
-      <td style="color:${netCol}">${c.netCredit >= 0 ? '+' : ''}$${c.netCredit.toFixed(2)}</td>
-      <td>Δ${c.delta.toFixed(3)}</td>
-      <td style="color:${yldCol}">${fmtPct(c.adjYield)}</td>
-      <td style="color:var(--muted);font-size:10px;">${c.isBest ? '★ best' : isOpened ? '✓ opened' : ''}</td>
-    </tr>`;
+  const fmtExp = iso => { const d=new Date(iso+'T00:00:00'); return `${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`; };
+  const th = s => `<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-align:center;">${s}</th>`;
+  const tdBase = `padding:6px 8px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:11px;text-align:center;white-space:nowrap;`;
+
+  // Header row: Strike label + one col per expiry (with DTE)
+  const headerDTE = validExpiries.map(exp => {
+    const dte = Math.round((new Date(exp+'T00:00:00') - new Date(snap.triggerDate+'T00:00:00')) / 86400000);
+    const isOpenedExp = exp === openingExpiry;
+    const style = isOpenedExp ? 'color:var(--accent);' : '';
+    return `<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-align:center;${style}">${fmtExp(exp)}<br><span style="font-size:8px;opacity:.7;">${dte}d</span></th>`;
   }).join('');
 
-  $('vs-grid-wrap').innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;">
-      <thead><tr style="color:var(--muted);font-size:9px;letter-spacing:.08em;text-transform:uppercase;">
-        <th style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:left;">Expiry</th>
-        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">Strike</th>
-        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">OTM</th>
-        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">DTE</th>
-        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">Px</th>
-        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">Net</th>
-        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">Delta</th>
-        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">Ann Yld</th>
-        <th style="padding:8px 12px;border-bottom:1px solid var(--border);"></th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+  const thead = `<thead><tr>${th('Strike')}<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;">OTM%</th>${headerDTE}</tr></thead>`;
+
+  // Body: one row per strike
+  const rows = allStrikes.map(strike => {
+    const otmPct = ((strike - spyPx) / spyPx * 100);
+    const isATM   = Math.abs(otmPct) < 1.5;
+    const isITM   = strike < spyPx;
+    const isClosing = strike === closingStrike; // leg being bought back
+
+    const strikeColor = isITM ? 'color:var(--muted);opacity:.5;' : isATM ? 'color:var(--green);font-weight:600;' : isClosing ? 'color:var(--red);' : '';
+    const otmStr = isITM ? `(${Math.abs(otmPct).toFixed(1)}% ITM)` : `${otmPct.toFixed(1)}%`;
+
+    const strikeTd = `<td style="${tdBase}text-align:left;font-weight:600;${strikeColor}">${isClosing && !isInitial ? '▶ ' : ''}$${strike}</td>`;
+    const otmTd    = `<td style="${tdBase}font-size:10px;color:var(--muted);">${otmStr}</td>`;
+
+    const cells_row = validExpiries.map(exp => {
+      const key  = exp + '_' + strike;
+      const cell = cells[key];
+      const isOpened  = exp === openingExpiry && strike === openingStrike;
+      const isClosed  = !isInitial && exp === closingExpiry && strike === closingStrike;
+
+      if (!cell || !cell.hasData) {
+        // No data
+        return `<td style="${tdBase}color:#3a3f52;background:#1a1d27;" title="No data in DM">—</td>`;
+      }
+
+      const { adjYield, delta, deltaBreach, itm, netCredit } = cell;
+      let bg = '', fg = 'var(--text)', extra = '', opacity = '1', fontStyle = '';
+
+      if (itm) {
+        bg = '#1e1a2a'; fg = '#4a4560'; opacity = '0.6';
+      } else if (deltaBreach) {
+        // Dimmed — delta too high, show yield italic
+        fg = '#5a6070'; fontStyle = 'font-style:italic;';
+        const col = yieldColor(adjYield, minYld, maxYld);
+        bg = col.bg; opacity = '0.5';
+      } else {
+        const col = yieldColor(adjYield, minYld, maxYld);
+        bg = col.bg; fg = col.fg;
+      }
+
+      // Border overrides for opened/closed
+      let borderStyle = '';
+      if (isOpened)   borderStyle = 'outline:2px solid var(--accent);outline-offset:-2px;';
+      if (isClosed)   borderStyle = 'outline:2px solid var(--red);outline-offset:-2px;';
+
+      const mark = cell.isBest ? '★ ' : isOpened ? '✓ ' : '';
+      const yldStr = adjYield !== null ? (adjYield >= 0 ? '+' : '') + adjYield.toFixed(1) + '%' : '—';
+      const deltaStr = `<div style="font-size:8px;opacity:.7;margin-top:1px;">Δ${delta.toFixed(3)}</div>`;
+      const title = `Strike $${strike} · ${fmtExp(exp)} · ${cell.dte}d · px $${cell.px.toFixed(2)} · net ${netCredit>=0?'+':''}$${netCredit?.toFixed(2)} · Δ${delta.toFixed(3)}`;
+
+      return `<td style="${tdBase}background:${bg};color:${fg};opacity:${opacity};${fontStyle}${borderStyle}" title="${title}">${mark}${yldStr}${!itm ? deltaStr : ''}</td>`;
+    }).join('');
+
+    return `<tr>${strikeTd}${otmTd}${cells_row}</tr>`;
+  }).join('');
+
+  const dataCount = Object.values(cells).filter(c=>c.hasData).length;
+  const totalCells = validExpiries.length * allStrikes.length;
+  const closingStr = isInitial ? 'Initial sell' : `Closing $${closingStrike} @ $${buybackPx.toFixed(2)}`;
+  vsStatus(`${closingStr} · Opening $${openingStrike} @ $${snap.openingPx?.toFixed(2)||'—'} · SPY $${spyPx.toFixed(2)} · ${dataCount}/${totalCells} cells populated`, 'ok');
+
+  $('vs-grid-wrap').innerHTML = `<div style="overflow-x:auto;">
+    <table style="border-collapse:collapse;font-family:var(--mono);">
+      ${thead}<tbody>${rows}</tbody>
+    </table>
+    <div style="padding:8px 12px;font-family:var(--mono);font-size:9px;color:var(--muted);">
+      ★ best yield · ✓ opened · ▶ closing leg · <span style="color:var(--accent);">col header</span> = opened expiry · <span style="font-style:italic;opacity:.6;">italic</span> = Δ breached · dark = no data
+    </div>
+  </div>`;
 }
 
 function renderOptResults(results, decays, floors, deltas, otms) {
