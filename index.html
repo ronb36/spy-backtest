@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.36 · Roll headers · roll limit in STD-debug · daily trigger trail</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.37 · Copy Log outputs clean line-separated text</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -405,12 +405,12 @@ const fmtP = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+':'') + fmt(n,1) + '
 function copyDebugLog() {
   const el = document.getElementById('progress-log');
   if (!el) return;
-  let text = el.innerText || el.textContent;
+  let text = el.textContent || '';
 
-  // ── Append Roll Log blotter ──────────────────────────────────────────────
+  // Append Roll Log blotter
   const blotterRows = document.querySelectorAll('#roll-log-body tr');
   if (blotterRows.length) {
-    text += '\n\n── ROLL LOG ─────────────────────────────────────────────────────\n';
+    text += '\n── ROLL LOG ─────────────────────────────────────────────────────\n';
     text += ['Date','Cover (Close)','New Leg (Open)','Roll Credit','Ann Yield','Trigger'].join('\t') + '\n';
     blotterRows.forEach(row => {
       const cells = row.querySelectorAll('td');
@@ -418,7 +418,7 @@ function copyDebugLog() {
     });
   }
 
-  // ── Append Performance Summary ───────────────────────────────────────────
+  // Append Performance Summary
   const statCards = document.querySelectorAll('#summary-grid .stat-card');
   if (statCards.length) {
     text += '\n── PERFORMANCE SUMMARY ──────────────────────────────────────────\n';
@@ -460,14 +460,15 @@ function hideProgressPanel() {
   }, 800);
 }
 function logMsg(msg, cls='') {
+  // progress-log: plain text sink for copy — one line per entry, clean for pasting
   const el = $('progress-log');
-  if (!el) return;
-  const div = `<div class="${cls}">${msg}</div>`;
-  el.innerHTML += div;
-  el.scrollTop = el.scrollHeight;
-  // Keep Logs tab mirror in sync if it's visible
+  if (el) el.textContent += msg + '\n';
+  // runlog-mirror: HTML for visible display with color classes
   const mirror = $('runlog-mirror');
-  if (mirror) { mirror.innerHTML += div; mirror.scrollTop = mirror.scrollHeight; }
+  if (mirror) {
+    mirror.innerHTML += `<div class="${cls}">${msg}</div>`;
+    mirror.scrollTop = mirror.scrollHeight;
+  }
 }
 function logDbg(msg) {
   // OPT mode: suppress everything — sweep headers and winner use logMsg directly
@@ -1098,7 +1099,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.36 · SPY Covered Call Backtest');
+  logMsg('v2.5.37 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
