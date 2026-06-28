@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.50 · Yield Grid: strike×expiry heat map; chart tab auto-loads</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.51 · Yield Grid: show all DM expiries, dim beyond-window cols</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -1158,7 +1158,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.50 · SPY Covered Call Backtest');
+  logMsg('v2.5.51 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1596,7 +1596,7 @@ function buildSnapshot(triggerDate, spyPx, buybackPx, params) {
   // Which expiries pass DTE floor/lookahead (or for Intl: just floor)
   const validExpiries = allExpiries.filter(exp => {
     const dte = Math.round((new Date(exp+'T00:00:00') - new Date(triggerDate+'T00:00:00')) / 86400000);
-    return dte >= p.dteFloor && dte <= p.maxLookahead;
+    return dte >= p.dteFloor; // no maxLookahead cap — grid shows full surface
   });
 
   // Build cell map: key = expiry_strike
@@ -1647,6 +1647,7 @@ function buildRollSnapshots(result) {
     const label     = c.isInitial ? 'Intl' : 'R' + i;
     const reason    = c.isInitial ? 'initial sell' : (c.reason || '—');
     const snap      = buildSnapshot(triggerDate, spyPx, buybackPx, p);
+    snap.params = p;
 
     _rollSnapshots.push({
       ...snap, label, reason,
@@ -1703,7 +1704,8 @@ function renderRollCandidates() {
   if (!snap) return;
 
   const { validExpiries, allStrikes, cells, spyPx, buybackPx,
-          openingStrike, openingExpiry, closingStrike, closingExpiry, isInitial } = snap;
+          openingStrike, openingExpiry, closingStrike, closingExpiry, isInitial,
+          params: p } = snap;
 
   if (!validExpiries.length) {
     $('vs-grid-wrap').innerHTML = '<div style="padding:16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No expiries in DTE window for this date.</div>';
@@ -1726,8 +1728,10 @@ function renderRollCandidates() {
   const headerDTE = validExpiries.map(exp => {
     const dte = Math.round((new Date(exp+'T00:00:00') - new Date(snap.triggerDate+'T00:00:00')) / 86400000);
     const isOpenedExp = exp === openingExpiry;
-    const style = isOpenedExp ? 'color:var(--accent);' : '';
-    return `<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-align:center;${style}">${fmtExp(exp)}<br><span style="font-size:8px;opacity:.7;">${dte}d</span></th>`;
+    const outsideLookahead = dte > p.maxLookahead;
+    const style = isOpenedExp ? 'color:var(--accent);' : outsideLookahead ? 'opacity:0.45;' : '';
+    const lookaheadMark = outsideLookahead ? '<br><span style="font-size:7px;opacity:.5;">beyond window</span>' : '';
+    return `<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-align:center;${style}">${fmtExp(exp)}<br><span style="font-size:8px;opacity:.7;">${dte}d</span>${lookaheadMark}</th>`;
   }).join('');
 
   const thead = `<thead><tr>${th('Strike')}<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;">OTM%</th>${headerDTE}</tr></thead>`;
