@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.34 · Row 2 fixed height 80px · immune to border state changes</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.35 · STD-debug daily trigger state log</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -961,6 +961,22 @@ async function simulate(p) {
       if (!roll && delta >= deltaThreshold && entryDelta_ < deltaThreshold)   { roll=true; reason=`delta ${delta.toFixed(2)}`; }
     }
 
+    // ── Daily trigger state log (STD debug mode only) ──────────────────────
+    if (_debugMode && _mode !== 'optimize' && posOpen && daysHeldSoFar >= 1) {
+      const decay = (callPx !== null && entryPrice > 0)
+        ? ((entryPrice - callPx) / entryPrice * 100).toFixed(1)
+        : '—';
+      const trigParts = [];
+      if (callPx !== null && entryPrice > 0) {
+        const d = (entryPrice - callPx) / entryPrice * 100;
+        if (d >= decayTrigger) trigParts.push('decay ' + d.toFixed(0) + '%≥' + decayTrigger + '%');
+      }
+      if (dte <= dteFloor) trigParts.push('DTE ' + dte + '≤' + dteFloor + 'd');
+      if (delta >= deltaThreshold && entryDelta_ < deltaThreshold) trigParts.push('Δ' + delta.toFixed(3) + '≥' + deltaThreshold);
+      const trigStr = trigParts.length > 0 ? '→ ' + trigParts.join(' · ') : '[no trigger]';
+      logDbg(`    ${date}  SPY=$${spy.toFixed(2)}  decay=${decay}%  Δ=${delta.toFixed(3)}  DTE=${dte}  ${trigStr}`);
+    }
+
     if (!roll) continue;
     logDbg(`  → TRIGGER: ${reason} on ${date} (SPY=$${spy.toFixed(2)} K=$${entryStrike} delta=${delta.toFixed(3)} dte=${dte} callPx=${callPx?.toFixed(2)||'null'})`);
 
@@ -1080,7 +1096,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.34 · SPY Covered Call Backtest');
+  logMsg('v2.5.35 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
