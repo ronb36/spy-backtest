@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.30 · Regime card removed · Publish button in Run row</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.31 · Run & Publish aligned as grid cells</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -216,23 +216,21 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="stat-sub" style="margin-top:4px;">Candidate search window</div>
       </div>
 
-      <!-- Run + Publish buttons — bottom right -->
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        <div style="display:flex;gap:6px;">
-          <div style="display:flex;flex-direction:column;justify-content:center;align-items:stretch;padding:12px;flex:1;background:var(--accent);border-radius:6px;">
-            <button class="btn" id="run-btn" onclick="handleRun()" disabled
-              style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;height:36px;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;">
-              ▶ Run
-            </button>
-          </div>
-          <div style="display:flex;flex-direction:column;justify-content:center;align-items:stretch;padding:12px;flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;">
-            <button id="publish-btn" onclick="handlePublish()" disabled
-              style="font-family:var(--mono);font-size:11px;letter-spacing:.04em;height:36px;width:100%;background:transparent;color:var(--text-muted);border:none;cursor:not-allowed;opacity:.4;">
-              ↑ Publish
-            </button>
-          </div>
-        </div>
-        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;"></div>
+      <!-- Run button -->
+      <div style="background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;">
+        <button class="btn" id="run-btn" onclick="handleRun()" disabled
+          style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;width:100%;height:100%;min-height:80px;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;">
+          ▶ Run
+        </button>
+      </div>
+
+      <!-- Publish button -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+        <button id="publish-btn" onclick="handlePublish()" disabled
+          style="font-family:var(--mono);font-size:11px;letter-spacing:.04em;width:100%;height:100%;min-height:80px;background:transparent;color:var(--text-muted);border:none;cursor:not-allowed;opacity:.4;">
+          ↑ Publish
+        </button>
+        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;padding-bottom:6px;"></div>
       </div>
 
     </div>
@@ -1090,7 +1088,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.30 · SPY Covered Call Backtest');
+  logMsg('v2.5.31 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
