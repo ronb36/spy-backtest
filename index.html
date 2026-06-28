@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.35 · STD-debug daily trigger state log</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.36 · Roll headers · roll limit in STD-debug · daily trigger trail</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -492,8 +492,8 @@ function toggleDebugMode() {
     btn.style.borderColor   = _debugMode ? 'var(--yellow)' : 'var(--border)';
     btn.style.color         = _debugMode ? 'var(--yellow)' : 'var(--muted)';
   }
-  // Lock/unlock roll limit
-  setRollLimitState(_debugMode || anySweepActive());
+  // Lock roll limit only during sweep — STD-debug keeps it free for limiting rolls
+  setRollLimitState(anySweepActive());
   updateEvalCount();
   updateParamDisplay();
   // Refresh sub-text on any already-active sweep cards
@@ -564,8 +564,8 @@ function toggleVar(v) {
   // legacy btn compat
   const btn = $('vbtn-' + v); if (btn) btn.classList.toggle('active', active);
 
-  // Lock roll limit when any sweep or debug active; restore when both clear
-  setRollLimitState(anySweepActive() || _debugMode);
+  // Lock roll limit only during sweep — STD-debug keeps it free
+  setRollLimitState(anySweepActive());
 
   // Update run button appearance — solid accent when optimizing
   const runBtn = $('run-btn');
@@ -906,6 +906,8 @@ async function simulate(p) {
       if (entryDelta_ >= deltaThreshold) entryDelta_ = 0;
       posOpen = true;
       const _tk = Object.keys(DM.options).find(k=>DM.options[k]===curC)||'?';
+      const rollNum = cycles.length === 0 ? 'Initial' : 'Roll ' + cycles.length;
+      logDbg(`\n── ${rollNum} ${'─'.repeat(Math.max(0, 50 - rollNum.length))} ${entryDate}`);
       logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${entryDate} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
     }
 
@@ -1096,7 +1098,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.35 · SPY Covered Call Backtest');
+  logMsg('v2.5.36 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
