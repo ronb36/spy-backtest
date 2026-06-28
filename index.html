@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.47 · PAT via localStorage, prompt on first use, shift-click to reset</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.48 · Chart tab: equity curve → vol surface IV grid</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -260,18 +260,12 @@ select.display-box { cursor:pointer; outline:none; }
     <div id="tab-chart" style="display:none">
       <!-- Toggle -->
       <div style="display:flex;gap:8px;margin-bottom:12px;">
-        <button id="chart-toggle-equity" onclick="setChartView('equity')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;">Equity Curve</button>
-        <button id="chart-toggle-price" onclick="setChartView('price')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Price Chart</button>
-      </div>
-
-      <!-- Equity curve panel -->
-      <div id="chart-panel-equity" class="chart-panel">
-        <div class="chart-header"><span class="chart-title">Equity Curve — Covered Call vs Buy &amp; Hold SPY</span></div>
-        <div id="equity-chart" style="height:340px;"></div>
+        <button id="chart-toggle-price" onclick="setChartView('price')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;">Price Chart</button>
+        <button id="chart-toggle-vol" onclick="setChartView('vol')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Vol Surface</button>
       </div>
 
       <!-- Price chart panel -->
-      <div id="chart-panel-price" class="chart-panel" style="display:none">
+      <div id="chart-panel-price" class="chart-panel">
         <div class="chart-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <span class="chart-title">Price Chart</span>
           <select id="pc-symbol" onchange="renderPriceChart()" style="font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 8px;">
@@ -286,6 +280,25 @@ select.display-box { cursor:pointer; outline:none; }
           </label>
         </div>
         <div id="price-chart" style="height:420px;"></div>
+      </div>
+
+      <!-- Vol Surface (data grid only) panel -->
+      <div id="chart-panel-vol" class="chart-panel" style="display:none">
+        <div class="chart-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span class="chart-title">Vol Surface — IV Grid</span>
+          <label style="font-family:var(--mono);font-size:10px;color:var(--muted);">SPY
+            <input id="vs-spy" type="number" step="0.01" placeholder="auto" style="margin-left:6px;width:72px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 6px;">
+          </label>
+          <label style="font-family:var(--mono);font-size:10px;color:var(--muted);">Strike
+            <input id="vs-strike" type="number" step="1" placeholder="780" style="margin-left:6px;width:64px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 6px;">
+          </label>
+          <label style="font-family:var(--mono);font-size:10px;color:var(--muted);">Expiry
+            <input id="vs-expiry" type="date" style="margin-left:6px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 6px;">
+          </label>
+          <button onclick="buildVolGrid()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;" id="vs-fetch-btn">⟳ Build</button>
+        </div>
+        <div id="vs-status" style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:6px 16px;min-height:20px;"></div>
+        <div id="vs-grid-wrap" style="overflow-x:auto;"></div>
       </div>
     </div>
 
@@ -1149,7 +1162,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.47 · SPY Covered Call Backtest');
+  logMsg('v2.5.48 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1169,7 +1182,6 @@ async function runSimulation() {
 
   renderSummary(result);
   renderCycleTable(result);
-  renderEquityChart(result);
   // Seed price chart start date to first data point
   const _pcStart = $('pc-start');
   if (_pcStart && !_pcStart.value && DM.spy.length) _pcStart.value = DM.spy[0].date;
@@ -1446,35 +1458,32 @@ function renderCycleTable(r) {
 }
 
 // ── Render: Equity chart ───────────────────────────────────────────────────
-function renderEquityChart(r) {
-  const dates=r.equity.map(e=>e.date);
-  const cc=r.equity.map(e=>parseFloat(e.cc.toFixed(2)));
-  const bh=r.equity.map(e=>parseFloat(e.bh.toFixed(2)));
-  Plotly.newPlot('equity-chart',[
-    {x:dates,y:cc,name:'Covered Call',type:'scatter',mode:'lines',line:{color:'#3dd68c',width:2}},
-    {x:dates,y:bh,name:'Buy & Hold SPY',type:'scatter',mode:'lines',line:{color:'#5b8af5',width:2,dash:'dot'}},
-  ],{
-    paper_bgcolor:'#161921',plot_bgcolor:'#161921',
-    font:{family:'IBM Plex Mono',color:'#7a8299',size:10},
-    xaxis:{gridcolor:'#2a2f3d'},yaxis:{gridcolor:'#2a2f3d',ticksuffix:'%'},
-    margin:{l:50,r:20,t:16,b:40},
-    legend:{bgcolor:'#1e2230',bordercolor:'#2a2f3d',borderwidth:1,font:{color:'#e8ecf4',size:10}},
-    hovermode:'x unified',
-  },{responsive:true,displayModeBar:false});
-}
+// renderEquityChart removed — equity curve tab replaced by Vol Surface
 
-// ── Chart view toggle ──────────────────────────────────────────────────────
 function setChartView(view) {
-  const isEquity = view === 'equity';
-  $('chart-panel-equity').style.display = isEquity ? '' : 'none';
-  $('chart-panel-price').style.display  = isEquity ? 'none' : '';
-  $('chart-toggle-equity').style.background    = isEquity ? 'var(--accent)' : 'var(--surface2)';
-  $('chart-toggle-equity').style.borderColor   = isEquity ? 'var(--accent)' : 'var(--border)';
-  $('chart-toggle-equity').style.color         = isEquity ? '#fff' : 'var(--muted)';
-  $('chart-toggle-price').style.background     = isEquity ? 'var(--surface2)' : 'var(--accent)';
-  $('chart-toggle-price').style.borderColor    = isEquity ? 'var(--border)' : 'var(--accent)';
-  $('chart-toggle-price').style.color          = isEquity ? 'var(--muted)' : '#fff';
-  if (!isEquity) renderPriceChart();
+  const panels  = ['price', 'vol'];
+  const buttons = ['price', 'vol'];
+  panels.forEach(p => {
+    const el = $('chart-panel-' + p);
+    if (el) el.style.display = p === view ? '' : 'none';
+  });
+  buttons.forEach(b => {
+    const btn = $('chart-toggle-' + b);
+    if (!btn) return;
+    const active = b === view;
+    btn.style.background  = active ? 'var(--accent)' : 'var(--surface2)';
+    btn.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+    btn.style.color       = active ? '#fff' : 'var(--muted)';
+  });
+  if (view === 'price') renderPriceChart();
+  if (view === 'vol') {
+    // Auto-seed strike/expiry from current position if blank
+    const lastCycle = lastResult?.cycles?.at(-1);
+    if (lastCycle) {
+      if ($('vs-strike') && !$('vs-strike').value) $('vs-strike').value = lastCycle.strike || '';
+      if ($('vs-expiry') && !$('vs-expiry').value) $('vs-expiry').value = lastCycle.expiry || '';
+    }
+  }
 }
 
 // ── Render: Price chart (OHLC + volume for SPY; line for VIX) ─────────────
@@ -1576,6 +1585,170 @@ function renderPriceChart() {
     }, plotCfg);
   }
 }
+// ── Vol Surface Grid ───────────────────────────────────────────────────────
+function vsStatus(msg, type) {
+  const el = $('vs-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = type === 'err' ? 'var(--red)' : type === 'ok' ? 'var(--green)' : 'var(--muted)';
+}
+
+function vsAdjustHoliday(date) {
+  const day = date.getDay();
+  if (day === 6) date.setDate(date.getDate() - 1);
+  if (day === 0) date.setDate(date.getDate() - 2);
+  return date;
+}
+
+function vsGetExpiries(n, type) {
+  const results = [], now = new Date();
+  let checked = 0;
+  const d = new Date(now.getFullYear(), now.getMonth(), 1);
+  while (results.length < n && checked < 36) {
+    checked++;
+    d.setMonth(d.getMonth() + 1);
+    let expDate;
+    if (type === 'monthly') {
+      // Third Friday
+      let fri = new Date(d.getFullYear(), d.getMonth(), 1);
+      fri.setDate(1 + (5 - fri.getDay() + 7) % 7 + 14);
+      expDate = vsAdjustHoliday(fri);
+    } else {
+      // Quarterly: Mar/Jun/Sep/Dec third Friday
+      if (![2,5,8,11].includes(d.getMonth())) continue;
+      let fri = new Date(d.getFullYear(), d.getMonth(), 1);
+      fri.setDate(1 + (5 - fri.getDay() + 7) % 7 + 14);
+      expDate = vsAdjustHoliday(fri);
+    }
+    if (expDate <= now) continue;
+    const dte = Math.round((expDate - now) / 86400000);
+    const iso = expDate.toISOString().slice(0,10);
+    const label = expDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
+    results.push({ iso, dte, label });
+  }
+  return results;
+}
+
+function vsBuildTicker(expiryISO, strike) {
+  const d = new Date(expiryISO + 'T12:00:00Z');
+  const yy = String(d.getUTCFullYear()).slice(2);
+  const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+  const dd = String(d.getUTCDate()).padStart(2,'0');
+  return 'O:SPY' + yy + mm + dd + 'C' + String(Math.round(strike*1000)).padStart(8,'0');
+}
+
+async function vsFetchIV(expiryISO, strike) {
+  try {
+    const ticker = vsBuildTicker(expiryISO, strike);
+    const res = await fetch(`https://api.polygon.io/v3/snapshot/options/SPY/${ticker}?apiKey=${POLYGON_KEY}`);
+    const data = await res.json();
+    const iv = data.results?.implied_volatility;
+    return iv != null ? parseFloat(iv) * 100 : null;
+  } catch { return null; }
+}
+
+async function buildVolGrid() {
+  const btn = $('vs-fetch-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⟳ Loading...'; }
+
+  // Get or fetch SPY price
+  let spy = parseFloat($('vs-spy')?.value);
+  if (!spy || isNaN(spy)) {
+    vsStatus('Fetching SPY price...', '');
+    try {
+      const res  = await fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/SPY?apiKey=${POLYGON_KEY}`);
+      const data = await res.json();
+      const live = data.ticker?.lastTrade?.p || data.ticker?.day?.c;
+      if (live) { spy = parseFloat(live); if ($('vs-spy')) $('vs-spy').value = spy.toFixed(2); }
+    } catch {}
+  }
+  if (!spy) { vsStatus('Could not fetch SPY price — enter manually', 'err'); if (btn) { btn.disabled=false; btn.textContent='⟳ Build'; } return; }
+
+  // Position inputs
+  const shortStrike = parseFloat($('vs-strike')?.value) || (lastResult?.cycles?.at(-1)?.strike) || 780;
+  const shortExpiry = $('vs-expiry')?.value || (lastResult?.cycles?.at(-1)?.expiry) || '';
+
+  // Auto-fill inputs if blank
+  if ($('vs-strike') && !$('vs-strike').value && shortStrike) $('vs-strike').value = shortStrike;
+  if ($('vs-expiry') && !$('vs-expiry').value && shortExpiry) $('vs-expiry').value = shortExpiry;
+
+  // Strike grid: 6 strikes centered on SPY, step $10
+  const base = Math.round(spy / 5) * 5;
+  const strikes = [];
+  for (let s = base - 10; s <= base + 40; s += 10) strikes.push(s);
+
+  // Expiry grid: next 2 monthlies + next 2 quarterlies, up to 5
+  const allExp = [...vsGetExpiries(2,'monthly'), ...vsGetExpiries(2,'quarterly')]
+    .filter((e,i,arr) => arr.findIndex(x=>x.iso===e.iso)===i)
+    .sort((a,b)=>a.dte-b.dte).slice(0,5);
+
+  const total = strikes.length * allExp.length;
+  vsStatus(`Fetching ${total} contracts...`, '');
+
+  // Fetch all IVs
+  const ivGrid = [];
+  let fetched = 0;
+  for (const exp of allExp) {
+    const row = [];
+    for (const strike of strikes) {
+      const iv = await vsFetchIV(exp.iso, strike);
+      row.push(iv);
+      fetched++;
+      vsStatus(`Fetching... ${fetched} / ${total}`, '');
+      await new Promise(r => setTimeout(r, 120));
+    }
+    ivGrid.push(row);
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '⟳ Build'; }
+
+  // ATM index
+  const atmIdx = strikes.reduce((best,s,i) => Math.abs(s-spy) < Math.abs(strikes[best]-spy) ? i : best, 0);
+
+  // Render grid
+  const headerCells = strikes.map((s,si) => {
+    const isAtm = si === atmIdx;
+    return `<th style="${isAtm?'color:var(--green)':''}">\$${s}${isAtm?' ▲':''}</th>`;
+  }).join('');
+  const thead = `<thead><tr><th style="text-align:left;color:var(--muted);">Expiry / Strike</th>${headerCells}</tr></thead>`;
+
+  const tbody = allExp.map((exp,ei) => {
+    const cells = strikes.map((s,si) => {
+      const iv = ivGrid[ei][si];
+      const isShort = exp.iso === shortExpiry && s === shortStrike;
+      const isAtm   = si === atmIdx;
+      let style = '';
+      if (isShort) style = 'outline:2px solid var(--red);outline-offset:-2px;color:var(--red);font-weight:600;';
+      else if (isAtm) style = 'color:var(--green);';
+      else if (iv === null) style = 'color:var(--border);';
+      const label = iv !== null ? iv.toFixed(1)+'%' : '—';
+      return `<td style="${style}">${label}</td>`;
+    }).join('');
+    return `<tr><td style="color:var(--muted);font-size:10px;">${exp.label} <span style="color:var(--border)">(${exp.dte}d)</span></td>${cells}</tr>`;
+  }).join('');
+
+  const tableStyle = `width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;`;
+  const thStyle = `font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:10px 14px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;`;
+  const tdStyle = `padding:9px 14px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;`;
+
+  // Apply base styles via a wrapper
+  const wrap = $('vs-grid-wrap');
+  if (wrap) {
+    wrap.innerHTML = `<style>
+      #vs-grid-table th { ${thStyle} }
+      #vs-grid-table th:first-child { text-align:left; }
+      #vs-grid-table td { ${tdStyle} }
+      #vs-grid-table tr:last-child td { border-bottom:none; }
+    </style>
+    <table id="vs-grid-table" style="${tableStyle}">${thead}<tbody>${tbody}</tbody></table>`;
+  }
+
+  const validIVs = ivGrid.flat().filter(v=>v!==null);
+  const minIV = validIVs.length ? Math.min(...validIVs).toFixed(1) : '—';
+  const maxIV = validIVs.length ? Math.max(...validIVs).toFixed(1) : '—';
+  vsStatus(`✓ ${validIVs.length}/${total} contracts | SPY $${spy.toFixed(2)} | IV range ${minIV}%–${maxIV}% | ${new Date().toLocaleTimeString()}`, 'ok');
+}
+
 function renderOptResults(results, decays, floors, deltas, otms) {
   const TOP_N = 8;
 
