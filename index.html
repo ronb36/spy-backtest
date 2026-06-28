@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.27 · all sweep combos logged · progress bar reset fix</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.28 · STD params updated to optimized values: 80%/30d/Δ0.40/3% OTM</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -165,25 +165,25 @@ select.display-box { cursor:pointer; outline:none; }
       <!-- Row 1: sweepable param cards -->
       <div class="stat-card var-card" id="vcard-decay" onclick="toggleVar('decay')" style="cursor:pointer;">
         <div class="stat-label">Decay Trigger</div>
-        <div class="stat-value accent" id="vval-decay" style="font-size:14px;">75%</div>
+        <div class="stat-value accent" id="vval-decay" style="font-size:14px;">80%</div>
         <div class="stat-sub" id="vsub-decay">Click to optimize</div>
       </div>
 
       <div class="stat-card var-card" id="vcard-dte" onclick="toggleVar('dte')" style="cursor:pointer;">
         <div class="stat-label">DTE Floor</div>
-        <div class="stat-value accent" id="vval-dte" style="font-size:14px;">21d</div>
+        <div class="stat-value accent" id="vval-dte" style="font-size:14px;">30d</div>
         <div class="stat-sub" id="vsub-dte">Click to optimize</div>
       </div>
 
       <div class="stat-card var-card" id="vcard-delta" onclick="toggleVar('delta')" style="cursor:pointer;">
         <div class="stat-label">Delta Δ</div>
-        <div class="stat-value accent" id="vval-delta" style="font-size:14px;">0.35</div>
+        <div class="stat-value accent" id="vval-delta" style="font-size:14px;">0.40</div>
         <div class="stat-sub" id="vsub-delta">Click to optimize</div>
       </div>
 
       <div class="stat-card var-card" id="vcard-otm" onclick="toggleVar('otm')" style="cursor:pointer;">
         <div class="stat-label">OTM %</div>
-        <div class="stat-value accent" id="vval-otm" style="font-size:14px;">5%</div>
+        <div class="stat-value accent" id="vval-otm" style="font-size:14px;">3%</div>
         <div class="stat-sub" id="vsub-otm">Click to optimize</div>
       </div>
 
@@ -350,10 +350,10 @@ function showError(msg) {
 const DATA_URL = 'https://raw.githubusercontent.com/ronb36/spy-backtest/main/data/spy_data.json';
 
 const STD = {
-  otmFixed:       0.05,
-  decayTrigger:   75,
-  dteFloor:       21,
-  deltaThreshold: 0.35,
+  otmFixed:       0.03,   // optimized from 0.05
+  decayTrigger:   80,     // optimized from 75
+  dteFloor:       30,     // optimized from 21
+  deltaThreshold: 0.40,   // optimized from 0.35
   maxLookahead:   90,
 };
 
@@ -507,10 +507,10 @@ const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 
 // Sweep ranges shown on cards
 const _sweepRanges = {
-  decay: { std: '75%', sweep: '50–90%', debugSweep: '75–80%',     label: 'Decay Trigger' },
-  dte:   { std: '21d', sweep: '7–45d',  debugSweep: '21–30d',     label: 'DTE Floor' },
-  delta: { std: '0.35', sweep: '0.25–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
-  otm:   { std: '5%',  sweep: '3–10%', debugSweep: '5–7%',        label: 'OTM %' },
+  decay: { std: '80%', sweep: '50–90%', debugSweep: '75–80%',     label: 'Decay Trigger' },
+  dte:   { std: '30d', sweep: '7–45d',  debugSweep: '21–30d',     label: 'DTE Floor' },
+  delta: { std: '0.40', sweep: '0.25–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
+  otm:   { std: '3%',  sweep: '3–10%', debugSweep: '5–7%',        label: 'OTM %' },
 };
 function toggleVar(v) {
   _sweepVars[v] = !_sweepVars[v];
@@ -1046,7 +1046,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.27 · SPY Covered Call Backtest');
+  logMsg('v2.5.28 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
