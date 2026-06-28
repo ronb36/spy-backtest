@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.37 · Copy Log outputs clean line-separated text</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.38 · Roll numbering fixed · browser log line-separated</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -288,7 +288,7 @@ select.display-box { cursor:pointer; outline:none; }
           <span class="chart-title" id="runlog-status">📄 Run Log</span>
           <button onclick="copyDebugLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="copy-log-btn2">Copy Log</button>
         </div>
-        <div class="progress-log" id="runlog-mirror" style="max-height:480px;overflow-y:auto;"></div>
+        <div class="progress-log" id="runlog-mirror" style="max-height:480px;overflow-y:auto;white-space:pre;"></div>
       </div>
     </div>
 
@@ -463,10 +463,14 @@ function logMsg(msg, cls='') {
   // progress-log: plain text sink for copy — one line per entry, clean for pasting
   const el = $('progress-log');
   if (el) el.textContent += msg + '\n';
-  // runlog-mirror: HTML for visible display with color classes
+  // runlog-mirror: visible display — use a colored span per line, each on its own line
   const mirror = $('runlog-mirror');
   if (mirror) {
-    mirror.innerHTML += `<div class="${cls}">${msg}</div>`;
+    const span = document.createElement('span');
+    span.className = cls;
+    span.textContent = msg;
+    mirror.appendChild(span);
+    mirror.appendChild(document.createTextNode('\n'));
     mirror.scrollTop = mirror.scrollHeight;
   }
 }
@@ -609,7 +613,7 @@ function setMode(m) {
 
 async function handleRun() {
   _mode = 'test';
-  $('progress-log').innerHTML = '';
+  $('progress-log').textContent = ''; $('runlog-mirror').textContent = '';
   const mirror = $('runlog-mirror');
   if (mirror) mirror.innerHTML = '';
   const pub = $('publish-btn');
@@ -907,7 +911,7 @@ async function simulate(p) {
       if (entryDelta_ >= deltaThreshold) entryDelta_ = 0;
       posOpen = true;
       const _tk = Object.keys(DM.options).find(k=>DM.options[k]===curC)||'?';
-      const rollNum = cycles.length === 0 ? 'Initial' : 'Roll ' + cycles.length;
+      const rollNum = 'Roll ' + (cycles.length + 1);
       logDbg(`\n── ${rollNum} ${'─'.repeat(Math.max(0, 50 - rollNum.length))} ${entryDate}`);
       logDbg(`Open: ${_tk} exp=${curC.expiry} entry=${entryDate} px=$${entryPrice.toFixed(2)} K=$${entryStrike} SPY=$${spy.toFixed(2)}`);
     }
@@ -1095,11 +1099,11 @@ async function runSimulation() {
   };
 
   
-  $('progress-log').innerHTML = '';
+  $('progress-log').textContent = ''; $('runlog-mirror').textContent = '';
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.37 · SPY Covered Call Backtest');
+  logMsg('v2.5.38 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1174,7 +1178,7 @@ async function runOptimization() {
   _gaps = [];
 
   
-  $('progress-log').innerHTML = '';
+  $('progress-log').textContent = ''; $('runlog-mirror').textContent = '';
   setProgress(0);
   await yield_();
   setProgress(5);
