@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.28 · STD params updated to optimized values: 80%/30d/Δ0.40/3% OTM</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.30 · Regime card removed · Publish button in Run row</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -216,19 +216,23 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="stat-sub" style="margin-top:4px;">Candidate search window</div>
       </div>
 
-      <div class="stat-card">
-        <div class="stat-label">Regime</div>
-        <div class="stat-value" id="p-regime" style="font-size:14px;margin-top:6px;">All</div>
-        <div class="stat-sub" id="p-regime-sub" style="margin-top:4px;">Updates after optimize</div>
-      </div>
-
-      <!-- Run button — bottom right -->
-      <div style="display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;padding:12px;gap:0;background:var(--accent);border-radius:6px;">
-        <button class="btn" id="run-btn" onclick="handleRun()" disabled
-          style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;height:36px;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;">
-          ▶ Run
-        </button>
-        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;margin-top:6px;color:rgba(255,255,255,.7);"></div>
+      <!-- Run + Publish buttons — bottom right -->
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;gap:6px;">
+          <div style="display:flex;flex-direction:column;justify-content:center;align-items:stretch;padding:12px;flex:1;background:var(--accent);border-radius:6px;">
+            <button class="btn" id="run-btn" onclick="handleRun()" disabled
+              style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;height:36px;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;">
+              ▶ Run
+            </button>
+          </div>
+          <div style="display:flex;flex-direction:column;justify-content:center;align-items:stretch;padding:12px;flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;">
+            <button id="publish-btn" onclick="handlePublish()" disabled
+              style="font-family:var(--mono);font-size:11px;letter-spacing:.04em;height:36px;width:100%;background:transparent;color:var(--text-muted);border:none;cursor:not-allowed;opacity:.4;">
+              ↑ Publish
+            </button>
+          </div>
+        </div>
+        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;"></div>
       </div>
 
     </div>
@@ -347,15 +351,52 @@ function showError(msg) {
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const DATA_URL = 'https://raw.githubusercontent.com/ronb36/spy-backtest/main/data/spy_data.json';
+const DATA_URL    = 'https://raw.githubusercontent.com/ronb36/spy-backtest/main/data/spy_data.json';
+const GITHUB_PAT  = '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';
+const GITHUB_REPO = 'ronb36/spy-backtest';
+const PARAMS_FILE = 'roll_params.json';
 
-const STD = {
-  otmFixed:       0.03,   // optimized from 0.05
-  decayTrigger:   80,     // optimized from 75
-  dteFloor:       30,     // optimized from 21
-  deltaThreshold: 0.40,   // optimized from 0.35
+// STD params — loaded from roll_params.json (single source of truth)
+// Fallback to last known good values if fetch fails
+let STD = {
+  otmFixed:       0.03,
+  decayTrigger:   80,
+  dteFloor:       30,
+  deltaThreshold: 0.40,
   maxLookahead:   90,
 };
+
+async function loadRollParams() {
+  try {
+    const res  = await fetch("https://ronb36.github.io/spy-backtest/roll_params.json?_=" + Date.now());
+    const data = await res.json();
+    STD = {
+      otmFixed:       data.otmTarget,
+      decayTrigger:   data.decayTrigger * 100,
+      dteFloor:       data.dteFloor,
+      deltaThreshold: data.deltaThreshold,
+      maxLookahead:   90,
+    };
+    // Update var-card display values
+    const updates = {
+      'vval-decay': STD.decayTrigger + '%',
+      'vval-dte':   STD.dteFloor + 'd',
+      'vval-delta': STD.deltaThreshold.toFixed(2),
+      'vval-otm':   (STD.otmFixed * 100).toFixed(0) + '%',
+    };
+    Object.entries(updates).forEach(([id, val]) => {
+      const el = document.getElementById(id); if (el && !_sweepVars[id.replace('vval-','')]) el.textContent = val;
+    });
+    // Also update _sweepRanges std display
+    _sweepRanges.decay.std = STD.decayTrigger + '%';
+    _sweepRanges.dte.std   = STD.dteFloor + 'd';
+    _sweepRanges.delta.std = STD.deltaThreshold.toFixed(2);
+    _sweepRanges.otm.std   = (STD.otmFixed * 100).toFixed(0) + '%';
+    console.log("STD params loaded from roll_params.json:", STD);
+  } catch(e) {
+    console.warn("Could not load roll_params.json — using fallback STD params.", e);
+  }
+}
 
 // ── State ──────────────────────────────────────────────────────────────────
 let DM = null;           // data mart
@@ -363,6 +404,7 @@ let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
 let _martView = 'spy';   // active data mart tab
 let _gaps = [];          // gap contracts found during simulation
+let _pendingPublish = null; // winner params waiting to be published
 
 // ── Utility ───────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -579,6 +621,8 @@ async function handleRun() {
   $('progress-log').innerHTML = '';
   const mirror = $('runlog-mirror');
   if (mirror) mirror.innerHTML = '';
+  const pub = $('publish-btn');
+  if (pub) { pub.disabled = true; pub.style.opacity = '.4'; pub.style.color = 'var(--text-muted)'; pub.style.cursor = 'not-allowed'; pub.textContent = '↑ Publish'; }
   setProgress(0);
   await yield_();  // let browser paint the reset before run starts
   if (anySweepActive()) runOptimization();
@@ -1046,7 +1090,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.28 · SPY Covered Call Backtest');
+  logMsg('v2.5.30 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1073,9 +1117,49 @@ async function runSimulation() {
   showTab('log');
 }
 
+// ── Publish roll_params.json to GitHub ────────────────────────────────────
+function handlePublish() {
+  if (_pendingPublish) publishRollParams(_pendingPublish);
+}
+
+async function publishRollParams(p) {
+  const btn = $('publish-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Publishing...'; }
+  try {
+    const url = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + PARAMS_FILE;
+    const gh  = { 'Authorization': 'token ' + GITHUB_PAT, 'Accept': 'application/vnd.github.v3+json' };
+    const sha = (await (await fetch(url, { headers: gh })).json()).sha;
+    if (!sha) throw new Error('Could not get file SHA');
+    const today = new Date().toISOString().slice(0, 10);
+    const payload = {
+      decayTrigger: p.decayTrigger, dteFloor: p.dteFloor,
+      deltaThreshold: p.deltaThreshold, otmTarget: p.otmTarget,
+      lastOptimized: today, optAnnYield: parseFloat(p.optAnnYield.toFixed(2)),
+      note: 'Update after each backtester run. Source: ronb36.github.io/spy-backtest 480-eval 4D optimizer sweep.'
+    };
+    const put = await fetch(url, {
+      method: 'PUT',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, gh),
+      body: JSON.stringify({
+        message: 'Update roll_params.json — ' + payload.optAnnYield + '% ann. yield (' + today + ')',
+        content: btoa(JSON.stringify(payload, null, 2) + '\n'),
+        sha: sha
+      })
+    });
+    if (!put.ok) throw new Error('GitHub API ' + put.status);
+    STD = { otmFixed: payload.otmTarget, decayTrigger: payload.decayTrigger * 100,
+            dteFloor: payload.dteFloor, deltaThreshold: payload.deltaThreshold, maxLookahead: 90 };
+    _pendingPublish = null;
+    logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% ann. yield · ' + today, 'ok');
+    if (btn) { btn.textContent = '\u2713 Published'; btn.style.color = 'var(--green)'; btn.style.opacity = '1'; }
+  } catch(e) {
+    logMsg('\u2717 Publish failed: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = '\u2191 Publish'; btn.style.opacity = '1'; }
+  }
+}
+
 // ── Optimization ───────────────────────────────────────────────────────────
 async function runOptimization() {
-  if (!DM) return;
   _mode = 'optimize';
   _optParams = null;
   _gaps = [];
@@ -1149,9 +1233,14 @@ async function runOptimization() {
     _optParams = b ? { decayTrigger:b.decay, dteFloor:b.floor, deltaThreshold:b.delta, otmFixed:b.otm } : { ...STD };
 
     if (b) {
-      logMsg(`\u2713 Best: decay=${b.decay}% / dte=${b.floor}d / \u0394${b.delta} / otm=${(b.otm*100).toFixed(0)}% \u2192 ${allResults.bestYld.toFixed(1)}% ann.yld`,'ok');
+      logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + ' / otm=' + (b.otm*100).toFixed(0) + '% \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld', 'ok');
+
+      // Store winner for publish button
+      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, optAnnYield: allResults.bestYld };
+      const btn = $('publish-btn');
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.color = 'var(--accent)'; btn.style.cursor = 'pointer'; btn.textContent = '\u2191 Publish'; }
     } else {
-      logMsg('\u26a0 No qualifying results — using STD params','err');
+      logMsg('\u26a0 No qualifying results — using STD params', 'err');
     }
 
     setProgress(100);
@@ -1502,6 +1591,7 @@ async function loadData() {
     status.style.color='var(--green)';
     $('run-btn').disabled=false;
     $('run-btn').style.opacity='1';
+    await loadRollParams();
     populateInitDates();
     updateParamDisplay();
     setRollLimitState(false);  // STD mode on load — roll limit free, accent border
