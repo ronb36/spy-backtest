@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.45 · Roll 1 open uses Short not Intl:</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.47 · PAT via localStorage, prompt on first use, shift-click to reset</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -219,7 +219,7 @@ select.display-box { cursor:pointer; outline:none; }
         </button>
       </div>
       <div style="height:80px;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
-        <button id="publish-btn" onclick="handlePublish()" disabled
+        <button id="publish-btn" onclick="handlePublish(event)" disabled
           style="font-family:var(--mono);font-size:11px;letter-spacing:.04em;width:100%;height:100%;background:transparent;color:var(--text-muted);border:none;cursor:not-allowed;opacity:.4;">
           ↑ Publish
         </button>
@@ -367,7 +367,7 @@ function showError(msg) {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const DATA_URL    = 'https://raw.githubusercontent.com/ronb36/spy-backtest/main/data/spy_data.json';
-const GITHUB_PAT  = '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';
+// PAT stored in localStorage only — never in code
 const GITHUB_REPO = 'ronb36/spy-backtest';
 const PARAMS_FILE = 'roll_params.json';
 
@@ -419,7 +419,8 @@ let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
 let _martView = 'spy';   // active data mart tab
 let _gaps = [];          // gap contracts found during simulation
-let _pendingPublish = null; // winner params waiting to be published
+let _pendingPublish = null;
+let lastResult = null; // cached for price chart roll markers // winner params waiting to be published
 
 // ── Utility ───────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -1148,7 +1149,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.45 · SPY Covered Call Backtest');
+  logMsg('v2.5.47 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1158,6 +1159,7 @@ async function runSimulation() {
   const result = await simulate(params);
   setProgress(95);
   if (!result) { logMsg('✗ No cycles — check parameters','err'); setProgress(100);  return; }
+  lastResult = result; // cache for price chart roll markers
 
   logMsg(`✓ ${result.rolls.length} roll cycles`,'ok');
   setProgress(100);
@@ -1179,7 +1181,13 @@ async function runSimulation() {
 }
 
 // ── Publish roll_params.json to GitHub ────────────────────────────────────
-function handlePublish() {
+function handlePublish(e) {
+  // Shift-click clears stored PAT and re-prompts
+  if (e?.shiftKey) {
+    localStorage.removeItem('gh_pat');
+    logMsg('PAT cleared — will prompt on next publish', 'ok');
+    return;
+  }
   if (_pendingPublish) publishRollParams(_pendingPublish);
 }
 
@@ -1214,7 +1222,13 @@ async function publishRollParams(p) {
     logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% ann. yield · ' + today, 'ok');
     if (btn) { btn.textContent = '\u2713 Published'; btn.style.color = 'var(--green)'; btn.style.opacity = '1'; }
   } catch(e) {
-    logMsg('\u2717 Publish failed: ' + e.message, 'err');
+    // If auth failed, clear stored PAT so next attempt re-prompts
+    if (e.message.includes('401') || e.message.includes('403') || e.message.includes('Bad credentials')) {
+      localStorage.removeItem('gh_pat');
+      logMsg('\u2717 Publish failed (auth error) — PAT cleared, try again', 'err');
+    } else {
+      logMsg('\u2717 Publish failed: ' + e.message, 'err');
+    }
     if (btn) { btn.disabled = false; btn.textContent = '\u2191 Publish'; btn.style.opacity = '1'; }
   }
 }
@@ -1483,7 +1497,35 @@ function renderPriceChart() {
   if (!rows.length) return;
 
   const dates = rows.map(r => r.date);
+  const dateSet = new Set(dates);
   const bg = '#161921', grid = '#2a2f3d', font = {family:'IBM Plex Mono', color:'#7a8299', size:10};
+
+  // ── Roll markers: dotted vertical lines for each roll trigger in view ──
+  const shapes = [], annotations = [];
+  if (lastResult?.cycles) {
+    lastResult.cycles.forEach((c, i) => {
+      const d = c.entryDate?.slice(0,10);
+      if (!d || !dateSet.has(d)) return;
+      const label = i === 0 ? 'Intl' : 'R' + i;
+      shapes.push({
+        type: 'line', xref: 'x', yref: 'paper',
+        x0: d, x1: d, y0: 0, y1: 1,
+        line: {color: '#f5c84277', width: 1, dash: 'dot'},
+      });
+      annotations.push({
+        xref: 'x', yref: 'paper',
+        x: d, y: 0.98,
+        text: label,
+        showarrow: false,
+        font: {family:'IBM Plex Mono', size: 9, color: '#f5c842'},
+        bgcolor: '#1e2230cc',
+        borderpad: 2,
+      });
+    });
+  }
+
+  // Disable all pan/zoom/touch drag
+  const plotCfg = {responsive:true, displayModeBar:false, scrollZoom:false};
 
   if (isSPY) {
     const candle = {
@@ -1508,13 +1550,14 @@ function renderPriceChart() {
     };
     Plotly.newPlot('price-chart', [candle, vol], {
       paper_bgcolor: bg, plot_bgcolor: bg, font,
-      xaxis:  {gridcolor: grid, rangeslider:{visible:false}, type:'category', tickangle:-45, nticks: Math.min(12, days)},
-      yaxis:  {gridcolor: grid, tickprefix:'$', domain:[0.25, 1]},
-      yaxis2: {gridcolor: grid, domain:[0, 0.22], showticklabels:false},
+      xaxis:  {gridcolor: grid, rangeslider:{visible:false}, type:'category', tickangle:-45, nticks: Math.min(12, days), fixedrange:true},
+      yaxis:  {gridcolor: grid, tickprefix:'$', domain:[0.25, 1], fixedrange:true},
+      yaxis2: {gridcolor: grid, domain:[0, 0.22], showticklabels:false, fixedrange:true},
       margin: {l:55, r:20, t:16, b:60},
       legend: {bgcolor:'#1e2230', bordercolor:grid, borderwidth:1, font:{color:'#e8ecf4', size:10}},
-      hovermode: 'x unified',
-    }, {responsive:true, displayModeBar:false});
+      hovermode: 'x unified', dragmode: false,
+      shapes, annotations,
+    }, plotCfg);
   } else {
     // VIX — close only, line chart
     Plotly.newPlot('price-chart', [{
@@ -1524,12 +1567,13 @@ function renderPriceChart() {
       line: {color:'#f5c842', width:2},
     }], {
       paper_bgcolor: bg, plot_bgcolor: bg, font,
-      xaxis: {gridcolor: grid, type:'category', tickangle:-45, nticks: Math.min(12, days)},
-      yaxis: {gridcolor: grid},
+      xaxis: {gridcolor: grid, type:'category', tickangle:-45, nticks: Math.min(12, days), fixedrange:true},
+      yaxis: {gridcolor: grid, fixedrange:true},
       margin: {l:45, r:20, t:16, b:60},
       legend: {bgcolor:'#1e2230', bordercolor:grid, borderwidth:1, font:{color:'#e8ecf4', size:10}},
-      hovermode: 'x unified',
-    }, {responsive:true, displayModeBar:false});
+      hovermode: 'x unified', dragmode: false,
+      shapes, annotations,
+    }, plotCfg);
   }
 }
 function renderOptResults(results, decays, floors, deltas, otms) {
