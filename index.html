@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.39 · Friendly trade log: Intl/Cover/Short/Net Credit</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.41 · Price chart tab with SPY OHLC+Vol and VIX toggle</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -258,9 +258,34 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Chart tab -->
     <div id="tab-chart" style="display:none">
-      <div class="chart-panel">
+      <!-- Toggle -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button id="chart-toggle-equity" onclick="setChartView('equity')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;">Equity Curve</button>
+        <button id="chart-toggle-price" onclick="setChartView('price')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Price Chart</button>
+      </div>
+
+      <!-- Equity curve panel -->
+      <div id="chart-panel-equity" class="chart-panel">
         <div class="chart-header"><span class="chart-title">Equity Curve — Covered Call vs Buy &amp; Hold SPY</span></div>
         <div id="equity-chart" style="height:340px;"></div>
+      </div>
+
+      <!-- Price chart panel -->
+      <div id="chart-panel-price" class="chart-panel" style="display:none">
+        <div class="chart-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span class="chart-title">Price Chart</span>
+          <select id="pc-symbol" onchange="renderPriceChart()" style="font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 8px;">
+            <option value="spy">SPY</option>
+            <option value="vix">VIX</option>
+          </select>
+          <label style="font-family:var(--mono);font-size:10px;color:var(--muted);">Start
+            <input id="pc-start" type="date" onchange="renderPriceChart()" style="margin-left:6px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 6px;">
+          </label>
+          <label style="font-family:var(--mono);font-size:10px;color:var(--muted);">Days
+            <input id="pc-days" type="number" value="60" min="5" max="500" onchange="renderPriceChart()" style="margin-left:6px;width:60px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 6px;">
+          </label>
+        </div>
+        <div id="price-chart" style="height:420px;"></div>
       </div>
     </div>
 
@@ -914,7 +939,7 @@ async function simulate(p) {
       logDbg(`\n── ${rollNum} ${'─'.repeat(Math.max(0, 50 - rollNum.length))} ${entryDate}`);
       // Friendly open line — format expiry as M/D/YY
       const _expFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
-      const _openVerb = cycles.length === 0 ? 'Intl: Sell' : 'Short';
+      const _openVerb = cycles.length === 0 ? 'Intl: Short' : 'Short';
       logDbg(`${_openVerb} ${contracts*100} SPY ${_expFmt} ${entryStrike} C @ $${entryPrice.toFixed(2)}`);
     }
 
@@ -1034,10 +1059,12 @@ async function simulate(p) {
       const _newStrike   = curC.strike;
       const _newPx       = curC._entryPx || 0;
       const _netCredit   = (_newPx - _coverPx) * 100 * contracts;
-      const _netStr      = (_netCredit >= 0 ? '+' : '') + '$' + Math.abs(_netCredit).toFixed(0);
+      const _isCredit    = _netCredit >= 0;
+      const _netLabel    = _isCredit ? 'Net Credit' : 'Net Debit';
+      const _netStr      = (_isCredit ? '+$' : '-$') + Math.abs(_netCredit).toFixed(0);
       logDbg(`  Cover  ${contracts*100} SPY ${_coverExpFmt} ${_coverStrike} C @ $${_coverPx.toFixed(2)}`);
       logDbg(`  Short  ${contracts*100} SPY ${_newExpFmt} ${_newStrike} C @ $${_newPx.toFixed(2)}`);
-      logDbg(`  Net Credit: ${_netStr}`);
+      logDbg(`  ${_netLabel}: ${_netStr}`);
     }
     if (p.maxRolls && cycles.filter(c=>!c.isInitial).length >= p.maxRolls) {
       logMsg(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok');
@@ -1120,7 +1147,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.39 · SPY Covered Call Backtest');
+  logMsg('v2.5.41 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1140,6 +1167,9 @@ async function runSimulation() {
   renderSummary(result);
   renderCycleTable(result);
   renderEquityChart(result);
+  // Seed price chart start date to first data point
+  const _pcStart = $('pc-start');
+  if (_pcStart && !_pcStart.value && DM.spy.length) _pcStart.value = DM.spy[0].date;
   renderGapsTab(_gaps);
 
   $('results-area').style.display = 'block';
@@ -1418,7 +1448,89 @@ function renderEquityChart(r) {
   },{responsive:true,displayModeBar:false});
 }
 
-// ── Render: Heatmaps ───────────────────────────────────────────────────────
+// ── Chart view toggle ──────────────────────────────────────────────────────
+function setChartView(view) {
+  const isEquity = view === 'equity';
+  $('chart-panel-equity').style.display = isEquity ? '' : 'none';
+  $('chart-panel-price').style.display  = isEquity ? 'none' : '';
+  $('chart-toggle-equity').style.background    = isEquity ? 'var(--accent)' : 'var(--surface2)';
+  $('chart-toggle-equity').style.borderColor   = isEquity ? 'var(--accent)' : 'var(--border)';
+  $('chart-toggle-equity').style.color         = isEquity ? '#fff' : 'var(--muted)';
+  $('chart-toggle-price').style.background     = isEquity ? 'var(--surface2)' : 'var(--accent)';
+  $('chart-toggle-price').style.borderColor    = isEquity ? 'var(--border)' : 'var(--accent)';
+  $('chart-toggle-price').style.color          = isEquity ? 'var(--muted)' : '#fff';
+  if (!isEquity) renderPriceChart();
+}
+
+// ── Render: Price chart (OHLC + volume for SPY; line for VIX) ─────────────
+function renderPriceChart() {
+  const sym    = $('pc-symbol')?.value || 'spy';
+  const days   = Math.max(5, parseInt($('pc-days')?.value) || 60);
+  const startV = $('pc-start')?.value;
+
+  const isSPY = sym === 'spy';
+  const src   = isSPY ? DM.spy : DM.vix;
+  if (!src || !src.length) return;
+
+  // Slice to window
+  let rows = src.slice().sort((a,b) => a.date < b.date ? -1 : 1);
+  if (startV) {
+    const idx = rows.findIndex(r => r.date >= startV);
+    if (idx >= 0) rows = rows.slice(idx);
+  }
+  rows = rows.slice(0, days);
+  if (!rows.length) return;
+
+  const dates = rows.map(r => r.date);
+  const bg = '#161921', grid = '#2a2f3d', font = {family:'IBM Plex Mono', color:'#7a8299', size:10};
+
+  if (isSPY) {
+    const candle = {
+      type: 'candlestick',
+      x: dates,
+      open:  rows.map(r => r.o),
+      high:  rows.map(r => r.h),
+      low:   rows.map(r => r.l),
+      close: rows.map(r => r.c),
+      name: 'SPY',
+      increasing: {line:{color:'#3dd68c'}, fillcolor:'#3dd68c'},
+      decreasing: {line:{color:'#f05e5e'}, fillcolor:'#f05e5e'},
+      xaxis: 'x', yaxis: 'y',
+    };
+    const vol = {
+      type: 'bar',
+      x: dates,
+      y: rows.map(r => r.v),
+      name: 'Volume',
+      marker: {color: rows.map(r => r.c >= r.o ? '#3dd68c55' : '#f05e5e55')},
+      xaxis: 'x', yaxis: 'y2',
+    };
+    Plotly.newPlot('price-chart', [candle, vol], {
+      paper_bgcolor: bg, plot_bgcolor: bg, font,
+      xaxis:  {gridcolor: grid, rangeslider:{visible:false}, type:'category', tickangle:-45, nticks: Math.min(12, days)},
+      yaxis:  {gridcolor: grid, tickprefix:'$', domain:[0.25, 1]},
+      yaxis2: {gridcolor: grid, domain:[0, 0.22], showticklabels:false},
+      margin: {l:55, r:20, t:16, b:60},
+      legend: {bgcolor:'#1e2230', bordercolor:grid, borderwidth:1, font:{color:'#e8ecf4', size:10}},
+      hovermode: 'x unified',
+    }, {responsive:true, displayModeBar:false});
+  } else {
+    // VIX — close only, line chart
+    Plotly.newPlot('price-chart', [{
+      type: 'scatter', mode: 'lines',
+      x: dates, y: rows.map(r => r.c),
+      name: 'VIX',
+      line: {color:'#f5c842', width:2},
+    }], {
+      paper_bgcolor: bg, plot_bgcolor: bg, font,
+      xaxis: {gridcolor: grid, type:'category', tickangle:-45, nticks: Math.min(12, days)},
+      yaxis: {gridcolor: grid},
+      margin: {l:45, r:20, t:16, b:60},
+      legend: {bgcolor:'#1e2230', bordercolor:grid, borderwidth:1, font:{color:'#e8ecf4', size:10}},
+      hovermode: 'x unified',
+    }, {responsive:true, displayModeBar:false});
+  }
+}
 function renderOptResults(results, decays, floors, deltas, otms) {
   const TOP_N = 8;
 
