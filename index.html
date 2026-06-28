@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.48 · Chart tab: equity curve → vol surface IV grid</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.49 · Roll Candidates tab: trigger-date dropdown from DM data</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -282,23 +282,18 @@ select.display-box { cursor:pointer; outline:none; }
         <div id="price-chart" style="height:420px;"></div>
       </div>
 
-      <!-- Vol Surface (data grid only) panel -->
+      <!-- Roll Candidates panel -->
       <div id="chart-panel-vol" class="chart-panel" style="display:none">
         <div class="chart-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <span class="chart-title">Vol Surface — IV Grid</span>
-          <label style="font-family:var(--mono);font-size:10px;color:var(--muted);">SPY
-            <input id="vs-spy" type="number" step="0.01" placeholder="auto" style="margin-left:6px;width:72px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 6px;">
+          <span class="chart-title">Roll Candidates</span>
+          <label style="font-family:var(--mono);font-size:10px;color:var(--muted);">Trigger Date
+            <select id="vs-roll-select" onchange="renderRollCandidates()" style="margin-left:6px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 8px;">
+              <option value="">— run backtest first —</option>
+            </select>
           </label>
-          <label style="font-family:var(--mono);font-size:10px;color:var(--muted);">Strike
-            <input id="vs-strike" type="number" step="1" placeholder="780" style="margin-left:6px;width:64px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 6px;">
-          </label>
-          <label style="font-family:var(--mono);font-size:10px;color:var(--muted);">Expiry
-            <input id="vs-expiry" type="date" style="margin-left:6px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px;padding:3px 6px;">
-          </label>
-          <button onclick="buildVolGrid()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;" id="vs-fetch-btn">⟳ Build</button>
         </div>
         <div id="vs-status" style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:6px 16px;min-height:20px;"></div>
-        <div id="vs-grid-wrap" style="overflow-x:auto;"></div>
+        <div id="vs-grid-wrap" style="overflow-x:auto;padding:0 0 8px 0;"></div>
       </div>
     </div>
 
@@ -1162,7 +1157,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.48 · SPY Covered Call Backtest');
+  logMsg('v2.5.49 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1173,6 +1168,7 @@ async function runSimulation() {
   setProgress(95);
   if (!result) { logMsg('✗ No cycles — check parameters','err'); setProgress(100);  return; }
   lastResult = result; // cache for price chart roll markers
+  buildRollSnapshots(result);
 
   logMsg(`✓ ${result.rolls.length} roll cycles`,'ok');
   setProgress(100);
@@ -1476,14 +1472,7 @@ function setChartView(view) {
     btn.style.color       = active ? '#fff' : 'var(--muted)';
   });
   if (view === 'price') renderPriceChart();
-  if (view === 'vol') {
-    // Auto-seed strike/expiry from current position if blank
-    const lastCycle = lastResult?.cycles?.at(-1);
-    if (lastCycle) {
-      if ($('vs-strike') && !$('vs-strike').value) $('vs-strike').value = lastCycle.strike || '';
-      if ($('vs-expiry') && !$('vs-expiry').value) $('vs-expiry').value = lastCycle.expiry || '';
-    }
-  }
+  // vol panel populates from lastResult via buildRollSnapshots — no manual seed needed
 }
 
 // ── Render: Price chart (OHLC + volume for SPY; line for VIX) ─────────────
@@ -1585,7 +1574,13 @@ function renderPriceChart() {
     }, plotCfg);
   }
 }
-// ── Vol Surface Grid ───────────────────────────────────────────────────────
+// ── Roll Candidates ───────────────────────────────────────────────────────
+// Populated after each backtest run from lastResult cycles + DM data.
+// Each entry: { rollNum, triggerDate, triggerReason, spyPx, closingStrike,
+//               closingExpiry, closingPx, candidates:[{expiry,strike,otmPct,
+//               px,netCredit,dte,delta,adjYield,isBest}] }
+let _rollSnapshots = [];
+
 function vsStatus(msg, type) {
   const el = $('vs-status');
   if (!el) return;
@@ -1593,160 +1588,149 @@ function vsStatus(msg, type) {
   el.style.color = type === 'err' ? 'var(--red)' : type === 'ok' ? 'var(--green)' : 'var(--muted)';
 }
 
-function vsAdjustHoliday(date) {
-  const day = date.getDay();
-  if (day === 6) date.setDate(date.getDate() - 1);
-  if (day === 0) date.setDate(date.getDate() - 2);
-  return date;
-}
+// Called after simulate() to build snapshots from DM + cycle data
+function buildRollSnapshots(result) {
+  _rollSnapshots = [];
+  if (!result?.cycles || !DM) return;
 
-function vsGetExpiries(n, type) {
-  const results = [], now = new Date();
-  let checked = 0;
-  const d = new Date(now.getFullYear(), now.getMonth(), 1);
-  while (results.length < n && checked < 36) {
-    checked++;
-    d.setMonth(d.getMonth() + 1);
-    let expDate;
-    if (type === 'monthly') {
-      // Third Friday
-      let fri = new Date(d.getFullYear(), d.getMonth(), 1);
-      fri.setDate(1 + (5 - fri.getDay() + 7) % 7 + 14);
-      expDate = vsAdjustHoliday(fri);
-    } else {
-      // Quarterly: Mar/Jun/Sep/Dec third Friday
-      if (![2,5,8,11].includes(d.getMonth())) continue;
-      let fri = new Date(d.getFullYear(), d.getMonth(), 1);
-      fri.setDate(1 + (5 - fri.getDay() + 7) % 7 + 14);
-      expDate = vsAdjustHoliday(fri);
+  const { cycles, params: p } = result;
+  const contracts = p.shares / 100;
+
+  // spyMap for quick lookup
+  const spyMap = {};
+  DM.spy.forEach(r => spyMap[r.date] = r.c);
+
+  cycles.forEach((c, i) => {
+    if (c.isInitial) return; // skip — no roll trigger on initial sell
+
+    const triggerDate = c.entryDate?.slice(0,10);
+    if (!triggerDate) return;
+
+    const spyPx = c.entrySPY || spyMap[triggerDate] || 0;
+    const buybackPx = cycles[i - 1]?.exitPx || 0; // what we paid to close prior leg
+
+    // Re-evaluate candidates from DM on this date (same logic as simulate)
+    const candidates = [];
+    const expiries = [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
+
+    for (const exp of expiries) {
+      const dte = Math.round((new Date(exp+'T00:00:00') - new Date(triggerDate+'T00:00:00')) / 86400000);
+      if (dte < p.dteFloor) continue;
+      if (dte > p.maxLookahead) continue;
+
+      const expContracts = Object.values(DM.options)
+        .filter(opt => opt.expiry === exp && opt.strike > spyPx)
+        .sort((a,b) => a.strike - b.strike);
+
+      for (const opt of expContracts) {
+        const dm = {};
+        opt.days.forEach(d => dm[d.date.trim().slice(0,10)] = d);
+        const dayData = dm[triggerDate] || opt.days.find(d => d.date >= triggerDate);
+        if (!dayData) continue;
+
+        const px = dayData.vw || dayData.c || 0;
+        if (!px) continue;
+
+        const delta = callDelta(spyPx, opt.strike, dte, 18, 4.5);
+        if (p.deltaThreshold > 0 && delta >= p.deltaThreshold) continue;
+
+        const otmPct = ((opt.strike - spyPx) / spyPx * 100);
+        const netCredit = px - buybackPx;
+        const adjYield  = (px / spyPx) * (365 / dte) * 100;
+
+        candidates.push({
+          expiry: exp, strike: opt.strike,
+          otmPct, px, netCredit, dte, delta, adjYield,
+        });
+      }
     }
-    if (expDate <= now) continue;
-    const dte = Math.round((expDate - now) / 86400000);
-    const iso = expDate.toISOString().slice(0,10);
-    const label = expDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
-    results.push({ iso, dte, label });
-  }
-  return results;
-}
 
-function vsBuildTicker(expiryISO, strike) {
-  const d = new Date(expiryISO + 'T12:00:00Z');
-  const yy = String(d.getUTCFullYear()).slice(2);
-  const mm = String(d.getUTCMonth()+1).padStart(2,'0');
-  const dd = String(d.getUTCDate()).padStart(2,'0');
-  return 'O:SPY' + yy + mm + dd + 'C' + String(Math.round(strike*1000)).padStart(8,'0');
-}
+    // Sort by adjYield desc, mark best
+    candidates.sort((a,b) => b.adjYield - a.adjYield);
+    if (candidates.length) candidates[0].isBest = true;
 
-async function vsFetchIV(expiryISO, strike) {
-  try {
-    const ticker = vsBuildTicker(expiryISO, strike);
-    const res = await fetch(`https://api.polygon.io/v3/snapshot/options/SPY/${ticker}?apiKey=${POLYGON_KEY}`);
-    const data = await res.json();
-    const iv = data.results?.implied_volatility;
-    return iv != null ? parseFloat(iv) * 100 : null;
-  } catch { return null; }
-}
+    const rollNum = i; // cycle index, 1-based roll number
+    _rollSnapshots.push({
+      rollNum,
+      triggerDate,
+      triggerReason: c.reason || '—',
+      spyPx,
+      closingStrike: cycles[i-1]?.strike,
+      closingExpiry: cycles[i-1]?.expiry,
+      closingPx: buybackPx,
+      openingStrike: c.strike,
+      openingExpiry: c.expiry,
+      openingPx: c.entryPx,
+      candidates,
+    });
+  });
 
-async function buildVolGrid() {
-  const btn = $('vs-fetch-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⟳ Loading...'; }
-
-  // Get or fetch SPY price
-  let spy = parseFloat($('vs-spy')?.value);
-  if (!spy || isNaN(spy)) {
-    vsStatus('Fetching SPY price...', '');
-    try {
-      const res  = await fetch(`https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/SPY?apiKey=${POLYGON_KEY}`);
-      const data = await res.json();
-      const live = data.ticker?.lastTrade?.p || data.ticker?.day?.c;
-      if (live) { spy = parseFloat(live); if ($('vs-spy')) $('vs-spy').value = spy.toFixed(2); }
-    } catch {}
-  }
-  if (!spy) { vsStatus('Could not fetch SPY price — enter manually', 'err'); if (btn) { btn.disabled=false; btn.textContent='⟳ Build'; } return; }
-
-  // Position inputs
-  const shortStrike = parseFloat($('vs-strike')?.value) || (lastResult?.cycles?.at(-1)?.strike) || 780;
-  const shortExpiry = $('vs-expiry')?.value || (lastResult?.cycles?.at(-1)?.expiry) || '';
-
-  // Auto-fill inputs if blank
-  if ($('vs-strike') && !$('vs-strike').value && shortStrike) $('vs-strike').value = shortStrike;
-  if ($('vs-expiry') && !$('vs-expiry').value && shortExpiry) $('vs-expiry').value = shortExpiry;
-
-  // Strike grid: 6 strikes centered on SPY, step $10
-  const base = Math.round(spy / 5) * 5;
-  const strikes = [];
-  for (let s = base - 10; s <= base + 40; s += 10) strikes.push(s);
-
-  // Expiry grid: next 2 monthlies + next 2 quarterlies, up to 5
-  const allExp = [...vsGetExpiries(2,'monthly'), ...vsGetExpiries(2,'quarterly')]
-    .filter((e,i,arr) => arr.findIndex(x=>x.iso===e.iso)===i)
-    .sort((a,b)=>a.dte-b.dte).slice(0,5);
-
-  const total = strikes.length * allExp.length;
-  vsStatus(`Fetching ${total} contracts...`, '');
-
-  // Fetch all IVs
-  const ivGrid = [];
-  let fetched = 0;
-  for (const exp of allExp) {
-    const row = [];
-    for (const strike of strikes) {
-      const iv = await vsFetchIV(exp.iso, strike);
-      row.push(iv);
-      fetched++;
-      vsStatus(`Fetching... ${fetched} / ${total}`, '');
-      await new Promise(r => setTimeout(r, 120));
-    }
-    ivGrid.push(row);
-  }
-
-  if (btn) { btn.disabled = false; btn.textContent = '⟳ Build'; }
-
-  // ATM index
-  const atmIdx = strikes.reduce((best,s,i) => Math.abs(s-spy) < Math.abs(strikes[best]-spy) ? i : best, 0);
-
-  // Render grid
-  const headerCells = strikes.map((s,si) => {
-    const isAtm = si === atmIdx;
-    return `<th style="${isAtm?'color:var(--green)':''}">\$${s}${isAtm?' ▲':''}</th>`;
-  }).join('');
-  const thead = `<thead><tr><th style="text-align:left;color:var(--muted);">Expiry / Strike</th>${headerCells}</tr></thead>`;
-
-  const tbody = allExp.map((exp,ei) => {
-    const cells = strikes.map((s,si) => {
-      const iv = ivGrid[ei][si];
-      const isShort = exp.iso === shortExpiry && s === shortStrike;
-      const isAtm   = si === atmIdx;
-      let style = '';
-      if (isShort) style = 'outline:2px solid var(--red);outline-offset:-2px;color:var(--red);font-weight:600;';
-      else if (isAtm) style = 'color:var(--green);';
-      else if (iv === null) style = 'color:var(--border);';
-      const label = iv !== null ? iv.toFixed(1)+'%' : '—';
-      return `<td style="${style}">${label}</td>`;
-    }).join('');
-    return `<tr><td style="color:var(--muted);font-size:10px;">${exp.label} <span style="color:var(--border)">(${exp.dte}d)</span></td>${cells}</tr>`;
+  // Populate the dropdown
+  const sel = $('vs-roll-select');
+  if (!sel) return;
+  sel.innerHTML = _rollSnapshots.map(s => {
+    const fmt = d => { const dt=new Date(d+'T00:00:00'); return `${dt.getMonth()+1}/${dt.getDate()}/${String(dt.getFullYear()).slice(2)}`; };
+    return `<option value="${s.rollNum}">R${s.rollNum} · ${fmt(s.triggerDate)} · ${s.triggerReason} · SPY $${s.spyPx.toFixed(2)}</option>`;
   }).join('');
 
-  const tableStyle = `width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;`;
-  const thStyle = `font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:10px 14px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;`;
-  const tdStyle = `padding:9px 14px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap;`;
+  if (_rollSnapshots.length) renderRollCandidates();
+}
 
-  // Apply base styles via a wrapper
-  const wrap = $('vs-grid-wrap');
-  if (wrap) {
-    wrap.innerHTML = `<style>
-      #vs-grid-table th { ${thStyle} }
-      #vs-grid-table th:first-child { text-align:left; }
-      #vs-grid-table td { ${tdStyle} }
-      #vs-grid-table tr:last-child td { border-bottom:none; }
-    </style>
-    <table id="vs-grid-table" style="${tableStyle}">${thead}<tbody>${tbody}</tbody></table>`;
+function renderRollCandidates() {
+  const sel = $('vs-roll-select');
+  if (!sel || !_rollSnapshots.length) {
+    vsStatus('Run a backtest to populate roll dates.', '');
+    return;
+  }
+  const idx = _rollSnapshots.findIndex(s => s.rollNum === parseInt(sel.value));
+  const snap = _rollSnapshots[idx >= 0 ? idx : 0];
+  if (!snap) return;
+
+  vsStatus(`${snap.candidates.length} candidates on ${snap.triggerDate} · closing $${snap.closingStrike} @ $${snap.closingPx.toFixed(2)} · opening $${snap.openingStrike} @ $${snap.openingPx?.toFixed(2)||'—'}`, 'ok');
+
+  if (!snap.candidates.length) {
+    $('vs-grid-wrap').innerHTML = '<div style="padding:16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No candidates found for this trigger date.</div>';
+    return;
   }
 
-  const validIVs = ivGrid.flat().filter(v=>v!==null);
-  const minIV = validIVs.length ? Math.min(...validIVs).toFixed(1) : '—';
-  const maxIV = validIVs.length ? Math.max(...validIVs).toFixed(1) : '—';
-  vsStatus(`✓ ${validIVs.length}/${total} contracts | SPY $${spy.toFixed(2)} | IV range ${minIV}%–${maxIV}% | ${new Date().toLocaleTimeString()}`, 'ok');
+  const fmtExp = iso => { const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; };
+  const fmtPct = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+
+  const rows = snap.candidates.map(c => {
+    const netCol  = c.netCredit >= 0 ? 'var(--green)' : 'var(--red)';
+    const yldCol  = c.adjYield  >= 0 ? 'var(--green)' : 'var(--red)';
+    const bestMark = c.isBest ? ' ★' : '';
+    const bestStyle = c.isBest ? 'background:var(--surface2);' : '';
+    const isOpened = c.expiry === snap.openingExpiry && c.strike === snap.openingStrike;
+    const openedStyle = isOpened ? 'outline:2px solid var(--accent);outline-offset:-2px;' : '';
+    return `<tr style="${bestStyle}${openedStyle}">
+      <td>${fmtExp(c.expiry)}</td>
+      <td>$${c.strike}</td>
+      <td>${c.otmPct.toFixed(1)}%</td>
+      <td>${c.dte}d</td>
+      <td>$${c.px.toFixed(2)}</td>
+      <td style="color:${netCol}">${c.netCredit >= 0 ? '+' : ''}$${c.netCredit.toFixed(2)}</td>
+      <td>Δ${c.delta.toFixed(3)}</td>
+      <td style="color:${yldCol}">${fmtPct(c.adjYield)}</td>
+      <td style="color:var(--muted);font-size:10px;">${c.isBest ? '★ best' : isOpened ? '✓ opened' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  $('vs-grid-wrap').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;">
+      <thead><tr style="color:var(--muted);font-size:9px;letter-spacing:.08em;text-transform:uppercase;">
+        <th style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:left;">Expiry</th>
+        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">Strike</th>
+        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">OTM</th>
+        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">DTE</th>
+        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">Px</th>
+        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">Net</th>
+        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">Delta</th>
+        <th style="padding:8px 12px;border-bottom:1px solid var(--border);">Ann Yld</th>
+        <th style="padding:8px 12px;border-bottom:1px solid var(--border);"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 function renderOptResults(results, decays, floors, deltas, otms) {
