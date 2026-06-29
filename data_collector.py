@@ -277,6 +277,7 @@ def full_load():
 
     dm         = empty_datamart()
     start, end = date_range_str(years_back=2)
+    start = min(start, "2024-06-25")  # ensure Intl trigger date 2024-06-27 is in window
 
     # ── SPY ──────────────────────────────────────────────────────────────
     log(f"Fetching SPY daily OHLCV {start} → {end}...")
