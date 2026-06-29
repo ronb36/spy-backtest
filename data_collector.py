@@ -195,21 +195,42 @@ def fetch_option_history(ticker, start, end):
 
 # ── GitHub API ─────────────────────────────────────────────────────────────
 def github_get_file(path):
-    """Get file content and SHA from GitHub."""
+    """Get file content and SHA from GitHub — handles large files via Blobs API."""
     url     = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}",
                "Accept": "application/vnd.github.v3+json"}
     r = requests.get(url, headers=headers, timeout=15)
-    if r.status_code == 200:
-        data    = r.json()
-        raw     = base64.b64decode(data["content"]).decode("utf-8").strip()
-        if not raw:
-            return None, data["sha"]  # empty file (e.g. .gitkeep replaced)
-        try:
-            return json.loads(raw), data["sha"]
-        except json.JSONDecodeError:
-            return None, data["sha"]  # not valid JSON, treat as new
-    return None, None
+    if r.status_code != 200:
+        return None, None
+
+    data = r.json()
+    sha  = data.get("sha")
+
+    # For large files (>1MB), GitHub returns empty content — use Blobs API instead
+    raw_content = data.get("content", "").replace("\n", "").strip()
+    if not raw_content:
+        log(f"  Large file detected — fetching via Blobs API (sha={sha[:8]}...)")
+        blob_url = f"https://api.github.com/repos/{GITHUB_REPO}/git/blobs/{sha}"
+        br = requests.get(blob_url, headers={"Authorization": f"token {GITHUB_TOKEN}",
+                                              "Accept": "application/vnd.github.v3+json"}, timeout=30)
+        if br.status_code != 200:
+            log(f"  ✗ Blob fetch failed: {br.status_code}")
+            return None, sha
+        blob  = br.json()
+        b64   = blob["content"].replace("\n", "")
+        bytes = bytearray()
+        # Decode in chunks to avoid memory issues
+        chunk = 65536
+        for i in range(0, len(b64), chunk):
+            bytes.extend(base64.b64decode(b64[i:i+chunk] + "=="))
+        raw_content = bytes.decode("utf-8").strip()
+
+    if not raw_content:
+        return None, sha
+    try:
+        return json.loads(raw_content), sha
+    except json.JSONDecodeError:
+        return None, sha
 
 
 def github_commit_file(path, content_dict, message, sha=None):
