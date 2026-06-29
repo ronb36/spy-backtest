@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.53 · Publish/Backfill dual-mode button: normal=Publish, debug=Backfill</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.54 · Fix: publish/backfill button label updates at toggle regardless of state</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -1161,7 +1161,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.53 · SPY Covered Call Backtest');
+  logMsg('v2.5.54 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1421,10 +1421,14 @@ function handlePublishOrBackfill(e) {
 function updatePublishBtn() {
   const btn = $('publish-btn');
   if (!btn) return;
-  if (!btn.disabled && btn.style.opacity !== '0.4') {
-    // Button is enabled — update label based on mode
+  // Always update label — whether enabled or disabled
+  if (!btn.disabled) {
     btn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
     btn.style.color = _debugMode ? 'var(--yellow)' : 'var(--text)';
+  } else {
+    // Disabled state — update placeholder text too
+    btn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
+    btn.style.color = 'var(--text-muted)';
   }
 }
 
