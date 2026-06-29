@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.55 · Backfill: 8 expiries × 20% OTM · ~4,048 cells · ~15 min</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.56 · Data mart loads via authenticated GitHub API for private repo</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -393,6 +393,7 @@ let STD = {
 
 async function loadRollParams() {
   try {
+    // roll_params.json is served via GitHub Pages — stays accessible even on private repo with Pro
     const res  = await fetch("https://ronb36.github.io/spy-backtest/roll_params.json?_=" + Date.now());
     const data = await res.json();
     STD = {
@@ -1161,7 +1162,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.55 · SPY Covered Call Backtest');
+  logMsg('v2.5.56 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2242,11 +2243,44 @@ function renderMartTable() {
 // ── Load data ──────────────────────────────────────────────────────────────
 async function loadData() {
   const status=$('data-status');
+
+  async function fetchDM(authenticated) {
+    if (!authenticated) {
+      // Try public raw URL first (works when repo is public)
+      const res = await fetch('https://raw.githubusercontent.com/ronb36/spy-backtest/main/data/spy_data.json?t='+Date.now());
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      return res.json();
+    } else {
+      // Authenticated GitHub API fetch (works for private repos)
+      let pat = localStorage.getItem('gh_pat');
+      if (!pat) {
+        pat = window.prompt('Repo is private — enter your GitHub PAT to load the data mart:');
+        if (!pat) throw new Error('PAT required for private repo');
+        localStorage.setItem('gh_pat', pat.trim());
+      }
+      pat = pat.trim();
+      const url = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + DATA_FILE;
+      const r = await fetch(url, { headers: { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json' } });
+      if (!r.ok) {
+        if (r.status === 401 || r.status === 403) { localStorage.removeItem('gh_pat'); }
+        throw new Error('GitHub API ' + r.status);
+      }
+      const meta = await r.json();
+      // Content is base64 encoded — decode it
+      const json = decodeURIComponent(escape(atob(meta.content.replace(/\n/g,''))));
+      return JSON.parse(json);
+    }
+  }
+
   try {
-    status.textContent='Fetching data mart from GitHub...';
-    const res=await fetch('https://raw.githubusercontent.com/ronb36/spy-backtest/main/data/spy_data.json?t='+Date.now());
-    if (!res.ok) throw new Error('HTTP '+res.status);
-    DM=await res.json();
+    status.textContent = 'Fetching data mart...';
+    try {
+      DM = await fetchDM(false);
+    } catch(e) {
+      // Public fetch failed — try authenticated
+      status.textContent = 'Public fetch failed — trying authenticated...';
+      DM = await fetchDM(true);
+    }
     status.textContent=`✓ Data mart loaded — ${DM.spy.length} SPY days · ${Object.keys(DM.options).length} contracts · updated ${DM.metadata?.last_updated}`;
     status.style.color='var(--green)';
     $('run-btn').disabled=false;
@@ -2254,7 +2288,7 @@ async function loadData() {
     await loadRollParams();
     populateInitDates();
     updateParamDisplay();
-    setRollLimitState(false);  // STD mode on load — roll limit free, accent border
+    setRollLimitState(false);
     $('results-area').style.display='block';
     showTab('mart');
     renderMartCards();
