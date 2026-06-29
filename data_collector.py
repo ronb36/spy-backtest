@@ -440,75 +440,67 @@ def daily_append(dm):
                 appended += 1
     log(f"  ✓ {appended} option day records appended")
 
-    # ── Phase 3: Smart inspection — compute expected contracts, fill gaps ──
-    # For every monthly expiry within 2yr window:
-    #   - Anchor strikes to SPY price ON that expiry date (or nearest prior)
-    #   - Any missing ticker → fetch full history and add
-    # This is idempotent: running twice finds nothing new on second run.
-    log("Phase 3: Inspecting DM for missing contracts...")
+    # ── Phase 3: Smart inspection — daily-anchored strike coverage ──────────
+    # For every monthly expiry in the 2yr window, compute expected strikes
+    # using EVERY SPY trading day as an anchor. This ensures the backtester
+    # always finds the exact strikes it needs at each roll trigger date.
+    # Idempotent: second run finds nothing new.
+    log("Phase 3: Inspecting DM for missing contracts (daily-anchored)...")
 
     future_end   = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
     all_expiries = get_monthly_expiries(two_yr_ago, future_end)
+
+    # Build full set of expected tickers across all expiries × all SPY days
+    # Use sorted SPY dates within each expiry's window
+    expected_by_expiry = {}
+    for exp in all_expiries:
+        exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
+        hist_start = max(two_yr_ago,
+                         (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
+        hist_end   = min(exp, today_iso)
+        expected   = set()
+        for spy_date_str, spy_px in spy_by_date.items():
+            if spy_date_str < hist_start or spy_date_str > hist_end:
+                continue
+            for otm_pct in OTM_TARGETS:
+                strike = find_nearest_strike(spy_px, otm_pct)
+                ticker = build_option_ticker(exp, strike)
+                expected.add(ticker)
+        expected_by_expiry[exp] = (expected, hist_start, hist_end)
+
+    total_expected = sum(len(v[0]) for v in expected_by_expiry.values())
+    log(f"  Expected unique contracts across all expiries: {total_expected}")
 
     missing      = 0
     already_have = 0
     no_data      = 0
 
-    for exp in all_expiries:
-        exp_dt = datetime.strptime(exp, "%Y-%m-%d")
+    existing_tickers = set(dm["options"].keys())
 
-        # Find SPY anchor price for this expiry
-        # For past expiries: use SPY on expiry date (or nearest prior trading day)
-        # For future expiries: use most recent available SPY
-        lookup = min(exp, yesterday)
-        spy_price = None
-        lookup_dt = datetime.strptime(lookup, "%Y-%m-%d")
-        for days_back in range(0, 10):
-            d = (lookup_dt - timedelta(days=days_back)).strftime("%Y-%m-%d")
-            if d in spy_by_date:
-                spy_price = spy_by_date[d]
-                break
-
-        if not spy_price:
-            log(f"  ⚠ No SPY price near {exp} — skipping")
-            continue
-
-        # Compute expected strikes for this expiry
-        # Use BOTH historical anchor AND current SPY to maximize coverage
-        expected_tickers = set()
-        anchor_prices = [spy_price]
-        if current_spy and abs(current_spy - spy_price) / spy_price > 0.02:
-            anchor_prices.append(current_spy)  # add current if >2% different
-        for anchor in anchor_prices:
-            for otm_pct in OTM_TARGETS:
-                strike = find_nearest_strike(anchor, otm_pct)
-                ticker = build_option_ticker(exp, strike)
-                expected_tickers.add(ticker)
-
-        # Find which are missing from DM
-        missing_tickers = expected_tickers - set(dm["options"].keys())
+    for exp, (expected_tickers, hist_start, hist_end) in expected_by_expiry.items():
+        missing_tickers = expected_tickers - existing_tickers
         already_have   += len(expected_tickers) - len(missing_tickers)
 
         if not missing_tickers:
             continue
 
-        # Fetch missing contracts
-        hist_start = max(two_yr_ago,
-                         (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
-        hist_end   = min(exp, today_iso)
-
+        exp_dt = datetime.strptime(exp, "%Y-%m-%d")
         for ticker in sorted(missing_tickers):
-            strike = int(ticker[-8:]) / 1000
+            strike    = int(ticker[-8:]) / 1000
             days_data = fetch_option_history(ticker, hist_start, hist_end)
             time.sleep(CALL_DELAY)
             if days_data:
+                # Use SPY price nearest to first day of data as entry_spy
+                first_date = days_data[0]["date"]
+                entry_spy  = spy_by_date.get(first_date, current_spy)
                 dm["options"][ticker] = {
                     "strike":    strike,
                     "expiry":    exp,
-                    "otm_pct":   round((strike / spy_price - 1), 3),
-                    "entry_spy": spy_price,
+                    "otm_pct":   round((strike / entry_spy - 1), 3),
+                    "entry_spy": entry_spy,
                     "days":      days_data,
                 }
+                existing_tickers.add(ticker)
                 missing += 1
                 log(f"  + {ticker} ({len(days_data)}d)")
             else:
