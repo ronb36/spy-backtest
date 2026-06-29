@@ -46,13 +46,9 @@ PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 # ── OTM target levels to store per expiry ─────────────────────────────────
 # 0.5% steps from 1%–20%, snapped to $5 grid — matches backfill exactly
 # ~39 strikes per expiry; aligns with yield grid display
-OTM_TARGETS = [
-    0.01, 0.02, 0.03, 0.04, 0.05,        # 1–5%:  tight band, near-ATM rolls
-    0.06, 0.07, 0.08, 0.09, 0.10,        # 6–10%: core covered call range
-    0.11, 0.12, 0.13, 0.14, 0.15,        # 11–15%: extended core
-    0.18, 0.20, 0.22, 0.25,              # 18–25%: defensive / post-crash
-    0.28, 0.30, 0.35,                    # 28–35%: deep OTM tail
-]  # 22 strikes — wider spacing = more unique $5 grid strikes per expiry  # 39 strikes × $5 grid per expiry — continuous surface, no gaps
+OTM_TARGETS = [round(i * 0.005, 4) for i in range(2, 41)]
+# 0.5% steps from 1.0% to 20.0% → 39 targets, matches in-browser backfill exactly
+# [0.01, 0.015, 0.02, ..., 0.195, 0.20]
 
 # ── Rate limiting ──────────────────────────────────────────────────────────
 CALL_DELAY = 0.25   # 4 calls/sec — safely under Polygon's 5/sec limit
@@ -301,49 +297,46 @@ def full_load():
         dm["vix"].append({"date": dt, "c": round(r["c"], 2)})
     log(f"  ✓ {len(dm['vix'])} VIX trading days")
 
-    # ── Options ──────────────────────────────────────────────────────────
+    # ── Options — daily-anchored ──────────────────────────────────────────
+    # For every expiry × every SPY trading day, compute the expected strike
+    # grid using that day's SPY price. This ensures crash-era trigger dates
+    # (e.g. SPY=$504 on 2025-04-07) produce the correct low strikes, not
+    # strikes anchored to expiry-date or current SPY prices.
+    # Matches Phase 3 daily inspection logic exactly — idempotent.
+    today_iso  = date.today().strftime("%Y-%m-%d")
     future_end = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
-    expiries = get_monthly_expiries(start, future_end)
-    total_contracts = len(expiries) * len(OTM_TARGETS)
-    log(f"Processing {len(expiries)} expiries x {len(OTM_TARGETS)} OTM targets = {total_contracts} contracts")
+    expiries   = get_monthly_expiries(start, future_end)
 
     spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
     contracts_fetched = 0
-    contract_num = 0
 
+    # Build full expected set: expiry × SPY-day → ticker
+    log(f"Building daily-anchored expected contract set across {len(expiries)} expiries...")
+    expected_by_expiry = {}
     for exp in expiries:
-        exp_dt = datetime.strptime(exp, "%Y-%m-%d")
+        exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
+        hist_start = max(start, (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
+        hist_end   = min(exp, today_iso)
+        expected   = {}  # ticker → (strike, otm_pct, hist_start, hist_end)
+        for spy_date_str, spy_px in spy_by_date.items():
+            if spy_date_str < hist_start or spy_date_str > hist_end:
+                continue
+            for otm_pct in OTM_TARGETS:
+                strike = find_nearest_strike(spy_px, otm_pct)
+                ticker = build_option_ticker(exp, strike)
+                if ticker not in expected:
+                    expected[ticker] = (strike, otm_pct, hist_start, hist_end)
+        expected_by_expiry[exp] = expected
 
-        # Use SPY price ON the expiry date (or nearest prior trading day)
-        # For future expiries, use the most recent available SPY price
-        spy_price = None
-        today_iso = date.today().strftime("%Y-%m-%d")
-        lookup_anchor = min(exp, today_iso)  # don't look past today for future expiries
-        lookup_dt = datetime.strptime(lookup_anchor, "%Y-%m-%d")
-        for days_back in range(0, 30):
-            d = (lookup_dt - timedelta(days=days_back)).strftime("%Y-%m-%d")
-            if d in spy_by_date:
-                spy_price = spy_by_date[d]
-                break
-        if not spy_price:
-            log(f"  No SPY price found near {exp}, skipping")
-            continue
+    total_expected = sum(len(v) for v in expected_by_expiry.values())
+    log(f"  {total_expected} unique contracts to fetch across all expiries")
 
-        # Full contract life: from max(start, expiry-365) to min(expiry, today)
-        opt_start = max(start, (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
-        opt_end   = min(exp, date.today().strftime("%Y-%m-%d"))
-
-        log(f"  {exp} — SPY=${spy_price:.2f} → strikes: " +
-            ", ".join(f"${find_nearest_strike(spy_price, p)}" for p in OTM_TARGETS))
-
-        for otm_pct in OTM_TARGETS:
-            contract_num += 1
-            strike = find_nearest_strike(spy_price, otm_pct)
-            ticker = build_option_ticker(exp, strike)
-            log(f"  [{contract_num}/{total_contracts}] {ticker} ({otm_pct*100:.0f}% OTM @ ${strike}) {opt_start} to {opt_end}...")
-            days = fetch_option_history(ticker, opt_start, opt_end)
+    for exp, expected in expected_by_expiry.items():
+        log(f"  {exp} — {len(expected)} unique contracts")
+        for ticker, (strike, otm_pct, hist_start, hist_end) in sorted(expected.items()):
+            days = fetch_option_history(ticker, hist_start, hist_end)
             if days:
-                first_day_spy = spy_by_date.get(days[0]["date"], spy_price)
+                first_day_spy = spy_by_date.get(days[0]["date"], spy_by_date.get(hist_start))
                 dm["options"][ticker] = {
                     "strike":    strike,
                     "expiry":    exp,
@@ -352,11 +345,9 @@ def full_load():
                     "days":      days,
                 }
                 contracts_fetched += 1
-                log(f"    {len(days)} trading days")
-            else:
-                log(f"    No data returned")
+            time.sleep(CALL_DELAY)
 
-    log(f"Full load complete: SPY {len(dm['spy'])} days | VIX {len(dm['vix'])} days | Options {contracts_fetched}/{total_contracts} contracts")
+    log(f"Full load complete: SPY {len(dm['spy'])} days | VIX {len(dm['vix'])} days | Options {contracts_fetched}/{total_expected} contracts")
     dm["metadata"]["last_updated"] = today_str()
     dm["metadata"]["otm_targets"]  = OTM_TARGETS
     return dm
