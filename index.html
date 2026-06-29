@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.54 · Fix: publish/backfill button label updates at toggle regardless of state</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.55 · Backfill: 8 expiries × 20% OTM · ~4,048 cells · ~15 min</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -1161,7 +1161,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.54 · SPY Covered Call Backtest');
+  logMsg('v2.5.55 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1198,10 +1198,11 @@ async function runSimulation() {
 // Fetches missing option day records for all trigger dates from Polygon,
 // merges into DM, and publishes updated spy_data.json to GitHub.
 
-const BACKFILL_OTM_MIN  = 0.01;  // 1% OTM
-const BACKFILL_OTM_MAX  = 0.20;  // 20% OTM
-const BACKFILL_STEP     = 0.005; // 0.5% increments → snapped to $5 grid
-const BACKFILL_DELAY_MS = 260;   // ~3.8 calls/sec, under Polygon 5/sec limit
+const BACKFILL_OTM_MIN   = 0.01;  // 1% OTM
+const BACKFILL_OTM_MAX   = 0.20;  // 20% OTM ceiling
+const BACKFILL_STEP      = 0.005; // 0.5% increments → snapped to $5 grid
+const BACKFILL_MAX_EXP   = 8;     // next 8 monthly expiries per trigger date
+const BACKFILL_DELAY_MS  = 260;   // ~3.8 calls/sec, under Polygon 5/sec limit
 
 function snapStrike(price, otmPct) {
   const raw = price * (1 + otmPct);
@@ -1250,11 +1251,11 @@ function computeBackfillTasks() {
     const spyPx = c.entrySPY || spyMap[trigDate] || 0;
     if (!spyPx) continue;
 
-    // All expiries beyond DTE floor on this date
+    // Next 8 monthly expiries beyond DTE floor on this date
     const validExp = allExpiries.filter(exp => {
       const dte = Math.round((new Date(exp + 'T00:00:00') - new Date(trigDate + 'T00:00:00')) / 86400000);
       return dte >= p.dteFloor;
-    });
+    }).slice(0, BACKFILL_MAX_EXP);
 
     // Strike grid for this SPY price
     const strikeSet = new Set();
