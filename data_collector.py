@@ -411,6 +411,10 @@ def daily_append(dm):
     # Refresh spy_by_date after appending
     spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
 
+    # Current SPY — used in both Phase 3 and Phase 4
+    current_spy = spy_by_date.get(yesterday) or spy_by_date.get(max(spy_by_date.keys()))
+    log(f"  Current SPY: ${current_spy:.2f}")
+
     # ── Phase 2: Append yesterday to existing option contracts ────────────
     log(f"Phase 2: Appending yesterday to existing contracts...")
     appended = 0
@@ -513,7 +517,6 @@ def daily_append(dm):
 
     # ── Phase 4: Add new future strikes if SPY has moved ─────────────────
     # Ensures current-SPY strikes exist for all upcoming expiries
-    current_spy = spy_by_date.get(yesterday) or spy_by_date.get(max(spy_by_date.keys()))
     log(f"Phase 4: Syncing future expiry strikes (SPY=${current_spy:.2f})...")
     new_future = 0
 
