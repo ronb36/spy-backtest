@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.56 · Data mart loads via authenticated GitHub API for private repo</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.57 · Fix: use download_url for large DM files via GitHub API</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -1162,7 +1162,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.56 · SPY Covered Call Backtest');
+  logMsg('v2.5.57 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2266,7 +2266,15 @@ async function loadData() {
         throw new Error('GitHub API ' + r.status);
       }
       const meta = await r.json();
-      // Content is base64 encoded — decode it
+      // Large files: GitHub returns download_url instead of inline content
+      if (meta.download_url) {
+        const dr = await fetch(meta.download_url, {
+          headers: { 'Authorization': 'token ' + pat }
+        });
+        if (!dr.ok) throw new Error('Download failed: ' + dr.status);
+        return dr.json();
+      }
+      // Small files: content is base64 encoded inline
       const json = decodeURIComponent(escape(atob(meta.content.replace(/\n/g,''))));
       return JSON.parse(json);
     }
