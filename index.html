@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.58 · Fix: use Git Blobs API for large DM (avoids CORS on download_url)</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.59 · Fix: backfill button enable — wrong ID and ignoring debug mode</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -1162,7 +1162,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.58 · SPY Covered Call Backtest');
+  logMsg('v2.5.59 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1302,7 +1302,7 @@ function mergeBackfillResult(ticker, expiry, strike, otmPct, dayRecord) {
 }
 
 async function handleBackfill() {
-  const btn = $('backfill-btn');
+  const btn = $('publish-btn');
 
   // Get PAT
   let pat = localStorage.getItem('gh_pat');
@@ -1566,7 +1566,9 @@ async function runOptimization() {
       // Store winner for publish button
       _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, optAnnYield: allResults.bestYld };
       const btn = $('publish-btn');
-      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.color = 'var(--accent)'; btn.style.cursor = 'pointer'; btn.textContent = '\u2191 Publish'; }
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+        btn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
+        btn.style.color = _debugMode ? 'var(--yellow)' : 'var(--accent)'; }
     } else {
       logMsg('\u26a0 No qualifying results — using STD params', 'err');
     }
