@@ -1,9 +1,9 @@
 {
-  "decayTrigger": 0.9,
+  "decayTrigger": 0.8,
   "dteFloor": 21,
-  "deltaThreshold": 0.3,
+  "deltaThreshold": 0.35,
   "otmTarget": 0.03,
-  "lastOptimized": "2026-06-29",
+  "lastOptimized": "2026-06-28",
   "optAnnYield": 2.49,
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 480-eval 4D optimizer sweep."
 }
