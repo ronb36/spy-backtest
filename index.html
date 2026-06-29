@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.51 · Yield Grid: show all DM expiries, dim beyond-window cols</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.5.53 · Publish/Backfill dual-mode button: normal=Publish, debug=Backfill</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -219,7 +219,7 @@ select.display-box { cursor:pointer; outline:none; }
         </button>
       </div>
       <div style="height:80px;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
-        <button id="publish-btn" onclick="handlePublish(event)" disabled
+        <button id="publish-btn" onclick="handlePublishOrBackfill(event)" disabled
           style="font-family:var(--mono);font-size:11px;letter-spacing:.04em;width:100%;height:100%;background:transparent;color:var(--text-muted);border:none;cursor:not-allowed;opacity:.4;">
           ↑ Publish
         </button>
@@ -378,6 +378,8 @@ const DATA_URL    = 'https://raw.githubusercontent.com/ronb36/spy-backtest/main/
 // PAT stored in localStorage only — never in code
 const GITHUB_REPO = 'ronb36/spy-backtest';
 const PARAMS_FILE = 'roll_params.json';
+const DATA_FILE   = 'data/spy_data.json';
+const POLYGON_KEY = 'JsAPh2b2fCJ7oXlkS3oqwfuxINVeK0QL';
 
 // STD params — loaded from roll_params.json (single source of truth)
 // Fallback to last known good values if fetch fails
@@ -530,6 +532,7 @@ function toggleDebugMode() {
     btn.style.background    = _debugMode ? 'rgba(255,200,0,.15)' : 'var(--surface2)';
     btn.style.borderColor   = _debugMode ? 'var(--yellow)' : 'var(--border)';
     btn.style.color         = _debugMode ? 'var(--yellow)' : 'var(--muted)';
+  updatePublishBtn();
   }
   // Lock roll limit only during sweep — STD-debug keeps it free for limiting rolls
   setRollLimitState(anySweepActive());
@@ -1158,7 +1161,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.5.51 · SPY Covered Call Backtest');
+  logMsg('v2.5.53 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1190,6 +1193,241 @@ async function runSimulation() {
 }
 
 // ── Publish roll_params.json to GitHub ────────────────────────────────────
+
+// ── Backfill Grid ──────────────────────────────────────────────────────────
+// Fetches missing option day records for all trigger dates from Polygon,
+// merges into DM, and publishes updated spy_data.json to GitHub.
+
+const BACKFILL_OTM_MIN  = 0.01;  // 1% OTM
+const BACKFILL_OTM_MAX  = 0.20;  // 20% OTM
+const BACKFILL_STEP     = 0.005; // 0.5% increments → snapped to $5 grid
+const BACKFILL_DELAY_MS = 260;   // ~3.8 calls/sec, under Polygon 5/sec limit
+
+function snapStrike(price, otmPct) {
+  const raw = price * (1 + otmPct);
+  return Math.round(raw / 5) * 5;
+}
+
+function buildOptionTicker(expiryISO, strike) {
+  const d = new Date(expiryISO + 'T12:00:00Z');
+  const yy = String(d.getUTCFullYear()).slice(2);
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return 'O:SPY' + yy + mm + dd + 'C' + String(Math.round(strike * 1000)).padStart(8, '0');
+}
+
+async function fetchOptionDay(ticker, date) {
+  // Daily agg for a specific date
+  const url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${date}/${date}?adjusted=false&apiKey=${POLYGON_KEY}`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.results || !d.results.length) return null;
+    const bar = d.results[0];
+    return { date, o: bar.o, h: bar.h, l: bar.l, c: bar.c, v: bar.v || 0, vw: bar.vw || bar.c };
+  } catch { return null; }
+}
+
+function computeBackfillTasks() {
+  if (!lastResult?.cycles || !DM) return [];
+
+  const tasks = []; // { ticker, expiry, strike, otmPct, date, cycleLabel }
+
+  // Build existing DM day index: ticker → Set of dates
+  const dmIndex = {};
+  for (const [ticker, opt] of Object.entries(DM.options)) {
+    dmIndex[ticker] = new Set(opt.days.map(d => d.date.trim().slice(0, 10)));
+  }
+
+  const allExpiries = [...new Set(Object.values(DM.options).map(o => o.expiry))].sort();
+  const { cycles, params: p } = lastResult;
+  const spyMap = {};
+  DM.spy.forEach(r => spyMap[r.date] = r.c);
+
+  for (const c of cycles) {
+    const trigDate = c.entryDate?.slice(0, 10);
+    if (!trigDate) continue;
+    const spyPx = c.entrySPY || spyMap[trigDate] || 0;
+    if (!spyPx) continue;
+
+    // All expiries beyond DTE floor on this date
+    const validExp = allExpiries.filter(exp => {
+      const dte = Math.round((new Date(exp + 'T00:00:00') - new Date(trigDate + 'T00:00:00')) / 86400000);
+      return dte >= p.dteFloor;
+    });
+
+    // Strike grid for this SPY price
+    const strikeSet = new Set();
+    for (let otm = BACKFILL_OTM_MIN; otm <= BACKFILL_OTM_MAX + 0.001; otm += BACKFILL_STEP) {
+      strikeSet.add(snapStrike(spyPx, Math.round(otm * 1000) / 1000));
+    }
+    const strikes = [...strikeSet].sort((a, b) => a - b);
+
+    for (const exp of validExp) {
+      for (const strike of strikes) {
+        const ticker = buildOptionTicker(exp, strike);
+        const alreadyHasDate = dmIndex[ticker]?.has(trigDate);
+        if (!alreadyHasDate) {
+          tasks.push({ ticker, expiry: exp, strike, otmPct: (strike - spyPx) / spyPx, date: trigDate,
+                       cycleLabel: c.isInitial ? 'Intl' : 'R' + cycles.indexOf(c) });
+        }
+      }
+    }
+  }
+
+  // Deduplicate by ticker+date
+  const seen = new Set();
+  return tasks.filter(t => {
+    const k = t.ticker + '|' + t.date;
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+}
+
+function mergeBackfillResult(ticker, expiry, strike, otmPct, dayRecord) {
+  if (DM.options[ticker]) {
+    // Contract exists — append day if not already there
+    const existing = DM.options[ticker].days.find(d => d.date.slice(0,10) === dayRecord.date);
+    if (!existing) DM.options[ticker].days.push(dayRecord);
+  } else {
+    // New contract
+    DM.options[ticker] = {
+      strike, expiry,
+      otm_pct: parseFloat(otmPct.toFixed(4)),
+      days: [dayRecord]
+    };
+  }
+}
+
+async function handleBackfill() {
+  const btn = $('backfill-btn');
+
+  // Get PAT
+  let pat = localStorage.getItem('gh_pat');
+  if (!pat) {
+    pat = window.prompt('Enter your GitHub fine-grained PAT (needed to read and write spy_data.json):');
+    if (!pat) return;
+    localStorage.setItem('gh_pat', pat.trim());
+  }
+  pat = pat.trim();
+
+  // Compute what's needed
+  logMsg('Backfill: analysing trigger dates...', '');
+  await new Promise(r => setTimeout(r, 10));
+  const tasks = computeBackfillTasks();
+
+  if (!tasks.length) {
+    logMsg('Backfill: nothing missing — DM already has all cells for these trigger dates.', 'ok');
+    return;
+  }
+
+  // Preview confirm
+  const expiries = [...new Set(tasks.map(t => t.expiry))].length;
+  const strikes  = [...new Set(tasks.map(t => t.strike))].length;
+  const ok = window.confirm(
+    `Backfill: ${tasks.length} missing cells across ${expiries} expiries / ${strikes} strikes\n` +
+    `Estimated time: ~${Math.ceil(tasks.length * BACKFILL_DELAY_MS / 60000)} minutes\n\nProceed?`
+  );
+  if (!ok) return;
+
+  if (btn) { btn.disabled = true; btn.textContent = '⬇ Backfilling...'; }
+
+  // Fetch loop
+  let fetched = 0, filled = 0, failed = 0;
+  const total = tasks.length;
+
+  for (const task of tasks) {
+    fetched++;
+    if (fetched % 20 === 0 || fetched === 1) {
+      logMsg(`Backfill: ${fetched}/${total} · ${task.cycleLabel} · ${task.ticker}`, '');
+      await new Promise(r => setTimeout(r, 0)); // yield to UI
+    }
+
+    const day = await fetchOptionDay(task.ticker, task.date);
+    if (day) {
+      mergeBackfillResult(task.ticker, task.expiry, task.strike, task.otmPct, day);
+      filled++;
+    } else {
+      failed++;
+    }
+
+    await new Promise(r => setTimeout(r, BACKFILL_DELAY_MS));
+  }
+
+  logMsg(`Backfill complete: ${filled} filled · ${failed} not in Polygon (genuinely missing) · publishing...`, 'ok');
+  await new Promise(r => setTimeout(r, 100));
+
+  // Publish updated DM to GitHub
+  try {
+    const gh  = { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json' };
+    const url = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + DATA_FILE;
+
+    // Get current SHA
+    const meta = await (await fetch(url, { headers: gh })).json();
+    if (!meta.sha) throw new Error('Could not get DM file SHA — check PAT has Contents write on spy-backtest');
+
+    // Serialize and encode
+    const today = new Date().toISOString().slice(0, 10);
+    DM.metadata = DM.metadata || {};
+    DM.metadata.last_updated = today;
+    DM.metadata.backfill_date = today;
+
+    const json    = JSON.stringify(DM);
+    const encoded = btoa(unescape(encodeURIComponent(json))); // handles non-ASCII
+
+    const sizeMB = (json.length / 1024 / 1024).toFixed(1);
+    logMsg(`Publishing DM (${sizeMB} MB)...`, '');
+
+    const put = await fetch(url, {
+      method: 'PUT',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, gh),
+      body: JSON.stringify({
+        message: `Backfill ${filled} option records — ${today}`,
+        content: encoded,
+        sha: meta.sha
+      })
+    });
+
+    if (!put.ok) {
+      const err = await put.json();
+      throw new Error('GitHub ' + put.status + ': ' + (err.message || ''));
+    }
+
+    logMsg(`✓ DM published — ${filled} new records · ${sizeMB} MB · ${today}`, 'ok');
+    if (btn) { btn.textContent = '✓ Backfilled'; btn.style.color = 'var(--green)'; }
+
+    // Rebuild roll snapshots with enriched DM
+    if (lastResult) buildRollSnapshots(lastResult);
+
+  } catch(e) {
+    if (e.message.includes('401') || e.message.includes('403')) {
+      localStorage.removeItem('gh_pat');
+      logMsg('✗ Publish failed (auth error) — PAT cleared, try again', 'err');
+    } else {
+      logMsg('✗ Publish failed: ' + e.message, 'err');
+    }
+    if (btn) { btn.disabled = false; btn.textContent = '⬇ Backfill'; btn.style.opacity = '1'; }
+  }
+}
+
+function handlePublishOrBackfill(e) {
+  if (_debugMode) {
+    handleBackfill();
+  } else {
+    handlePublish(e);
+  }
+}
+
+function updatePublishBtn() {
+  const btn = $('publish-btn');
+  if (!btn) return;
+  if (!btn.disabled && btn.style.opacity !== '0.4') {
+    // Button is enabled — update label based on mode
+    btn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
+    btn.style.color = _debugMode ? 'var(--yellow)' : 'var(--text)';
+  }
+}
+
 function handlePublish(e) {
   // Shift-click clears stored PAT and re-prompts
   if (e?.shiftKey) {
