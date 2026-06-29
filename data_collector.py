@@ -40,13 +40,18 @@ PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
 # ── OTM target levels to store per expiry ─────────────────────────────────
+# 0.5% steps from 1%–20%, snapped to $5 grid — matches backfill exactly
+# ~39 strikes per expiry; aligns with yield grid display
 OTM_TARGETS = [
-    0.01, 0.02, 0.03, 0.04, 0.05,        # 1–5%:  tight band, near-ATM rolls
-    0.06, 0.07, 0.08, 0.09, 0.10,        # 6–10%: core covered call range
-    0.11, 0.12, 0.13, 0.14, 0.15,        # 11–15%: extended core, finer resolution
-    0.18, 0.20, 0.22, 0.25,              # 18–25%: defensive / post-crash
-    0.28, 0.30, 0.35,                    # 28–35%: deep OTM tail
-]  # 22 strikes — $5 grid per expiry; ~30MB at 5 years, well under 50MB GitHub limit
+    0.010, 0.015, 0.020, 0.025, 0.030,   # 1.0–3.0%
+    0.035, 0.040, 0.045, 0.050, 0.055,   # 3.5–5.5%
+    0.060, 0.065, 0.070, 0.075, 0.080,   # 6.0–8.0%
+    0.085, 0.090, 0.095, 0.100, 0.105,   # 8.5–10.5%
+    0.110, 0.115, 0.120, 0.125, 0.130,   # 11.0–13.0%
+    0.135, 0.140, 0.145, 0.150, 0.155,   # 13.5–15.5%
+    0.160, 0.165, 0.170, 0.175, 0.180,   # 16.0–18.0%
+    0.185, 0.190, 0.195, 0.200,          # 18.5–20.0%
+]  # 39 strikes × $5 grid per expiry — continuous surface, no gaps
 
 # ── Rate limiting ──────────────────────────────────────────────────────────
 CALL_DELAY = 0.25   # 4 calls/sec — safely under Polygon's 5/sec limit
