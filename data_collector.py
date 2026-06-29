@@ -469,11 +469,16 @@ def daily_append(dm):
             continue
 
         # Compute expected strikes for this expiry
+        # Use BOTH historical anchor AND current SPY to maximize coverage
         expected_tickers = set()
-        for otm_pct in OTM_TARGETS:
-            strike = find_nearest_strike(spy_price, otm_pct)
-            ticker = build_option_ticker(exp, strike)
-            expected_tickers.add(ticker)
+        anchor_prices = [spy_price]
+        if current_spy and abs(current_spy - spy_price) / spy_price > 0.02:
+            anchor_prices.append(current_spy)  # add current if >2% different
+        for anchor in anchor_prices:
+            for otm_pct in OTM_TARGETS:
+                strike = find_nearest_strike(anchor, otm_pct)
+                ticker = build_option_ticker(exp, strike)
+                expected_tickers.add(ticker)
 
         # Find which are missing from DM
         missing_tickers = expected_tickers - set(dm["options"].keys())
