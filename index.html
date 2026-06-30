@@ -143,12 +143,13 @@ select.display-box { cursor:pointer; outline:none; }
   </div>
 
   <!-- Initial Position -->
-  <div class="panel panel-accent" id="init-panel" style="display:none">
-    <div class="panel-title">Initial Position <span class="init-badge">📌 Long SPY — call selected by yield optimizer</span></div>
-    <div class="init-grid" style="grid-template-columns:repeat(3,1fr);gap:8px;">
-      <div class="ctrl"><div class="mono-label">Entry Date</div><div class="display-box" id="init-entry-date">—</div></div>
-      <div class="ctrl"><div class="mono-label">SPY Qty</div><div class="display-box" id="init-qty">—</div></div>
-      <div class="ctrl"><div class="mono-label">SPY Price</div><div class="display-box" id="init-spy">—</div></div>
+  <div class="panel panel-accent" id="init-panel" style="display:none;padding:10px 16px;">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;">
+      <span class="mono-label" style="margin:0;">Initial Position</span>
+      <span class="init-badge" style="margin:0;">📌 Long SPY — call selected by yield optimizer</span>
+      <span style="color:var(--muted);">Entry <span id="init-entry-date" style="color:var(--text);">—</span></span>
+      <span style="color:var(--muted);">Qty <span id="init-qty" style="color:var(--text);">—</span></span>
+      <span style="color:var(--muted);">SPY <span id="init-spy" style="color:var(--text);">—</span></span>
     </div>
     <select id="init-date" style="display:none;"></select>
     <div id="init-strike" style="display:none;"></div>
@@ -218,7 +219,7 @@ select.display-box { cursor:pointer; outline:none; }
           ▶ Run
         </button>
       </div>
-      <div style="height:80px;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+      <div id="publish-card" style="height:80px;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
         <button id="publish-btn" onclick="handlePublishOrBackfill(event)" disabled
           style="font-family:var(--mono);font-size:11px;letter-spacing:.04em;width:100%;height:100%;background:transparent;color:var(--text-muted);border:none;cursor:not-allowed;opacity:.4;">
           ↑ Publish
@@ -490,6 +491,10 @@ function setProgress(pct) {
   const el = $('progress-bar');
   if (el) el.style.width = pct + '%';
 }
+function setPublishCardEligible(eligible) {
+  const card = $('publish-card');
+  if (card) card.style.borderColor = eligible ? 'var(--accent)' : 'var(--border)';
+}
 function hideProgressPanel() {
   setTimeout(() => {
 
@@ -656,6 +661,7 @@ async function handleRun() {
   if (mirror) mirror.innerHTML = '';
   const pub = $('publish-btn');
   if (pub) { pub.disabled = true; pub.style.opacity = '.4'; pub.style.color = 'var(--text-muted)'; pub.style.cursor = 'not-allowed'; pub.textContent = '↑ Publish'; }
+  setPublishCardEligible(false);
   setProgress(0);
   await yield_();  // let browser paint the reset before run starts
   if (anySweepActive()) runOptimization();
@@ -1187,6 +1193,7 @@ async function runSimulation() {
     _pubBtn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
     _pubBtn.style.color = _debugMode ? 'var(--yellow)' : 'var(--accent)';
   }
+  setPublishCardEligible(true);
   
   
   
@@ -1492,6 +1499,8 @@ async function publishRollParams(p) {
     _pendingPublish = null;
     logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% ann. yield · ' + today, 'ok');
     if (btn) { btn.textContent = '\u2713 Published'; btn.style.color = 'var(--green)'; btn.style.opacity = '1'; }
+    const _pubCard = $('publish-card');
+    if (_pubCard) _pubCard.style.borderColor = 'var(--green)';
     updateParamDisplay();
   } catch(e) {
     // If auth failed, clear stored PAT so next attempt re-prompts
@@ -1502,6 +1511,7 @@ async function publishRollParams(p) {
       logMsg('\u2717 Publish failed: ' + e.message, 'err');
     }
     if (btn) { btn.disabled = false; btn.textContent = '\u2191 Publish'; btn.style.opacity = '1'; }
+    setPublishCardEligible(true);
   }
 }
 
@@ -1588,6 +1598,7 @@ async function runOptimization() {
       if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
         btn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
         btn.style.color = _debugMode ? 'var(--yellow)' : 'var(--accent)'; }
+      setPublishCardEligible(true);
 
       // Re-run simulate() with the winning params so summary/blotter reflect
       // the optimizer's chosen configuration, not just the heatmap grid.
