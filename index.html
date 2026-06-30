@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.8.0 · Removed delta persistence (tested, no yield benefit) — back to 4-param sweep</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.8.1 · Fix: changing lookahead/roll-limit now resets stale progress bar and publish state</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -190,7 +190,7 @@ select.display-box { cursor:pointer; outline:none; }
       <div class="stat-card" id="roll-limit-card" style="height:80px;box-sizing:border-box;">
         <div class="stat-label">Roll Limit</div>
         <div style="margin-top:6px;">
-          <select id="single-roll-toggle" onchange="updateParamDisplay()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
+          <select id="single-roll-toggle" onchange="updateParamDisplay(); onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
             <option value="0" selected>All</option>
             <option value="1">1</option>
             <option value="3">3</option>
@@ -203,7 +203,7 @@ select.display-box { cursor:pointer; outline:none; }
       <div class="stat-card" style="height:80px;box-sizing:border-box;">
         <div class="stat-label">Max Lookahead</div>
         <div style="margin-top:6px;">
-          <select id="lookahead-select" onchange="updateParamDisplay()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
+          <select id="lookahead-select" onchange="updateParamDisplay(); onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
             <option value="45">45d</option>
             <option value="60">60d</option>
             <option value="90" selected>90d</option>
@@ -494,6 +494,18 @@ function setProgress(pct) {
 function setPublishCardEligible(eligible) {
   const card = $('publish-card');
   if (card) card.style.borderColor = eligible ? 'var(--accent)' : 'var(--border)';
+}
+function onConfigChanged() {
+  // A run/lookahead/sweep config control changed after a result was already
+  // shown — that result no longer reflects the current settings. Reset the
+  // progress bar and publish eligibility so it's clear a fresh run is needed.
+  setProgress(0);
+  setPublishCardEligible(false);
+  const pub = $('publish-btn');
+  if (pub && !pub.disabled) {
+    pub.disabled = true; pub.style.opacity = '.4'; pub.style.color = 'var(--text-muted)';
+    pub.style.cursor = 'not-allowed'; pub.textContent = '↑ Publish';
+  }
 }
 function hideProgressPanel() {
   setTimeout(() => {
@@ -1171,7 +1183,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.8.0 · SPY Covered Call Backtest');
+  logMsg('v2.8.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
