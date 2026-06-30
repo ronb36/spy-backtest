@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.8.2 · Widen OTM sweep to 1–10% (was 3–10%) to test closer-to-money strikes</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.8.3 · Extend decay sweep floor to 30% (was 50%) — winner kept hitting the boundary</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -592,7 +592,7 @@ function getSweepGrid() {
   // value (not a hardcoded constant) so edits to roll_params.json take
   // effect immediately on any partial sweep.
   return {
-    decay: _sweepVars.decay ? (_debugMode ? [75,80]      : [50,60,70,75,80,90])  : [STD.decayTrigger],
+    decay: _sweepVars.decay ? (_debugMode ? [75,80]      : [30,40,50,60,70,75,80,90])  : [STD.decayTrigger],
     dte:   _sweepVars.dte   ? (_debugMode ? [21,30]      : [7,14,21,30,45,60])   : [STD.dteFloor],
     delta: _sweepVars.delta ? (_debugMode ? [0.30,0.35]  : [0.20,0.25,0.30,0.35,0.40]) : [STD.deltaThreshold],
     otm:   _sweepVars.otm   ? (_debugMode ? [0.05,0.07]  : [0.01,0.02,0.03,0.05,0.07,0.10]) : [STD.otmFixed],
@@ -602,7 +602,7 @@ const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 
 // Sweep ranges shown on cards
 const _sweepRanges = {
-  decay: { std: '80%', sweep: '50–90%', debugSweep: '75–80%',     label: 'Decay Trigger' },
+  decay: { std: '80%', sweep: '30–90%', debugSweep: '75–80%',     label: 'Decay Trigger' },
   dte:   { std: '30d', sweep: '7–60d',  debugSweep: '21–30d',     label: 'DTE Floor' },
   delta: { std: '0.40', sweep: '0.20–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
   otm:   { std: '3%',  sweep: '1–10%', debugSweep: '5–7%',        label: 'OTM %' },
@@ -1183,7 +1183,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.8.2 · SPY Covered Call Backtest');
+  logMsg('v2.8.3 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
