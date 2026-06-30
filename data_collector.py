@@ -52,7 +52,10 @@ OTM_TARGETS = [round(i * 0.005, 4) for i in range(2, 41)]
 # [0.01, 0.015, 0.02, ..., 0.195, 0.20]
 
 # ── Rate limiting ──────────────────────────────────────────────────────────
-CALL_DELAY = 0.25   # 4 calls/sec — safely under Polygon's 5/sec limit
+# No artificial delay between calls — current Polygon plan has no rate limit.
+# If switching to a rate-limited plan, reintroduce time.sleep() between
+# fetch_aggs() calls in Phase 3/4 loops.
+CALL_DELAY = 0  # kept for compatibility; unused
 
 
 def log(msg):
@@ -175,7 +178,6 @@ def fetch_option_history(ticker, start, end):
     Returns list of {date, o, h, l, c, v, vw} dicts.
     """
     results = fetch_aggs(ticker, start, end)
-    time.sleep(CALL_DELAY)
     days = []
     for r in results:
         dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
@@ -275,12 +277,19 @@ def daily_append(dm):
     """
     Smart daily run — self-healing, four phases:
     1. Append SPY/VIX OHLCV (full 2-year history if DM is empty, else just
-       yesterday)
-    2. Append yesterday's day to all existing option contracts
+       today's close)
+    2. Append today's day to all existing option contracts
     3. Inspect DM vs full expected contract set (every expiry x every SPY
        trading day in that expiry's window) — backfill any gaps with each
        contract's complete history from its true earliest possible date
     4. Add new future-expiry strikes as current SPY moves
+
+    Cron is scheduled to run at 10pm ET — well after the 4:00/4:15pm ET
+    official close, so today's trading day is already final and safe to
+    fetch directly (no need to wait for "yesterday"). This means tomorrow's
+    market open already has today's close available, rather than lagging
+    a full day behind.
+
     Running twice in a row is safe — second run finds nothing new to do.
     Running against an empty datamart builds the complete DM from scratch.
     """
@@ -289,7 +298,8 @@ def daily_append(dm):
     log("=" * 60)
 
     today_iso  = today_str()
-    yesterday  = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    target_date = today_iso  # cron runs 10pm ET, after the official 4pm/4:15pm close —
+                              # today's trading day is already final, fetch it directly
     two_yr_ago = (date.today() - timedelta(days=730)).strftime("%Y-%m-%d")
 
     # ── Build SPY lookup ──────────────────────────────────────────────────
@@ -300,7 +310,6 @@ def daily_append(dm):
     if not dm["spy"]:
         log(f"Phase 1: Empty DM — fetching full 2-year SPY/VIX history {two_yr_ago} → {today_iso}...")
         results = fetch_aggs("SPY", two_yr_ago, today_iso)
-        time.sleep(CALL_DELAY)
         for r in results:
             dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
             dm["spy"].append({"date": dt, "o": r["o"], "h": r["h"],
@@ -309,15 +318,13 @@ def daily_append(dm):
         log(f"  ✓ {len(dm['spy'])} SPY trading days loaded")
 
         vix_results = fetch_aggs("I:VIX", two_yr_ago, today_iso)
-        time.sleep(CALL_DELAY)
         for r in vix_results:
             dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
             dm["vix"].append({"date": dt, "c": round(r["c"], 2)})
         log(f"  ✓ {len(dm['vix'])} VIX trading days loaded")
-    elif yesterday not in existing_spy_dates:
-        log(f"Phase 1: Appending SPY/VIX for {yesterday}...")
-        results = fetch_aggs("SPY", yesterday, yesterday)
-        time.sleep(CALL_DELAY)
+    elif target_date not in existing_spy_dates:
+        log(f"Phase 1: Appending SPY/VIX for {target_date}...")
+        results = fetch_aggs("SPY", target_date, target_date)
         for r in results:
             dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
             if dt not in existing_spy_dates:
@@ -326,12 +333,11 @@ def daily_append(dm):
                 spy_by_date[dt] = r["c"]
                 log(f"  ✓ SPY {dt} close ${r['c']:.2f}")
     else:
-        log(f"Phase 1: SPY {yesterday} already present")
+        log(f"Phase 1: SPY {target_date} already present")
 
     existing_vix_dates = dates_in_dataset(dm["vix"])
-    if yesterday not in existing_vix_dates and dm["vix"]:
-        results = fetch_aggs("I:VIX", yesterday, yesterday)
-        time.sleep(CALL_DELAY)
+    if target_date not in existing_vix_dates and dm["vix"]:
+        results = fetch_aggs("I:VIX", target_date, target_date)
         for r in results:
             dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
             if dt not in existing_vix_dates:
@@ -342,19 +348,18 @@ def daily_append(dm):
     spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
 
     # Current SPY — used in both Phase 3 and Phase 4
-    current_spy = spy_by_date.get(yesterday) or spy_by_date.get(max(spy_by_date.keys()))
+    current_spy = spy_by_date.get(target_date) or spy_by_date.get(max(spy_by_date.keys()))
     log(f"  Current SPY: ${current_spy:.2f}")
 
-    # ── Phase 2: Append yesterday to existing option contracts ────────────
-    log(f"Phase 2: Appending yesterday to existing contracts...")
+    # ── Phase 2: Append today to existing option contracts ────────────────
+    log(f"Phase 2: Appending {target_date} to existing contracts...")
     appended = 0
     for ticker, contract in dm["options"].items():
         existing_dates = dates_in_dataset(contract["days"])
         expiry = contract["expiry"]
-        if yesterday > expiry or yesterday in existing_dates:
+        if target_date > expiry or target_date in existing_dates:
             continue
-        results = fetch_aggs(ticker, yesterday, yesterday)
-        time.sleep(CALL_DELAY)
+        results = fetch_aggs(ticker, target_date, target_date)
         for r in results:
             dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
             if dt not in existing_dates:
@@ -417,7 +422,6 @@ def daily_append(dm):
         for ticker in sorted(missing_tickers):
             strike    = int(ticker[-8:]) / 1000
             days_data = fetch_option_history(ticker, hist_start, hist_end)
-            time.sleep(CALL_DELAY)
             if days_data:
                 # Use SPY price nearest to first day of data as entry_spy
                 first_date = days_data[0]["date"]
@@ -453,7 +457,6 @@ def daily_append(dm):
             if ticker in dm["options"]:
                 continue
             days_data = fetch_option_history(ticker, hist_start, today_iso)
-            time.sleep(CALL_DELAY)
             if days_data:
                 dm["options"][ticker] = {
                     "strike":    strike,
