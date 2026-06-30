@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.0.0 · User-editable min/max/step sweep ranges on OPT cards; buffered logging fixes dropped lines on large sweeps</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.0.1 · DTE default max 60→75d; Run button shows live N/Total progress + "Running..." state</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -186,7 +186,7 @@ select.display-box { cursor:pointer; outline:none; }
         <div id="vrange-dte" style="display:none;margin-top:6px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
           <input type="number" id="vmin-dte" value="7" min="1" max="180" step="1" onchange="updateSweepRange('dte')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
-          <input type="number" id="vmax-dte" value="60" min="1" max="180" step="1" onchange="updateSweepRange('dte')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vmax-dte" value="75" min="1" max="180" step="1" onchange="updateSweepRange('dte')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">step</span>
           <input type="number" id="vstep-dte" value="7" min="1" max="50" step="1" onchange="updateSweepRange('dte')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
@@ -258,18 +258,18 @@ select.display-box { cursor:pointer; outline:none; }
         </div>
         <div class="stat-sub" style="margin-top:4px;">Candidate search window</div>
       </div>
-      <div style="height:80px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;">
+      <div style="height:80px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
         <button class="btn" id="run-btn" onclick="handleRun()" disabled
-          style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;width:100%;height:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;">
+          style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;padding:0;">
           ▶ Run
         </button>
+        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;color:rgba(255,255,255,.8);padding-bottom:4px;"></div>
       </div>
       <div id="publish-card" style="height:80px;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
         <button id="publish-btn" onclick="handlePublishOrBackfill(event)" disabled
           style="font-family:var(--mono);font-size:11px;letter-spacing:.04em;width:100%;height:100%;background:transparent;color:var(--text-muted);border:none;cursor:not-allowed;opacity:.4;">
           ↑ Publish
         </button>
-        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;padding-bottom:6px;"></div>
       </div>
     </div>
   </div>
@@ -678,7 +678,7 @@ const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 // from a handful of surviving combos.
 let _sweepConfig = {
   decay: { min: 10,   max: 90,  step: 10   },
-  dte:   { min: 7,    max: 60,  step: 7    },
+  dte:   { min: 7,    max: 75,  step: 7    },
   delta: { min: 0.20, max: 0.40, step: 0.05 },
   otm:   { min: 0.01, max: 0.10, step: 0.02 },
 };
@@ -713,7 +713,7 @@ function updateSweepRange(v) {
 // Sweep ranges shown on cards
 const _sweepRanges = {
   decay: { std: '80%', sweep: '10–90%', debugSweep: '75–80%',     label: 'Decay Trigger' },
-  dte:   { std: '30d', sweep: '7–60d',  debugSweep: '21–30d',     label: 'DTE Floor' },
+  dte:   { std: '30d', sweep: '7–75d',  debugSweep: '21–30d',     label: 'DTE Floor' },
   delta: { std: '0.40', sweep: '0.20–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
   otm:   { std: '3%',  sweep: '1–10%', debugSweep: '5–7%',        label: 'OTM %' },
 };
@@ -759,18 +759,22 @@ function anySweepActive() {
   return Object.values(_sweepVars).some(Boolean);
 }
 
-function updateEvalCount() {
+function updateEvalCount(done, total) {
   const btn = $('run-btn');
   const counter = $('run-eval-count');
   if (!btn || !counter) return;
+  if (done !== undefined && total !== undefined) {
+    // Live progress during a running sweep
+    counter.textContent = done.toLocaleString() + ' / ' + total.toLocaleString();
+    counter.style.display = 'block';
+    return;
+  }
   if (!anySweepActive()) {
-    btn.textContent = '▶ Run';
     counter.style.display = 'none';
     return;
   }
   const g = getSweepGrid();
   const evals = g.decay.length * g.dte.length * g.delta.length * g.otm.length;
-  btn.textContent = '▶ Run';
   counter.textContent = evals.toLocaleString() + ' evals' + (_debugMode ? ' (debug)' : '');
   counter.style.display = 'block';
 }
@@ -791,10 +795,13 @@ async function handleRun() {
   const pub = $('publish-btn');
   if (pub) { pub.disabled = true; pub.style.opacity = '.4'; pub.style.color = 'var(--text-muted)'; pub.style.cursor = 'not-allowed'; pub.textContent = '↑ Publish'; }
   setPublishCardEligible(false);
+  const runBtn = $('run-btn');
+  if (runBtn) { runBtn.textContent = '\u25b6 Running...'; runBtn.disabled = true; runBtn.style.cursor = 'wait'; }
   setProgress(0);
   await yield_();  // let browser paint the reset before run starts
-  if (anySweepActive()) runOptimization();
-  else runSimulation();
+  if (anySweepActive()) await runOptimization();
+  else await runSimulation();
+  if (runBtn) { runBtn.textContent = '\u25b6 Run'; runBtn.disabled = false; runBtn.style.cursor = 'pointer'; }
 }
 
 function getVIXRegime(vix) {
@@ -1297,7 +1304,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.0.0 · SPY Covered Call Backtest');
+  logMsg('v3.0.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1707,6 +1714,7 @@ async function runOptimization() {
             }
             done++;
             setProgress(5+Math.round((done/total)*90));
+            updateEvalCount(done, total);
             await yield_();
           }
         }
