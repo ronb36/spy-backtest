@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.3.1 · Add VIX regime distribution log after STD runs — checks sample size per bucket before reviving regime-based optimization</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.4.0 · Debug mode is now STD-only — locks param cards and auto-reverts any active OPT sweep back to STD</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -163,8 +163,8 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Row 1: sweepable param cards -->
     <div id="var-card-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
-      <div class="stat-card var-card" id="vcard-decay" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
-        <div onclick="toggleVar('decay')" style="cursor:pointer;">
+      <div class="stat-card var-card" id="vcard-decay" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;">
+        <div onclick="toggleVar('decay')" style="cursor:inherit;">
           <div class="stat-label">Decay Trigger</div>
           <div class="stat-value accent" id="vval-decay" style="font-size:14px;">80%</div>
           <div class="stat-sub" id="vsub-decay">Click to optimize</div>
@@ -177,8 +177,8 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-decay" value="2" min="1" max="50" step="1" onchange="updateSweepRange('decay')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-dte" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
-        <div onclick="toggleVar('dte')" style="cursor:pointer;">
+      <div class="stat-card var-card" id="vcard-dte" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;">
+        <div onclick="toggleVar('dte')" style="cursor:inherit;">
           <div class="stat-label">DTE Floor</div>
           <div class="stat-value accent" id="vval-dte" style="font-size:14px;">30d</div>
           <div class="stat-sub" id="vsub-dte">Click to optimize</div>
@@ -191,8 +191,8 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-dte" value="3" min="1" max="50" step="1" onchange="updateSweepRange('dte')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-delta" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
-        <div onclick="toggleVar('delta')" style="cursor:pointer;">
+      <div class="stat-card var-card" id="vcard-delta" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;">
+        <div onclick="toggleVar('delta')" style="cursor:inherit;">
           <div class="stat-label">Delta Δ</div>
           <div class="stat-value accent" id="vval-delta" style="font-size:14px;">0.40</div>
           <div class="stat-sub" id="vsub-delta">Click to optimize</div>
@@ -205,8 +205,8 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-delta" value="0.025" min="0.01" max="0.5" step="0.01" onchange="updateSweepRange('delta')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-otm" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
-        <div onclick="toggleVar('otm')" style="cursor:pointer;">
+      <div class="stat-card var-card" id="vcard-otm" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;">
+        <div onclick="toggleVar('otm')" style="cursor:inherit;">
           <div class="stat-label">OTM %</div>
           <div class="stat-value accent" id="vval-otm" style="font-size:14px;">3%</div>
           <div class="stat-sub" id="vsub-otm">Click to optimize</div>
@@ -654,12 +654,30 @@ function toggleDebugMode() {
     btn.style.color         = _debugMode ? 'var(--yellow)' : 'var(--muted)';
   updatePublishBtn();
   }
+  // Debug is a STD-only diagnostic lens — OPT is just STD looped to search
+  // params, and the two concerns shouldn't mix. Turning Debug on while a
+  // sweep is active reverts every toggled card back to STD/Click-to-optimize.
+  if (_debugMode && anySweepActive()) {
+    logMsg('Debug mode enabled — reverting active OPT sweep to STD', '');
+    for (const v of ['decay','dte','delta','otm']) {
+      if (_sweepVars[v]) toggleVar(v, true);
+    }
+    _optParams = null;
+    onConfigChanged();
+  }
   // Lock roll limit only during sweep — STD-debug keeps it free for limiting rolls
   setRollLimitState(anySweepActive());
   updateEvalCount();
   updateParamDisplay();
-  // Refresh sub-text on any already-active sweep cards
+  // Visually lock the param cards while Debug is on — Debug is STD-only,
+  // OPT toggles shouldn't be clickable (toggleVar already rejects the
+  // click; this just makes that obvious without having to try).
   for (const v of ['decay','dte','delta','otm']) {
+    const card = $('vcard-' + v);
+    if (card) {
+      card.style.opacity = _debugMode ? '.5' : '1';
+      card.style.cursor  = _debugMode ? 'not-allowed' : 'pointer';
+    }
     if (!_sweepVars[v]) continue;
     const sub  = $('vsub-' + v);
     const info = _sweepRanges[v];
@@ -763,8 +781,12 @@ const _sweepRanges = {
   delta: { std: '0.40', sweep: '0.25–0.35', debugSweep: '0.30–0.35', label: 'Delta Δ' },
   otm:   { std: '3%',  sweep: '1–10%', debugSweep: '5–7%',        label: 'OTM %' },
 };
-function toggleVar(v) {
-  _sweepVars[v] = !_sweepVars[v];
+function toggleVar(v, forceOff) {
+  if (_debugMode && !forceOff) {
+    logMsg('\u26a0 Debug mode is STD-only — turn off Debug to use OPT sweep params', 'err');
+    return;
+  }
+  if (forceOff) { _sweepVars[v] = false; } else { _sweepVars[v] = !_sweepVars[v]; }
   const active = _sweepVars[v];
   const card = $('vcard-' + v);
   const val  = $('vval-' + v);
@@ -876,6 +898,24 @@ function getVIXRegime(vix) {
   if (vix < 20) return 'normal';
   if (vix < 25) return 'elevated';
   return 'high';
+}
+
+function logVIXRegimeSplit(result) {
+  // Diagnostic: how many cycles fall into each VIX regime bucket? Informs
+  // whether regime-specific param optimization (low/normal/elevated/high)
+  // would have enough samples per bucket to be meaningful, or whether it'd
+  // just be curve-fitting on a handful of observations per regime.
+  // Debug-only — this is an exploratory tool, not part of the baseline
+  // STD check against what's published to roll_params.json.
+  // Shared by both the direct STD path and the OPT winner re-simulation,
+  // since OPT's winner re-run is functionally a STD run on the winning
+  // params — same diagnostic should apply regardless of which button
+  // triggered the underlying simulate() call.
+  if (!_debugMode || !result?.rolls?.length) return;
+  const counts = { low:0, normal:0, elevated:0, high:0 };
+  result.rolls.forEach(r => { if (r.entryVix != null) counts[getVIXRegime(r.entryVix)]++; });
+  const total = result.rolls.length;
+  logMsg(`  VIX regime split: low(<15)=${counts.low} · normal(15-20)=${counts.normal} · elevated(20-25)=${counts.elevated} · high(\u226525)=${counts.high} (of ${total} cycles)`, '');
 }
 
 function getActiveParams() {
@@ -1371,7 +1411,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.3.1 · SPY Covered Call Backtest');
+  logMsg('v3.4.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1385,16 +1425,7 @@ async function runSimulation() {
   buildRollSnapshots(result);
 
   logMsg(`✓ ${result.rolls.length} roll cycles`,'ok');
-  {
-    // Diagnostic: how many cycles fall into each VIX regime bucket? Informs
-    // whether regime-specific param optimization (low/normal/elevated/high)
-    // would have enough samples per bucket to be meaningful, or whether it'd
-    // just be curve-fitting on a handful of observations per regime.
-    const counts = { low:0, normal:0, elevated:0, high:0 };
-    result.rolls.forEach(r => { if (r.entryVix != null) counts[getVIXRegime(r.entryVix)]++; });
-    const total = result.rolls.length;
-    logMsg(`  VIX regime split: low(<15)=${counts.low} · normal(15-20)=${counts.normal} · elevated(20-25)=${counts.elevated} · high(\u226525)=${counts.high} (of ${total} cycles)`, '');
-  }
+  logVIXRegimeSplit(result);
   setProgress(100);
 
   // Enable publish/backfill via the combined Run/Publish button after STD run
@@ -1972,6 +2003,7 @@ function buildRollSnapshots(result) {
   // Aggregate edge-of-data check across all roll snapshots — same logic as
   // the per-grid warning, but rolled up into one log line so it's visible
   // in the run log without having to click through every snapshot manually.
+  // Debug-only — exploratory diagnostic, not part of the STD baseline check.
   let edgeHits = 0;
   const edgeExamples = [];
   _rollSnapshots.forEach(s => {
@@ -1986,7 +2018,7 @@ function buildRollSnapshots(result) {
       if (edgeExamples.length < 3) edgeExamples.push(`${s.label} ($${bestCell.strike})`);
     }
   });
-  if (edgeHits > 0) {
+  if (_debugMode && edgeHits > 0) {
     logMsg(`\u26a0 ${edgeHits}/${_rollSnapshots.length} roll candidates sit on a DM strike/expiry edge — e.g. ${edgeExamples.join(', ')}. Check Roll Candidates tab for details.`, 'err');
   }
 
