@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
 .gap-box { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:10px; white-space:pre; color:var(--muted); font-size:10px; line-height:1.8; margin-top:10px; }
 
 .footer { font-size:11px; color:var(--muted); border-top:1px solid var(--border); padding-top:12px; margin-top:8px; line-height:1.6; }
-@media(max-width:700px) { .init-grid { grid-template-columns:repeat(3,1fr); } .summary-grid { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:700px) { .init-grid { grid-template-columns:repeat(3,1fr); } .summary-grid { grid-template-columns:repeat(2,1fr); } #controls-row { grid-template-columns:repeat(2,1fr); } }
 </style>
 </head>
 <body>
@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.0.2 · Fix: sweep range edits now reset to default when a card is toggled off</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.1.0 · Add Max Edge % control — excludes OPT winners that lean too heavily on DM-edge candidates</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -223,7 +223,7 @@ select.display-box { cursor:pointer; outline:none; }
 
 
     <!-- Row 2: controls + run — fixed height so border state changes don't affect layout -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;grid-auto-rows:80px;">
+    <div id="controls-row" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;grid-auto-rows:80px;">
       <div class="stat-card" id="roll-limit-card" style="height:80px;box-sizing:border-box;">
         <div class="stat-label">Roll Limit</div>
         <div style="margin-top:6px;">
@@ -257,6 +257,15 @@ select.display-box { cursor:pointer; outline:none; }
           </select>
         </div>
         <div class="stat-sub" style="margin-top:4px;">Candidate search window</div>
+      </div>
+      <div class="stat-card" id="max-edge-card" style="height:80px;box-sizing:border-box;">
+        <div class="stat-label">Max Edge %</div>
+        <div style="margin-top:6px;">
+          <input type="number" id="max-edge-pct" value="100" min="0" max="100" step="5"
+            onchange="onConfigChanged();"
+            style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;width:100%;text-align:center;">
+        </div>
+        <div class="stat-sub" style="margin-top:4px;">% cycles on DM edge before excluded (100=off)</div>
       </div>
       <div style="height:80px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
         <button class="btn" id="run-btn" onclick="handleRun()" disabled
@@ -1324,7 +1333,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.0.2 · SPY Covered Call Backtest');
+  logMsg('v3.1.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1692,6 +1701,10 @@ async function runOptimization() {
 
   const sweepDesc = ['decay','dte','delta','otm'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
   logMsg(`Running optimization — sweeping: ${sweepDesc}${_debugMode?' [DEBUG]':''}...`);
+  {
+    const maxEdgePct = parseFloat($('max-edge-pct')?.value ?? '100');
+    if (maxEdgePct < 100) logMsg(`  Max Edge filter active: candidates with >${maxEdgePct}% of cycles on a DM edge are excluded from "best"`, 'err');
+  }
   await yield_();
 
   const shares = 600;
@@ -1722,11 +1735,27 @@ async function runOptimization() {
               if (yld !== null && (allResults.grid[decay][floor] === null || yld > allResults.grid[decay][floor])) {
                 allResults.grid[decay][floor] = yld;
               }
-              allResults.rows.push({ decay, floor, delta, otm, yld, rolls: r?.rolls?.length ?? 0 });
+              let edgeRatio = null;
               if (yld !== null && yld > allResults.bestYld) {
-                allResults.bestYld = yld;
-                allResults.best = { decay, floor, delta, otm };
+                // This candidate would become the new leader — check its
+                // edge-hit ratio before crowning it. Only done lazily, on
+                // candidates that would otherwise win, since the snapshot
+                // scan is too expensive to run on every eval in a large sweep.
+                const maxEdgePct = parseFloat($('max-edge-pct')?.value ?? '100');
+                if (maxEdgePct < 100 && r?.rolls?.length) {
+                  edgeRatio = computeEdgeRatio(r);
+                  if (edgeRatio * 100 > maxEdgePct) {
+                    logDbg(`  \u26a0 Skipped decay=${decay}% dte=${floor}d \u0394${delta} otm=${(otm*100).toFixed(0)}% — ${(edgeRatio*100).toFixed(0)}% of cycles on DM edge (limit ${maxEdgePct}%)`);
+                  } else {
+                    allResults.bestYld = yld;
+                    allResults.best = { decay, floor, delta, otm };
+                  }
+                } else {
+                  allResults.bestYld = yld;
+                  allResults.best = { decay, floor, delta, otm };
+                }
               }
+              allResults.rows.push({ decay, floor, delta, otm, yld, rolls: r?.rolls?.length ?? 0, edgeRatio });
             } catch(innerErr) {
               const msg = `\u2717 Error decay=${decay} floor=${floor}: ${innerErr.message}`;
               logMsg(msg,'err');
@@ -2083,6 +2112,34 @@ function buildSnapshot(triggerDate, spyPx, buybackPx, params) {
   return { triggerDate, spyPx, buybackPx, validExpiries, allStrikes, cells, bestKey };
 }
 
+function computeEdgeRatio(result) {
+  // Same edge-detection logic as buildRollSnapshots' aggregate check, but
+  // side-effect free (no global _rollSnapshots mutation, no logging) so it
+  // can be safely called speculatively inside the optimizer's hot loop.
+  if (!result?.cycles || !DM) return 0;
+  const { cycles, params: p } = result;
+  const spyMap = {};
+  DM.spy.forEach(r => spyMap[r.date] = r.c);
+
+  let total = 0, edgeHits = 0;
+  cycles.forEach((c, i) => {
+    const triggerDate = c.entryDate?.slice(0,10);
+    if (!triggerDate) return;
+    const spyPx     = c.entrySPY || spyMap[triggerDate] || 0;
+    const buybackPx = c.isInitial ? 0 : (cycles[i-1]?.exitPx || 0);
+    const snap      = buildSnapshot(triggerDate, spyPx, buybackPx, p);
+    total++;
+    if (!snap.bestKey) return;
+    const bestCell = snap.cells[snap.bestKey];
+    const strikeIdx = snap.allStrikes.indexOf(bestCell.strike);
+    const expIdx    = snap.validExpiries.indexOf(bestCell.exp);
+    const atEdge = strikeIdx === 0 || strikeIdx === snap.allStrikes.length - 1
+                || expIdx === 0    || expIdx === snap.validExpiries.length - 1;
+    if (atEdge) edgeHits++;
+  });
+  return total ? edgeHits / total : 0;
+}
+
 function buildRollSnapshots(result) {
   _rollSnapshots = [];
   if (!result?.cycles || !DM) return;
@@ -2364,6 +2421,7 @@ function renderOptResults(results, decays, floors, deltas, otms) {
         <th>Rolls</th>
         <th>Ann. Yield</th>
         <th>vs STD</th>
+        <th>DM Edge %</th>
       </tr></thead><tbody>`;
 
     for (const row of top) {
@@ -2376,15 +2434,22 @@ function renderOptResults(results, decays, floors, deltas, otms) {
         + (row.delta && _sweepVars.delta ? ` / \u0394${row.delta}` : '')
         + (row.otm   && _sweepVars.otm   ? ` / otm=${(row.otm*100).toFixed(0)}%` : '');
       const winFlag  = isBest ? ' <span style="color:var(--green);font-size:9px;">\u2605</span>' : '';
+      const edgeStr  = row.edgeRatio !== null && row.edgeRatio !== undefined
+        ? (row.edgeRatio*100).toFixed(0) + '%'
+        : '\u2014';
+      const edgeClass = row.edgeRatio === null || row.edgeRatio === undefined ? 'muted'
+        : row.edgeRatio >= 0.3 ? 'red' : row.edgeRatio >= 0.15 ? 'yellow' : 'green';
 
       html += `<tr class="${isBest ? 'opt-best' : ''}">
         <td style="color:var(--text);">${paramStr}${winFlag}</td>
         <td class="muted">${row.rolls}</td>
         <td class="${yldClass}">${row.yld.toFixed(1)}%</td>
         <td class="${vsClass}">${vsStr}</td>
+        <td class="${edgeClass}">${edgeStr}</td>
       </tr>`;
     }
     html += `</tbody></table>`;
+    html += `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px;">DM Edge % only computed for the winning candidate (lazy check, too costly per-eval on large sweeps) — shown as \u2014 for others.</div>`;
   }
 
   $('heatmap-container').innerHTML = `<div style="padding:16px;">${html}</div>`;
