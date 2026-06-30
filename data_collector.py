@@ -4,15 +4,15 @@ SPY Backtest Data Collector
 Collects and maintains a historical data mart for the SPY covered call backtest.
 Runs as a Railway cron service — smart daily run appends new data, inspects the
 DM for missing contracts, and backfills gaps automatically. Idempotent: running
-twice produces the same result.
+twice produces the same result. Self-healing: if the data mart is missing or
+corrupted, the daily run rebuilds it from scratch automatically.
 
 Data collected:
   - SPY daily OHLCV (2 years rolling)
   - VIX daily close (2 years rolling)
-  - Option contracts: 22 strikes (1%–35% OTM in $5 grid) × all monthly expiries
+  - Option contracts: 39 strikes (1%–20% OTM, 0.5% steps, $5 grid) x all monthly
+    expiries, anchored to every SPY trading day within each contract's window
     Each contract: full life history from first available trade date to expiry
-    Strike selection anchored to SPY price at each expiry date (historical)
-    Plus current-SPY-anchored strikes for future expiries
 
 Output: spy_data.json committed to ronb36/spy-backtest via GitHub API (Blobs API
         used for files >1MB to avoid GitHub Contents API size limit)
@@ -21,7 +21,8 @@ Environment variables (Railway):
   POLYGON_KEY     — Polygon/Massive API key
   GITHUB_TOKEN    — Personal access token with repo scope
   GITHUB_REPO     — ronb36/spy-backtest
-  RUN_MODE        — "daily" (default) or "full" (rebuild from scratch)
+  RUN_MODE        — "daily" (default, omit to use default) or "gap" (fill
+                    specific contracts listed in GAP_TICKERS)
 """
 
 import os
@@ -269,102 +270,19 @@ def dates_in_dataset(records, key="date"):
     return {r[key] for r in records}
 
 
-# ── Full load ──────────────────────────────────────────────────────────────
-def full_load():
-    log("=" * 60)
-    log("FULL LOAD — building 2-year data mart from scratch")
-    log("=" * 60)
-
-    dm         = empty_datamart()
-    start, end = date_range_str(years_back=2)
-    start = min(start, "2024-06-25")  # ensure Intl trigger date 2024-06-27 is in window
-
-    # ── SPY ──────────────────────────────────────────────────────────────
-    log(f"Fetching SPY daily OHLCV {start} → {end}...")
-    spy_raw = fetch_aggs("SPY", start, end)
-    time.sleep(CALL_DELAY)
-    for r in spy_raw:
-        dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
-        dm["spy"].append({"date": dt, "o": r["o"], "h": r["h"],
-                          "l": r["l"], "c": r["c"], "v": r.get("v", 0)})
-    log(f"  ✓ {len(dm['spy'])} SPY trading days")
-
-    # ── VIX ──────────────────────────────────────────────────────────────
-    log(f"Fetching VIX daily close {start} → {end}...")
-    vix_raw = fetch_aggs("I:VIX", start, end)
-    time.sleep(CALL_DELAY)
-    for r in vix_raw:
-        dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
-        dm["vix"].append({"date": dt, "c": round(r["c"], 2)})
-    log(f"  ✓ {len(dm['vix'])} VIX trading days")
-
-    # ── Options — daily-anchored ──────────────────────────────────────────
-    # For every expiry × every SPY trading day, compute the expected strike
-    # grid using that day's SPY price. This ensures crash-era trigger dates
-    # (e.g. SPY=$504 on 2025-04-07) produce the correct low strikes, not
-    # strikes anchored to expiry-date or current SPY prices.
-    # Matches Phase 3 daily inspection logic exactly — idempotent.
-    today_iso  = date.today().strftime("%Y-%m-%d")
-    future_end = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
-    expiries   = get_monthly_expiries(start, future_end)
-
-    spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
-    contracts_fetched = 0
-
-    # Build full expected set: expiry × SPY-day → ticker
-    log(f"Building daily-anchored expected contract set across {len(expiries)} expiries...")
-    expected_by_expiry = {}
-    for exp in expiries:
-        exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
-        hist_start = max(start, (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
-        hist_end   = min(exp, today_iso)
-        expected   = {}  # ticker → (strike, otm_pct, hist_start, hist_end)
-        for spy_date_str, spy_px in spy_by_date.items():
-            if spy_date_str < hist_start or spy_date_str > hist_end:
-                continue
-            for otm_pct in OTM_TARGETS:
-                strike = find_nearest_strike(spy_px, otm_pct)
-                ticker = build_option_ticker(exp, strike)
-                if ticker not in expected:
-                    expected[ticker] = (strike, otm_pct, hist_start, hist_end)
-        expected_by_expiry[exp] = expected
-
-    total_expected = sum(len(v) for v in expected_by_expiry.values())
-    log(f"  {total_expected} unique contracts to fetch across all expiries")
-
-    for exp, expected in expected_by_expiry.items():
-        log(f"  {exp} — {len(expected)} unique contracts")
-        for ticker, (strike, otm_pct, hist_start, hist_end) in sorted(expected.items()):
-            days = fetch_option_history(ticker, hist_start, hist_end)
-            if days:
-                first_day_spy = spy_by_date.get(days[0]["date"], spy_by_date.get(hist_start))
-                dm["options"][ticker] = {
-                    "strike":    strike,
-                    "expiry":    exp,
-                    "otm_pct":   otm_pct,
-                    "entry_spy": first_day_spy,
-                    "days":      days,
-                }
-                contracts_fetched += 1
-            time.sleep(CALL_DELAY)
-
-    log(f"Full load complete: SPY {len(dm['spy'])} days | VIX {len(dm['vix'])} days | Options {contracts_fetched}/{total_expected} contracts")
-    dm["metadata"]["last_updated"] = today_str()
-    dm["metadata"]["otm_targets"]  = OTM_TARGETS
-    # Run trigger-date overlay to add crash-era contracts
-    dm = trigger_date_overlay(dm)
-    return dm
-
-
 # ── Daily append + smart inspection ───────────────────────────────────────
 def daily_append(dm):
     """
-    Smart daily run — three phases:
-    1. Append yesterday's OHLCV to all existing contracts
-    2. Inspect DM vs expected contract set — backfill any gaps
-       (uses historical SPY price anchored to each expiry date)
-    3. Add new future expiry strikes based on current SPY
-    Running twice in a row is safe — second run finds nothing to do.
+    Smart daily run — self-healing, four phases:
+    1. Append SPY/VIX OHLCV (full 2-year history if DM is empty, else just
+       yesterday)
+    2. Append yesterday's day to all existing option contracts
+    3. Inspect DM vs full expected contract set (every expiry x every SPY
+       trading day in that expiry's window) — backfill any gaps with each
+       contract's complete history from its true earliest possible date
+    4. Add new future-expiry strikes as current SPY moves
+    Running twice in a row is safe — second run finds nothing new to do.
+    Running against an empty datamart builds the complete DM from scratch.
     """
     log("=" * 60)
     log("DAILY SMART RUN — append + inspect + backfill")
@@ -377,9 +295,26 @@ def daily_append(dm):
     # ── Build SPY lookup ──────────────────────────────────────────────────
     spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
 
-    # ── Phase 1: SPY daily append ─────────────────────────────────────────
+    # ── Phase 1: SPY/VIX append (full 2yr history if DM is empty) ─────────
     existing_spy_dates = dates_in_dataset(dm["spy"])
-    if yesterday not in existing_spy_dates:
+    if not dm["spy"]:
+        log(f"Phase 1: Empty DM — fetching full 2-year SPY/VIX history {two_yr_ago} → {today_iso}...")
+        results = fetch_aggs("SPY", two_yr_ago, today_iso)
+        time.sleep(CALL_DELAY)
+        for r in results:
+            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            dm["spy"].append({"date": dt, "o": r["o"], "h": r["h"],
+                              "l": r["l"], "c": r["c"], "v": r.get("v", 0)})
+        existing_spy_dates = dates_in_dataset(dm["spy"])
+        log(f"  ✓ {len(dm['spy'])} SPY trading days loaded")
+
+        vix_results = fetch_aggs("I:VIX", two_yr_ago, today_iso)
+        time.sleep(CALL_DELAY)
+        for r in vix_results:
+            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            dm["vix"].append({"date": dt, "c": round(r["c"], 2)})
+        log(f"  ✓ {len(dm['vix'])} VIX trading days loaded")
+    elif yesterday not in existing_spy_dates:
         log(f"Phase 1: Appending SPY/VIX for {yesterday}...")
         results = fetch_aggs("SPY", yesterday, yesterday)
         time.sleep(CALL_DELAY)
@@ -394,7 +329,7 @@ def daily_append(dm):
         log(f"Phase 1: SPY {yesterday} already present")
 
     existing_vix_dates = dates_in_dataset(dm["vix"])
-    if yesterday not in existing_vix_dates:
+    if yesterday not in existing_vix_dates and dm["vix"]:
         results = fetch_aggs("I:VIX", yesterday, yesterday)
         time.sleep(CALL_DELAY)
         for r in results:
@@ -539,112 +474,6 @@ def daily_append(dm):
 
 
 
-# ── Trigger-date overlay ──────────────────────────────────────────────────
-# Known roll trigger dates and SPY prices from the 5% backtest run (2024-06-28).
-# For each trigger date, fetch 8 forward monthly expiries x 39 OTM strikes,
-# anchored to the actual SPY price on that date — matching the browser backfill
-# methodology that produced the 1,805-contract DM and 5% yield result.
-TRIGGER_DATES = [
-    ("2024-06-27", 546.37),  # Intl
-    ("2024-07-16", 564.86),  # R1
-    ("2024-08-05", 517.38),  # R2 — crash low
-    ("2024-11-06", 591.04),  # R3
-    ("2024-12-04", 607.66),  # R4
-    ("2025-02-25", 594.24),  # R5
-    ("2025-03-13", 551.42),  # R6
-    ("2025-04-07", 504.38),  # R7 — tariff crash low
-    ("2025-05-21", 582.86),  # R8
-    ("2025-09-17", 659.18),  # R9
-    ("2025-09-22", 666.84),  # R10
-    ("2025-10-24", 677.25),  # R11
-    ("2025-10-28", 687.06),  # R12
-    ("2026-01-20", 677.58),  # R13
-    ("2026-03-09", 678.27),  # R14
-    ("2026-04-17", 710.14),  # R15
-    ("2026-04-22", 711.21),  # R16
-    ("2026-05-15", 739.17),  # R17
-    ("2026-05-20", 741.25),  # R18
-    ("2026-05-26", 750.59),  # R19
-    ("2026-06-01", 758.54),  # R20
-]
-TRIGGER_EXPIRY_CAP = 8  # next 8 monthly expiries per trigger date
-
-
-def trigger_date_overlay(dm):
-    """
-    For each known trigger date, fetch 8 forward expiries x 39 OTM strikes
-    anchored to the trigger-date SPY price.
-
-    Merge logic — for each contract:
-      - If not in DM: fetch full history from trig_date and add
-      - If already in DM but earliest stored date > trig_date: fetch the
-        missing early range and prepend it, so the backtester sees the
-        full premium available on the trigger date
-      - If already in DM with data at or before trig_date: skip (nothing to add)
-    """
-    log("=" * 60)
-    log("TRIGGER-DATE OVERLAY — backfilling crash-era contracts")
-    log("=" * 60)
-
-    today_iso    = today_str()
-    all_expiries = get_monthly_expiries("2024-01-01",
-                   (date.today() + timedelta(days=365)).strftime("%Y-%m-%d"))
-    filled    = 0
-    prepended = 0
-    skipped   = 0
-
-    for trig_date, spy_px in TRIGGER_DATES:
-        fwd_expiries = [e for e in all_expiries if e > trig_date][:TRIGGER_EXPIRY_CAP]
-        log(f"  {trig_date} SPY=${spy_px:.2f} -> {len(fwd_expiries)} expiries")
-
-        for exp in fwd_expiries:
-            hist_end = min(exp, today_iso)
-
-            for otm_pct in OTM_TARGETS:
-                strike = find_nearest_strike(spy_px, otm_pct)
-                ticker = build_option_ticker(exp, strike)
-
-                if ticker in dm["options"]:
-                    # Contract exists — check if we need to prepend earlier history
-                    existing_dates = sorted(d["date"] for d in dm["options"][ticker]["days"])
-                    earliest = existing_dates[0] if existing_dates else today_iso
-                    if trig_date >= earliest:
-                        skipped += 1
-                        continue
-                    # Fetch only the missing range: trig_date up to day before earliest
-                    fetch_end = (datetime.strptime(earliest, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
-                    if fetch_end < trig_date:
-                        skipped += 1
-                        continue
-                    new_days = fetch_option_history(ticker, trig_date, fetch_end)
-                    time.sleep(CALL_DELAY)
-                    if new_days:
-                        existing_date_set = set(existing_dates)
-                        for day in new_days:
-                            if day["date"] not in existing_date_set:
-                                dm["options"][ticker]["days"].append(day)
-                        # Re-sort by date
-                        dm["options"][ticker]["days"].sort(key=lambda d: d["date"])
-                        prepended += 1
-                        log(f"    Prepended {len(new_days)}d to {ticker} (was {earliest}, now {trig_date})")
-                else:
-                    # New contract — fetch full history from trigger date
-                    new_days = fetch_option_history(ticker, trig_date, hist_end)
-                    time.sleep(CALL_DELAY)
-                    if new_days:
-                        dm["options"][ticker] = {
-                            "strike":    strike,
-                            "expiry":    exp,
-                            "otm_pct":  otm_pct,
-                            "entry_spy": spy_px,
-                            "days":      new_days,
-                        }
-                        filled += 1
-
-    log(f"  Overlay complete — {filled} new, {prepended} prepended, {skipped} skipped")
-    log(f"  Total contracts in DM: {len(dm['options'])}")
-    return dm
-
 # ── Gap fill ──────────────────────────────────────────────────────────────
 def gap_fill(dm):
     log("=" * 60)
@@ -710,10 +539,12 @@ if __name__ == "__main__":
     log("SPY Backtest Data Collector starting...")
     log(f"Mode: {RUN_MODE.upper()} | Repo: {GITHUB_REPO}")
 
-    if RUN_MODE == "full":
-        # Full load from scratch
-        dm = full_load()
-    elif RUN_MODE == "gap":
+# ── Main ───────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    log("SPY Backtest Data Collector starting...")
+    log(f"Mode: {RUN_MODE.upper()} | Repo: {GITHUB_REPO}")
+
+    if RUN_MODE == "gap":
         # Gap fill — fetch specific missing contracts from GAP_TICKERS env var
         dm, sha = github_get_file(DATA_PATH)
         if dm is None:
@@ -721,18 +552,20 @@ if __name__ == "__main__":
             exit(1)
         dm = gap_fill(dm)
     else:
-        # Daily append — load existing data first
+        # Daily append — load existing data first.
+        # If missing/corrupted, self-heal: daily_append builds the complete
+        # DM from scratch (full 2yr SPY/VIX, full daily-anchored contract
+        # set, future strikes) when handed an empty datamart.
         log("Loading existing data mart from GitHub...")
         dm, sha = github_get_file(DATA_PATH)
         if dm is None:
-            log("No existing data found — switching to full load")
-            dm  = full_load()
-            sha = None
+            log("No existing data found — building from scratch via daily_append")
+            dm = empty_datamart()
         else:
             log(f"  ✓ Loaded — last updated: {dm['metadata'].get('last_updated', 'unknown')}")
             log(f"  SPY: {len(dm['spy'])} days | VIX: {len(dm['vix'])} days | "
                 f"Options: {len(dm['options'])} contracts")
-            dm = daily_append(dm)
+        dm = daily_append(dm)
 
     # Commit to GitHub
     log("Committing data mart to GitHub...")
@@ -743,18 +576,11 @@ if __name__ == "__main__":
 
     # Pushover notification
     if success:
-        spy_count = len(dm["spy"])
         opt_count = len(dm["options"])
         last_spy  = dm["spy"][-1] if dm["spy"] else {}
         spy_close = last_spy.get("c", "—")
         spy_date  = last_spy.get("date", "—")
-        otm_str   = ", ".join(str(int(t*100))+"%" for t in OTM_TARGETS)
-        if RUN_MODE == "full":
-            body = ("Full load complete\n"
-                    f"SPY {spy_count} days | VIX {len(dm['vix'])} days | {opt_count} contracts\n"
-                    f"OTM targets: {otm_str}")
-        elif RUN_MODE == "gap":
-            gap_count = len(os.environ.get("GAP_TICKERS","").split(","))
+        if RUN_MODE == "gap":
             body = (f"Gap fill complete\n"
                     f"{opt_count} total contracts in mart\n"
                     f"Clear GAP_TICKERS in Railway variables")
