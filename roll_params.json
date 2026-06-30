@@ -4,6 +4,6 @@
   "deltaThreshold": 0.3,
   "otmTarget": 0.03,
   "lastOptimized": "2026-06-30",
-  "optAnnYield": 2.87,
+  "optAnnYield": 2.89,
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 480-eval 4D optimizer sweep."
 }
