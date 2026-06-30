@@ -1488,9 +1488,11 @@ async function publishRollParams(p) {
     if (!put.ok) throw new Error('GitHub API ' + put.status);
     STD = { otmFixed: payload.otmTarget, decayTrigger: payload.decayTrigger * 100,
             dteFloor: payload.dteFloor, deltaThreshold: payload.deltaThreshold, maxLookahead: 90 };
+    _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
     logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% ann. yield · ' + today, 'ok');
     if (btn) { btn.textContent = '\u2713 Published'; btn.style.color = 'var(--green)'; btn.style.opacity = '1'; }
+    updateParamDisplay();
   } catch(e) {
     // If auth failed, clear stored PAT so next attempt re-prompts
     if (e.message.includes('401') || e.message.includes('403') || e.message.includes('Bad credentials') || e.message.includes('404')) {
@@ -1586,6 +1588,25 @@ async function runOptimization() {
       if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
         btn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
         btn.style.color = _debugMode ? 'var(--yellow)' : 'var(--accent)'; }
+
+      // Re-run simulate() with the winning params so summary/blotter reflect
+      // the optimizer's chosen configuration, not just the heatmap grid.
+      const _winMaxLookahead = parseInt($('lookahead-select')?.value || '90');
+      const winResult = await simulate({ ...STD, decayTrigger:b.decay, dteFloor:b.floor,
+        deltaThreshold:b.delta, otmFixed:b.otm, shares, maxRolls:null, maxLookahead:_winMaxLookahead });
+      if (winResult) {
+        lastResult = winResult;
+        buildRollSnapshots(winResult);
+        renderSummary(winResult);
+        renderCycleTable(winResult);
+        renderGapsTab(_gaps);
+        const _pubBtn = $('publish-btn');
+        if (_pubBtn) {
+          _pubBtn.disabled = false;
+          _pubBtn.style.opacity = '1';
+          _pubBtn.style.cursor = 'pointer';
+        }
+      }
     } else {
       logMsg('\u26a0 No qualifying results — using STD params', 'err');
     }
