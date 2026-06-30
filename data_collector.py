@@ -351,6 +351,8 @@ def full_load():
     log(f"Full load complete: SPY {len(dm['spy'])} days | VIX {len(dm['vix'])} days | Options {contracts_fetched}/{total_expected} contracts")
     dm["metadata"]["last_updated"] = today_str()
     dm["metadata"]["otm_targets"]  = OTM_TARGETS
+    # Run trigger-date overlay to add crash-era contracts
+    dm = trigger_date_overlay(dm)
     return dm
 
 
@@ -535,6 +537,88 @@ def daily_append(dm):
     dm["metadata"]["otm_targets"]  = OTM_TARGETS
     return dm
 
+
+
+# ── Trigger-date overlay ──────────────────────────────────────────────────
+# Known roll trigger dates and SPY prices from the 5% backtest run (2024-06-28).
+# For each trigger date, fetch 8 forward monthly expiries x 39 OTM strikes,
+# anchored to the actual SPY price on that date — matching the browser backfill
+# methodology that produced the 1,805-contract DM and 5% yield result.
+TRIGGER_DATES = [
+    ("2024-06-27", 546.37),  # Intl
+    ("2024-07-16", 564.86),  # R1
+    ("2024-08-05", 517.38),  # R2 — crash low
+    ("2024-11-06", 591.04),  # R3
+    ("2024-12-04", 607.66),  # R4
+    ("2025-02-25", 594.24),  # R5
+    ("2025-03-13", 551.42),  # R6
+    ("2025-04-07", 504.38),  # R7 — tariff crash low
+    ("2025-05-21", 582.86),  # R8
+    ("2025-09-17", 659.18),  # R9
+    ("2025-09-22", 666.84),  # R10
+    ("2025-10-24", 677.25),  # R11
+    ("2025-10-28", 687.06),  # R12
+    ("2026-01-20", 677.58),  # R13
+    ("2026-03-09", 678.27),  # R14
+    ("2026-04-17", 710.14),  # R15
+    ("2026-04-22", 711.21),  # R16
+    ("2026-05-15", 739.17),  # R17
+    ("2026-05-20", 741.25),  # R18
+    ("2026-05-26", 750.59),  # R19
+    ("2026-06-01", 758.54),  # R20
+]
+TRIGGER_EXPIRY_CAP = 8  # next 8 monthly expiries per trigger date
+
+
+def trigger_date_overlay(dm):
+    """
+    For each known trigger date, fetch 8 forward expiries x 39 OTM strikes
+    anchored to the trigger-date SPY price. Idempotent — skips contracts
+    already in the DM.
+    """
+    log("=" * 60)
+    log("TRIGGER-DATE OVERLAY — backfilling crash-era contracts")
+    log("=" * 60)
+
+    today_iso    = today_str()
+    all_expiries = get_monthly_expiries("2024-01-01",
+                   (date.today() + timedelta(days=365)).strftime("%Y-%m-%d"))
+    existing     = set(dm["options"].keys())
+    filled       = 0
+    skipped      = 0
+
+    for trig_date, spy_px in TRIGGER_DATES:
+        fwd_expiries = [e for e in all_expiries if e > trig_date][:TRIGGER_EXPIRY_CAP]
+        log(f"  {trig_date} SPY=${spy_px:.2f} -> {len(fwd_expiries)} expiries")
+
+        for exp in fwd_expiries:
+            hist_start = trig_date
+            hist_end   = min(exp, today_iso)
+
+            for otm_pct in OTM_TARGETS:
+                strike = find_nearest_strike(spy_px, otm_pct)
+                ticker = build_option_ticker(exp, strike)
+
+                if ticker in existing:
+                    skipped += 1
+                    continue
+
+                days = fetch_option_history(ticker, hist_start, hist_end)
+                time.sleep(CALL_DELAY)
+                if days:
+                    dm["options"][ticker] = {
+                        "strike":    strike,
+                        "expiry":    exp,
+                        "otm_pct":  otm_pct,
+                        "entry_spy": spy_px,
+                        "days":      days,
+                    }
+                    existing.add(ticker)
+                    filled += 1
+
+    log(f"  Overlay complete — {filled} new contracts added, {skipped} already present")
+    log(f"  Total contracts in DM: {len(dm['options'])}")
+    return dm
 
 # ── Gap fill ──────────────────────────────────────────────────────────────
 def gap_fill(dm):
