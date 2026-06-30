@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
 .gap-box { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:10px; white-space:pre; color:var(--muted); font-size:10px; line-height:1.8; margin-top:10px; }
 
 .footer { font-size:11px; color:var(--muted); border-top:1px solid var(--border); padding-top:12px; margin-top:8px; line-height:1.6; }
-@media(max-width:700px) { .init-grid { grid-template-columns:repeat(3,1fr); } .summary-grid { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:700px) { .init-grid { grid-template-columns:repeat(3,1fr); } .summary-grid { grid-template-columns:repeat(2,1fr); } #var-card-row { grid-template-columns:repeat(2,1fr); } }
 </style>
 </head>
 <body>
@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.6.1 · Fix: sweep grid fallbacks now read live STD, not hardcoded values</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.7.0 · Add delta persistence days — filters single-day delta spikes from triggering rolls</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -162,7 +162,7 @@ select.display-box { cursor:pointer; outline:none; }
     <input type="checkbox" id="debug-toggle" checked style="display:none;">
 
     <!-- Row 1: sweepable param cards -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
+    <div id="var-card-row" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px;">
       <div class="stat-card var-card" id="vcard-decay" onclick="toggleVar('decay')" style="cursor:pointer;">
         <div class="stat-label">Decay Trigger</div>
         <div class="stat-value accent" id="vval-decay" style="font-size:14px;">80%</div>
@@ -177,6 +177,11 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="stat-label">Delta Δ</div>
         <div class="stat-value accent" id="vval-delta" style="font-size:14px;">0.40</div>
         <div class="stat-sub" id="vsub-delta">Click to optimize</div>
+      </div>
+      <div class="stat-card var-card" id="vcard-persist" onclick="toggleVar('persist')" style="cursor:pointer;">
+        <div class="stat-label">Δ Persist</div>
+        <div class="stat-value accent" id="vval-persist" style="font-size:14px;">1d</div>
+        <div class="stat-sub" id="vsub-persist">Click to optimize</div>
       </div>
       <div class="stat-card var-card" id="vcard-otm" onclick="toggleVar('otm')" style="cursor:pointer;">
         <div class="stat-label">OTM %</div>
@@ -385,11 +390,12 @@ const POLYGON_KEY = 'JsAPh2b2fCJ7oXlkS3oqwfuxINVeK0QL';
 // STD params — loaded from roll_params.json (single source of truth)
 // Fallback to last known good values if fetch fails
 let STD = {
-  otmFixed:       0.03,
-  decayTrigger:   80,
-  dteFloor:       30,
-  deltaThreshold: 0.40,
-  maxLookahead:   90,
+  otmFixed:         0.03,
+  decayTrigger:     80,
+  dteFloor:         30,
+  deltaThreshold:   0.40,
+  deltaPersistDays: 1,
+  maxLookahead:     90,
 };
 
 async function loadRollParams() {
@@ -398,27 +404,30 @@ async function loadRollParams() {
     const res  = await fetch("https://ronb36.github.io/spy-backtest/roll_params.json?_=" + Date.now());
     const data = await res.json();
     STD = {
-      otmFixed:       data.otmTarget,
-      decayTrigger:   data.decayTrigger * 100,
-      dteFloor:       data.dteFloor,
-      deltaThreshold: data.deltaThreshold,
-      maxLookahead:   90,
+      otmFixed:         data.otmTarget,
+      decayTrigger:     data.decayTrigger * 100,
+      dteFloor:         data.dteFloor,
+      deltaThreshold:   data.deltaThreshold,
+      deltaPersistDays: data.deltaPersistDays || 1, // older roll_params.json files won't have this — default to legacy behavior
+      maxLookahead:     90,
     };
     // Update var-card display values
     const updates = {
-      'vval-decay': STD.decayTrigger + '%',
-      'vval-dte':   STD.dteFloor + 'd',
-      'vval-delta': STD.deltaThreshold.toFixed(2),
-      'vval-otm':   (STD.otmFixed * 100).toFixed(0) + '%',
+      'vval-decay':   STD.decayTrigger + '%',
+      'vval-dte':     STD.dteFloor + 'd',
+      'vval-delta':   STD.deltaThreshold.toFixed(2),
+      'vval-persist': STD.deltaPersistDays + 'd',
+      'vval-otm':     (STD.otmFixed * 100).toFixed(0) + '%',
     };
     Object.entries(updates).forEach(([id, val]) => {
       const el = document.getElementById(id); if (el && !_sweepVars[id.replace('vval-','')]) el.textContent = val;
     });
     // Also update _sweepRanges std display
-    _sweepRanges.decay.std = STD.decayTrigger + '%';
-    _sweepRanges.dte.std   = STD.dteFloor + 'd';
-    _sweepRanges.delta.std = STD.deltaThreshold.toFixed(2);
-    _sweepRanges.otm.std   = (STD.otmFixed * 100).toFixed(0) + '%';
+    _sweepRanges.decay.std   = STD.decayTrigger + '%';
+    _sweepRanges.dte.std     = STD.dteFloor + 'd';
+    _sweepRanges.delta.std   = STD.deltaThreshold.toFixed(2);
+    _sweepRanges.persist.std = STD.deltaPersistDays + 'd';
+    _sweepRanges.otm.std     = (STD.otmFixed * 100).toFixed(0) + '%';
     console.log("STD params loaded from roll_params.json:", STD);
   } catch(e) {
     console.warn("Could not load roll_params.json — using fallback STD params.", e);
@@ -580,20 +589,22 @@ function getSweepGrid() {
   // value (not a hardcoded constant) so edits to roll_params.json take
   // effect immediately on any partial sweep.
   return {
-    decay: _sweepVars.decay ? (_debugMode ? [75,80]            : [50,60,70,75,80,90])  : [STD.decayTrigger],
-    dte:   _sweepVars.dte   ? (_debugMode ? [21,30]            : [7,14,21,30,45,60])   : [STD.dteFloor],
-    delta: _sweepVars.delta ? (_debugMode ? [0.30,0.35]        : [0.20,0.25,0.30,0.35,0.40]) : [STD.deltaThreshold],
-    otm:   _sweepVars.otm   ? (_debugMode ? [0.05,0.07]        : [0.03,0.05,0.07,0.10]) : [STD.otmFixed],
+    decay:   _sweepVars.decay   ? (_debugMode ? [75,80]      : [50,60,70,75,80,90])  : [STD.decayTrigger],
+    dte:     _sweepVars.dte     ? (_debugMode ? [21,30]      : [7,14,21,30,45,60])   : [STD.dteFloor],
+    delta:   _sweepVars.delta   ? (_debugMode ? [0.30,0.35]  : [0.20,0.25,0.30,0.35,0.40]) : [STD.deltaThreshold],
+    persist: _sweepVars.persist ? (_debugMode ? [1,2]        : [1,2,3])             : [STD.deltaPersistDays || 1],
+    otm:     _sweepVars.otm     ? (_debugMode ? [0.05,0.07]  : [0.03,0.05,0.07,0.10]) : [STD.otmFixed],
   };
 }
-const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
+const _sweepVars = { decay: false, dte: false, delta: false, otm: false, persist: false };
 
 // Sweep ranges shown on cards
 const _sweepRanges = {
-  decay: { std: '80%', sweep: '50–90%', debugSweep: '75–80%',     label: 'Decay Trigger' },
-  dte:   { std: '30d', sweep: '7–60d',  debugSweep: '21–30d',     label: 'DTE Floor' },
-  delta: { std: '0.40', sweep: '0.20–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
-  otm:   { std: '3%',  sweep: '3–10%', debugSweep: '5–7%',        label: 'OTM %' },
+  decay:   { std: '80%', sweep: '50–90%', debugSweep: '75–80%',     label: 'Decay Trigger' },
+  dte:     { std: '30d', sweep: '7–60d',  debugSweep: '21–30d',     label: 'DTE Floor' },
+  delta:   { std: '0.40', sweep: '0.20–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
+  persist: { std: '1d',  sweep: '1–3d',   debugSweep: '1–2d',       label: 'Δ Persist' },
+  otm:     { std: '3%',  sweep: '3–10%', debugSweep: '5–7%',        label: 'OTM %' },
 };
 function toggleVar(v) {
   _sweepVars[v] = !_sweepVars[v];
@@ -643,7 +654,7 @@ function updateEvalCount() {
     return;
   }
   const g = getSweepGrid();
-  const evals = g.decay.length * g.dte.length * g.delta.length * g.otm.length;
+  const evals = g.decay.length * g.dte.length * g.delta.length * g.persist.length * g.otm.length;
   btn.textContent = '▶ Run';
   counter.textContent = evals.toLocaleString() + ' evals' + (_debugMode ? ' (debug)' : '');
   counter.style.display = 'block';
@@ -883,7 +894,8 @@ function updateInitPosition() {
 
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
-  const { otmFixed, decayTrigger, dteFloor, deltaThreshold, maxLookahead, shares } = p;
+  const { otmFixed, decayTrigger, dteFloor, deltaThreshold, maxLookahead, shares, deltaPersistDays } = p;
+  const _persistDays = deltaPersistDays || 1; // default 1 = fire immediately (legacy behavior)
   // Clear stale _entryPx/_entryDate stamped onto DM contracts by prior simulate() calls.
   // findNextContract() mutates shared DM.options objects; without this flush each optimizer
   // sweep inherits cached entry prices from the previous sweep, diverging trigger dates.
@@ -915,7 +927,7 @@ async function simulate(p) {
   let premPnL = 0;
   let curC = initC;
   let posOpen = false, entryPrice = null, entryDate = null;
-  let entryStrike = null, entrySPY = null, entryDelta_ = 0;
+  let entryStrike = null, entrySPY = null, entryDelta_ = 0, deltaAboveStreak = 0;
   let isInitial = true, pendingContract = null;
   let iter = 0;
   const TNX = 4.5;
@@ -1012,11 +1024,20 @@ async function simulate(p) {
         if (decay >= decayTrigger) { roll=true; reason=`${decay.toFixed(0)}% decay`; }
       }
       if (!roll && dte <= dteFloor)                                           { roll=true; reason=`${dte}d DTE`; }
-      // Delta trigger: fire if delta rose above threshold
-      // If entry delta was already above threshold, allow trigger once delta
-      // has dipped below threshold and risen again (tracks actual movement)
-      if (delta < deltaThreshold) entryDelta_ = delta; // update low-water mark
-      if (!roll && delta >= deltaThreshold && entryDelta_ < deltaThreshold)   { roll=true; reason=`delta ${delta.toFixed(2)}`; }
+      // Delta trigger: fire only once delta has stayed >= threshold for
+      // _persistDays consecutive days. Filters out single-day spikes that
+      // mean-revert before they'd actually warrant a defensive roll.
+      // entryDelta_ low-water-mark still tracks whether this is a fresh
+      // excursion above threshold (vs. one already counted).
+      if (delta < deltaThreshold) {
+        entryDelta_ = delta;
+        deltaAboveStreak = 0;
+      } else if (entryDelta_ < deltaThreshold) {
+        deltaAboveStreak++;
+      }
+      if (!roll && delta >= deltaThreshold && entryDelta_ < deltaThreshold && deltaAboveStreak >= _persistDays) {
+        roll = true; reason = `delta ${delta.toFixed(2)} (${deltaAboveStreak}d)`;
+      }
     }
 
     // ── Daily trigger state log (STD debug mode only) ──────────────────────
@@ -1060,7 +1081,7 @@ async function simulate(p) {
       approx: _gaps.some(g=>g.substituted),
     });
 
-    isInitial=false; posOpen=false; entryDelta_=0;
+    isInitial=false; posOpen=false; entryDelta_=0; deltaAboveStreak=0;
     entryPrice=entryDate=entryStrike=entrySPY=null;
     if (curC._entryPx) { delete curC._entryPx; delete curC._entryDate; }
 
@@ -1171,7 +1192,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.6.1 · SPY Covered Call Backtest');
+  logMsg('v2.7.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1482,9 +1503,9 @@ async function publishRollParams(p) {
     const today = new Date().toISOString().slice(0, 10);
     const payload = {
       decayTrigger: p.decayTrigger, dteFloor: p.dteFloor,
-      deltaThreshold: p.deltaThreshold, otmTarget: p.otmTarget,
+      deltaThreshold: p.deltaThreshold, deltaPersistDays: p.deltaPersistDays || 1, otmTarget: p.otmTarget,
       lastOptimized: today, optAnnYield: parseFloat(p.optAnnYield.toFixed(2)),
-      note: 'Update after each backtester run. Source: ronb36.github.io/spy-backtest 480-eval 4D optimizer sweep.'
+      note: 'Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.'
     };
     const put = await fetch(url, {
       method: 'PUT',
@@ -1497,7 +1518,8 @@ async function publishRollParams(p) {
     });
     if (!put.ok) throw new Error('GitHub API ' + put.status);
     STD = { otmFixed: payload.otmTarget, decayTrigger: payload.decayTrigger * 100,
-            dteFloor: payload.dteFloor, deltaThreshold: payload.deltaThreshold, maxLookahead: 90 };
+            dteFloor: payload.dteFloor, deltaThreshold: payload.deltaThreshold,
+            deltaPersistDays: payload.deltaPersistDays, maxLookahead: 90 };
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
     logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% ann. yield · ' + today, 'ok');
@@ -1531,18 +1553,19 @@ async function runOptimization() {
   setProgress(5);
 
   // Build grid from sweep state — respects debug mode
-  const g      = getSweepGrid();
-  const decays = g.decay;
-  const floors = g.dte;
-  const deltas = g.delta;
-  const otms   = g.otm;
+  const g        = getSweepGrid();
+  const decays   = g.decay;
+  const floors   = g.dte;
+  const deltas   = g.delta;
+  const persists = g.persist;
+  const otms     = g.otm;
 
-  const sweepDesc = ['decay','dte','delta','otm'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
+  const sweepDesc = ['decay','dte','delta','persist','otm'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
   logMsg(`Running optimization — sweeping: ${sweepDesc}${_debugMode?' [DEBUG]':''}...`);
   await yield_();
 
   const shares = 600;
-  const total  = decays.length * floors.length * deltas.length * otms.length;
+  const total  = decays.length * floors.length * deltas.length * persists.length * otms.length;
   let done = 0;
 
   // Flat results — no regime dimension
@@ -1555,33 +1578,35 @@ async function runOptimization() {
     for (const decay of decays) {
       for (const floor of floors) {
         for (const delta of deltas) {
-          for (const otm of otms) {
-            logMsg(`⟳ Sweeping decay=${decay}% dte=${floor}d Δ=${delta} otm=${(otm*100).toFixed(0)}%...`);
-            try {
-              _gaps = [];
-              const maxLookahead = parseInt($('lookahead-select')?.value || '90');
-              const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed:otm, shares, maxRolls:null, maxLookahead });
-              // Score by total roll credit / SPY basis, annualized — same metric as summary
-              let yld = null;
-              if (r?.rolls?.length >= 2 && r.stratYld !== undefined) {
-                yld = r.stratYld;
+          for (const persist of persists) {
+            for (const otm of otms) {
+              logMsg(`⟳ Sweeping decay=${decay}% dte=${floor}d Δ=${delta} persist=${persist}d otm=${(otm*100).toFixed(0)}%...`);
+              try {
+                _gaps = [];
+                const maxLookahead = parseInt($('lookahead-select')?.value || '90');
+                const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, deltaPersistDays:persist, otmFixed:otm, shares, maxRolls:null, maxLookahead });
+                // Score by total roll credit / SPY basis, annualized — same metric as summary
+                let yld = null;
+                if (r?.rolls?.length >= 2 && r.stratYld !== undefined) {
+                  yld = r.stratYld;
+                }
+                if (yld !== null && (allResults.grid[decay][floor] === null || yld > allResults.grid[decay][floor])) {
+                  allResults.grid[decay][floor] = yld;
+                }
+                allResults.rows.push({ decay, floor, delta, persist, otm, yld, rolls: r?.rolls?.length ?? 0 });
+                if (yld !== null && yld > allResults.bestYld) {
+                  allResults.bestYld = yld;
+                  allResults.best = { decay, floor, delta, persist, otm };
+                }
+              } catch(innerErr) {
+                const msg = `\u2717 Error decay=${decay} floor=${floor}: ${innerErr.message}`;
+                logMsg(msg,'err');
+                console.error(msg, innerErr);
               }
-              if (yld !== null && (allResults.grid[decay][floor] === null || yld > allResults.grid[decay][floor])) {
-                allResults.grid[decay][floor] = yld;
-              }
-              allResults.rows.push({ decay, floor, delta, otm, yld, rolls: r?.rolls?.length ?? 0 });
-              if (yld !== null && yld > allResults.bestYld) {
-                allResults.bestYld = yld;
-                allResults.best = { decay, floor, delta, otm };
-              }
-            } catch(innerErr) {
-              const msg = `\u2717 Error decay=${decay} floor=${floor}: ${innerErr.message}`;
-              logMsg(msg,'err');
-              console.error(msg, innerErr);
+              done++;
+              setProgress(5+Math.round((done/total)*90));
+              await yield_();
             }
-            done++;
-            setProgress(5+Math.round((done/total)*90));
-            await yield_();
           }
         }
       }
@@ -1593,10 +1618,10 @@ async function runOptimization() {
     _optParams = b ? { decayTrigger:b.decay, dteFloor:b.floor, deltaThreshold:b.delta, otmFixed:b.otm } : { ...STD };
 
     if (b) {
-      logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + ' / otm=' + (b.otm*100).toFixed(0) + '% \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld', 'ok');
+      logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + ' / persist=' + b.persist + 'd / otm=' + (b.otm*100).toFixed(0) + '% \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld', 'ok');
 
       // Store winner for publish button
-      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, optAnnYield: allResults.bestYld };
+      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, deltaPersistDays: b.persist, otmTarget: b.otm, optAnnYield: allResults.bestYld };
       const btn = $('publish-btn');
       if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
         btn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
@@ -1607,7 +1632,7 @@ async function runOptimization() {
       // the optimizer's chosen configuration, not just the heatmap grid.
       const _winMaxLookahead = parseInt($('lookahead-select')?.value || '90');
       const winResult = await simulate({ ...STD, decayTrigger:b.decay, dteFloor:b.floor,
-        deltaThreshold:b.delta, otmFixed:b.otm, shares, maxRolls:null, maxLookahead:_winMaxLookahead });
+        deltaThreshold:b.delta, deltaPersistDays:b.persist, otmFixed:b.otm, shares, maxRolls:null, maxLookahead:_winMaxLookahead });
       if (winResult) {
         lastResult = winResult;
         buildRollSnapshots(winResult);
@@ -1629,16 +1654,17 @@ async function runOptimization() {
     
     
     
-    renderOptResults(allResults, decays, floors, deltas, otms);
+    renderOptResults(allResults, decays, floors, deltas, persists, otms);
     updateParamDisplay();
 
     // Update var cards with winning values
     if (b) {
       const cardUpdates = {
-        decay: b.decay + '%',
-        dte:   b.floor + 'd',
-        delta: b.delta?.toFixed(2),
-        otm:   b.otm ? (b.otm*100).toFixed(0)+'%' : null,
+        decay:   b.decay + '%',
+        dte:     b.floor + 'd',
+        delta:   b.delta?.toFixed(2),
+        persist: b.persist ? b.persist + 'd' : null,
+        otm:     b.otm ? (b.otm*100).toFixed(0)+'%' : null,
       };
       for (const [v, winVal] of Object.entries(cardUpdates)) {
         if (!_sweepVars[v] || !winVal) continue;
@@ -2104,7 +2130,7 @@ function renderRollCandidates() {
   </div>`;
 }
 
-function renderOptResults(results, decays, floors, deltas, otms) {
+function renderOptResults(results, decays, floors, deltas, persists, otms) {
   const TOP_N = 8;
 
   // results.rows has every combo; sort by yield descending
@@ -2119,8 +2145,9 @@ function renderOptResults(results, decays, floors, deltas, otms) {
   const b = results.best;
   const bestStr = b
     ? `\u2605 Best: decay=${b.decay}% / dte=${b.floor}d`
-      + (b.delta && _sweepVars.delta ? ` / \u0394${b.delta}` : '')
-      + (b.otm   && _sweepVars.otm   ? ` / otm=${(b.otm*100).toFixed(0)}%` : '')
+      + (b.delta   && _sweepVars.delta   ? ` / \u0394${b.delta}` : '')
+      + (b.persist && _sweepVars.persist ? ` / persist=${b.persist}d` : '')
+      + (b.otm     && _sweepVars.otm     ? ` / otm=${(b.otm*100).toFixed(0)}%` : '')
       + ` \u2192 ${results.bestYld.toFixed(1)}% ann.yld`
     : '\u26a0 No qualifying results';
 
@@ -2141,14 +2168,15 @@ function renderOptResults(results, decays, floors, deltas, otms) {
       </tr></thead><tbody>`;
 
     for (const row of top) {
-      const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.otm === b.otm;
+      const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.persist === b.persist && row.otm === b.otm;
       const vsDelta  = stdYld !== null ? row.yld - stdYld : null;
       const vsStr    = vsDelta !== null ? (vsDelta >= 0 ? '+' : '') + vsDelta.toFixed(1) + '%' : '\u2014';
       const vsClass  = vsDelta === null ? 'muted' : vsDelta >= 0 ? 'green' : 'red';
       const yldClass = row.yld >= 3 ? 'green' : row.yld >= 0 ? 'yellow' : 'red';
       const paramStr = `decay=${row.decay}% / dte=${row.floor}d`
-        + (row.delta && _sweepVars.delta ? ` / \u0394${row.delta}` : '')
-        + (row.otm   && _sweepVars.otm   ? ` / otm=${(row.otm*100).toFixed(0)}%` : '');
+        + (row.delta   && _sweepVars.delta   ? ` / \u0394${row.delta}` : '')
+        + (row.persist && _sweepVars.persist ? ` / persist=${row.persist}d` : '')
+        + (row.otm     && _sweepVars.otm     ? ` / otm=${(row.otm*100).toFixed(0)}%` : '');
       const winFlag  = isBest ? ' <span style="color:var(--green);font-size:9px;">\u2605</span>' : '';
 
       html += `<tr class="${isBest ? 'opt-best' : ''}">
