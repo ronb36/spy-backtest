@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.2.0 · Combined Run/Publish button (state-based); removed obsolete Backfill (DM scheme now standardized); fixed grid-height jump on param toggle</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.3.1 · Add VIX regime distribution log after STD runs — checks sample size per bucket before reviving regime-based optimization</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -170,11 +170,11 @@ select.display-box { cursor:pointer; outline:none; }
           <div class="stat-sub" id="vsub-decay">Click to optimize</div>
         </div>
         <div id="vrange-decay" style="display:none;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
-          <input type="number" id="vmin-decay" value="10" min="0" max="100" step="5" onchange="updateSweepRange('decay')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vmin-decay" value="15" min="0" max="100" step="5" onchange="updateSweepRange('decay')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
-          <input type="number" id="vmax-decay" value="90" min="0" max="100" step="5" onchange="updateSweepRange('decay')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vmax-decay" value="35" min="0" max="100" step="5" onchange="updateSweepRange('decay')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">step</span>
-          <input type="number" id="vstep-decay" value="10" min="1" max="50" step="1" onchange="updateSweepRange('decay')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vstep-decay" value="2" min="1" max="50" step="1" onchange="updateSweepRange('decay')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
       <div class="stat-card var-card" id="vcard-dte" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
@@ -184,11 +184,11 @@ select.display-box { cursor:pointer; outline:none; }
           <div class="stat-sub" id="vsub-dte">Click to optimize</div>
         </div>
         <div id="vrange-dte" style="display:none;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
-          <input type="number" id="vmin-dte" value="7" min="1" max="180" step="1" onchange="updateSweepRange('dte')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vmin-dte" value="21" min="1" max="180" step="1" onchange="updateSweepRange('dte')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
-          <input type="number" id="vmax-dte" value="75" min="1" max="180" step="1" onchange="updateSweepRange('dte')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vmax-dte" value="45" min="1" max="180" step="1" onchange="updateSweepRange('dte')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">step</span>
-          <input type="number" id="vstep-dte" value="7" min="1" max="50" step="1" onchange="updateSweepRange('dte')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vstep-dte" value="3" min="1" max="50" step="1" onchange="updateSweepRange('dte')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
       <div class="stat-card var-card" id="vcard-delta" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
@@ -198,11 +198,11 @@ select.display-box { cursor:pointer; outline:none; }
           <div class="stat-sub" id="vsub-delta">Click to optimize</div>
         </div>
         <div id="vrange-delta" style="display:none;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
-          <input type="number" id="vmin-delta" value="0.20" min="0.05" max="0.95" step="0.05" onchange="updateSweepRange('delta')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vmin-delta" value="0.25" min="0.05" max="0.95" step="0.05" onchange="updateSweepRange('delta')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
-          <input type="number" id="vmax-delta" value="0.40" min="0.05" max="0.95" step="0.05" onchange="updateSweepRange('delta')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vmax-delta" value="0.35" min="0.05" max="0.95" step="0.05" onchange="updateSweepRange('delta')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">step</span>
-          <input type="number" id="vstep-delta" value="0.05" min="0.01" max="0.5" step="0.01" onchange="updateSweepRange('delta')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vstep-delta" value="0.025" min="0.01" max="0.5" step="0.01" onchange="updateSweepRange('delta')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
       <div class="stat-card var-card" id="vcard-otm" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
@@ -621,7 +621,9 @@ function flushLogBuffer() {
   _logBuffer = [];
 }
 function logMsg(msg, cls='') {
-  _logBuffer.push({ msg, cls });
+  const now = new Date();
+  const ts = now.toLocaleTimeString('en-US', { hour12:false }) + '.' + String(now.getMilliseconds()).padStart(3,'0');
+  _logBuffer.push({ msg: `[${ts}] ${msg}`, cls });
   if (_logBuffer.length >= 200) { flushLogBuffer(); return; } // safety valve if rAF is starved
   if (!_logFlushScheduled) {
     _logFlushScheduled = true;
@@ -708,15 +710,19 @@ function getSweepGrid() {
 const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 
 // User-editable sweep boundaries — read from the min/max/step inputs on each
-// OPT card. Defaults match the prior hardcoded grid; user can narrow or
-// widen any dimension live without touching code. Avoids data-starvation
-// runs like dte=75-90d with a 90d lookahead producing misleading "winners"
-// from a handful of surviving combos.
+// OPT card. Defaults are narrowed around the known-good region (decay=25%,
+// dte=30d, delta=0.30 — the stable, non-fluke 3.5% baseline) rather than the
+// originally wide ranges. Wide ranges (decay 10-90, dte up to 75-90) kept
+// surfacing thin, lucky pockets — e.g. dte=63-70d where most decay/delta
+// combos fail with "No contract found" and the rare survivor wins on a
+// technicality (10-11 cycles vs. the ~65-87 stable sample). Narrowing the
+// search space so flukes are never tested is more robust than filtering
+// them out after the fact. User can still widen any dimension live.
 let _sweepConfig = {
-  decay: { min: 10,   max: 90,  step: 10   },
-  dte:   { min: 7,    max: 75,  step: 7    },
-  delta: { min: 0.20, max: 0.40, step: 0.05 },
-  otm:   { min: 0.01, max: 0.10, step: 0.02 },
+  decay: { min: 15,   max: 35,   step: 2     },
+  dte:   { min: 21,   max: 45,   step: 3     },
+  delta: { min: 0.25, max: 0.35, step: 0.025 },
+  otm:   { min: 0.01, max: 0.10, step: 0.02  },
 };
 // Frozen copy of the original defaults — used to reset a card's range
 // inputs back to baseline whenever it's toggled off, so manual edits don't
@@ -752,9 +758,9 @@ function updateSweepRange(v) {
 
 // Sweep ranges shown on cards
 const _sweepRanges = {
-  decay: { std: '80%', sweep: '10–90%', debugSweep: '75–80%',     label: 'Decay Trigger' },
-  dte:   { std: '30d', sweep: '7–75d',  debugSweep: '21–30d',     label: 'DTE Floor' },
-  delta: { std: '0.40', sweep: '0.20–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
+  decay: { std: '80%', sweep: '15–35%', debugSweep: '75–80%',     label: 'Decay Trigger' },
+  dte:   { std: '30d', sweep: '21–45d', debugSweep: '21–30d',     label: 'DTE Floor' },
+  delta: { std: '0.40', sweep: '0.25–0.35', debugSweep: '0.30–0.35', label: 'Delta Δ' },
   otm:   { std: '3%',  sweep: '1–10%', debugSweep: '5–7%',        label: 'OTM %' },
 };
 function toggleVar(v) {
@@ -1365,7 +1371,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.2.0 · SPY Covered Call Backtest');
+  logMsg('v3.3.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1379,6 +1385,16 @@ async function runSimulation() {
   buildRollSnapshots(result);
 
   logMsg(`✓ ${result.rolls.length} roll cycles`,'ok');
+  {
+    // Diagnostic: how many cycles fall into each VIX regime bucket? Informs
+    // whether regime-specific param optimization (low/normal/elevated/high)
+    // would have enough samples per bucket to be meaningful, or whether it'd
+    // just be curve-fitting on a handful of observations per regime.
+    const counts = { low:0, normal:0, elevated:0, high:0 };
+    result.rolls.forEach(r => { if (r.entryVix != null) counts[getVIXRegime(r.entryVix)]++; });
+    const total = result.rolls.length;
+    logMsg(`  VIX regime split: low(<15)=${counts.low} · normal(15-20)=${counts.normal} · elevated(20-25)=${counts.elevated} · high(\u226525)=${counts.high} (of ${total} cycles)`, '');
+  }
   setProgress(100);
 
   // Enable publish/backfill via the combined Run/Publish button after STD run
