@@ -4,15 +4,15 @@ SPY Backtest Data Collector
 Collects and maintains a historical data mart for the SPY covered call backtest.
 Runs as a Railway cron service — smart daily run appends new data, inspects the
 DM for missing contracts, and backfills gaps automatically. Idempotent: running
-twice produces the same result. Self-healing: if the data mart is missing or
-corrupted, the daily run rebuilds it from scratch automatically.
+twice produces the same result.
 
 Data collected:
   - SPY daily OHLCV (2 years rolling)
   - VIX daily close (2 years rolling)
-  - Option contracts: 39 strikes (1%–20% OTM, 0.5% steps, $5 grid) x all monthly
-    expiries, anchored to every SPY trading day within each contract's window
+  - Option contracts: 22 strikes (1%–35% OTM in $5 grid) × all monthly expiries
     Each contract: full life history from first available trade date to expiry
+    Strike selection anchored to SPY price at each expiry date (historical)
+    Plus current-SPY-anchored strikes for future expiries
 
 Output: spy_data.json committed to ronb36/spy-backtest via GitHub API (Blobs API
         used for files >1MB to avoid GitHub Contents API size limit)
@@ -21,8 +21,7 @@ Environment variables (Railway):
   POLYGON_KEY     — Polygon/Massive API key
   GITHUB_TOKEN    — Personal access token with repo scope
   GITHUB_REPO     — ronb36/spy-backtest
-  RUN_MODE        — "daily" (default, omit to use default) or "gap" (fill
-                    specific contracts listed in GAP_TICKERS)
+  RUN_MODE        — "daily" (default) or "full" (rebuild from scratch)
 """
 
 import os
@@ -47,15 +46,16 @@ PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 # ── OTM target levels to store per expiry ─────────────────────────────────
 # 0.5% steps from 1%–20%, snapped to $5 grid — matches backfill exactly
 # ~39 strikes per expiry; aligns with yield grid display
-OTM_TARGETS = [round(i * 0.005, 4) for i in range(2, 41)]
-# 0.5% steps from 1.0% to 20.0% → 39 targets, matches in-browser backfill exactly
-# [0.01, 0.015, 0.02, ..., 0.195, 0.20]
+OTM_TARGETS = [
+    0.01, 0.02, 0.03, 0.04, 0.05,        # 1–5%:  tight band, near-ATM rolls
+    0.06, 0.07, 0.08, 0.09, 0.10,        # 6–10%: core covered call range
+    0.11, 0.12, 0.13, 0.14, 0.15,        # 11–15%: extended core
+    0.18, 0.20, 0.22, 0.25,              # 18–25%: defensive / post-crash
+    0.28, 0.30, 0.35,                    # 28–35%: deep OTM tail
+]  # 22 strikes — wider spacing = more unique $5 grid strikes per expiry  # 39 strikes × $5 grid per expiry — continuous surface, no gaps
 
 # ── Rate limiting ──────────────────────────────────────────────────────────
-# No artificial delay between calls — current Polygon plan has no rate limit.
-# If switching to a rate-limited plan, reintroduce time.sleep() between
-# fetch_aggs() calls in Phase 3/4 loops.
-CALL_DELAY = 0  # kept for compatibility; unused
+CALL_DELAY = 0.25   # 4 calls/sec — safely under Polygon's 5/sec limit
 
 
 def log(msg):
@@ -178,6 +178,7 @@ def fetch_option_history(ticker, start, end):
     Returns list of {date, o, h, l, c, v, vw} dicts.
     """
     results = fetch_aggs(ticker, start, end)
+    time.sleep(CALL_DELAY)
     days = []
     for r in results:
         dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
@@ -272,59 +273,122 @@ def dates_in_dataset(records, key="date"):
     return {r[key] for r in records}
 
 
+# ── Full load ──────────────────────────────────────────────────────────────
+def full_load():
+    log("=" * 60)
+    log("FULL LOAD — building 2-year data mart from scratch")
+    log("=" * 60)
+
+    dm         = empty_datamart()
+    start, end = date_range_str(years_back=2)
+
+    # ── SPY ──────────────────────────────────────────────────────────────
+    log(f"Fetching SPY daily OHLCV {start} → {end}...")
+    spy_raw = fetch_aggs("SPY", start, end)
+    time.sleep(CALL_DELAY)
+    for r in spy_raw:
+        dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        dm["spy"].append({"date": dt, "o": r["o"], "h": r["h"],
+                          "l": r["l"], "c": r["c"], "v": r.get("v", 0)})
+    log(f"  ✓ {len(dm['spy'])} SPY trading days")
+
+    # ── VIX ──────────────────────────────────────────────────────────────
+    log(f"Fetching VIX daily close {start} → {end}...")
+    vix_raw = fetch_aggs("I:VIX", start, end)
+    time.sleep(CALL_DELAY)
+    for r in vix_raw:
+        dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        dm["vix"].append({"date": dt, "c": round(r["c"], 2)})
+    log(f"  ✓ {len(dm['vix'])} VIX trading days")
+
+    # ── Options ──────────────────────────────────────────────────────────
+    future_end = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
+    expiries = get_monthly_expiries(start, future_end)
+    total_contracts = len(expiries) * len(OTM_TARGETS)
+    log(f"Processing {len(expiries)} expiries x {len(OTM_TARGETS)} OTM targets = {total_contracts} contracts")
+
+    spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
+    contracts_fetched = 0
+    contract_num = 0
+
+    for exp in expiries:
+        exp_dt = datetime.strptime(exp, "%Y-%m-%d")
+
+        # Use SPY price ON the expiry date (or nearest prior trading day)
+        # For future expiries, use the most recent available SPY price
+        spy_price = None
+        today_iso = date.today().strftime("%Y-%m-%d")
+        lookup_anchor = min(exp, today_iso)  # don't look past today for future expiries
+        lookup_dt = datetime.strptime(lookup_anchor, "%Y-%m-%d")
+        for days_back in range(0, 30):
+            d = (lookup_dt - timedelta(days=days_back)).strftime("%Y-%m-%d")
+            if d in spy_by_date:
+                spy_price = spy_by_date[d]
+                break
+        if not spy_price:
+            log(f"  No SPY price found near {exp}, skipping")
+            continue
+
+        # Full contract life: from max(start, expiry-365) to min(expiry, today)
+        opt_start = max(start, (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
+        opt_end   = min(exp, date.today().strftime("%Y-%m-%d"))
+
+        log(f"  {exp} — SPY=${spy_price:.2f} → strikes: " +
+            ", ".join(f"${find_nearest_strike(spy_price, p)}" for p in OTM_TARGETS))
+
+        for otm_pct in OTM_TARGETS:
+            contract_num += 1
+            strike = find_nearest_strike(spy_price, otm_pct)
+            ticker = build_option_ticker(exp, strike)
+            log(f"  [{contract_num}/{total_contracts}] {ticker} ({otm_pct*100:.0f}% OTM @ ${strike}) {opt_start} to {opt_end}...")
+            days = fetch_option_history(ticker, opt_start, opt_end)
+            if days:
+                first_day_spy = spy_by_date.get(days[0]["date"], spy_price)
+                dm["options"][ticker] = {
+                    "strike":    strike,
+                    "expiry":    exp,
+                    "otm_pct":   otm_pct,
+                    "entry_spy": first_day_spy,
+                    "days":      days,
+                }
+                contracts_fetched += 1
+                log(f"    {len(days)} trading days")
+            else:
+                log(f"    No data returned")
+
+    log(f"Full load complete: SPY {len(dm['spy'])} days | VIX {len(dm['vix'])} days | Options {contracts_fetched}/{total_contracts} contracts")
+    dm["metadata"]["last_updated"] = today_str()
+    dm["metadata"]["otm_targets"]  = OTM_TARGETS
+    return dm
+
+
 # ── Daily append + smart inspection ───────────────────────────────────────
 def daily_append(dm):
     """
-    Smart daily run — self-healing, four phases:
-    1. Append SPY/VIX OHLCV (full 2-year history if DM is empty, else just
-       today's close)
-    2. Append today's day to all existing option contracts
-    3. Inspect DM vs full expected contract set (every expiry x every SPY
-       trading day in that expiry's window) — backfill any gaps with each
-       contract's complete history from its true earliest possible date
-    4. Add new future-expiry strikes as current SPY moves
-
-    Cron is scheduled to run at 10pm ET — well after the 4:00/4:15pm ET
-    official close, so today's trading day is already final and safe to
-    fetch directly (no need to wait for "yesterday"). This means tomorrow's
-    market open already has today's close available, rather than lagging
-    a full day behind.
-
-    Running twice in a row is safe — second run finds nothing new to do.
-    Running against an empty datamart builds the complete DM from scratch.
+    Smart daily run — three phases:
+    1. Append yesterday's OHLCV to all existing contracts
+    2. Inspect DM vs expected contract set — backfill any gaps
+       (uses historical SPY price anchored to each expiry date)
+    3. Add new future expiry strikes based on current SPY
+    Running twice in a row is safe — second run finds nothing to do.
     """
     log("=" * 60)
     log("DAILY SMART RUN — append + inspect + backfill")
     log("=" * 60)
 
     today_iso  = today_str()
-    target_date = today_iso  # cron runs 10pm ET, after the official 4pm/4:15pm close —
-                              # today's trading day is already final, fetch it directly
+    yesterday  = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     two_yr_ago = (date.today() - timedelta(days=730)).strftime("%Y-%m-%d")
 
     # ── Build SPY lookup ──────────────────────────────────────────────────
     spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
 
-    # ── Phase 1: SPY/VIX append (full 2yr history if DM is empty) ─────────
+    # ── Phase 1: SPY daily append ─────────────────────────────────────────
     existing_spy_dates = dates_in_dataset(dm["spy"])
-    if not dm["spy"]:
-        log(f"Phase 1: Empty DM — fetching full 2-year SPY/VIX history {two_yr_ago} → {today_iso}...")
-        results = fetch_aggs("SPY", two_yr_ago, today_iso)
-        for r in results:
-            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
-            dm["spy"].append({"date": dt, "o": r["o"], "h": r["h"],
-                              "l": r["l"], "c": r["c"], "v": r.get("v", 0)})
-        existing_spy_dates = dates_in_dataset(dm["spy"])
-        log(f"  ✓ {len(dm['spy'])} SPY trading days loaded")
-
-        vix_results = fetch_aggs("I:VIX", two_yr_ago, today_iso)
-        for r in vix_results:
-            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
-            dm["vix"].append({"date": dt, "c": round(r["c"], 2)})
-        log(f"  ✓ {len(dm['vix'])} VIX trading days loaded")
-    elif target_date not in existing_spy_dates:
-        log(f"Phase 1: Appending SPY/VIX for {target_date}...")
-        results = fetch_aggs("SPY", target_date, target_date)
+    if yesterday not in existing_spy_dates:
+        log(f"Phase 1: Appending SPY/VIX for {yesterday}...")
+        results = fetch_aggs("SPY", yesterday, yesterday)
+        time.sleep(CALL_DELAY)
         for r in results:
             dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
             if dt not in existing_spy_dates:
@@ -333,11 +397,12 @@ def daily_append(dm):
                 spy_by_date[dt] = r["c"]
                 log(f"  ✓ SPY {dt} close ${r['c']:.2f}")
     else:
-        log(f"Phase 1: SPY {target_date} already present")
+        log(f"Phase 1: SPY {yesterday} already present")
 
     existing_vix_dates = dates_in_dataset(dm["vix"])
-    if target_date not in existing_vix_dates and dm["vix"]:
-        results = fetch_aggs("I:VIX", target_date, target_date)
+    if yesterday not in existing_vix_dates:
+        results = fetch_aggs("I:VIX", yesterday, yesterday)
+        time.sleep(CALL_DELAY)
         for r in results:
             dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
             if dt not in existing_vix_dates:
@@ -348,18 +413,19 @@ def daily_append(dm):
     spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
 
     # Current SPY — used in both Phase 3 and Phase 4
-    current_spy = spy_by_date.get(target_date) or spy_by_date.get(max(spy_by_date.keys()))
+    current_spy = spy_by_date.get(yesterday) or spy_by_date.get(max(spy_by_date.keys()))
     log(f"  Current SPY: ${current_spy:.2f}")
 
-    # ── Phase 2: Append today to existing option contracts ────────────────
-    log(f"Phase 2: Appending {target_date} to existing contracts...")
+    # ── Phase 2: Append yesterday to existing option contracts ────────────
+    log(f"Phase 2: Appending yesterday to existing contracts...")
     appended = 0
     for ticker, contract in dm["options"].items():
         existing_dates = dates_in_dataset(contract["days"])
         expiry = contract["expiry"]
-        if target_date > expiry or target_date in existing_dates:
+        if yesterday > expiry or yesterday in existing_dates:
             continue
-        results = fetch_aggs(ticker, target_date, target_date)
+        results = fetch_aggs(ticker, yesterday, yesterday)
+        time.sleep(CALL_DELAY)
         for r in results:
             dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
             if dt not in existing_dates:
@@ -408,6 +474,7 @@ def daily_append(dm):
     missing      = 0
     already_have = 0
     no_data      = 0
+    no_data_tickers = []  # collect for pattern analysis after loop
 
     existing_tickers = set(dm["options"].keys())
 
@@ -422,6 +489,7 @@ def daily_append(dm):
         for ticker in sorted(missing_tickers):
             strike    = int(ticker[-8:]) / 1000
             days_data = fetch_option_history(ticker, hist_start, hist_end)
+            time.sleep(CALL_DELAY)
             if days_data:
                 # Use SPY price nearest to first day of data as entry_spy
                 first_date = days_data[0]["date"]
@@ -438,8 +506,31 @@ def daily_append(dm):
                 log(f"  + {ticker} ({len(days_data)}d)")
             else:
                 no_data += 1
+                # Track for pattern analysis — logged after inspection completes
+                no_data_tickers.append((ticker, strike, exp, hist_start))
 
     log(f"  ✓ Inspection complete — {already_have} present, {missing} filled, {no_data} not in Polygon")
+
+    # Diagnostic: show pattern in the not-in-Polygon contracts so we can
+    # understand whether it's a config issue (OTM_TARGETS too wide, expiry
+    # window too broad) rather than building a permanent exclusion list.
+    if no_data_tickers:
+        # Group by approximate OTM% bucket to reveal structural pattern
+        from collections import defaultdict
+        by_otm = defaultdict(list)
+        by_exp = defaultdict(int)
+        for ticker, strike, exp, hist_start in no_data_tickers:
+            # Reconstruct approximate OTM% from strike vs SPY on hist_start date
+            anchor_spy = spy_by_date.get(hist_start, current_spy)
+            approx_otm = round((strike / anchor_spy - 1) * 100, 1)
+            bucket = f"{int(approx_otm//5)*5}-{int(approx_otm//5)*5+5}% OTM"
+            by_otm[bucket].append(strike)
+            by_exp[exp] += 1
+        log(f"  Not-in-Polygon breakdown by OTM bucket:")
+        for bucket in sorted(by_otm.keys()):
+            log(f"    {bucket}: {len(by_otm[bucket])} contracts")
+        top_exp = sorted(by_exp.items(), key=lambda x: -x[1])[:5]
+        log(f"  Top expiries with missing contracts: {', '.join(f'{e}({n})' for e,n in top_exp)}")
 
     # ── Phase 4: Add new future strikes if SPY has moved ─────────────────
     # Ensures current-SPY strikes exist for all upcoming expiries
@@ -457,6 +548,7 @@ def daily_append(dm):
             if ticker in dm["options"]:
                 continue
             days_data = fetch_option_history(ticker, hist_start, today_iso)
+            time.sleep(CALL_DELAY)
             if days_data:
                 dm["options"][ticker] = {
                     "strike":    strike,
@@ -474,7 +566,6 @@ def daily_append(dm):
     dm["metadata"]["last_updated"] = today_iso
     dm["metadata"]["otm_targets"]  = OTM_TARGETS
     return dm
-
 
 
 # ── Gap fill ──────────────────────────────────────────────────────────────
@@ -542,12 +633,10 @@ if __name__ == "__main__":
     log("SPY Backtest Data Collector starting...")
     log(f"Mode: {RUN_MODE.upper()} | Repo: {GITHUB_REPO}")
 
-# ── Main ───────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    log("SPY Backtest Data Collector starting...")
-    log(f"Mode: {RUN_MODE.upper()} | Repo: {GITHUB_REPO}")
-
-    if RUN_MODE == "gap":
+    if RUN_MODE == "full":
+        # Full load from scratch
+        dm = full_load()
+    elif RUN_MODE == "gap":
         # Gap fill — fetch specific missing contracts from GAP_TICKERS env var
         dm, sha = github_get_file(DATA_PATH)
         if dm is None:
@@ -555,24 +644,21 @@ if __name__ == "__main__":
             exit(1)
         dm = gap_fill(dm)
     else:
-        # Daily append — load existing data first.
-        # If missing/corrupted, self-heal: daily_append builds the complete
-        # DM from scratch (full 2yr SPY/VIX, full daily-anchored contract
-        # set, future strikes) when handed an empty datamart.
+        # Daily append — load existing data first
         log("Loading existing data mart from GitHub...")
         dm, sha = github_get_file(DATA_PATH)
         if dm is None:
-            log("No existing data found — building from scratch via daily_append")
-            dm = empty_datamart()
+            log("No existing data found — switching to full load")
+            dm  = full_load()
+            sha = None
         else:
             log(f"  ✓ Loaded — last updated: {dm['metadata'].get('last_updated', 'unknown')}")
             log(f"  SPY: {len(dm['spy'])} days | VIX: {len(dm['vix'])} days | "
                 f"Options: {len(dm['options'])} contracts")
-        dm = daily_append(dm)
+            dm = daily_append(dm)
 
     # Commit to GitHub
-    json_size_mb = len(json.dumps(dm)) / 1024 / 1024
-    log(f"Committing data mart to GitHub... ({json_size_mb:.1f} MB, {len(dm['options'])} contracts)")
+    log("Committing data mart to GitHub...")
     existing, sha = github_get_file(DATA_PATH)
     msg = f"Data update {today_str()} — {RUN_MODE} load"
     success = github_commit_file(DATA_PATH, dm, msg, sha=sha)
@@ -580,16 +666,23 @@ if __name__ == "__main__":
 
     # Pushover notification
     if success:
+        spy_count = len(dm["spy"])
         opt_count = len(dm["options"])
         last_spy  = dm["spy"][-1] if dm["spy"] else {}
         spy_close = last_spy.get("c", "—")
         spy_date  = last_spy.get("date", "—")
-        if RUN_MODE == "gap":
+        otm_str   = ", ".join(str(int(t*100))+"%" for t in OTM_TARGETS)
+        if RUN_MODE == "full":
+            body = ("Full load complete\n"
+                    f"SPY {spy_count} days | VIX {len(dm['vix'])} days | {opt_count} contracts\n"
+                    f"OTM targets: {otm_str}")
+        elif RUN_MODE == "gap":
+            gap_count = len(os.environ.get("GAP_TICKERS","").split(","))
             body = (f"Gap fill complete\n"
                     f"{opt_count} total contracts in mart\n"
                     f"Clear GAP_TICKERS in Railway variables")
         else:
             body = ("Daily append complete\n"
                     f"SPY ${spy_close} ({spy_date})\n"
-                    f"{opt_count} contracts · {json_size_mb:.1f} MB through {spy_date}")
+                    f"{opt_count} contracts tracked through {spy_date}")
         send_push("📊 SPY Data Mart", body)
