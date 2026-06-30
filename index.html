@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.1.0 · Add Max Edge % control — excludes OPT winners that lean too heavily on DM-edge candidates</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.2.0 · Combined Run/Publish button (state-based); removed obsolete Backfill (DM scheme now standardized); fixed grid-height jump on param toggle</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -163,13 +163,13 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Row 1: sweepable param cards -->
     <div id="var-card-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
-      <div class="stat-card var-card" id="vcard-decay" style="position:relative;">
+      <div class="stat-card var-card" id="vcard-decay" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
         <div onclick="toggleVar('decay')" style="cursor:pointer;">
           <div class="stat-label">Decay Trigger</div>
           <div class="stat-value accent" id="vval-decay" style="font-size:14px;">80%</div>
           <div class="stat-sub" id="vsub-decay">Click to optimize</div>
         </div>
-        <div id="vrange-decay" style="display:none;margin-top:6px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+        <div id="vrange-decay" style="display:none;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
           <input type="number" id="vmin-decay" value="10" min="0" max="100" step="5" onchange="updateSweepRange('decay')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
           <input type="number" id="vmax-decay" value="90" min="0" max="100" step="5" onchange="updateSweepRange('decay')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
@@ -177,13 +177,13 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-decay" value="10" min="1" max="50" step="1" onchange="updateSweepRange('decay')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-dte" style="position:relative;">
+      <div class="stat-card var-card" id="vcard-dte" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
         <div onclick="toggleVar('dte')" style="cursor:pointer;">
           <div class="stat-label">DTE Floor</div>
           <div class="stat-value accent" id="vval-dte" style="font-size:14px;">30d</div>
           <div class="stat-sub" id="vsub-dte">Click to optimize</div>
         </div>
-        <div id="vrange-dte" style="display:none;margin-top:6px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+        <div id="vrange-dte" style="display:none;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
           <input type="number" id="vmin-dte" value="7" min="1" max="180" step="1" onchange="updateSweepRange('dte')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
           <input type="number" id="vmax-dte" value="75" min="1" max="180" step="1" onchange="updateSweepRange('dte')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
@@ -191,13 +191,13 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-dte" value="7" min="1" max="50" step="1" onchange="updateSweepRange('dte')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-delta" style="position:relative;">
+      <div class="stat-card var-card" id="vcard-delta" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
         <div onclick="toggleVar('delta')" style="cursor:pointer;">
           <div class="stat-label">Delta Δ</div>
           <div class="stat-value accent" id="vval-delta" style="font-size:14px;">0.40</div>
           <div class="stat-sub" id="vsub-delta">Click to optimize</div>
         </div>
-        <div id="vrange-delta" style="display:none;margin-top:6px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+        <div id="vrange-delta" style="display:none;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
           <input type="number" id="vmin-delta" value="0.20" min="0.05" max="0.95" step="0.05" onchange="updateSweepRange('delta')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
           <input type="number" id="vmax-delta" value="0.40" min="0.05" max="0.95" step="0.05" onchange="updateSweepRange('delta')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
@@ -205,13 +205,13 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-delta" value="0.05" min="0.01" max="0.5" step="0.01" onchange="updateSweepRange('delta')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-otm" style="position:relative;">
+      <div class="stat-card var-card" id="vcard-otm" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;">
         <div onclick="toggleVar('otm')" style="cursor:pointer;">
           <div class="stat-label">OTM %</div>
           <div class="stat-value accent" id="vval-otm" style="font-size:14px;">3%</div>
           <div class="stat-sub" id="vsub-otm">Click to optimize</div>
         </div>
-        <div id="vrange-otm" style="display:none;margin-top:6px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+        <div id="vrange-otm" style="display:none;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
           <input type="number" id="vmin-otm" value="1" min="1" max="35" step="1" onchange="updateSweepRange('otm')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
           <input type="number" id="vmax-otm" value="10" min="1" max="35" step="1" onchange="updateSweepRange('otm')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
@@ -222,8 +222,8 @@ select.display-box { cursor:pointer; outline:none; }
     </div>
 
 
-    <!-- Row 2: controls + run — fixed height so border state changes don't affect layout -->
-    <div id="controls-row" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;grid-auto-rows:80px;">
+    <!-- Row 2: dropdowns + combined Run/Publish button -->
+    <div id="controls-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;grid-auto-rows:80px;">
       <div class="stat-card" id="roll-limit-card" style="height:80px;box-sizing:border-box;">
         <div class="stat-label">Roll Limit</div>
         <div style="margin-top:6px;">
@@ -267,18 +267,12 @@ select.display-box { cursor:pointer; outline:none; }
         </div>
         <div class="stat-sub" style="margin-top:4px;">% cycles on DM edge before excluded (100=off)</div>
       </div>
-      <div style="height:80px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
-        <button class="btn" id="run-btn" onclick="handleRun()" disabled
-          style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;padding:0;">
+      <div id="run-publish-card" style="height:80px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
+        <button class="btn" id="run-btn" onclick="handleRunOrPublish()" disabled
+          style="font-family:var(--mono);font-size:13px;letter-spacing:.04em;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;padding:0;line-height:1.3;">
           ▶ Run
         </button>
-        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;color:rgba(255,255,255,.8);padding-bottom:4px;"></div>
-      </div>
-      <div id="publish-card" style="height:80px;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
-        <button id="publish-btn" onclick="handlePublishOrBackfill(event)" disabled
-          style="font-family:var(--mono);font-size:11px;letter-spacing:.04em;width:100%;height:100%;background:transparent;color:var(--text-muted);border:none;cursor:not-allowed;opacity:.4;">
-          ↑ Publish
-        </button>
+        <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;color:rgba(255,255,255,.8);"></div>
       </div>
     </div>
   </div>
@@ -545,21 +539,54 @@ function setProgress(pct) {
   const el = $('progress-bar');
   if (el) el.style.width = pct + '%';
 }
-function setPublishCardEligible(eligible) {
-  const card = $('publish-card');
-  if (card) card.style.borderColor = eligible ? 'var(--accent)' : 'var(--border)';
+// Single source of truth for the combined Run/Publish button.
+// States: 'idle' (Run), 'running' (Running...), 'ready' (Publish — after a
+// completed run with a result to publish), 'published' (Published — after
+// a successful publish), 'publishing' (mid-flight network call).
+function setRunButtonState(state, opts = {}) {
+  const btn  = $('run-btn');
+  const card = $('run-publish-card');
+  if (!btn || !card) return;
+  btn.disabled = false;
+  switch (state) {
+    case 'idle':
+      btn.textContent = '\u25b6 Run';
+      btn.style.color = '#fff'; btn.style.opacity = opts.dmReady === false ? '.4' : '1';
+      btn.style.cursor = opts.dmReady === false ? 'not-allowed' : 'pointer';
+      btn.disabled = opts.dmReady === false;
+      card.style.background = 'var(--accent)'; card.style.border = 'none';
+      break;
+    case 'running':
+      btn.textContent = '\u25b6 Running...';
+      btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'wait';
+      btn.disabled = true;
+      card.style.background = 'var(--accent)'; card.style.border = 'none';
+      break;
+    case 'ready':
+      btn.textContent = '\u2191 Publish';
+      btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+      card.style.background = 'var(--green)'; card.style.border = 'none';
+      break;
+    case 'publishing':
+      btn.textContent = 'Publishing...';
+      btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'wait';
+      btn.disabled = true;
+      card.style.background = 'var(--green)'; card.style.border = 'none';
+      break;
+    case 'published':
+      btn.textContent = '\u2713 Published';
+      btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'default';
+      btn.disabled = true;
+      card.style.background = 'var(--green)'; card.style.border = 'none';
+      break;
+  }
 }
 function onConfigChanged() {
   // A run/lookahead/sweep config control changed after a result was already
   // shown — that result no longer reflects the current settings. Reset the
-  // progress bar and publish eligibility so it's clear a fresh run is needed.
+  // progress bar and revert the combined button back to "Run".
   setProgress(0);
-  setPublishCardEligible(false);
-  const pub = $('publish-btn');
-  if (pub && !pub.disabled) {
-    pub.disabled = true; pub.style.opacity = '.4'; pub.style.color = 'var(--text-muted)';
-    pub.style.cursor = 'not-allowed'; pub.textContent = '↑ Publish';
-  }
+  setRunButtonState('idle');
 }
 function hideProgressPanel() {
   setTimeout(() => {
@@ -816,21 +843,26 @@ function setMode(m) {
   updateParamDisplay();
 }
 
-async function handleRun() {
+async function handleRunOrPublish() {
+  const btn = $('run-btn');
+  const currentLabel = btn?.textContent?.trim() || '';
+  // If the button currently reads Publish, dispatch to that flow instead of
+  // starting a new backtest run.
+  if (currentLabel.includes('Publish')) {
+    handlePublish();
+    return;
+  }
+  if (currentLabel.includes('Published')) return; // terminal state, no-op
+
   _mode = 'test';
   $('progress-log').textContent = ''; $('runlog-mirror').textContent = '';
   const mirror = $('runlog-mirror');
   if (mirror) mirror.innerHTML = '';
-  const pub = $('publish-btn');
-  if (pub) { pub.disabled = true; pub.style.opacity = '.4'; pub.style.color = 'var(--text-muted)'; pub.style.cursor = 'not-allowed'; pub.textContent = '↑ Publish'; }
-  setPublishCardEligible(false);
-  const runBtn = $('run-btn');
-  if (runBtn) { runBtn.textContent = '\u25b6 Running...'; runBtn.disabled = true; runBtn.style.cursor = 'wait'; }
+  setRunButtonState('running');
   setProgress(0);
   await yield_();  // let browser paint the reset before run starts
   if (anySweepActive()) await runOptimization();
   else await runSimulation();
-  if (runBtn) { runBtn.textContent = '\u25b6 Run'; runBtn.disabled = false; runBtn.style.cursor = 'pointer'; }
 }
 
 function getVIXRegime(vix) {
@@ -1333,7 +1365,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.1.0 · SPY Covered Call Backtest');
+  logMsg('v3.2.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1349,16 +1381,8 @@ async function runSimulation() {
   logMsg(`✓ ${result.rolls.length} roll cycles`,'ok');
   setProgress(100);
 
-  // Enable publish/backfill button after STD run
-  const _pubBtn = $('publish-btn');
-  if (_pubBtn) {
-    _pubBtn.disabled = false;
-    _pubBtn.style.opacity = '1';
-    _pubBtn.style.cursor = 'pointer';
-    _pubBtn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
-    _pubBtn.style.color = _debugMode ? 'var(--yellow)' : 'var(--accent)';
-  }
-  setPublishCardEligible(true);
+  // Enable publish/backfill via the combined Run/Publish button after STD run
+  setRunButtonState('ready');
   
   
   
@@ -1377,242 +1401,13 @@ async function runSimulation() {
 
 // ── Publish roll_params.json to GitHub ────────────────────────────────────
 
-// ── Backfill Grid ──────────────────────────────────────────────────────────
-// Fetches missing option day records for all trigger dates from Polygon,
-// merges into DM, and publishes updated spy_data.json to GitHub.
-
-const BACKFILL_OTM_MIN   = 0.01;  // 1% OTM
-const BACKFILL_OTM_MAX   = 0.20;  // 20% OTM ceiling
-const BACKFILL_STEP      = 0.005; // 0.5% increments → snapped to $5 grid
-const BACKFILL_MAX_EXP   = 8;     // next 8 monthly expiries per trigger date
-const BACKFILL_DELAY_MS  = 260;   // ~3.8 calls/sec, under Polygon 5/sec limit
-
-function snapStrike(price, otmPct) {
-  const raw = price * (1 + otmPct);
-  return Math.round(raw / 5) * 5;
-}
-
-function buildOptionTicker(expiryISO, strike) {
-  const d = new Date(expiryISO + 'T12:00:00Z');
-  const yy = String(d.getUTCFullYear()).slice(2);
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(d.getUTCDate()).padStart(2, '0');
-  return 'O:SPY' + yy + mm + dd + 'C' + String(Math.round(strike * 1000)).padStart(8, '0');
-}
-
-async function fetchOptionDay(ticker, date) {
-  // Daily agg for a specific date
-  const url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${date}/${date}?adjusted=false&apiKey=${POLYGON_KEY}`;
-  try {
-    const r = await fetch(url);
-    const d = await r.json();
-    if (!d.results || !d.results.length) return null;
-    const bar = d.results[0];
-    return { date, o: bar.o, h: bar.h, l: bar.l, c: bar.c, v: bar.v || 0, vw: bar.vw || bar.c };
-  } catch { return null; }
-}
-
-function computeBackfillTasks() {
-  if (!lastResult?.cycles || !DM) return [];
-
-  const tasks = []; // { ticker, expiry, strike, otmPct, date, cycleLabel }
-
-  // Build existing DM day index: ticker → Set of dates
-  const dmIndex = {};
-  for (const [ticker, opt] of Object.entries(DM.options)) {
-    dmIndex[ticker] = new Set(opt.days.map(d => d.date.trim().slice(0, 10)));
-  }
-
-  const allExpiries = [...new Set(Object.values(DM.options).map(o => o.expiry))].sort();
-  const { cycles, params: p } = lastResult;
-  const spyMap = {};
-  DM.spy.forEach(r => spyMap[r.date] = r.c);
-
-  for (const c of cycles) {
-    const trigDate = c.entryDate?.slice(0, 10);
-    if (!trigDate) continue;
-    const spyPx = c.entrySPY || spyMap[trigDate] || 0;
-    if (!spyPx) continue;
-
-    // Next 8 monthly expiries beyond DTE floor on this date
-    const validExp = allExpiries.filter(exp => {
-      const dte = Math.round((new Date(exp + 'T00:00:00') - new Date(trigDate + 'T00:00:00')) / 86400000);
-      return dte >= p.dteFloor;
-    }).slice(0, BACKFILL_MAX_EXP);
-
-    // Strike grid for this SPY price
-    const strikeSet = new Set();
-    for (let otm = BACKFILL_OTM_MIN; otm <= BACKFILL_OTM_MAX + 0.001; otm += BACKFILL_STEP) {
-      strikeSet.add(snapStrike(spyPx, Math.round(otm * 1000) / 1000));
-    }
-    const strikes = [...strikeSet].sort((a, b) => a - b);
-
-    for (const exp of validExp) {
-      for (const strike of strikes) {
-        const ticker = buildOptionTicker(exp, strike);
-        const alreadyHasDate = dmIndex[ticker]?.has(trigDate);
-        if (!alreadyHasDate) {
-          tasks.push({ ticker, expiry: exp, strike, otmPct: (strike - spyPx) / spyPx, date: trigDate,
-                       cycleLabel: c.isInitial ? 'Intl' : 'R' + cycles.indexOf(c) });
-        }
-      }
-    }
-  }
-
-  // Deduplicate by ticker+date
-  const seen = new Set();
-  return tasks.filter(t => {
-    const k = t.ticker + '|' + t.date;
-    if (seen.has(k)) return false;
-    seen.add(k); return true;
-  });
-}
-
-function mergeBackfillResult(ticker, expiry, strike, otmPct, dayRecord) {
-  if (DM.options[ticker]) {
-    // Contract exists — append day if not already there
-    const existing = DM.options[ticker].days.find(d => d.date.slice(0,10) === dayRecord.date);
-    if (!existing) DM.options[ticker].days.push(dayRecord);
-  } else {
-    // New contract
-    DM.options[ticker] = {
-      strike, expiry,
-      otm_pct: parseFloat(otmPct.toFixed(4)),
-      days: [dayRecord]
-    };
-  }
-}
-
-async function handleBackfill() {
-  const btn = $('publish-btn');
-
-  // Get PAT
-  let pat = localStorage.getItem('gh_pat');
-  if (!pat) {
-    pat = window.prompt('Enter your GitHub fine-grained PAT (needed to read and write spy_data.json):');
-    if (!pat) return;
-    localStorage.setItem('gh_pat', pat.trim());
-  }
-  pat = pat.trim();
-
-  // Compute what's needed
-  logMsg('Backfill: analysing trigger dates...', '');
-  await new Promise(r => setTimeout(r, 10));
-  const tasks = computeBackfillTasks();
-
-  if (!tasks.length) {
-    logMsg('Backfill: nothing missing — DM already has all cells for these trigger dates.', 'ok');
-    return;
-  }
-
-  // Preview confirm
-  const expiries = [...new Set(tasks.map(t => t.expiry))].length;
-  const strikes  = [...new Set(tasks.map(t => t.strike))].length;
-  const ok = window.confirm(
-    `Backfill: ${tasks.length} missing cells across ${expiries} expiries / ${strikes} strikes\n` +
-    `Estimated time: ~${Math.ceil(tasks.length * BACKFILL_DELAY_MS / 60000)} minutes\n\nProceed?`
-  );
-  if (!ok) return;
-
-  if (btn) { btn.disabled = true; btn.textContent = '⬇ Backfilling...'; }
-
-  // Fetch loop
-  let fetched = 0, filled = 0, failed = 0;
-  const total = tasks.length;
-
-  for (const task of tasks) {
-    fetched++;
-    if (fetched % 20 === 0 || fetched === 1) {
-      logMsg(`Backfill: ${fetched}/${total} · ${task.cycleLabel} · ${task.ticker}`, '');
-      await new Promise(r => setTimeout(r, 0)); // yield to UI
-    }
-
-    const day = await fetchOptionDay(task.ticker, task.date);
-    if (day) {
-      mergeBackfillResult(task.ticker, task.expiry, task.strike, task.otmPct, day);
-      filled++;
-    } else {
-      failed++;
-    }
-
-    await new Promise(r => setTimeout(r, BACKFILL_DELAY_MS));
-  }
-
-  logMsg(`Backfill complete: ${filled} filled · ${failed} not in Polygon (genuinely missing) · publishing...`, 'ok');
-  await new Promise(r => setTimeout(r, 100));
-
-  // Publish updated DM to GitHub
-  try {
-    const gh  = { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json' };
-    const url = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + DATA_FILE;
-
-    // Get current SHA
-    const meta = await (await fetch(url, { headers: gh })).json();
-    if (!meta.sha) throw new Error('Could not get DM file SHA — check PAT has Contents write on spy-backtest');
-
-    // Serialize and encode
-    const today = new Date().toISOString().slice(0, 10);
-    DM.metadata = DM.metadata || {};
-    DM.metadata.last_updated = today;
-    DM.metadata.backfill_date = today;
-
-    const json    = JSON.stringify(DM);
-    const encoded = btoa(unescape(encodeURIComponent(json))); // handles non-ASCII
-
-    const sizeMB = (json.length / 1024 / 1024).toFixed(1);
-    logMsg(`Publishing DM (${sizeMB} MB)...`, '');
-
-    const put = await fetch(url, {
-      method: 'PUT',
-      headers: Object.assign({ 'Content-Type': 'application/json' }, gh),
-      body: JSON.stringify({
-        message: `Backfill ${filled} option records — ${today}`,
-        content: encoded,
-        sha: meta.sha
-      })
-    });
-
-    if (!put.ok) {
-      const err = await put.json();
-      throw new Error('GitHub ' + put.status + ': ' + (err.message || ''));
-    }
-
-    logMsg(`✓ DM published — ${filled} new records · ${sizeMB} MB · ${today}`, 'ok');
-    if (btn) { btn.textContent = '✓ Backfilled'; btn.style.color = 'var(--green)'; }
-
-    // Rebuild roll snapshots with enriched DM
-    if (lastResult) buildRollSnapshots(lastResult);
-
-  } catch(e) {
-    if (e.message.includes('401') || e.message.includes('403')) {
-      localStorage.removeItem('gh_pat');
-      logMsg('✗ Publish failed (auth error) — PAT cleared, try again', 'err');
-    } else {
-      logMsg('✗ Publish failed: ' + e.message, 'err');
-    }
-    if (btn) { btn.disabled = false; btn.textContent = '⬇ Backfill'; btn.style.opacity = '1'; }
-  }
-}
-
-function handlePublishOrBackfill(e) {
-  if (_debugMode) {
-    handleBackfill();
-  } else {
-    handlePublish(e);
-  }
-}
-
 function updatePublishBtn() {
-  const btn = $('publish-btn');
+  const btn = $('run-btn');
   if (!btn) return;
-  // Always update label — whether enabled or disabled
-  if (!btn.disabled) {
-    btn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
-    btn.style.color = _debugMode ? 'var(--yellow)' : 'var(--text)';
-  } else {
-    // Disabled state — update placeholder text too
-    btn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
-    btn.style.color = 'var(--text-muted)';
+  // Only relabel if we're actually in a publish-eligible state (not idle/running)
+  const label = btn.textContent || '';
+  if (label.includes('Publish')) {
+    setRunButtonState(btn.disabled ? 'idle' : 'ready');
   }
 }
 
@@ -1627,13 +1422,12 @@ function handlePublish(e) {
 }
 
 async function publishRollParams(p) {
-  const btn = $('publish-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Publishing...'; }
+  setRunButtonState('publishing');
   try {
     let pat = localStorage.getItem('gh_pat');
     if (!pat) {
       pat = window.prompt('Enter your GitHub fine-grained PAT (Contents read+write on spy-backtest):');
-      if (!pat) { if (btn) { btn.disabled = false; btn.textContent = '↑ Publish'; } return; }
+      if (!pat) { setRunButtonState('ready'); return; }
       localStorage.setItem('gh_pat', pat.trim());
     }
     pat = pat.trim();
@@ -1663,9 +1457,7 @@ async function publishRollParams(p) {
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
     logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% ann. yield · ' + today, 'ok');
-    if (btn) { btn.textContent = '\u2713 Published'; btn.style.color = 'var(--green)'; btn.style.opacity = '1'; }
-    const _pubCard = $('publish-card');
-    if (_pubCard) _pubCard.style.borderColor = 'var(--green)';
+    setRunButtonState('published');
     updateParamDisplay();
   } catch(e) {
     // If auth failed, clear stored PAT so next attempt re-prompts
@@ -1675,8 +1467,7 @@ async function publishRollParams(p) {
     } else {
       logMsg('\u2717 Publish failed: ' + e.message, 'err');
     }
-    if (btn) { btn.disabled = false; btn.textContent = '\u2191 Publish'; btn.style.opacity = '1'; }
-    setPublishCardEligible(true);
+    setRunButtonState('ready');
   }
 }
 
@@ -1780,11 +1571,7 @@ async function runOptimization() {
 
       // Store winner for publish button
       _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, optAnnYield: allResults.bestYld };
-      const btn = $('publish-btn');
-      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
-        btn.textContent = _debugMode ? '⬇ Backfill' : '↑ Publish';
-        btn.style.color = _debugMode ? 'var(--yellow)' : 'var(--accent)'; }
-      setPublishCardEligible(true);
+      setRunButtonState('ready');
 
       // Re-run simulate() with the winning params so summary/blotter reflect
       // the optimizer's chosen configuration, not just the heatmap grid.
@@ -1797,15 +1584,11 @@ async function runOptimization() {
         renderSummary(winResult);
         renderCycleTable(winResult);
         renderGapsTab(_gaps);
-        const _pubBtn = $('publish-btn');
-        if (_pubBtn) {
-          _pubBtn.disabled = false;
-          _pubBtn.style.opacity = '1';
-          _pubBtn.style.cursor = 'pointer';
-        }
+        setRunButtonState('ready');
       }
     } else {
       logMsg('\u26a0 No qualifying results — using STD params', 'err');
+      setRunButtonState('idle');
     }
 
     setProgress(100);
@@ -2627,8 +2410,7 @@ async function loadData() {
     DM = await fetchDM();
     status.textContent=`✓ Data mart loaded — ${DM.spy.length} SPY days · ${Object.keys(DM.options).length} contracts · updated ${DM.metadata?.last_updated}`;
     status.style.color='var(--green)';
-    $('run-btn').disabled=false;
-    $('run-btn').style.opacity='1';
+    setRunButtonState('idle', { dmReady: true });
     await loadRollParams();
     populateInitDates();
     updateParamDisplay();
