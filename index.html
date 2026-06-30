@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.0.1 · DTE default max 60→75d; Run button shows live N/Total progress + "Running..." state</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.0.2 · Fix: sweep range edits now reset to default when a card is toggled off</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -682,6 +682,10 @@ let _sweepConfig = {
   delta: { min: 0.20, max: 0.40, step: 0.05 },
   otm:   { min: 0.01, max: 0.10, step: 0.02 },
 };
+// Frozen copy of the original defaults — used to reset a card's range
+// inputs back to baseline whenever it's toggled off, so manual edits don't
+// silently persist into a later, unrelated sweep.
+const _sweepConfigDefaults = JSON.parse(JSON.stringify(_sweepConfig));
 
 function buildRange(min, max, step) {
   const out = [];
@@ -738,6 +742,22 @@ function toggleVar(v) {
   // Show/hide the min/max/step range inputs for this card
   const rangeRow = $('vrange-' + v);
   if (rangeRow) rangeRow.style.display = active ? 'flex' : 'none';
+
+  // Reset this dimension's range back to its original default whenever it's
+  // toggled off, so a manual edit from an earlier sweep doesn't silently
+  // carry over into a later, unrelated run.
+  if (!active) {
+    const def = _sweepConfigDefaults[v];
+    _sweepConfig[v] = { ...def };
+    const minEl = $('vmin-' + v), maxEl = $('vmax-' + v), stepEl = $('vstep-' + v);
+    const isPct = (v === 'otm');
+    if (minEl)  minEl.value  = isPct ? (def.min  * 100).toFixed(0) : def.min;
+    if (maxEl)  maxEl.value  = isPct ? (def.max  * 100).toFixed(0) : def.max;
+    if (stepEl) stepEl.value = isPct ? (def.step * 100).toFixed(0) : def.step;
+    const arr = buildRange(def.min, def.max, def.step);
+    const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(2)) : (x => (x*100).toFixed(0)+'%');
+    _sweepRanges[v].sweep = fmt(arr[0]) + '–' + fmt(arr[arr.length-1]);
+  }
   // legacy btn compat
   const btn = $('vbtn-' + v); if (btn) btn.classList.toggle('active', active);
 
@@ -1304,7 +1324,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.0.1 · SPY Covered Call Backtest');
+  logMsg('v3.0.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
