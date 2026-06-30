@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.4.0 · Debug mode is now STD-only — locks param cards and auto-reverts any active OPT sweep back to STD</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.4.1 · Debug: VIX regime two-bucket breakdown (calm/stressed) with yield contribution and win rate per bucket</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -916,6 +916,46 @@ function logVIXRegimeSplit(result) {
   result.rolls.forEach(r => { if (r.entryVix != null) counts[getVIXRegime(r.entryVix)]++; });
   const total = result.rolls.length;
   logMsg(`  VIX regime split: low(<15)=${counts.low} · normal(15-20)=${counts.normal} · elevated(20-25)=${counts.elevated} · high(\u226525)=${counts.high} (of ${total} cycles)`, '');
+
+  // Two-bucket breakdown: Calm (<20) vs Stressed (≥20).
+  // Credit contribution uses the same full-period SPY basis and dayCount as
+  // stratYld so the two buckets sum to the overall yield — apples-to-apples.
+  if (!DM?.spy?.length) return;
+  const contracts = 6; // 600 shares / 100
+  const spyBasis  = DM.spy[0].c * 600;
+  const firstDate = DM.spy[0].date;
+  const lastCycle = result.cycles?.[result.cycles.length - 1];
+  const lastDate  = lastCycle?.exitDate || DM.spy[DM.spy.length-1].date;
+  const dayCount  = Math.max(1, Math.round((new Date(lastDate+'T00:00:00') - new Date(firstDate+'T00:00:00')) / 86400000));
+
+  const buckets = { calm: { credit:0, wins:0, total:0 }, stressed: { credit:0, wins:0, total:0 } };
+
+  // Initial sell: attribute to whichever regime the first cycle's VIX falls in
+  if (result.cycles?.length > 0) {
+    const initCycle = result.cycles[0];
+    const initVix   = initCycle.entryVix;
+    const initBkt   = (initVix != null && initVix >= 20) ? 'stressed' : 'calm';
+    buckets[initBkt].credit += initCycle.entryPx * 100 * contracts;
+  }
+
+  // Each roll: attribute to the regime of the cycle being closed (entryVix at open)
+  result.rolls.forEach((roll, i) => {
+    const closedCycle = result.cycles?.[i];
+    if (!closedCycle) return;
+    const vix    = closedCycle.entryVix;
+    const bkt    = (vix != null && vix >= 20) ? 'stressed' : 'calm';
+    const credit = (roll.entryPx - closedCycle.exitPx) * 100 * contracts;
+    buckets[bkt].credit += credit;
+    buckets[bkt].total++;
+    if (credit >= 0) buckets[bkt].wins++;
+  });
+
+  for (const [name, b] of Object.entries(buckets)) {
+    const yld     = spyBasis > 0 ? (b.credit / spyBasis) * (365 / dayCount) * 100 : 0;
+    const winRate = b.total > 0 ? Math.round(b.wins / b.total * 100) : 0;
+    const vixDesc = name === 'calm' ? 'VIX<20' : 'VIX\u226520';
+    logMsg(`    ${name} (${vixDesc}): ${b.total} rolls · ${winRate}% win rate · ${yld >= 0 ? '+' : ''}${yld.toFixed(2)}% yield contribution`, '');
+  }
 }
 
 function getActiveParams() {
@@ -1411,7 +1451,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.4.0 · SPY Covered Call Backtest');
+  logMsg('v3.4.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
