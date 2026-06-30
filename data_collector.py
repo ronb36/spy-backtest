@@ -573,8 +573,14 @@ TRIGGER_EXPIRY_CAP = 8  # next 8 monthly expiries per trigger date
 def trigger_date_overlay(dm):
     """
     For each known trigger date, fetch 8 forward expiries x 39 OTM strikes
-    anchored to the trigger-date SPY price. Idempotent — skips contracts
-    already in the DM.
+    anchored to the trigger-date SPY price.
+
+    Merge logic — for each contract:
+      - If not in DM: fetch full history from trig_date and add
+      - If already in DM but earliest stored date > trig_date: fetch the
+        missing early range and prepend it, so the backtester sees the
+        full premium available on the trigger date
+      - If already in DM with data at or before trig_date: skip (nothing to add)
     """
     log("=" * 60)
     log("TRIGGER-DATE OVERLAY — backfilling crash-era contracts")
@@ -583,40 +589,59 @@ def trigger_date_overlay(dm):
     today_iso    = today_str()
     all_expiries = get_monthly_expiries("2024-01-01",
                    (date.today() + timedelta(days=365)).strftime("%Y-%m-%d"))
-    existing     = set(dm["options"].keys())
-    filled       = 0
-    skipped      = 0
+    filled    = 0
+    prepended = 0
+    skipped   = 0
 
     for trig_date, spy_px in TRIGGER_DATES:
         fwd_expiries = [e for e in all_expiries if e > trig_date][:TRIGGER_EXPIRY_CAP]
         log(f"  {trig_date} SPY=${spy_px:.2f} -> {len(fwd_expiries)} expiries")
 
         for exp in fwd_expiries:
-            hist_start = trig_date
-            hist_end   = min(exp, today_iso)
+            hist_end = min(exp, today_iso)
 
             for otm_pct in OTM_TARGETS:
                 strike = find_nearest_strike(spy_px, otm_pct)
                 ticker = build_option_ticker(exp, strike)
 
-                if ticker in existing:
-                    skipped += 1
-                    continue
+                if ticker in dm["options"]:
+                    # Contract exists — check if we need to prepend earlier history
+                    existing_dates = sorted(d["date"] for d in dm["options"][ticker]["days"])
+                    earliest = existing_dates[0] if existing_dates else today_iso
+                    if trig_date >= earliest:
+                        skipped += 1
+                        continue
+                    # Fetch only the missing range: trig_date up to day before earliest
+                    fetch_end = (datetime.strptime(earliest, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+                    if fetch_end < trig_date:
+                        skipped += 1
+                        continue
+                    new_days = fetch_option_history(ticker, trig_date, fetch_end)
+                    time.sleep(CALL_DELAY)
+                    if new_days:
+                        existing_date_set = set(existing_dates)
+                        for day in new_days:
+                            if day["date"] not in existing_date_set:
+                                dm["options"][ticker]["days"].append(day)
+                        # Re-sort by date
+                        dm["options"][ticker]["days"].sort(key=lambda d: d["date"])
+                        prepended += 1
+                        log(f"    Prepended {len(new_days)}d to {ticker} (was {earliest}, now {trig_date})")
+                else:
+                    # New contract — fetch full history from trigger date
+                    new_days = fetch_option_history(ticker, trig_date, hist_end)
+                    time.sleep(CALL_DELAY)
+                    if new_days:
+                        dm["options"][ticker] = {
+                            "strike":    strike,
+                            "expiry":    exp,
+                            "otm_pct":  otm_pct,
+                            "entry_spy": spy_px,
+                            "days":      new_days,
+                        }
+                        filled += 1
 
-                days = fetch_option_history(ticker, hist_start, hist_end)
-                time.sleep(CALL_DELAY)
-                if days:
-                    dm["options"][ticker] = {
-                        "strike":    strike,
-                        "expiry":    exp,
-                        "otm_pct":  otm_pct,
-                        "entry_spy": spy_px,
-                        "days":      days,
-                    }
-                    existing.add(ticker)
-                    filled += 1
-
-    log(f"  Overlay complete — {filled} new contracts added, {skipped} already present")
+    log(f"  Overlay complete — {filled} new, {prepended} prepended, {skipped} skipped")
     log(f"  Total contracts in DM: {len(dm['options'])}")
     return dm
 
