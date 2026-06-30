@@ -571,7 +571,8 @@ if __name__ == "__main__":
         dm = daily_append(dm)
 
     # Commit to GitHub
-    log("Committing data mart to GitHub...")
+    json_size_mb = len(json.dumps(dm)) / 1024 / 1024
+    log(f"Committing data mart to GitHub... ({json_size_mb:.1f} MB, {len(dm['options'])} contracts)")
     existing, sha = github_get_file(DATA_PATH)
     msg = f"Data update {today_str()} — {RUN_MODE} load"
     success = github_commit_file(DATA_PATH, dm, msg, sha=sha)
@@ -590,5 +591,5 @@ if __name__ == "__main__":
         else:
             body = ("Daily append complete\n"
                     f"SPY ${spy_close} ({spy_date})\n"
-                    f"{opt_count} contracts tracked through {spy_date}")
+                    f"{opt_count} contracts · {json_size_mb:.1f} MB through {spy_date}")
         send_push("📊 SPY Data Mart", body)
