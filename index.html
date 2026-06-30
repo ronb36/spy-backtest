@@ -573,8 +573,8 @@ function getSweepGrid() {
   // Returns sweep arrays for each variable — reduced in debug mode
   return {
     decay: _sweepVars.decay ? (_debugMode ? [75,80]            : [50,60,70,75,80,90])  : [75],
-    dte:   _sweepVars.dte   ? (_debugMode ? [21,30]            : [7,14,21,30,45])       : [21],
-    delta: _sweepVars.delta ? (_debugMode ? [0.30,0.35]        : [0.25,0.30,0.35,0.40]) : [0.35],
+    dte:   _sweepVars.dte   ? (_debugMode ? [21,30]            : [7,14,21,30,45,60])   : [21],
+    delta: _sweepVars.delta ? (_debugMode ? [0.30,0.35]        : [0.20,0.25,0.30,0.35,0.40]) : [0.35],
     otm:   _sweepVars.otm   ? (_debugMode ? [0.05,0.07]        : [0.03,0.05,0.07,0.10]) : [0.05],
   };
 }
@@ -583,8 +583,8 @@ const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 // Sweep ranges shown on cards
 const _sweepRanges = {
   decay: { std: '80%', sweep: '50–90%', debugSweep: '75–80%',     label: 'Decay Trigger' },
-  dte:   { std: '30d', sweep: '7–45d',  debugSweep: '21–30d',     label: 'DTE Floor' },
-  delta: { std: '0.40', sweep: '0.25–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
+  dte:   { std: '30d', sweep: '7–60d',  debugSweep: '21–30d',     label: 'DTE Floor' },
+  delta: { std: '0.40', sweep: '0.20–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
   otm:   { std: '3%',  sweep: '3–10%', debugSweep: '5–7%',        label: 'OTM %' },
 };
 function toggleVar(v) {
@@ -919,7 +919,7 @@ async function simulate(p) {
     const vix = vixMap[date] || 18;
 
     if (++iter % 50 === 0) {
-      setProgress(20 + Math.min(60, iter / 5));
+      if (_mode !== 'optimize') setProgress(20 + Math.min(60, iter / 5));
       logDbg(`  ${date} — ${cycles.length} cycles`);
       await yield_();
     }
