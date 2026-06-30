@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.9.1 · Both edge warnings (OPT sweep range, DM data coverage) now write to the run log</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.0.0 · User-editable min/max/step sweep ranges on OPT cards; buffered logging fixes dropped lines on large sweeps</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -163,27 +163,64 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Row 1: sweepable param cards -->
     <div id="var-card-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
-      <div class="stat-card var-card" id="vcard-decay" onclick="toggleVar('decay')" style="cursor:pointer;">
-        <div class="stat-label">Decay Trigger</div>
-        <div class="stat-value accent" id="vval-decay" style="font-size:14px;">80%</div>
-        <div class="stat-sub" id="vsub-decay">Click to optimize</div>
+      <div class="stat-card var-card" id="vcard-decay" style="position:relative;">
+        <div onclick="toggleVar('decay')" style="cursor:pointer;">
+          <div class="stat-label">Decay Trigger</div>
+          <div class="stat-value accent" id="vval-decay" style="font-size:14px;">80%</div>
+          <div class="stat-sub" id="vsub-decay">Click to optimize</div>
+        </div>
+        <div id="vrange-decay" style="display:none;margin-top:6px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+          <input type="number" id="vmin-decay" value="10" min="0" max="100" step="5" onchange="updateSweepRange('decay')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">–</span>
+          <input type="number" id="vmax-decay" value="90" min="0" max="100" step="5" onchange="updateSweepRange('decay')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">step</span>
+          <input type="number" id="vstep-decay" value="10" min="1" max="50" step="1" onchange="updateSweepRange('decay')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+        </div>
       </div>
-      <div class="stat-card var-card" id="vcard-dte" onclick="toggleVar('dte')" style="cursor:pointer;">
-        <div class="stat-label">DTE Floor</div>
-        <div class="stat-value accent" id="vval-dte" style="font-size:14px;">30d</div>
-        <div class="stat-sub" id="vsub-dte">Click to optimize</div>
+      <div class="stat-card var-card" id="vcard-dte" style="position:relative;">
+        <div onclick="toggleVar('dte')" style="cursor:pointer;">
+          <div class="stat-label">DTE Floor</div>
+          <div class="stat-value accent" id="vval-dte" style="font-size:14px;">30d</div>
+          <div class="stat-sub" id="vsub-dte">Click to optimize</div>
+        </div>
+        <div id="vrange-dte" style="display:none;margin-top:6px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+          <input type="number" id="vmin-dte" value="7" min="1" max="180" step="1" onchange="updateSweepRange('dte')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">–</span>
+          <input type="number" id="vmax-dte" value="60" min="1" max="180" step="1" onchange="updateSweepRange('dte')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">step</span>
+          <input type="number" id="vstep-dte" value="7" min="1" max="50" step="1" onchange="updateSweepRange('dte')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+        </div>
       </div>
-      <div class="stat-card var-card" id="vcard-delta" onclick="toggleVar('delta')" style="cursor:pointer;">
-        <div class="stat-label">Delta Δ</div>
-        <div class="stat-value accent" id="vval-delta" style="font-size:14px;">0.40</div>
-        <div class="stat-sub" id="vsub-delta">Click to optimize</div>
+      <div class="stat-card var-card" id="vcard-delta" style="position:relative;">
+        <div onclick="toggleVar('delta')" style="cursor:pointer;">
+          <div class="stat-label">Delta Δ</div>
+          <div class="stat-value accent" id="vval-delta" style="font-size:14px;">0.40</div>
+          <div class="stat-sub" id="vsub-delta">Click to optimize</div>
+        </div>
+        <div id="vrange-delta" style="display:none;margin-top:6px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+          <input type="number" id="vmin-delta" value="0.20" min="0.05" max="0.95" step="0.05" onchange="updateSweepRange('delta')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">–</span>
+          <input type="number" id="vmax-delta" value="0.40" min="0.05" max="0.95" step="0.05" onchange="updateSweepRange('delta')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">step</span>
+          <input type="number" id="vstep-delta" value="0.05" min="0.01" max="0.5" step="0.01" onchange="updateSweepRange('delta')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+        </div>
       </div>
-      <div class="stat-card var-card" id="vcard-otm" onclick="toggleVar('otm')" style="cursor:pointer;">
-        <div class="stat-label">OTM %</div>
-        <div class="stat-value accent" id="vval-otm" style="font-size:14px;">3%</div>
-        <div class="stat-sub" id="vsub-otm">Click to optimize</div>
+      <div class="stat-card var-card" id="vcard-otm" style="position:relative;">
+        <div onclick="toggleVar('otm')" style="cursor:pointer;">
+          <div class="stat-label">OTM %</div>
+          <div class="stat-value accent" id="vval-otm" style="font-size:14px;">3%</div>
+          <div class="stat-sub" id="vsub-otm">Click to optimize</div>
+        </div>
+        <div id="vrange-otm" style="display:none;margin-top:6px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+          <input type="number" id="vmin-otm" value="1" min="1" max="35" step="1" onchange="updateSweepRange('otm')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">–</span>
+          <input type="number" id="vmax-otm" value="10" min="1" max="35" step="1" onchange="updateSweepRange('otm')" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">step</span>
+          <input type="number" id="vstep-otm" value="2" min="1" max="20" step="1" onchange="updateSweepRange('otm')" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+        </div>
       </div>
     </div>
+
 
     <!-- Row 2: controls + run — fixed height so border state changes don't affect layout -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;grid-auto-rows:80px;">
@@ -521,19 +558,38 @@ function hideProgressPanel() {
 
   }, 800);
 }
-function logMsg(msg, cls='') {
-  // progress-log: plain text sink for copy — one line per entry, clean for pasting
+// Buffered logging — appending one DOM node per line on a 1000+ eval sweep
+// causes layout/scroll thrashing on mobile Safari and can visibly stall or
+// drop frames, making it look like lines are missing from the log even
+// though they were all generated. Batch lines and flush on rAF instead.
+let _logBuffer = [];
+let _logFlushScheduled = false;
+function flushLogBuffer() {
+  _logFlushScheduled = false;
+  if (!_logBuffer.length) return;
   const el = $('progress-log');
-  if (el) el.textContent += msg + '\n';
-  // runlog-mirror: visible display — use a colored span per line, each on its own line
+  if (el) el.textContent += _logBuffer.map(l => l.msg).join('\n') + '\n';
   const mirror = $('runlog-mirror');
   if (mirror) {
-    const span = document.createElement('span');
-    span.className = cls;
-    span.textContent = msg;
-    mirror.appendChild(span);
-    mirror.appendChild(document.createTextNode('\n'));
+    const frag = document.createDocumentFragment();
+    for (const { msg, cls } of _logBuffer) {
+      const span = document.createElement('span');
+      span.className = cls;
+      span.textContent = msg;
+      frag.appendChild(span);
+      frag.appendChild(document.createTextNode('\n'));
+    }
+    mirror.appendChild(frag);
     mirror.scrollTop = mirror.scrollHeight;
+  }
+  _logBuffer = [];
+}
+function logMsg(msg, cls='') {
+  _logBuffer.push({ msg, cls });
+  if (_logBuffer.length >= 200) { flushLogBuffer(); return; } // safety valve if rAF is starved
+  if (!_logFlushScheduled) {
+    _logFlushScheduled = true;
+    requestAnimationFrame(flushLogBuffer);
   }
 }
 function logDbg(msg) {
@@ -595,23 +651,69 @@ function setRollLimitState(locked) {
 }
 
 function getSweepGrid() {
-  // Returns sweep arrays for each variable — reduced in debug mode.
-  // When a dimension isn't toggled for sweeping, hold it at the live STD
-  // value (not a hardcoded constant) so edits to roll_params.json take
-  // effect immediately on any partial sweep.
+  // Returns sweep arrays for each variable, built from user-editable
+  // _sweepConfig (min/max/step) rather than hardcoded arrays. When a
+  // dimension isn't toggled for sweeping, hold it at the live STD value so
+  // edits to roll_params.json take effect immediately on any partial sweep.
+  // Debug mode collapses any active dimension to its first 2 values for a
+  // fast smoke-test run.
+  const build = (v) => {
+    const c = _sweepConfig[v];
+    const arr = buildRange(c.min, c.max, c.step);
+    return _debugMode ? arr.slice(0, 2) : arr;
+  };
   return {
-    decay: _sweepVars.decay ? (_debugMode ? [75,80]      : [10,15,20,23,25,27,30,40,60,90])  : [STD.decayTrigger],
-    dte:   _sweepVars.dte   ? (_debugMode ? [21,30]      : [3,5,7,14,21,25,30,35,45,60,75,90])   : [STD.dteFloor],
-    delta: _sweepVars.delta ? (_debugMode ? [0.30,0.35]  : [0.20,0.25,0.30,0.35,0.40]) : [STD.deltaThreshold],
-    otm:   _sweepVars.otm   ? (_debugMode ? [0.05,0.07]  : [0.01,0.02,0.03,0.05,0.07,0.10]) : [STD.otmFixed],
+    decay: _sweepVars.decay ? build('decay') : [STD.decayTrigger],
+    dte:   _sweepVars.dte   ? build('dte')   : [STD.dteFloor],
+    delta: _sweepVars.delta ? build('delta') : [STD.deltaThreshold],
+    otm:   _sweepVars.otm   ? build('otm')   : [STD.otmFixed],
   };
 }
 const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 
+// User-editable sweep boundaries — read from the min/max/step inputs on each
+// OPT card. Defaults match the prior hardcoded grid; user can narrow or
+// widen any dimension live without touching code. Avoids data-starvation
+// runs like dte=75-90d with a 90d lookahead producing misleading "winners"
+// from a handful of surviving combos.
+let _sweepConfig = {
+  decay: { min: 10,   max: 90,  step: 10   },
+  dte:   { min: 7,    max: 60,  step: 7    },
+  delta: { min: 0.20, max: 0.40, step: 0.05 },
+  otm:   { min: 0.01, max: 0.10, step: 0.02 },
+};
+
+function buildRange(min, max, step) {
+  const out = [];
+  if (step <= 0) return [min];
+  for (let v = min; v <= max + 1e-9; v += step) {
+    out.push(Math.round(v * 1000) / 1000); // avoid float drift (0.30000000004 etc.)
+  }
+  if (out.length === 0) out.push(min);
+  return out;
+}
+
+function updateSweepRange(v) {
+  const minEl = $('vmin-' + v), maxEl = $('vmax-' + v), stepEl = $('vstep-' + v);
+  if (!minEl || !maxEl || !stepEl) return;
+  let min = parseFloat(minEl.value), max = parseFloat(maxEl.value), step = parseFloat(stepEl.value);
+  if (v === 'otm') { min /= 100; max /= 100; step /= 100; } // otm input is in % units, stored as fraction
+  if (min > max) { max = min; if (v === 'otm') maxEl.value = (max*100).toFixed(0); else maxEl.value = max; }
+  _sweepConfig[v] = { min, max, step };
+  // Refresh sweep range label + eval count
+  const arr = buildRange(min, max, step);
+  const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(2)) : (x => (x*100).toFixed(0)+'%');
+  _sweepRanges[v].sweep = fmt(arr[0]) + '–' + fmt(arr[arr.length-1]);
+  const sub = $('vsub-' + v);
+  if (sub && _sweepVars[v]) sub.textContent = 'sweeping ' + _sweepRanges[v].sweep + ` (${arr.length})`;
+  onConfigChanged();
+  updateEvalCount();
+}
+
 // Sweep ranges shown on cards
 const _sweepRanges = {
   decay: { std: '80%', sweep: '10–90%', debugSweep: '75–80%',     label: 'Decay Trigger' },
-  dte:   { std: '30d', sweep: '3–90d',  debugSweep: '21–30d',     label: 'DTE Floor' },
+  dte:   { std: '30d', sweep: '7–60d',  debugSweep: '21–30d',     label: 'DTE Floor' },
   delta: { std: '0.40', sweep: '0.20–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
   otm:   { std: '3%',  sweep: '1–10%', debugSweep: '5–7%',        label: 'OTM %' },
 };
@@ -632,6 +734,10 @@ function toggleVar(v) {
                val.style.fontSize = active ? '11px' : '14px';
                val.style.letterSpacing = active ? '.08em' : '0'; }
   if (sub)  sub.textContent = active ? 'sweeping ' + (_debugMode ? info.debugSweep : info.sweep) : 'Click to optimize';
+
+  // Show/hide the min/max/step range inputs for this card
+  const rangeRow = $('vrange-' + v);
+  if (rangeRow) rangeRow.style.display = active ? 'flex' : 'none';
   // legacy btn compat
   const btn = $('vbtn-' + v); if (btn) btn.classList.toggle('active', active);
 
@@ -1191,7 +1297,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.9.1 · SPY Covered Call Backtest');
+  logMsg('v3.0.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
