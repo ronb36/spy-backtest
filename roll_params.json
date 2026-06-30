@@ -1,7 +1,7 @@
 {
   "decayTrigger": 0.5,
   "dteFloor": 45,
-  "deltaThreshold": 0.3,
+  "deltaThreshold": 0.45,
   "otmTarget": 0.03,
   "lastOptimized": "2026-06-30",
   "optAnnYield": 2.89,
