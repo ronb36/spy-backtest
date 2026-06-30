@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.8.4 · Extend decay sweep floor to 10% (was 30%) — winner hit boundary again at 30%</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v2.9.1 · Both edge warnings (OPT sweep range, DM data coverage) now write to the run log</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -204,10 +204,18 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="stat-label">Max Lookahead</div>
         <div style="margin-top:6px;">
           <select id="lookahead-select" onchange="updateParamDisplay(); onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
+            <option value="30">30d</option>
             <option value="45">45d</option>
             <option value="60">60d</option>
+            <option value="75">75d</option>
             <option value="90" selected>90d</option>
+            <option value="95">95d</option>
+            <option value="100">100d</option>
+            <option value="105">105d</option>
+            <option value="110">110d</option>
+            <option value="115">115d</option>
             <option value="120">120d</option>
+            <option value="150">150d</option>
             <option value="180">180d</option>
           </select>
         </div>
@@ -592,8 +600,8 @@ function getSweepGrid() {
   // value (not a hardcoded constant) so edits to roll_params.json take
   // effect immediately on any partial sweep.
   return {
-    decay: _sweepVars.decay ? (_debugMode ? [75,80]      : [10,15,20,25,30,40,50,60,70,75,80,90])  : [STD.decayTrigger],
-    dte:   _sweepVars.dte   ? (_debugMode ? [21,30]      : [7,14,21,30,45,60])   : [STD.dteFloor],
+    decay: _sweepVars.decay ? (_debugMode ? [75,80]      : [10,15,20,23,25,27,30,40,60,90])  : [STD.decayTrigger],
+    dte:   _sweepVars.dte   ? (_debugMode ? [21,30]      : [3,5,7,14,21,25,30,35,45,60,75,90])   : [STD.dteFloor],
     delta: _sweepVars.delta ? (_debugMode ? [0.30,0.35]  : [0.20,0.25,0.30,0.35,0.40]) : [STD.deltaThreshold],
     otm:   _sweepVars.otm   ? (_debugMode ? [0.05,0.07]  : [0.01,0.02,0.03,0.05,0.07,0.10]) : [STD.otmFixed],
   };
@@ -603,7 +611,7 @@ const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 // Sweep ranges shown on cards
 const _sweepRanges = {
   decay: { std: '80%', sweep: '10–90%', debugSweep: '75–80%',     label: 'Decay Trigger' },
-  dte:   { std: '30d', sweep: '7–60d',  debugSweep: '21–30d',     label: 'DTE Floor' },
+  dte:   { std: '30d', sweep: '3–90d',  debugSweep: '21–30d',     label: 'DTE Floor' },
   delta: { std: '0.40', sweep: '0.20–0.40', debugSweep: '0.30–0.35', label: 'Delta Δ' },
   otm:   { std: '3%',  sweep: '1–10%', debugSweep: '5–7%',        label: 'OTM %' },
 };
@@ -1183,7 +1191,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v2.8.4 · SPY Covered Call Backtest');
+  logMsg('v2.9.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1971,6 +1979,27 @@ function buildRollSnapshots(result) {
     });
   });
 
+  // Aggregate edge-of-data check across all roll snapshots — same logic as
+  // the per-grid warning, but rolled up into one log line so it's visible
+  // in the run log without having to click through every snapshot manually.
+  let edgeHits = 0;
+  const edgeExamples = [];
+  _rollSnapshots.forEach(s => {
+    if (!s.bestKey) return;
+    const bestCell = s.cells[s.bestKey];
+    const strikeIdx = s.allStrikes.indexOf(bestCell.strike);
+    const expIdx    = s.validExpiries.indexOf(bestCell.exp);
+    const atEdge = strikeIdx === 0 || strikeIdx === s.allStrikes.length - 1
+                || expIdx === 0    || expIdx === s.validExpiries.length - 1;
+    if (atEdge) {
+      edgeHits++;
+      if (edgeExamples.length < 3) edgeExamples.push(`${s.label} ($${bestCell.strike})`);
+    }
+  });
+  if (edgeHits > 0) {
+    logMsg(`\u26a0 ${edgeHits}/${_rollSnapshots.length} roll candidates sit on a DM strike/expiry edge — e.g. ${edgeExamples.join(', ')}. Check Roll Candidates tab for details.`, 'err');
+  }
+
   // Populate dropdown
   const sel = $('vs-roll-select');
   if (!sel) return;
@@ -2106,7 +2135,30 @@ function renderRollCandidates() {
   const closingStr = isInitial ? 'Initial sell' : `Closing $${closingStrike} @ $${buybackPx.toFixed(2)}`;
   vsStatus(`${closingStr} · Opening $${openingStrike} @ $${snap.openingPx?.toFixed(2)||'—'} · SPY $${spyPx.toFixed(2)} · ${dataCount}/${totalCells} cells populated`, 'ok');
 
-  $('vs-grid-wrap').innerHTML = `<div style="overflow-x:auto;">
+  // Edge-of-data check: is the chosen (★ best-yield) candidate sitting on the
+  // boundary of the strikes/expiries actually present in the DM for this
+  // trigger date? If so, a better candidate might exist just outside what
+  // the DM currently covers — same concern as OPT params landing on a
+  // sweep-range edge, but applied to the underlying data surface itself.
+  let edgeDataWarning = '';
+  if (snap.bestKey) {
+    const bestCell = cells[snap.bestKey];
+    const strikeIdx = allStrikes.indexOf(bestCell.strike);
+    const expIdx    = validExpiries.indexOf(bestCell.exp);
+    const edges = [];
+    if (strikeIdx === 0)                          edges.push(`lowest available strike ($${allStrikes[0]})`);
+    if (strikeIdx === allStrikes.length - 1)       edges.push(`highest available strike ($${allStrikes[allStrikes.length-1]})`);
+    if (expIdx === 0)                              edges.push(`nearest available expiry (${fmtExp(validExpiries[0])})`);
+    if (expIdx === validExpiries.length - 1)        edges.push(`farthest available expiry (${fmtExp(validExpiries[validExpiries.length-1])})`);
+    if (edges.length) {
+      edgeDataWarning = `<div style="padding:8px 12px;margin-bottom:8px;font-family:var(--mono);font-size:10px;color:var(--yellow);background:rgba(234,179,8,0.08);border:1px solid var(--yellow);border-radius:4px;">
+        \u26a0 Best candidate ($${bestCell.strike}, ${fmtExp(bestCell.exp)}) sits on the ${edges.join(' and ')} present in the data mart for this trigger date.
+        A better candidate may exist just outside current DM coverage.
+      </div>`;
+    }
+  }
+
+  $('vs-grid-wrap').innerHTML = `${edgeDataWarning}<div style="overflow-x:auto;">
     <table style="border-collapse:collapse;font-family:var(--mono);">
       ${thead}<tbody>${rows}</tbody>
     </table>
@@ -2136,7 +2188,35 @@ function renderOptResults(results, decays, floors, deltas, otms) {
       + ` \u2192 ${results.bestYld.toFixed(1)}% ann.yld`
     : '\u26a0 No qualifying results';
 
+  // Edge-of-grid check: flag any swept dimension where the winner sits on
+  // the min or max of the tested range — signals the true optimum may lie
+  // outside what was searched, same logic we've applied manually each time
+  // we kept extending decay/dte/otm ranges.
+  let edgeWarning = '';
+  if (b) {
+    const edgeDims = [];
+    const checkEdge = (val, arr, label, fmt) => {
+      if (!arr || arr.length < 2) return; // not actually swept, nothing to check
+      const min = Math.min(...arr), max = Math.max(...arr);
+      if (val === min) edgeDims.push(`${label}=${fmt(val)} (at floor ${fmt(min)})`);
+      else if (val === max) edgeDims.push(`${label}=${fmt(val)} (at ceiling ${fmt(max)})`);
+    };
+    checkEdge(b.decay, decays, 'decay', v => v + '%');
+    checkEdge(b.floor, floors, 'dte',   v => v + 'd');
+    checkEdge(b.delta, deltas, '\u0394', v => v);
+    checkEdge(b.otm,   otms,   'otm',   v => (v*100).toFixed(0) + '%');
+    if (edgeDims.length) {
+      edgeWarning = `
+    <div style="font-family:var(--mono);font-size:10px;color:var(--yellow);margin-bottom:8px;padding:8px;background:rgba(234,179,8,0.08);border:1px solid var(--yellow);border-radius:4px;">
+      \u26a0 Winner is at the edge of the tested range for: ${edgeDims.join(', ')}.
+      Consider extending that range — the true optimum may lie beyond what was searched.
+    </div>`;
+      logMsg(`\u26a0 OPT winner at sweep edge: ${edgeDims.join(', ')} — consider widening that range`, 'err');
+    }
+  }
+
   let html = `
+    ${edgeWarning}
     <div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
       ${bestStr}
     </div>`;
