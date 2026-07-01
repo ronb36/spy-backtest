@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.5.4</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.5.6</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -406,7 +406,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.5.4 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.5.6 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
   </div>
 </div>
 
@@ -1034,62 +1034,102 @@ function getVIXRegime(vix) {
 // STD run with different params would miss.
 function logDMGapReport(snapshots) {
   if (!snapshots?.length) return;
-  let edgeHits = 0, gapHits = 0;
-  const edgeExamples = [], gapStrikeTriggers = [], gapExpiryTriggers = [];
+
+  const total = snapshots.length;
+
+  // Boundary hit buckets — four directions
+  const boundary = {
+    strikeLow:  { hits: 0, triggers: [], label: 'Strike-low  (near-ATM)' },
+    strikeHigh: { hits: 0, triggers: [], label: 'Strike-high (deep OTM)' },
+    expiryNear: { hits: 0, triggers: [], label: 'Expiry-near (short DTE)' },
+    expiryFar:  { hits: 0, triggers: [], label: 'Expiry-far  (long DTE)' },
+  };
+
+  // Interior data gaps — within current OTM_TARGETS range but no Polygon data
+  const gaps = { strike: [], expiry: [] };
 
   snapshots.forEach(s => {
     if (!s.bestKey) return;
     const bestCell  = s.cells[s.bestKey];
     const strikeIdx = s.allStrikes.indexOf(bestCell.strike);
     const expIdx    = s.validExpiries.indexOf(bestCell.exp);
+    const otmPct    = ((bestCell.strike - s.spyPx) / s.spyPx * 100).toFixed(1);
+    const label     = `${s.label}($${bestCell.strike}, ${otmPct}% OTM)`;
 
-    // Edge hit: best cell at boundary of available strikes or expiries
-    const atStrikeEdge = strikeIdx === 0 || strikeIdx === s.allStrikes.length - 1;
-    const atExpEdge    = expIdx === 0    || expIdx === s.validExpiries.length - 1;
-    if (atStrikeEdge || atExpEdge) {
-      edgeHits++;
-      if (edgeExamples.length < 4) edgeExamples.push(`${s.label}($${bestCell.strike})`);
+    // Classify boundary direction
+    if (strikeIdx === 0) {
+      boundary.strikeLow.hits++;
+      if (boundary.strikeLow.triggers.length < 6) boundary.strikeLow.triggers.push(label);
+    } else if (strikeIdx === s.allStrikes.length - 1) {
+      boundary.strikeHigh.hits++;
+      if (boundary.strikeHigh.triggers.length < 6) boundary.strikeHigh.triggers.push(label);
+    }
+    if (expIdx === 0) {
+      boundary.expiryNear.hits++;
+      if (boundary.expiryNear.triggers.length < 6) boundary.expiryNear.triggers.push(label);
+    } else if (expIdx === s.validExpiries.length - 1) {
+      boundary.expiryFar.hits++;
+      if (boundary.expiryFar.triggers.length < 6) boundary.expiryFar.triggers.push(label);
     }
 
-    // Data gap: neighbor cell in grid has no Polygon pricing on this trigger date
+    // Interior data gaps — neighbor exists in grid but has no Polygon pricing
     const neighborKeys = [];
     if (strikeIdx > 0)
-      neighborKeys.push({ key: s.validExpiries[expIdx] + '_' + s.allStrikes[strikeIdx-1], dim: 'strike' });
+      neighborKeys.push({ key: s.validExpiries[expIdx] + '_' + s.allStrikes[strikeIdx-1], dim: 'strike', lbl: s.label });
     if (strikeIdx < s.allStrikes.length - 1)
-      neighborKeys.push({ key: s.validExpiries[expIdx] + '_' + s.allStrikes[strikeIdx+1], dim: 'strike' });
+      neighborKeys.push({ key: s.validExpiries[expIdx] + '_' + s.allStrikes[strikeIdx+1], dim: 'strike', lbl: s.label });
     if (expIdx > 0)
-      neighborKeys.push({ key: s.validExpiries[expIdx-1] + '_' + bestCell.strike, dim: 'expiry' });
+      neighborKeys.push({ key: s.validExpiries[expIdx-1] + '_' + bestCell.strike, dim: 'expiry', lbl: s.label });
     if (expIdx < s.validExpiries.length - 1)
-      neighborKeys.push({ key: s.validExpiries[expIdx+1] + '_' + bestCell.strike, dim: 'expiry' });
+      neighborKeys.push({ key: s.validExpiries[expIdx+1] + '_' + bestCell.strike, dim: 'expiry', lbl: s.label });
 
-    const gapNeighbors = neighborKeys.filter(n => s.cells[n.key] && !s.cells[n.key].hasData);
-    if (gapNeighbors.length) {
-      gapHits++;
-      gapNeighbors.forEach(n => {
-        if (n.dim === 'strike') gapStrikeTriggers.push(s.label);
-        else gapExpiryTriggers.push(s.label);
-      });
-    }
+    neighborKeys.filter(n => s.cells[n.key] && !s.cells[n.key].hasData).forEach(n => {
+      if (n.dim === 'strike' && gaps.strike.length < 8) gaps.strike.push(n.lbl);
+      if (n.dim === 'expiry' && gaps.expiry.length < 8) gaps.expiry.push(n.lbl);
+    });
   });
 
-  const total = snapshots.length;
+  const totalBoundary = Object.values(boundary).reduce((s, b) => s + b.hits, 0);
+  const totalGaps = gaps.strike.length + gaps.expiry.length;
+
   logMsg(`── DM Coverage Report (${total} triggers) ──────────────────────`, '');
-  if (edgeHits > 0) {
-    logMsg(`  ⚠ ${edgeHits}/${total} triggers: best candidate at DM boundary — ${edgeExamples.join(', ')}`, 'err');
-    logMsg(`    → Widen OTM_TARGETS or expiry window in data_collector.py`, '');
+
+  if (totalBoundary > 0) {
+    // Classify each direction as systematic (>30% of all boundary hits) or situational
+    const SYSTEMATIC_THRESHOLD = 0.30;
+    const systematicDirs = [], situationalTriggers = [];
+
+    Object.entries(boundary).forEach(([key, b]) => {
+      if (b.hits === 0) return;
+      const pct = b.hits / totalBoundary;
+      const flag = pct >= SYSTEMATIC_THRESHOLD ? 'SYSTEMATIC' : 'situational';
+      logMsg(`  ${pct >= SYSTEMATIC_THRESHOLD ? '\u26a0' : '\u2192'} ${b.label}: ${b.hits} hits (${(pct*100).toFixed(0)}%) — ${flag}`, pct >= SYSTEMATIC_THRESHOLD ? 'err' : '');
+      if (b.triggers.length) logMsg(`    e.g. ${b.triggers.join(' · ')}`, '');
+      if (pct >= SYSTEMATIC_THRESHOLD) {
+        systematicDirs.push(b.label);
+      } else {
+        b.triggers.forEach(t => { if (!situationalTriggers.includes(t)) situationalTriggers.push(t); });
+      }
+    });
+
+    if (systematicDirs.length) {
+      logMsg(`  → PERMANENT FIX: Update OTM_TARGETS or expiry window in data_collector.py for: ${systematicDirs.join(', ')}`, 'err');
+    }
+    if (situationalTriggers.length) {
+      logMsg(`  → GAP FILL: ${situationalTriggers.join(', ')}`, '');
+    }
   }
-  if (gapHits > 0) {
-    const sLabel = gapStrikeTriggers.length ? `Strike: ${gapStrikeTriggers.slice(0,8).join(', ')}${gapStrikeTriggers.length>8?' …':''}` : null;
-    const eLabel = gapExpiryTriggers.length ? `Expiry: ${gapExpiryTriggers.slice(0,8).join(', ')}${gapExpiryTriggers.length>8?' …':''}` : null;
-    logMsg(`  ⚠ ${gapHits}/${total} triggers: best candidate neighbors a Polygon data gap`, 'err');
-    if (sLabel) logMsg(`    → ${sLabel}`, '');
-    if (eLabel) logMsg(`    → ${eLabel}`, '');
-    logMsg(`    → Targeted GAP fill for these trigger dates could unlock better candidates`, '');
+
+  if (totalGaps > 0) {
+    if (gaps.strike.length) logMsg(`  \u26a0 Interior strike gaps: ${gaps.strike.join(', ')} — GAP fill`, 'err');
+    if (gaps.expiry.length) logMsg(`  \u26a0 Interior expiry gaps: ${gaps.expiry.join(', ')} — GAP fill`, 'err');
   }
-  if (edgeHits === 0 && gapHits === 0) {
-    logMsg(`  ✓ All ${total} trigger candidates sit in interior of DM coverage`, 'ok');
+
+  if (totalBoundary === 0 && totalGaps === 0) {
+    logMsg(`  \u2713 All ${total} trigger candidates sit in interior of DM coverage — no gaps detected`, 'ok');
   }
 }
+
 
 function logVIXRegimeSplit(result) {
   // Diagnostic: how many cycles fall into each VIX regime bucket? Informs
@@ -1649,7 +1689,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.5.4 · SPY Covered Call Backtest');
+  logMsg('v3.5.6 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2498,14 +2538,14 @@ function renderOptResults(results, decays, floors, deltas, otms) {
     // didn't search there, but because the DM doesn't have that data.
     // Actionable fix: widen OTM_TARGETS or expiry window in data_collector.py
     // and run a GAP fill to rebuild coverage, then re-run OPT.
-    if (b && allResults.grid) {
+    if (b && results.grid) {
       const decayIdx = decays.indexOf(b.decay);
       const floorIdx = floors.indexOf(b.floor);
       const neighbors = [];
       const check = (di, fi) => {
         const d = decays[di], f = floors[fi];
         if (d === undefined || f === undefined) return;
-        if (allResults.grid[d]?.[f] === null) neighbors.push(`decay=${d}% dte=${f}d`);
+        if (results.grid[d]?.[f] === null) neighbors.push(`decay=${d}% dte=${f}d`);
       };
       check(decayIdx - 1, floorIdx);
       check(decayIdx + 1, floorIdx);
