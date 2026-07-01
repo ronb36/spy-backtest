@@ -1,9 +1,9 @@
 {
-  "decayTrigger": 0.25,
-  "dteFloor": 30,
-  "deltaThreshold": 0.3,
+  "decayTrigger": 0.17,
+  "dteFloor": 23,
+  "deltaThreshold": 0.375,
   "otmTarget": 0.03,
-  "lastOptimized": "2026-06-30",
-  "optAnnYield": 3.51,
+  "lastOptimized": "2026-07-01",
+  "optAnnYield": 4.05,
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep."
 }
