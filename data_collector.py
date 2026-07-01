@@ -123,6 +123,32 @@ def get_quarterly_expiries(start_date, end_date):
             if datetime.strptime(e, "%Y-%m-%d").month in quarter_months]
 
 
+def get_weekly_expiries(start_date, end_date):
+    """
+    Return all Friday expiry dates between start and end, EXCLUDING 3rd Fridays
+    (which are already covered by get_monthly_expiries). This gives the weekly
+    expiry universe without duplicating monthly entries.
+    SPY Friday weeklies are the most liquid — Mon/Wed weeklies excluded.
+    """
+    import calendar
+    expiries = []
+    start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end   = datetime.strptime(end_date,   "%Y-%m-%d").date()
+
+    # Get all monthly (3rd Friday) expiries for dedup
+    monthly_set = set(get_monthly_expiries(start_date, end_date))
+
+    current = start
+    while current <= end:
+        if current.weekday() == 4:  # Friday
+            iso = current.strftime("%Y-%m-%d")
+            if iso not in monthly_set:  # exclude 3rd Fridays already in monthly
+                expiries.append(iso)
+        current += timedelta(days=1)
+
+    return expiries
+
+
 def build_option_ticker(expiry_iso, strike):
     """Build Polygon option ticker e.g. O:SPY241220C00500000"""
     d          = datetime.strptime(expiry_iso, "%Y-%m-%d")
@@ -303,7 +329,10 @@ def full_load():
 
     # ── Options ──────────────────────────────────────────────────────────
     future_end = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
-    expiries = get_monthly_expiries(start, future_end)
+    expiries = sorted(set(
+        get_monthly_expiries(start, future_end) +
+        get_weekly_expiries(start, future_end)
+    ))
     total_contracts = len(expiries) * len(OTM_TARGETS)
     log(f"Processing {len(expiries)} expiries x {len(OTM_TARGETS)} OTM targets = {total_contracts} contracts")
 
@@ -448,7 +477,11 @@ def daily_append(dm):
     log("Phase 3: Inspecting DM for missing contracts (daily-anchored)...")
 
     future_end   = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
-    all_expiries = get_monthly_expiries(two_yr_ago, future_end)
+    all_expiries = sorted(set(
+        get_monthly_expiries(two_yr_ago, future_end) +
+        get_weekly_expiries(two_yr_ago, future_end)
+    ))
+    log(f"  Expiry universe: {len(all_expiries)} total ({sum(1 for e in all_expiries if e in set(get_monthly_expiries(two_yr_ago, future_end)))} monthly + {sum(1 for e in all_expiries if e not in set(get_monthly_expiries(two_yr_ago, future_end)))} weekly)")
 
     # Build full set of expected tickers across all expiries × all SPY days
     # Use sorted SPY dates within each expiry's window
@@ -474,7 +507,6 @@ def daily_append(dm):
     missing      = 0
     already_have = 0
     no_data      = 0
-    no_data_tickers = []  # collect for pattern analysis after loop
 
     existing_tickers = set(dm["options"].keys())
 
@@ -506,38 +538,18 @@ def daily_append(dm):
                 log(f"  + {ticker} ({len(days_data)}d)")
             else:
                 no_data += 1
-                # Track for pattern analysis — logged after inspection completes
-                no_data_tickers.append((ticker, strike, exp, hist_start))
 
     log(f"  ✓ Inspection complete — {already_have} present, {missing} filled, {no_data} not in Polygon")
-
-    # Diagnostic: show pattern in the not-in-Polygon contracts so we can
-    # understand whether it's a config issue (OTM_TARGETS too wide, expiry
-    # window too broad) rather than building a permanent exclusion list.
-    if no_data_tickers:
-        # Group by approximate OTM% bucket to reveal structural pattern
-        from collections import defaultdict
-        by_otm = defaultdict(list)
-        by_exp = defaultdict(int)
-        for ticker, strike, exp, hist_start in no_data_tickers:
-            # Reconstruct approximate OTM% from strike vs SPY on hist_start date
-            anchor_spy = spy_by_date.get(hist_start, current_spy)
-            approx_otm = round((strike / anchor_spy - 1) * 100, 1)
-            bucket = f"{int(approx_otm//5)*5}-{int(approx_otm//5)*5+5}% OTM"
-            by_otm[bucket].append(strike)
-            by_exp[exp] += 1
-        log(f"  Not-in-Polygon breakdown by OTM bucket:")
-        for bucket in sorted(by_otm.keys()):
-            log(f"    {bucket}: {len(by_otm[bucket])} contracts")
-        top_exp = sorted(by_exp.items(), key=lambda x: -x[1])[:5]
-        log(f"  Top expiries with missing contracts: {', '.join(f'{e}({n})' for e,n in top_exp)}")
 
     # ── Phase 4: Add new future strikes if SPY has moved ─────────────────
     # Ensures current-SPY strikes exist for all upcoming expiries
     log(f"Phase 4: Syncing future expiry strikes (SPY=${current_spy:.2f})...")
     new_future = 0
 
-    future_expiries = get_monthly_expiries(today_iso, future_end)
+    future_expiries = sorted(set(
+        get_monthly_expiries(today_iso, future_end) +
+        get_weekly_expiries(today_iso, future_end)
+    ))
     for exp in future_expiries:
         exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
         hist_start = max(two_yr_ago,
