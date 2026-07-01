@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.4.2 · Debug: click param cards to set session-only overrides (yellow border); cleared on Debug toggle (calm/stressed) with yield contribution and win rate per bucket</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.4.3 · Fix: debug overrides now correctly applied to simulate() via getActiveParams() to set session-only overrides (yellow border); cleared on Debug toggle (calm/stressed) with yield contribution and win rate per bucket</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -1567,9 +1567,11 @@ async function runSimulation() {
 
   const _lookahead = parseInt($('lookahead-select')?.value || '90');
   const _maxRolls  = (() => { const v=parseInt($('single-roll-toggle')?.value||'0'); return v>0?v:null; })();
-  // STD always uses raw STD params — never inherits _optParams from a prior OPT run
+  // Use getActiveParams() so debug overrides take effect when Debug mode is on.
+  // In normal STD mode this returns plain STD; in debug mode it merges any
+  // session-only overrides set via the param cards.
   const params = {
-    ...STD,
+    ...getActiveParams(),
     shares:      600,
     maxRolls:    _maxRolls,
     maxLookahead: _lookahead,
@@ -1580,7 +1582,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.4.2 · SPY Covered Call Backtest');
+  logMsg('v3.4.3 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
