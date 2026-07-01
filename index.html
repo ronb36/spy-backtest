@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.5.1</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.5.4</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -406,7 +406,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.5.1 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.5.4 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
   </div>
 </div>
 
@@ -1026,6 +1026,71 @@ function getVIXRegime(vix) {
   return 'high';
 }
 
+// Analyse roll snapshots for DM edge hits and data gaps adjacent to the
+// best candidate at each trigger. Called after OPT winner re-simulation
+// where _rollSnapshots is freshly built for the winning param set.
+// This gives the broadest possible gap report — the winning params drive
+// roll decisions across the full date range, exposing gaps that a single
+// STD run with different params would miss.
+function logDMGapReport(snapshots) {
+  if (!snapshots?.length) return;
+  let edgeHits = 0, gapHits = 0;
+  const edgeExamples = [], gapStrikeTriggers = [], gapExpiryTriggers = [];
+
+  snapshots.forEach(s => {
+    if (!s.bestKey) return;
+    const bestCell  = s.cells[s.bestKey];
+    const strikeIdx = s.allStrikes.indexOf(bestCell.strike);
+    const expIdx    = s.validExpiries.indexOf(bestCell.exp);
+
+    // Edge hit: best cell at boundary of available strikes or expiries
+    const atStrikeEdge = strikeIdx === 0 || strikeIdx === s.allStrikes.length - 1;
+    const atExpEdge    = expIdx === 0    || expIdx === s.validExpiries.length - 1;
+    if (atStrikeEdge || atExpEdge) {
+      edgeHits++;
+      if (edgeExamples.length < 4) edgeExamples.push(`${s.label}($${bestCell.strike})`);
+    }
+
+    // Data gap: neighbor cell in grid has no Polygon pricing on this trigger date
+    const neighborKeys = [];
+    if (strikeIdx > 0)
+      neighborKeys.push({ key: s.validExpiries[expIdx] + '_' + s.allStrikes[strikeIdx-1], dim: 'strike' });
+    if (strikeIdx < s.allStrikes.length - 1)
+      neighborKeys.push({ key: s.validExpiries[expIdx] + '_' + s.allStrikes[strikeIdx+1], dim: 'strike' });
+    if (expIdx > 0)
+      neighborKeys.push({ key: s.validExpiries[expIdx-1] + '_' + bestCell.strike, dim: 'expiry' });
+    if (expIdx < s.validExpiries.length - 1)
+      neighborKeys.push({ key: s.validExpiries[expIdx+1] + '_' + bestCell.strike, dim: 'expiry' });
+
+    const gapNeighbors = neighborKeys.filter(n => s.cells[n.key] && !s.cells[n.key].hasData);
+    if (gapNeighbors.length) {
+      gapHits++;
+      gapNeighbors.forEach(n => {
+        if (n.dim === 'strike') gapStrikeTriggers.push(s.label);
+        else gapExpiryTriggers.push(s.label);
+      });
+    }
+  });
+
+  const total = snapshots.length;
+  logMsg(`── DM Coverage Report (${total} triggers) ──────────────────────`, '');
+  if (edgeHits > 0) {
+    logMsg(`  ⚠ ${edgeHits}/${total} triggers: best candidate at DM boundary — ${edgeExamples.join(', ')}`, 'err');
+    logMsg(`    → Widen OTM_TARGETS or expiry window in data_collector.py`, '');
+  }
+  if (gapHits > 0) {
+    const sLabel = gapStrikeTriggers.length ? `Strike: ${gapStrikeTriggers.slice(0,8).join(', ')}${gapStrikeTriggers.length>8?' …':''}` : null;
+    const eLabel = gapExpiryTriggers.length ? `Expiry: ${gapExpiryTriggers.slice(0,8).join(', ')}${gapExpiryTriggers.length>8?' …':''}` : null;
+    logMsg(`  ⚠ ${gapHits}/${total} triggers: best candidate neighbors a Polygon data gap`, 'err');
+    if (sLabel) logMsg(`    → ${sLabel}`, '');
+    if (eLabel) logMsg(`    → ${eLabel}`, '');
+    logMsg(`    → Targeted GAP fill for these trigger dates could unlock better candidates`, '');
+  }
+  if (edgeHits === 0 && gapHits === 0) {
+    logMsg(`  ✓ All ${total} trigger candidates sit in interior of DM coverage`, 'ok');
+  }
+}
+
 function logVIXRegimeSplit(result) {
   // Diagnostic: how many cycles fall into each VIX regime bucket? Informs
   // whether regime-specific param optimization (low/normal/elevated/high)
@@ -1584,7 +1649,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.5.1 · SPY Covered Call Backtest');
+  logMsg('v3.5.4 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1793,6 +1858,12 @@ async function runOptimization() {
         renderSummary(winResult);
         renderCycleTable(winResult);
         renderGapsTab(_gaps);
+        // DM gap report — runs after every OPT winner re-simulation regardless
+        // of debug mode, since this is the most actionable moment: we know the
+        // winning params, we know the roll decisions they drive, and the gap
+        // report tells us exactly where DM coverage should be expanded to
+        // potentially unlock even better candidates on future OPT runs.
+        logDMGapReport(_rollSnapshots);
         setRunButtonState('ready');
       }
     } else {
@@ -2206,28 +2277,6 @@ function buildRollSnapshots(result) {
     });
   });
 
-  // Aggregate edge-of-data check across all roll snapshots — same logic as
-  // the per-grid warning, but rolled up into one log line so it's visible
-  // in the run log without having to click through every snapshot manually.
-  // Debug-only — exploratory diagnostic, not part of the STD baseline check.
-  let edgeHits = 0;
-  const edgeExamples = [];
-  _rollSnapshots.forEach(s => {
-    if (!s.bestKey) return;
-    const bestCell = s.cells[s.bestKey];
-    const strikeIdx = s.allStrikes.indexOf(bestCell.strike);
-    const expIdx    = s.validExpiries.indexOf(bestCell.exp);
-    const atEdge = strikeIdx === 0 || strikeIdx === s.allStrikes.length - 1
-                || expIdx === 0    || expIdx === s.validExpiries.length - 1;
-    if (atEdge) {
-      edgeHits++;
-      if (edgeExamples.length < 3) edgeExamples.push(`${s.label} ($${bestCell.strike})`);
-    }
-  });
-  if (_debugMode && edgeHits > 0) {
-    logMsg(`\u26a0 ${edgeHits}/${_rollSnapshots.length} roll candidates sit on a DM strike/expiry edge — e.g. ${edgeExamples.join(', ')}. Check Roll Candidates tab for details.`, 'err');
-  }
-
   // Populate dropdown
   const sel = $('vs-roll-select');
   if (!sel) return;
@@ -2421,6 +2470,7 @@ function renderOptResults(results, decays, floors, deltas, otms) {
   // outside what was searched, same logic we've applied manually each time
   // we kept extending decay/dte/otm ranges.
   let edgeWarning = '';
+  let dataBoundaryWarning = '';
   if (b) {
     const edgeDims = [];
     const checkEdge = (val, arr, label, fmt) => {
@@ -2441,10 +2491,41 @@ function renderOptResults(results, decays, floors, deltas, otms) {
     </div>`;
       logMsg(`\u26a0 OPT winner at sweep edge: ${edgeDims.join(', ')} — consider widening that range`, 'err');
     }
+
+    // Data-coverage boundary check: does any neighbor of the winning cell in
+    // the heatmap grid have null yield (tested but no DM contract found)?
+    // If so, the optimizer couldn't evaluate that region — not because we
+    // didn't search there, but because the DM doesn't have that data.
+    // Actionable fix: widen OTM_TARGETS or expiry window in data_collector.py
+    // and run a GAP fill to rebuild coverage, then re-run OPT.
+    if (b && allResults.grid) {
+      const decayIdx = decays.indexOf(b.decay);
+      const floorIdx = floors.indexOf(b.floor);
+      const neighbors = [];
+      const check = (di, fi) => {
+        const d = decays[di], f = floors[fi];
+        if (d === undefined || f === undefined) return;
+        if (allResults.grid[d]?.[f] === null) neighbors.push(`decay=${d}% dte=${f}d`);
+      };
+      check(decayIdx - 1, floorIdx);
+      check(decayIdx + 1, floorIdx);
+      check(decayIdx, floorIdx - 1);
+      check(decayIdx, floorIdx + 1);
+
+      if (neighbors.length) {
+        dataBoundaryWarning = `
+    <div style="font-family:var(--mono);font-size:10px;color:var(--yellow);margin-bottom:8px;padding:8px;background:rgba(234,179,8,0.08);border:1px solid var(--yellow);border-radius:4px;">
+      \u26a0 Winner touches a DM data gap: neighboring cell(s) ${neighbors.join(', ')} have no contract data.
+      The true optimum may lie there — widen OTM_TARGETS or expiry window in data_collector.py and run a GAP fill, then re-run OPT.
+    </div>`;
+        logMsg(`\u26a0 OPT winner touches DM data gap: ${neighbors.join(', ')} — widen DM coverage to verify`, 'err');
+      }
+    }
   }
 
   let html = `
     ${edgeWarning}
+    ${dataBoundaryWarning}
     <div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
       ${bestStr}
     </div>`;
