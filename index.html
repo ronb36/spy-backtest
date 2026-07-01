@@ -123,7 +123,7 @@ select.display-box { cursor:pointer; outline:none; }
 .gap-box { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:10px; white-space:pre; color:var(--muted); font-size:10px; line-height:1.8; margin-top:10px; }
 
 .footer { font-size:11px; color:var(--muted); border-top:1px solid var(--border); padding-top:12px; margin-top:8px; line-height:1.6; }
-@media(max-width:700px) { .init-grid { grid-template-columns:repeat(3,1fr); } .summary-grid { grid-template-columns:repeat(2,1fr); } #controls-row { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:700px) { .init-grid { grid-template-columns:repeat(3,1fr); } .summary-grid { grid-template-columns:repeat(2,1fr); } #controls-row { grid-template-columns:repeat(3,1fr); } }
 </style>
 </head>
 <body>
@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.4.3 · Fix: debug overrides now correctly applied to simulate() via getActiveParams() to set session-only overrides (yellow border); cleared on Debug toggle (calm/stressed) with yield contribution and win rate per bucket</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.5.0 · OPT Regime selector: score sweep against Calm (VIX<20) or Stressed (VIX≥20) cycles only — enables separate param optimization per regime ↺ Reset STD instead of ↑ Publish; clicking resets overrides to published STD applied to simulate() via getActiveParams() to set session-only overrides (yellow border); cleared on Debug toggle (calm/stressed) with yield contribution and win rate per bucket</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -223,7 +223,7 @@ select.display-box { cursor:pointer; outline:none; }
 
 
     <!-- Row 2: dropdowns + combined Run/Publish button -->
-    <div id="controls-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;grid-auto-rows:80px;">
+    <div id="controls-row" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;grid-auto-rows:80px;">
       <div class="stat-card" id="roll-limit-card" style="height:80px;box-sizing:border-box;">
         <div class="stat-label">Roll Limit</div>
         <div style="margin-top:6px;">
@@ -266,6 +266,17 @@ select.display-box { cursor:pointer; outline:none; }
             style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;width:100%;text-align:center;">
         </div>
         <div class="stat-sub" style="margin-top:4px;">% cycles on DM edge before excluded (100=off)</div>
+      </div>
+      <div class="stat-card" style="height:80px;box-sizing:border-box;">
+        <div class="stat-label">OPT Regime</div>
+        <div style="margin-top:6px;">
+          <select id="opt-regime-select" onchange="onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
+            <option value="all" selected>All cycles</option>
+            <option value="calm">Calm (VIX&lt;20)</option>
+            <option value="stressed">Stressed (VIX≥20)</option>
+          </select>
+        </div>
+        <div class="stat-sub" style="margin-top:4px;">Score OPT against regime only</div>
       </div>
       <div id="run-publish-card" style="height:80px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
         <button class="btn" id="run-btn" onclick="handleRunOrPublish()" disabled
@@ -567,9 +578,9 @@ function setRunButtonState(state, opts = {}) {
       card.style.background = 'var(--accent)'; card.style.border = 'none';
       break;
     case 'ready':
-      btn.textContent = '\u2191 Publish';
+      btn.textContent = _debugMode ? '\u21ba Reset STD' : '\u2191 Publish';
       btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
-      card.style.background = 'var(--green)'; card.style.border = 'none';
+      card.style.background = _debugMode ? 'var(--yellow)' : 'var(--green)'; card.style.border = 'none';
       break;
     case 'publishing':
       btn.textContent = 'Publishing...';
@@ -1002,6 +1013,14 @@ async function handleRunOrPublish() {
   // starting a new backtest run.
   if (currentLabel.includes('Publish')) {
     handlePublish();
+    return;
+  }
+  if (currentLabel.includes('Reset')) {
+    // Debug mode — clear overrides and revert display to published STD values
+    clearAllDebugOverrides();
+    updateParamDisplay();
+    setRunButtonState('idle');
+    logMsg('STD params reset to published values', '');
     return;
   }
   if (currentLabel.includes('Published')) return; // terminal state, no-op
@@ -1582,7 +1601,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.4.3 · SPY Covered Call Backtest');
+  logMsg('v3.5.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1622,9 +1641,8 @@ async function runSimulation() {
 function updatePublishBtn() {
   const btn = $('run-btn');
   if (!btn) return;
-  // Only relabel if we're actually in a publish-eligible state (not idle/running)
   const label = btn.textContent || '';
-  if (label.includes('Publish')) {
+  if (label.includes('Publish') || label.includes('Reset')) {
     setRunButtonState(btn.disabled ? 'idle' : 'ready');
   }
 }
@@ -1709,7 +1727,11 @@ async function runOptimization() {
   const otms   = g.otm;
 
   const sweepDesc = ['decay','dte','delta','otm'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
-  logMsg(`Running optimization — sweeping: ${sweepDesc}${_debugMode?' [DEBUG]':''}...`);
+  const optRegime = $('opt-regime-select')?.value || 'all';
+  const regimeDesc = optRegime === 'calm' ? ' · scoring Calm (VIX<20) cycles only'
+                   : optRegime === 'stressed' ? ' · scoring Stressed (VIX\u226520) cycles only'
+                   : '';
+  logMsg(`Running optimization — sweeping: ${sweepDesc}${regimeDesc}${_debugMode?' [DEBUG]':''}...`);
   {
     const maxEdgePct = parseFloat($('max-edge-pct')?.value ?? '100');
     if (maxEdgePct < 100) logMsg(`  Max Edge filter active: candidates with >${maxEdgePct}% of cycles on a DM edge are excluded from "best"`, 'err');
@@ -1736,10 +1758,11 @@ async function runOptimization() {
               _gaps = [];
               const maxLookahead = parseInt($('lookahead-select')?.value || '90');
               const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed:otm, shares, maxRolls:null, maxLookahead });
-              // Score by total roll credit / SPY basis, annualized — same metric as summary
+              // Score by regime-filtered yield — 'all' falls back to stratYld
+              const regime = $('opt-regime-select')?.value || 'all';
               let yld = null;
-              if (r?.rolls?.length >= 2 && r.stratYld !== undefined) {
-                yld = r.stratYld;
+              if (r?.rolls?.length >= 2) {
+                yld = computeRegimeYield(r, regime);
               }
               if (yld !== null && (allResults.grid[decay][floor] === null || yld > allResults.grid[decay][floor])) {
                 allResults.grid[decay][floor] = yld;
@@ -1785,10 +1808,14 @@ async function runOptimization() {
     _optParams = b ? { decayTrigger:b.decay, dteFloor:b.floor, deltaThreshold:b.delta, otmFixed:b.otm } : { ...STD };
 
     if (b) {
-      logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + ' / otm=' + (b.otm*100).toFixed(0) + '% \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld', 'ok');
+      const regimeSuffix = optRegime !== 'all' ? ` [${optRegime}]` : '';
+      logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + ' / otm=' + (b.otm*100).toFixed(0) + '% \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld' + regimeSuffix, 'ok');
+      if (optRegime !== 'all') {
+        logMsg(`  (yield scored against ${optRegime} cycles only — full-period stratYld will differ)`, '');
+      }
 
       // Store winner for publish button
-      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, optAnnYield: allResults.bestYld };
+      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, optAnnYield: allResults.bestYld, regime: optRegime };
       setRunButtonState('ready');
 
       // Re-run simulate() with the winning params so summary/blotter reflect
@@ -2111,6 +2138,50 @@ function buildSnapshot(triggerDate, spyPx, buybackPx, params) {
   if (bestKey) cells[bestKey].isBest = true;
 
   return { triggerDate, spyPx, buybackPx, validExpiries, allStrikes, cells, bestKey };
+}
+
+// Compute annualized yield scored against only cycles matching the given
+// VIX regime filter ('all', 'calm'=VIX<20, 'stressed'=VIX≥20).
+// The simulate() call always runs the full date range — we never skip cycles
+// since position continuity requires all rolls to execute in sequence.
+// Only the SCORING is filtered: credit from non-matching cycles is excluded
+// from the yield numerator, while the SPY basis and full period stay the
+// same denominator as stratYld so results are comparable to the baseline.
+function computeRegimeYield(r, regime) {
+  if (!r?.cycles?.length || !DM?.spy?.length) return null;
+  if (regime === 'all') return r.stratYld;
+
+  const spyBasis = DM.spy[0].c * 600;
+  const firstDate = DM.spy[0].date;
+  const lastCycle = r.cycles[r.cycles.length - 1];
+  const lastDate  = lastCycle?.exitDate || DM.spy[DM.spy.length-1].date;
+  const dayCount  = Math.max(1, Math.round(
+    (new Date(lastDate+'T00:00:00') - new Date(firstDate+'T00:00:00')) / 86400000));
+
+  let filteredCredit = 0;
+
+  // Initial sell: attribute to regime of cycle 0's entryVix
+  const initCycle = r.cycles[0];
+  if (initCycle) {
+    const vix = initCycle.entryVix;
+    const inRegime = regime === 'calm' ? (vix != null && vix < 20)
+                                       : (vix != null && vix >= 20);
+    if (inRegime) filteredCredit += initCycle.entryPx * 100 * 6;
+  }
+
+  // Each roll: attribute to the regime of the cycle being closed
+  r.rolls.forEach((roll, i) => {
+    const closedCycle = r.cycles[i];
+    if (!closedCycle) return;
+    const vix = closedCycle.entryVix;
+    const inRegime = regime === 'calm' ? (vix != null && vix < 20)
+                                       : (vix != null && vix >= 20);
+    if (inRegime) {
+      filteredCredit += (roll.entryPx - closedCycle.exitPx) * 100 * 6;
+    }
+  });
+
+  return spyBasis > 0 ? (filteredCredit / spyBasis) * (365 / dayCount) * 100 : null;
 }
 
 function computeEdgeRatio(result) {
