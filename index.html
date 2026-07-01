@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.4.1 · Debug: VIX regime two-bucket breakdown (calm/stressed) with yield contribution and win rate per bucket</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.4.2 · Debug: click param cards to set session-only overrides (yellow border); cleared on Debug toggle (calm/stressed) with yield contribution and win rate per bucket</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -440,6 +440,10 @@ let STD = {
   maxLookahead:   90,
 };
 
+// Session-only param overrides set via the param cards in Debug mode.
+// Never written to roll_params.json. Cleared on every Debug toggle.
+let _debugOverrides = {};
+
 async function loadRollParams() {
   try {
     // roll_params.json is served via GitHub Pages — stays accessible even on private repo with Pro
@@ -665,6 +669,15 @@ function toggleDebugMode() {
     _optParams = null;
     onConfigChanged();
   }
+  // Clear all debug overrides on every toggle — session-only, never persisted.
+  clearAllDebugOverrides();
+  // Update sub-label hint depending on mode
+  for (const v of ['decay','dte','delta','otm']) {
+    const subEl = $('vsub-' + v);
+    if (subEl && subEl.textContent === 'Click to optimize' || subEl?.textContent === 'Click to override') {
+      subEl.textContent = _debugMode ? 'Click to override' : 'Click to optimize';
+    }
+  }
   // Lock roll limit only during sweep — STD-debug keeps it free for limiting rolls
   setRollLimitState(anySweepActive());
   updateEvalCount();
@@ -782,8 +795,10 @@ const _sweepRanges = {
   otm:   { std: '3%',  sweep: '1–10%', debugSweep: '5–7%',        label: 'OTM %' },
 };
 function toggleVar(v, forceOff) {
+  // In Debug mode, clicking a card sets a session-only param override
+  // rather than opening a sweep range. OPT sweep is blocked entirely.
   if (_debugMode && !forceOff) {
-    logMsg('\u26a0 Debug mode is STD-only — turn off Debug to use OPT sweep params', 'err');
+    showDebugOverrideInput(v);
     return;
   }
   if (forceOff) { _sweepVars[v] = false; } else { _sweepVars[v] = !_sweepVars[v]; }
@@ -838,6 +853,115 @@ function toggleVar(v, forceOff) {
   updateParamDisplay();
   updateEvalCount();
 }
+
+// ── Debug param override helpers ───────────────────────────────────────────
+// Allow temporarily overriding individual STD params in Debug mode without
+// touching roll_params.json. All overrides cleared on every Debug toggle.
+
+const _debugParamMeta = {
+  decay: { label:'Decay Trigger',  key:'decayTrigger',     min:1,    max:99,  step:1,     parse: v => parseFloat(v) },
+  dte:   { label:'DTE Floor',      key:'dteFloor',         min:7,    max:90,  step:1,     parse: v => parseInt(v) },
+  delta: { label:'Delta Threshold',key:'deltaThreshold',   min:0.05, max:0.95,step:0.025, parse: v => parseFloat(v) },
+  otm:   { label:'OTM %',          key:'otmFixed',         min:1,    max:20,  step:1,     parse: v => parseFloat(v)/100 },
+};
+
+function getDebugDisplayVal(v, storedVal) {
+  if (v === 'otm')   return (storedVal * 100).toFixed(0) + '%';
+  if (v === 'delta') return storedVal.toFixed(3);
+  if (v === 'decay') return storedVal + '%';
+  return storedVal + 'd';
+}
+
+function showDebugOverrideInput(v) {
+  const meta  = _debugParamMeta[v];
+  if (!meta) return;
+  const card  = $('vcard-' + v);
+  const valEl = $('vval-'  + v);
+  const subEl = $('vsub-'  + v);
+  if (!card || !valEl) return;
+  if ($('vdebug-input-' + v)) return; // already open
+
+  const stdVal = STD[meta.key];
+  const curRaw = _debugOverrides[meta.key] !== undefined ? _debugOverrides[meta.key] : stdVal;
+  const displayVal = v === 'otm' ? (curRaw * 100).toFixed(0) : curRaw;
+
+  valEl.style.display = 'none';
+  if (subEl) subEl.style.display = 'none';
+
+  const inp = document.createElement('input');
+  inp.type = 'number';
+  inp.id   = 'vdebug-input-' + v;
+  inp.value = displayVal;
+  inp.min = meta.min; inp.max = meta.max; inp.step = meta.step;
+  inp.style.cssText = 'width:80%;background:var(--surface2);border:1px solid var(--yellow);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:13px;font-weight:600;padding:3px 6px;text-align:center;outline:none;margin-top:4px;';
+  inp.onkeydown = e => {
+    if (e.key === 'Enter')  { commitDebugOverride(v, inp.value); }
+    if (e.key === 'Escape') { cancelDebugOverrideInput(v); }
+  };
+  inp.onblur = () => { if ($('vdebug-input-' + v)) commitDebugOverride(v, inp.value); };
+
+  card.appendChild(inp);
+  card.style.borderColor = 'var(--yellow)';
+  setTimeout(() => { inp.focus(); inp.select(); }, 10);
+}
+
+function commitDebugOverride(v, rawVal) {
+  const meta  = _debugParamMeta[v];
+  const card  = $('vcard-' + v);
+  const valEl = $('vval-'  + v);
+  const subEl = $('vsub-'  + v);
+  const inp   = $('vdebug-input-' + v);
+  if (!meta || !inp) return;
+  inp.remove();
+
+  const parsed = meta.parse(rawVal);
+  const minVal = v === 'otm' ? meta.min / 100 : meta.min;
+  const maxVal = v === 'otm' ? meta.max / 100 : meta.max;
+  const isValid = !isNaN(parsed) && parsed >= minVal && parsed <= maxVal;
+
+  if (valEl) valEl.style.display = '';
+  if (subEl) subEl.style.display = '';
+
+  if (isValid) {
+    _debugOverrides[meta.key] = parsed;
+    const dispVal = getDebugDisplayVal(v, parsed);
+    const stdDisp = getDebugDisplayVal(v, STD[meta.key]);
+    if (valEl) { valEl.textContent = dispVal; valEl.style.color = 'var(--yellow)'; }
+    if (subEl) { subEl.textContent = 'debug override'; subEl.style.color = 'var(--yellow)'; }
+    if (card)  card.style.borderColor = 'var(--yellow)';
+    logMsg('  Debug override: ' + meta.label + ' = ' + dispVal + ' (STD=' + stdDisp + ')', '');
+  } else {
+    cancelDebugOverrideInput(v);
+  }
+  onConfigChanged();
+}
+
+function cancelDebugOverrideInput(v) {
+  const inp   = $('vdebug-input-' + v);
+  const valEl = $('vval-'  + v);
+  const subEl = $('vsub-'  + v);
+  const card  = $('vcard-' + v);
+  if (inp) inp.remove();
+  if (valEl) valEl.style.display = '';
+  if (subEl) subEl.style.display = '';
+  const meta = _debugParamMeta[v];
+  if (card) card.style.borderColor = (meta && _debugOverrides[meta.key] !== undefined) ? 'var(--yellow)' : '';
+}
+
+function clearAllDebugOverrides() {
+  _debugOverrides = {};
+  for (const v of ['decay','dte','delta','otm']) {
+    const valEl = $('vval-'  + v);
+    const subEl = $('vsub-'  + v);
+    const card  = $('vcard-' + v);
+    const inp   = $('vdebug-input-' + v);
+    if (inp) inp.remove();
+    if (valEl) { valEl.style.color = 'var(--accent)'; valEl.style.display = ''; }
+    if (subEl) { subEl.textContent = 'Click to override'; subEl.style.color = ''; subEl.style.display = ''; }
+    if (card)  card.style.borderColor = '';
+  }
+}
+
 
 function anySweepActive() {
   return Object.values(_sweepVars).some(Boolean);
@@ -959,8 +1083,13 @@ function logVIXRegimeSplit(result) {
 }
 
 function getActiveParams() {
-  if (!_optParams) return { ...STD };
-  return { ...STD, ..._optParams };
+  const base = _optParams ? { ...STD, ..._optParams } : { ...STD };
+  // In debug mode, session-only overrides take precedence over both STD
+  // and any OPT winner — never written to roll_params.json.
+  if (_debugMode && Object.keys(_debugOverrides).length) {
+    return { ...base, ..._debugOverrides };
+  }
+  return base;
 }
 
 function updateParamDisplay() {
@@ -1451,7 +1580,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.4.1 · SPY Covered Call Backtest');
+  logMsg('v3.4.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
