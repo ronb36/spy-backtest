@@ -123,32 +123,6 @@ def get_quarterly_expiries(start_date, end_date):
             if datetime.strptime(e, "%Y-%m-%d").month in quarter_months]
 
 
-def get_weekly_expiries(start_date, end_date):
-    """
-    Return all Friday expiry dates between start and end, EXCLUDING 3rd Fridays
-    (which are already covered by get_monthly_expiries). This gives the weekly
-    expiry universe without duplicating monthly entries.
-    SPY Friday weeklies are the most liquid — Mon/Wed weeklies excluded.
-    """
-    import calendar
-    expiries = []
-    start = datetime.strptime(start_date, "%Y-%m-%d").date()
-    end   = datetime.strptime(end_date,   "%Y-%m-%d").date()
-
-    # Get all monthly (3rd Friday) expiries for dedup
-    monthly_set = set(get_monthly_expiries(start_date, end_date))
-
-    current = start
-    while current <= end:
-        if current.weekday() == 4:  # Friday
-            iso = current.strftime("%Y-%m-%d")
-            if iso not in monthly_set:  # exclude 3rd Fridays already in monthly
-                expiries.append(iso)
-        current += timedelta(days=1)
-
-    return expiries
-
-
 def build_option_ticker(expiry_iso, strike):
     """Build Polygon option ticker e.g. O:SPY241220C00500000"""
     d          = datetime.strptime(expiry_iso, "%Y-%m-%d")
@@ -261,22 +235,83 @@ def github_get_file(path):
 
 
 def github_commit_file(path, content_dict, message, sha=None):
-    """Commit JSON file to GitHub repo."""
-    url     = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}",
-               "Accept": "application/vnd.github.v3+json"}
-    content_b64 = base64.b64encode(
-        json.dumps(content_dict, indent=2).encode("utf-8")
-    ).decode("utf-8")
-    payload = {"message": message, "content": content_b64}
-    if sha:
-        payload["sha"] = sha
-    r = requests.put(url, headers=headers, json=payload, timeout=30)
-    if r.status_code in (200, 201):
-        log(f"  ✓ Committed {path} to GitHub")
+    """
+    Commit JSON file to GitHub using the Git Data API.
+    This avoids the ~100MB encoded limit of the Contents API PUT endpoint
+    by using the low-level blob → tree → commit → ref update flow.
+    """
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+    }
+    base = f"https://api.github.com/repos/{GITHUB_REPO}"
+    content_bytes = json.dumps(content_dict, indent=2).encode("utf-8")
+    content_b64   = base64.b64encode(content_bytes).decode("utf-8")
+
+    try:
+        # 1. Create blob
+        r = requests.post(f"{base}/git/blobs",
+            headers=headers,
+            json={"content": content_b64, "encoding": "base64"},
+            timeout=120)
+        if r.status_code not in (200, 201):
+            log(f"  ✗ GitHub blob creation failed: {r.status_code} {r.text[:200]}")
+            return False
+        blob_sha = r.json()["sha"]
+        log(f"  ✓ Blob created ({len(content_bytes)/1024/1024:.1f} MB)")
+
+        # 2. Get current HEAD commit SHA and its tree SHA
+        r = requests.get(f"{base}/git/ref/heads/main", headers=headers, timeout=30)
+        if r.status_code != 200:
+            log(f"  ✗ GitHub ref fetch failed: {r.status_code} {r.text[:200]}")
+            return False
+        head_commit_sha = r.json()["object"]["sha"]
+
+        r = requests.get(f"{base}/git/commits/{head_commit_sha}", headers=headers, timeout=30)
+        if r.status_code != 200:
+            log(f"  ✗ GitHub commit fetch failed: {r.status_code} {r.text[:200]}")
+            return False
+        base_tree_sha = r.json()["tree"]["sha"]
+
+        # 3. Create tree referencing the new blob
+        r = requests.post(f"{base}/git/trees",
+            headers=headers,
+            json={"base_tree": base_tree_sha,
+                  "tree": [{"path": path, "mode": "100644",
+                             "type": "blob", "sha": blob_sha}]},
+            timeout=60)
+        if r.status_code not in (200, 201):
+            log(f"  ✗ GitHub tree creation failed: {r.status_code} {r.text[:200]}")
+            return False
+        new_tree_sha = r.json()["sha"]
+
+        # 4. Create commit
+        r = requests.post(f"{base}/git/commits",
+            headers=headers,
+            json={"message": message,
+                  "tree": new_tree_sha,
+                  "parents": [head_commit_sha]},
+            timeout=30)
+        if r.status_code not in (200, 201):
+            log(f"  ✗ GitHub commit creation failed: {r.status_code} {r.text[:200]}")
+            return False
+        new_commit_sha = r.json()["sha"]
+
+        # 5. Update HEAD ref
+        r = requests.patch(f"{base}/git/refs/heads/main",
+            headers=headers,
+            json={"sha": new_commit_sha},
+            timeout=30)
+        if r.status_code not in (200, 201):
+            log(f"  ✗ GitHub ref update failed: {r.status_code} {r.text[:200]}")
+            return False
+
+        log(f"  ✓ Committed {path} to GitHub ({new_commit_sha[:7]})")
         return True
-    else:
-        log(f"  ✗ GitHub commit failed: {r.status_code} {r.text[:200]}")
+
+    except Exception as e:
+        log(f"  ✗ GitHub commit exception: {e}")
         return False
 
 
@@ -329,10 +364,7 @@ def full_load():
 
     # ── Options ──────────────────────────────────────────────────────────
     future_end = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
-    expiries = sorted(set(
-        get_monthly_expiries(start, future_end) +
-        get_weekly_expiries(start, future_end)
-    ))
+    expiries = get_monthly_expiries(start, future_end)
     total_contracts = len(expiries) * len(OTM_TARGETS)
     log(f"Processing {len(expiries)} expiries x {len(OTM_TARGETS)} OTM targets = {total_contracts} contracts")
 
@@ -477,11 +509,7 @@ def daily_append(dm):
     log("Phase 3: Inspecting DM for missing contracts (daily-anchored)...")
 
     future_end   = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
-    all_expiries = sorted(set(
-        get_monthly_expiries(two_yr_ago, future_end) +
-        get_weekly_expiries(two_yr_ago, future_end)
-    ))
-    log(f"  Expiry universe: {len(all_expiries)} total ({sum(1 for e in all_expiries if e in set(get_monthly_expiries(two_yr_ago, future_end)))} monthly + {sum(1 for e in all_expiries if e not in set(get_monthly_expiries(two_yr_ago, future_end)))} weekly)")
+    all_expiries = get_monthly_expiries(two_yr_ago, future_end)
 
     # Build full set of expected tickers across all expiries × all SPY days
     # Use sorted SPY dates within each expiry's window
@@ -546,10 +574,7 @@ def daily_append(dm):
     log(f"Phase 4: Syncing future expiry strikes (SPY=${current_spy:.2f})...")
     new_future = 0
 
-    future_expiries = sorted(set(
-        get_monthly_expiries(today_iso, future_end) +
-        get_weekly_expiries(today_iso, future_end)
-    ))
+    future_expiries = get_monthly_expiries(today_iso, future_end)
     for exp in future_expiries:
         exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
         hist_start = max(two_yr_ago,
