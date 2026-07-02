@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.5.6</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.5.7</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -163,13 +163,13 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Row 1: sweepable param cards -->
     <div id="var-card-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
-      <div class="stat-card var-card" id="vcard-decay" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;">
+      <div class="stat-card var-card" id="vcard-decay" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('decay')" style="cursor:inherit;">
           <div class="stat-label">Decay Trigger</div>
           <div class="stat-value accent" id="vval-decay" style="font-size:14px;">80%</div>
           <div class="stat-sub" id="vsub-decay">Click to optimize</div>
         </div>
-        <div id="vrange-decay" style="display:none;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+        <div id="vrange-decay" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
           <input type="number" id="vmin-decay" value="15" min="0" max="100" step="5" onchange="updateSweepRange('decay')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
           <input type="number" id="vmax-decay" value="35" min="0" max="100" step="5" onchange="updateSweepRange('decay')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
@@ -177,13 +177,13 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-decay" value="2" min="1" max="50" step="1" onchange="updateSweepRange('decay')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-dte" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;">
+      <div class="stat-card var-card" id="vcard-dte" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('dte')" style="cursor:inherit;">
           <div class="stat-label">DTE Floor</div>
           <div class="stat-value accent" id="vval-dte" style="font-size:14px;">30d</div>
           <div class="stat-sub" id="vsub-dte">Click to optimize</div>
         </div>
-        <div id="vrange-dte" style="display:none;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+        <div id="vrange-dte" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
           <input type="number" id="vmin-dte" value="21" min="1" max="180" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
           <input type="number" id="vmax-dte" value="45" min="1" max="180" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
@@ -191,13 +191,13 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-dte" value="3" min="1" max="50" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-delta" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;">
+      <div class="stat-card var-card" id="vcard-delta" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('delta')" style="cursor:inherit;">
           <div class="stat-label">Delta Δ</div>
           <div class="stat-value accent" id="vval-delta" style="font-size:14px;">0.40</div>
           <div class="stat-sub" id="vsub-delta">Click to optimize</div>
         </div>
-        <div id="vrange-delta" style="display:none;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+        <div id="vrange-delta" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
           <input type="number" id="vmin-delta" value="0.25" min="0.05" max="0.95" step="0.05" onchange="updateSweepRange('delta')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
           <input type="number" id="vmax-delta" value="0.35" min="0.05" max="0.95" step="0.05" onchange="updateSweepRange('delta')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
@@ -205,13 +205,13 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-delta" value="0.025" min="0.01" max="0.5" step="0.01" onchange="updateSweepRange('delta')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-otm" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;">
+      <div class="stat-card var-card" id="vcard-otm" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('otm')" style="cursor:inherit;">
           <div class="stat-label">OTM %</div>
           <div class="stat-value accent" id="vval-otm" style="font-size:14px;">3%</div>
           <div class="stat-sub" id="vsub-otm">Click to optimize</div>
         </div>
-        <div id="vrange-otm" style="display:none;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;">
+        <div id="vrange-otm" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
           <input type="number" id="vmin-otm" value="1" min="1" max="35" step="1" onchange="updateSweepRange('otm')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
           <input type="number" id="vmax-otm" value="10" min="1" max="35" step="1" onchange="updateSweepRange('otm')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
@@ -406,7 +406,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.5.6 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.5.7 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
   </div>
 </div>
 
@@ -1689,7 +1689,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.5.6 · SPY Covered Call Backtest');
+  logMsg('v3.5.7 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
