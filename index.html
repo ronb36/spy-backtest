@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.1</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.2</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -408,7 +408,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.6.1 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.6.2 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
   </div>
 </div>
 
@@ -982,7 +982,7 @@ function updateEvalCount(done, total) {
     return;
   }
   const g = getSweepGrid();
-  const evals = g.decay.length * g.dte.length * g.delta.length * g.otm.length;
+  const evals = g.decay.length * g.dte.length * g.delta.length * g.vixgate.length;
   counter.textContent = evals.toLocaleString() + ' evals' + (_debugMode ? ' (debug)' : '');
   counter.style.display = 'block';
 }
@@ -1223,6 +1223,25 @@ function updateParamDisplay() {
   const vgVal = $('vval-vixgate');
   if (vgVal && !_sweepVars.vixgate) vgVal.textContent = p.vixGate > 0 ? 'VIX≥' + p.vixGate : 'Off';
   set('param-label', isOpt ? 'Optimized Parameters' : anySweepActive() ? 'Sweep pending — click ▶ Run' : 'Standard Parameters');
+
+  // Bottom row border: blue (default) → green (changed from STD)
+  const accentBorder = '1px solid var(--accent)';
+  const greenBorder  = '1px solid var(--green)';
+  const defaultBorder = '1px solid var(--border)';
+
+  // Roll Limit: green if not "All"
+  const rollCard = $('roll-limit-card');
+  if (rollCard) rollCard.style.border = rv > 0 ? greenBorder : defaultBorder;
+
+  // Max Lookahead: green if not 90d
+  const lookSel = $('lookahead-select');
+  const lookCard = lookSel?.closest('.stat-card');
+  if (lookCard) lookCard.style.border = parseInt(lookSel?.value||'90') !== 90 ? greenBorder : defaultBorder;
+
+  // OTM %: green if not 3%
+  const otmSel  = $('otm-select');
+  const otmCard = otmSel?.closest('.stat-card');
+  if (otmCard) otmCard.style.border = Math.abs(otmVal - 0.03) > 0.001 ? greenBorder : defaultBorder;
 }
 
 // ── Tab management ─────────────────────────────────────────────────────────
@@ -1772,7 +1791,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.6.1 · SPY Covered Call Backtest');
+  logMsg('v3.6.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
