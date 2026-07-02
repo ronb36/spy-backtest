@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.0</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.1</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Row 2: dropdowns + combined Run/Publish button -->
     <div id="controls-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;grid-auto-rows:80px;">
-      <div class="stat-card" id="roll-limit-card" style="height:80px;box-sizing:border-box;">
+      <div class="stat-card" id="roll-limit-card" style="height:80px;box-sizing:border-box;border:1px solid var(--border);">
         <div class="stat-label">Roll Limit</div>
         <div style="margin-top:6px;">
           <select id="single-roll-toggle" onchange="updateParamDisplay(); onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
@@ -237,7 +237,7 @@ select.display-box { cursor:pointer; outline:none; }
         </div>
         <div class="stat-sub" style="margin-top:4px;">Max rolls per run</div>
       </div>
-      <div class="stat-card" style="height:80px;box-sizing:border-box;">
+      <div class="stat-card" style="height:80px;box-sizing:border-box;border:1px solid var(--border);">
         <div class="stat-label">Max Lookahead</div>
         <div style="margin-top:6px;">
           <select id="lookahead-select" onchange="updateParamDisplay(); onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
@@ -258,7 +258,7 @@ select.display-box { cursor:pointer; outline:none; }
         </div>
         <div class="stat-sub" style="margin-top:4px;">Candidate search window</div>
       </div>
-      <div class="stat-card" style="height:80px;box-sizing:border-box;">
+      <div class="stat-card" style="height:80px;box-sizing:border-box;border:1px solid var(--border);">
         <div class="stat-label">OTM %</div>
         <div style="margin-top:6px;">
           <select id="otm-select" onchange="updateParamDisplay(); onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
@@ -408,7 +408,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.6.0 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.6.1 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
   </div>
 </div>
 
@@ -1772,7 +1772,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.6.0 · SPY Covered Call Backtest');
+  logMsg('v3.6.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
