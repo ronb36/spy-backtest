@@ -43,7 +43,7 @@ DATA_PATH      = "data/spy_data.json"
 PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
-COLLECTOR_VERSION = "1.2.1"  # Fix memory crash in Phase 3 — process expiries one at a time
+COLLECTOR_VERSION = "1.2.2"  # Add Phase 3 try/except + DM sanity check to diagnose crash
 
 # ── OTM target levels to store per expiry ─────────────────────────────────
 # 0.5% steps from 1%–20%, snapped to $5 grid — matches backfill exactly
@@ -504,84 +504,100 @@ def daily_append(dm):
     log(f"  ✓ {appended} option day records appended")
 
     # ── Phase 3: Smart inspection — daily-anchored strike coverage ──────────
-    # For every monthly expiry in the 2yr window, compute expected strikes
-    # using EVERY SPY trading day as an anchor. This ensures the backtester
-    # always finds the exact strikes it needs at each roll trigger date.
+    # For every expiry in the 2yr window (monthly + weekly), compute expected
+    # strikes using EVERY SPY trading day as an anchor.
     # Idempotent: second run finds nothing new.
     log("Phase 3: Inspecting DM for missing contracts (daily-anchored)...")
 
-    future_end      = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
-    monthly_expiries = get_monthly_expiries(two_yr_ago, future_end)
-    weekly_expiries  = get_weekly_expiries(two_yr_ago, future_end)
-    all_expiries     = sorted(set(monthly_expiries + weekly_expiries))
-    monthly_set      = set(monthly_expiries)
-    log(f"  Expiry universe: {len(all_expiries)} total ({len(monthly_expiries)} monthly + {len(weekly_expiries)} weekly)")
+    # Sanity check — confirm DM loaded correctly before Phase 3
+    opt_count = len(dm.get("options", {}))
+    spy_count = len(dm.get("spy", []))
+    sample_key = next(iter(dm["options"]), None) if dm.get("options") else None
+    log(f"  DM sanity: {opt_count} contracts, {spy_count} SPY days, sample={sample_key}")
+    if opt_count == 0 or spy_count == 0:
+        log("  ✗ DM appears empty — aborting Phase 3")
+        return dm
 
-    missing      = 0
-    already_have = 0
-    no_data      = 0
-    no_data_tickers = []
-    weekly_filled   = 0
-    weekly_no_data  = 0
-    total_expected  = 0
+    try:
 
-    existing_tickers = set(dm["options"].keys())
+        future_end      = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
+        monthly_expiries = get_monthly_expiries(two_yr_ago, future_end)
+        weekly_expiries  = get_weekly_expiries(two_yr_ago, future_end)
+        all_expiries     = sorted(set(monthly_expiries + weekly_expiries))
+        monthly_set      = set(monthly_expiries)
+        log(f"  Expiry universe: {len(all_expiries)} total ({len(monthly_expiries)} monthly + {len(weekly_expiries)} weekly)")
 
-    # Process one expiry at a time — avoids building a massive dict in memory
-    # (130 expiries × 500 SPY days × 22 OTM targets = ~1.4M ticker strings)
-    for exp in all_expiries:
-        is_weekly  = exp not in monthly_set
-        exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
-        hist_start = max(two_yr_ago,
-                         (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
-        hist_end   = min(exp, today_iso)
+        missing      = 0
+        already_have = 0
+        no_data      = 0
+        no_data_tickers = []
+        weekly_filled   = 0
+        weekly_no_data  = 0
+        total_expected  = 0
 
-        # Build expected tickers for this expiry only
-        expected = set()
-        for spy_date_str, spy_px in spy_by_date.items():
-            if spy_date_str < hist_start or spy_date_str > hist_end:
-                continue
-            for otm_pct in OTM_TARGETS:
-                strike = find_nearest_strike(spy_px, otm_pct)
-                ticker = build_option_ticker(exp, strike)
-                expected.add(ticker)
+        existing_tickers = set(dm["options"].keys())
 
-        total_expected += len(expected)
-        missing_tickers = expected - existing_tickers
-        already_have   += len(expected) - len(missing_tickers)
+        # Process one expiry at a time — avoids building a massive dict in memory
+        # (130 expiries × 500 SPY days × 22 OTM targets = ~1.4M ticker strings)
+        for exp in all_expiries:
+            is_weekly  = exp not in monthly_set
+            exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
+            hist_start = max(two_yr_ago,
+                             (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
+            hist_end   = min(exp, today_iso)
 
-        for ticker in sorted(missing_tickers):
-            strike    = int(ticker[-8:]) / 1000
-            days_data = fetch_option_history(ticker, hist_start, hist_end)
-            time.sleep(CALL_DELAY)
-            if days_data:
-                first_date = days_data[0]["date"]
-                entry_spy  = spy_by_date.get(first_date, current_spy)
-                dm["options"][ticker] = {
-                    "strike":    strike,
-                    "expiry":    exp,
-                    "otm_pct":   round((strike / entry_spy - 1), 3),
-                    "entry_spy": entry_spy,
-                    "days":      days_data,
-                }
-                existing_tickers.add(ticker)
-                missing += 1
-                if is_weekly: weekly_filled += 1
-                log(f"  + {ticker} ({len(days_data)}d){'[W]' if is_weekly else ''}")
-            else:
-                no_data += 1
-                no_data_tickers.append((ticker, strike, exp, hist_start))
-                if is_weekly: weekly_no_data += 1
+            # Build expected tickers for this expiry only
+            expected = set()
+            for spy_date_str, spy_px in spy_by_date.items():
+                if spy_date_str < hist_start or spy_date_str > hist_end:
+                    continue
+                for otm_pct in OTM_TARGETS:
+                    strike = find_nearest_strike(spy_px, otm_pct)
+                    ticker = build_option_ticker(exp, strike)
+                    expected.add(ticker)
 
-    log(f"  Expected unique contracts across all expiries: {total_expected}")
-    log(f"  ✓ Inspection complete — {already_have} present, {missing} filled, {no_data} not in Polygon")
-    log(f"  Weekly breakdown: {weekly_filled} filled, {weekly_no_data} not in Polygon")
+            total_expected += len(expected)
+            missing_tickers = expected - existing_tickers
+            already_have   += len(expected) - len(missing_tickers)
 
-    # Sample of weekly gaps for diagnosis
-    weekly_gaps = [(t, s, e, h) for t, s, e, h in no_data_tickers if e not in monthly_set]
-    if weekly_gaps:
-        sample = weekly_gaps[:5]
-        log(f"  Weekly gap samples: {', '.join(t for t,s,e,h in sample)}")
+            for ticker in sorted(missing_tickers):
+                strike    = int(ticker[-8:]) / 1000
+                days_data = fetch_option_history(ticker, hist_start, hist_end)
+                time.sleep(CALL_DELAY)
+                if days_data:
+                    first_date = days_data[0]["date"]
+                    entry_spy  = spy_by_date.get(first_date, current_spy)
+                    dm["options"][ticker] = {
+                        "strike":    strike,
+                        "expiry":    exp,
+                        "otm_pct":   round((strike / entry_spy - 1), 3),
+                        "entry_spy": entry_spy,
+                        "days":      days_data,
+                    }
+                    existing_tickers.add(ticker)
+                    missing += 1
+                    if is_weekly: weekly_filled += 1
+                    log(f"  + {ticker} ({len(days_data)}d){'[W]' if is_weekly else ''}")
+                else:
+                    no_data += 1
+                    no_data_tickers.append((ticker, strike, exp, hist_start))
+                    if is_weekly: weekly_no_data += 1
+
+        log(f"  Expected unique contracts across all expiries: {total_expected}")
+        log(f"  ✓ Inspection complete — {already_have} present, {missing} filled, {no_data} not in Polygon")
+        log(f"  Weekly breakdown: {weekly_filled} filled, {weekly_no_data} not in Polygon")
+
+        # Sample of weekly gaps for diagnosis
+        weekly_gaps = [(t, s, e, h) for t, s, e, h in no_data_tickers if e not in monthly_set]
+        if weekly_gaps:
+            sample = weekly_gaps[:5]
+            log(f"  Weekly gap samples: {', '.join(t for t,s,e,h in sample)}")
+
+    except Exception as e:
+        import traceback
+        log(f"  ✗ Phase 3 crashed: {type(e).__name__}: {e}")
+        log(f"  Traceback: {traceback.format_exc()[:500]}")
+        log(f"  State at crash: {opt_count} contracts, expiries processed so far: {len(all_expiries) if 'all_expiries' in dir() else 'unknown'}")
 
     # ── Phase 4: Add new future strikes if SPY has moved ─────────────────
     # Ensures current-SPY strikes exist for all upcoming expiries
