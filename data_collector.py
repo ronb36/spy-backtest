@@ -43,6 +43,8 @@ DATA_PATH      = "data/spy_data.json"
 PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
+COLLECTOR_VERSION = "1.2.0"  # Weekly expiry support + Git Data API commit + diagnostics
+
 # ── OTM target levels to store per expiry ─────────────────────────────────
 # 0.5% steps from 1%–20%, snapped to $5 grid — matches backfill exactly
 # ~39 strikes per expiry; aligns with yield grid display
@@ -508,8 +510,12 @@ def daily_append(dm):
     # Idempotent: second run finds nothing new.
     log("Phase 3: Inspecting DM for missing contracts (daily-anchored)...")
 
-    future_end   = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
-    all_expiries = get_monthly_expiries(two_yr_ago, future_end)
+    future_end      = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
+    monthly_expiries = get_monthly_expiries(two_yr_ago, future_end)
+    weekly_expiries  = get_weekly_expiries(two_yr_ago, future_end)
+    all_expiries     = sorted(set(monthly_expiries + weekly_expiries))
+    monthly_set      = set(monthly_expiries)
+    log(f"  Expiry universe: {len(all_expiries)} total ({len(monthly_expiries)} monthly + {len(weekly_expiries)} weekly)")
 
     # Build full set of expected tickers across all expiries × all SPY days
     # Use sorted SPY dates within each expiry's window
@@ -535,10 +541,17 @@ def daily_append(dm):
     missing      = 0
     already_have = 0
     no_data      = 0
+    no_data_tickers = []
+
+    # Track weekly-specific stats for diagnostic
+    weekly_missing  = 0
+    weekly_filled   = 0
+    weekly_no_data  = 0
 
     existing_tickers = set(dm["options"].keys())
 
     for exp, (expected_tickers, hist_start, hist_end) in expected_by_expiry.items():
+        is_weekly      = exp not in monthly_set
         missing_tickers = expected_tickers - existing_tickers
         already_have   += len(expected_tickers) - len(missing_tickers)
 
@@ -551,7 +564,6 @@ def daily_append(dm):
             days_data = fetch_option_history(ticker, hist_start, hist_end)
             time.sleep(CALL_DELAY)
             if days_data:
-                # Use SPY price nearest to first day of data as entry_spy
                 first_date = days_data[0]["date"]
                 entry_spy  = spy_by_date.get(first_date, current_spy)
                 dm["options"][ticker] = {
@@ -563,18 +575,31 @@ def daily_append(dm):
                 }
                 existing_tickers.add(ticker)
                 missing += 1
-                log(f"  + {ticker} ({len(days_data)}d)")
+                if is_weekly: weekly_filled += 1
+                log(f"  + {ticker} ({len(days_data)}d){'[W]' if is_weekly else ''}")
             else:
                 no_data += 1
+                no_data_tickers.append((ticker, strike, exp, hist_start))
+                if is_weekly: weekly_no_data += 1
 
     log(f"  ✓ Inspection complete — {already_have} present, {missing} filled, {no_data} not in Polygon")
+    log(f"  Weekly breakdown: {weekly_filled} filled, {weekly_no_data} not in Polygon")
+
+    # Sample of weekly gaps for diagnosis
+    weekly_gaps = [(t, s, e, h) for t, s, e, h in no_data_tickers if e not in monthly_set]
+    if weekly_gaps:
+        sample = weekly_gaps[:5]
+        log(f"  Weekly gap samples: {', '.join(t for t,s,e,h in sample)}")
 
     # ── Phase 4: Add new future strikes if SPY has moved ─────────────────
     # Ensures current-SPY strikes exist for all upcoming expiries
     log(f"Phase 4: Syncing future expiry strikes (SPY=${current_spy:.2f})...")
     new_future = 0
 
-    future_expiries = get_monthly_expiries(today_iso, future_end)
+    future_expiries = sorted(set(
+        get_monthly_expiries(today_iso, future_end) +
+        get_weekly_expiries(today_iso, future_end)
+    ))
     for exp in future_expiries:
         exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
         hist_start = max(two_yr_ago,
@@ -667,7 +692,7 @@ def gap_fill(dm):
 
 # ── Main ───────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    log("SPY Backtest Data Collector starting...")
+    log(f"SPY Backtest Data Collector v{COLLECTOR_VERSION} starting...")
     log(f"Mode: {RUN_MODE.upper()} | Repo: {GITHUB_REPO}")
 
     if RUN_MODE == "full":
