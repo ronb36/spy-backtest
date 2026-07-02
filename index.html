@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.5.7</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.0</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -205,18 +205,18 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-delta" value="0.025" min="0.01" max="0.5" step="0.01" onchange="updateSweepRange('delta')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-otm" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
-        <div onclick="toggleVar('otm')" style="cursor:inherit;">
-          <div class="stat-label">OTM %</div>
-          <div class="stat-value accent" id="vval-otm" style="font-size:14px;">3%</div>
-          <div class="stat-sub" id="vsub-otm">Click to optimize</div>
+      <div class="stat-card var-card" id="vcard-vixgate" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
+        <div onclick="toggleVar('vixgate')" style="cursor:inherit;">
+          <div class="stat-label">VIX Gate</div>
+          <div class="stat-value accent" id="vval-vixgate" style="font-size:14px;">Off</div>
+          <div class="stat-sub" id="vsub-vixgate">Click to optimize</div>
         </div>
-        <div id="vrange-otm" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
-          <input type="number" id="vmin-otm" value="1" min="1" max="35" step="1" onchange="updateSweepRange('otm')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+        <div id="vrange-vixgate" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
+          <input type="number" id="vmin-vixgate" value="15" min="0" max="40" step="1" onchange="updateSweepRange('vixgate')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
-          <input type="number" id="vmax-otm" value="10" min="1" max="35" step="1" onchange="updateSweepRange('otm')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vmax-vixgate" value="25" min="0" max="40" step="1" onchange="updateSweepRange('vixgate')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">step</span>
-          <input type="number" id="vstep-otm" value="2" min="1" max="20" step="1" onchange="updateSweepRange('otm')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vstep-vixgate" value="1" min="1" max="10" step="1" onchange="updateSweepRange('vixgate')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
     </div>
@@ -259,15 +259,17 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="stat-sub" style="margin-top:4px;">Candidate search window</div>
       </div>
       <div class="stat-card" style="height:80px;box-sizing:border-box;">
-        <div class="stat-label">VIX Regime</div>
+        <div class="stat-label">OTM %</div>
         <div style="margin-top:6px;">
-          <select id="opt-regime-select" onchange="onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
-            <option value="all" selected>All cycles</option>
-            <option value="calm">Calm (VIX&lt;20)</option>
-            <option value="stressed">Stressed (VIX≥20)</option>
+          <select id="otm-select" onchange="updateParamDisplay(); onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
+            <option value="0.01">1%</option>
+            <option value="0.02">2%</option>
+            <option value="0.03" selected>3%</option>
+            <option value="0.04">4%</option>
+            <option value="0.05">5%</option>
           </select>
         </div>
-        <div class="stat-sub" style="margin-top:4px;">Score OPT sweep by regime</div>
+        <div class="stat-sub" style="margin-top:4px;">Initial strike target</div>
       </div>
       <div id="run-publish-card" style="height:80px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
         <button class="btn" id="run-btn" onclick="handleRunOrPublish()" disabled
@@ -406,7 +408,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.5.7 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.6.0 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
   </div>
 </div>
 
@@ -440,6 +442,7 @@ let STD = {
   decayTrigger:   80,
   dteFloor:       30,
   deltaThreshold: 0.40,
+  vixGate:        0,    // 0 = off (no VIX gate)
   maxLookahead:   90,
 };
 
@@ -457,23 +460,27 @@ async function loadRollParams() {
       decayTrigger:   data.decayTrigger * 100,
       dteFloor:       data.dteFloor,
       deltaThreshold: data.deltaThreshold,
+      vixGate:        data.vixGate || 0,
       maxLookahead:   90,
     };
     // Update var-card display values
     const updates = {
-      'vval-decay': STD.decayTrigger + '%',
-      'vval-dte':   STD.dteFloor + 'd',
-      'vval-delta': STD.deltaThreshold.toFixed(2),
-      'vval-otm':   (STD.otmFixed * 100).toFixed(0) + '%',
+      'vval-decay':   STD.decayTrigger + '%',
+      'vval-dte':     STD.dteFloor + 'd',
+      'vval-delta':   STD.deltaThreshold.toFixed(2),
+      'vval-vixgate': STD.vixGate > 0 ? 'VIX≥' + STD.vixGate : 'Off',
     };
     Object.entries(updates).forEach(([id, val]) => {
       const el = document.getElementById(id); if (el && !_sweepVars[id.replace('vval-','')]) el.textContent = val;
     });
     // Also update _sweepRanges std display
-    _sweepRanges.decay.std = STD.decayTrigger + '%';
-    _sweepRanges.dte.std   = STD.dteFloor + 'd';
-    _sweepRanges.delta.std = STD.deltaThreshold.toFixed(2);
-    _sweepRanges.otm.std   = (STD.otmFixed * 100).toFixed(0) + '%';
+    _sweepRanges.decay.std   = STD.decayTrigger + '%';
+    _sweepRanges.dte.std     = STD.dteFloor + 'd';
+    _sweepRanges.delta.std   = STD.deltaThreshold.toFixed(2);
+    _sweepRanges.vixgate.std = STD.vixGate > 0 ? 'VIX≥' + STD.vixGate : 'Off';
+    // Sync OTM dropdown to published value
+    const otmSel = $('otm-select');
+    if (otmSel) otmSel.value = String(STD.otmFixed);
     console.log("STD params loaded from roll_params.json:", STD);
   } catch(e) {
     console.warn("Could not load roll_params.json — using fallback STD params.", e);
@@ -663,7 +670,7 @@ function toggleDebugMode() {
   // sweep is active reverts every toggled card back to STD/Click-to-optimize.
   if (_debugMode && anySweepActive()) {
     logMsg('Debug mode enabled — reverting active OPT sweep to STD', '');
-    for (const v of ['decay','dte','delta','otm']) {
+    for (const v of ['decay','dte','delta','vixgate']) {
       if (_sweepVars[v]) toggleVar(v, true);
     }
     _optParams = null;
@@ -672,7 +679,7 @@ function toggleDebugMode() {
   // Clear all debug overrides on every toggle — session-only, never persisted.
   clearAllDebugOverrides();
   // Update sub-label hint depending on mode
-  for (const v of ['decay','dte','delta','otm']) {
+  for (const v of ['decay','dte','delta','vixgate']) {
     const subEl = $('vsub-' + v);
     if (subEl && subEl.textContent === 'Click to optimize' || subEl?.textContent === 'Click to override') {
       subEl.textContent = _debugMode ? 'Click to override' : 'Click to optimize';
@@ -685,7 +692,7 @@ function toggleDebugMode() {
   // Visually lock the param cards while Debug is on — Debug is STD-only,
   // OPT toggles shouldn't be clickable (toggleVar already rejects the
   // click; this just makes that obvious without having to try).
-  for (const v of ['decay','dte','delta','otm']) {
+  for (const v of ['decay','dte','delta','vixgate']) {
     const card = $('vcard-' + v);
     if (card) {
       card.style.opacity = _debugMode ? '.5' : '1';
@@ -732,13 +739,13 @@ function getSweepGrid() {
     return _debugMode ? arr.slice(0, 2) : arr;
   };
   return {
-    decay: _sweepVars.decay ? build('decay') : [STD.decayTrigger],
-    dte:   _sweepVars.dte   ? build('dte')   : [STD.dteFloor],
-    delta: _sweepVars.delta ? build('delta') : [STD.deltaThreshold],
-    otm:   _sweepVars.otm   ? build('otm')   : [STD.otmFixed],
+    decay:   _sweepVars.decay   ? build('decay')   : [STD.decayTrigger],
+    dte:     _sweepVars.dte     ? build('dte')      : [STD.dteFloor],
+    delta:   _sweepVars.delta   ? build('delta')    : [STD.deltaThreshold],
+    vixgate: _sweepVars.vixgate ? build('vixgate')  : [STD.vixGate],
   };
 }
-const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
+const _sweepVars = { decay: false, dte: false, delta: false, vixgate: false };
 
 // User-editable sweep boundaries — read from the min/max/step inputs on each
 // OPT card. Defaults are narrowed around the known-good region (decay=25%,
@@ -750,10 +757,10 @@ const _sweepVars = { decay: false, dte: false, delta: false, otm: false };
 // search space so flukes are never tested is more robust than filtering
 // them out after the fact. User can still widen any dimension live.
 let _sweepConfig = {
-  decay: { min: 15,   max: 35,   step: 2     },
-  dte:   { min: 21,   max: 45,   step: 3     },
-  delta: { min: 0.25, max: 0.35, step: 0.025 },
-  otm:   { min: 0.01, max: 0.10, step: 0.02  },
+  decay:   { min: 15,  max: 35,  step: 2     },
+  dte:     { min: 21,  max: 45,  step: 3     },
+  delta:   { min: 0.25, max: 0.35, step: 0.025 },
+  vixgate: { min: 15,  max: 25,  step: 1     },
 };
 // Frozen copy of the original defaults — used to reset a card's range
 // inputs back to baseline whenever it's toggled off, so manual edits don't
@@ -774,12 +781,11 @@ function updateSweepRange(v) {
   const minEl = $('vmin-' + v), maxEl = $('vmax-' + v), stepEl = $('vstep-' + v);
   if (!minEl || !maxEl || !stepEl) return;
   let min = parseFloat(minEl.value), max = parseFloat(maxEl.value), step = parseFloat(stepEl.value);
-  if (v === 'otm') { min /= 100; max /= 100; step /= 100; } // otm input is in % units, stored as fraction
-  if (min > max) { max = min; if (v === 'otm') maxEl.value = (max*100).toFixed(0); else maxEl.value = max; }
+  if (min > max) { max = min; maxEl.value = max; }
   _sweepConfig[v] = { min, max, step };
   // Refresh sweep range label + eval count
   const arr = buildRange(min, max, step);
-  const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(2)) : (x => (x*100).toFixed(0)+'%');
+  const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(3)) : (x => 'VIX≥'+x);
   _sweepRanges[v].sweep = fmt(arr[0]) + '–' + fmt(arr[arr.length-1]);
   const sub = $('vsub-' + v);
   if (sub && _sweepVars[v]) sub.textContent = 'sweeping ' + _sweepRanges[v].sweep + ` (${arr.length})`;
@@ -789,10 +795,10 @@ function updateSweepRange(v) {
 
 // Sweep ranges shown on cards
 const _sweepRanges = {
-  decay: { std: '80%', sweep: '15–35%', debugSweep: '75–80%',     label: 'Decay Trigger' },
-  dte:   { std: '30d', sweep: '21–45d', debugSweep: '21–30d',     label: 'DTE Floor' },
-  delta: { std: '0.40', sweep: '0.25–0.35', debugSweep: '0.30–0.35', label: 'Delta Δ' },
-  otm:   { std: '3%',  sweep: '1–10%', debugSweep: '5–7%',        label: 'OTM %' },
+  decay:   { std: '80%',   sweep: '15–35%',       debugSweep: '75–80%',    label: 'Decay Trigger' },
+  dte:     { std: '30d',   sweep: '21–45d',        debugSweep: '21–30d',    label: 'DTE Floor' },
+  delta:   { std: '0.40',  sweep: '0.25–0.35',     debugSweep: '0.30–0.35', label: 'Delta Δ' },
+  vixgate: { std: 'Off',   sweep: 'VIX≥15–VIX≥25', debugSweep: 'VIX≥18–20', label: 'VIX Gate' },
 };
 function toggleVar(v, forceOff) {
   // In Debug mode, clicking a card sets a session-only param override
@@ -853,14 +859,14 @@ function toggleVar(v, forceOff) {
 // touching roll_params.json. All overrides cleared on every Debug toggle.
 
 const _debugParamMeta = {
-  decay: { label:'Decay Trigger',  key:'decayTrigger',     min:1,    max:99,  step:1,     parse: v => parseFloat(v) },
-  dte:   { label:'DTE Floor',      key:'dteFloor',         min:7,    max:90,  step:1,     parse: v => parseInt(v) },
-  delta: { label:'Delta Threshold',key:'deltaThreshold',   min:0.05, max:0.95,step:0.025, parse: v => parseFloat(v) },
-  otm:   { label:'OTM %',          key:'otmFixed',         min:1,    max:20,  step:1,     parse: v => parseFloat(v)/100 },
+  decay:   { label:'Decay Trigger',   key:'decayTrigger',     min:1,    max:99,  step:1,     parse: v => parseFloat(v) },
+  dte:     { label:'DTE Floor',       key:'dteFloor',         min:7,    max:90,  step:1,     parse: v => parseInt(v) },
+  delta:   { label:'Delta Threshold', key:'deltaThreshold',   min:0.05, max:0.95,step:0.025, parse: v => parseFloat(v) },
+  vixgate: { label:'VIX Gate',        key:'vixGate',          min:0,    max:40,  step:1,     parse: v => parseFloat(v) },
 };
 
 function getDebugDisplayVal(v, storedVal) {
-  if (v === 'otm')   return (storedVal * 100).toFixed(0) + '%';
+  if (v === 'vixgate') return storedVal > 0 ? 'VIX\u2265' + storedVal : 'Off';
   if (v === 'delta') return storedVal.toFixed(3);
   if (v === 'decay') return storedVal + '%';
   return storedVal + 'd';
@@ -944,7 +950,7 @@ function cancelDebugOverrideInput(v) {
 
 function clearAllDebugOverrides() {
   _debugOverrides = {};
-  for (const v of ['decay','dte','delta','otm']) {
+  for (const v of ['decay','dte','delta','vixgate']) {
     const valEl = $('vval-'  + v);
     const subEl = $('vsub-'  + v);
     const card  = $('vcard-' + v);
@@ -1207,10 +1213,15 @@ function updateParamDisplay() {
   const rv  = parseInt($('single-roll-toggle')?.value || '0');
   const pr2 = $('p-rolls');      if (pr2) pr2.textContent = rv > 0 ? rv : 'All';
   const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
-  set('p-otm',   (p.otmFixed*100).toFixed(0) + '%');
+  const otmVal = parseFloat($('otm-select')?.value || String(p.otmFixed || 0.03));
+  set('p-otm',   (otmVal*100).toFixed(0) + '%');
   set('p-decay', p.decayTrigger + '%');
   set('p-dte',   p.dteFloor + 'd');
   set('p-delta', p.deltaThreshold.toFixed(2));
+  set('p-vixgate', p.vixGate > 0 ? 'VIX≥' + p.vixGate : 'Off');
+  // Update vixgate card display
+  const vgVal = $('vval-vixgate');
+  if (vgVal && !_sweepVars.vixgate) vgVal.textContent = p.vixGate > 0 ? 'VIX≥' + p.vixGate : 'Off';
   set('param-label', isOpt ? 'Optimized Parameters' : anySweepActive() ? 'Sweep pending — click ▶ Run' : 'Standard Parameters');
 }
 
@@ -1399,7 +1410,7 @@ function updateInitPosition() {
 
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
-  const { otmFixed, decayTrigger, dteFloor, deltaThreshold, maxLookahead, shares } = p;
+  const { otmFixed, decayTrigger, dteFloor, deltaThreshold, vixGate = 0, maxLookahead, shares } = p;
   // Clear stale _entryPx/_entryDate stamped onto DM contracts by prior simulate() calls.
   // findNextContract() mutates shared DM.options objects; without this flush each optimizer
   // sweep inherits cached entry prices from the previous sweep, diverging trigger dates.
@@ -1433,6 +1444,7 @@ async function simulate(p) {
   let posOpen = false, entryPrice = null, entryDate = null;
   let entryStrike = null, entrySPY = null, entryDelta_ = 0;
   let isInitial = true, pendingContract = null;
+  let waitingForVIX = false; // true when position was closed on delta trigger but VIX too low to re-short
   let iter = 0;
   const TNX = 4.5;
 
@@ -1455,6 +1467,28 @@ async function simulate(p) {
 
     // ── Open position (spread: open on same day as roll trigger) ──
     if (!posOpen) {
+      // VIX recovery re-entry: if we closed a short on a delta trigger due to
+      // low VIX and are now naked long SPY, check if VIX has recovered above
+      // the gate. If so, find a new contract via INTL logic and re-short.
+      if (waitingForVIX) {
+        if (vixGate === 0 || vix >= vixGate) {
+          // VIX has recovered — find new contract via INTL yield optimizer
+          const reentryC = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, null, deltaThreshold, 0);
+          if (reentryC) {
+            curC = reentryC;
+            waitingForVIX = false;
+            logDbg(`  → VIX RECOVERY: VIX=${vix.toFixed(1)} ≥ ${vixGate} on ${date} — re-entering via INTL logic`);
+          } else {
+            logDbg(`  → VIX RECOVERY: VIX=${vix.toFixed(1)} recovered but no contract found on ${date}`);
+            continue;
+          }
+        } else {
+          // Still waiting for VIX to recover — update equity curve as naked long
+          const bhRet_  = (spy/startSPY-1)*100;
+          equity.push({ date, cc:bhRet_, bh:bhRet_, spy, vix });
+          continue;
+        }
+      }
       buildDayMap(curC);
       const key = date.trim().slice(0,10);
       // Use price found during candidate scoring (same day, same VWAP)
@@ -1553,6 +1587,54 @@ async function simulate(p) {
 
     if (!roll) continue;
     logDbg(`  → TRIGGER: ${reason} on ${date} (SPY=$${spy.toFixed(2)} K=$${entryStrike} delta=${delta.toFixed(3)} dte=${dte} callPx=${callPx?.toFixed(2)||'null'})`);
+
+    // ── VIX Gate ──────────────────────────────────────────────────────────
+    // When a VIX gate is set and current VIX is below the threshold:
+    //   Decay/DTE trigger → skip the roll entirely, let position run
+    //   Delta trigger → close the threatened short, go naked long SPY,
+    //                   wait for VIX to recover before re-shorting
+    if (vixGate > 0 && vix < vixGate && !isExp) {
+      const isDeltaTrigger = reason.startsWith('delta');
+      if (!isDeltaTrigger) {
+        // Decay or DTE trigger — skip, not worth rolling in low-VIX environment
+        logDbg(`  → VIX GATE: VIX=${vix.toFixed(1)} < ${vixGate} — skip ${reason} trigger, let position run`);
+        continue;
+      } else {
+        // Delta trigger — must close to manage risk, but don't re-short
+        logDbg(`  → VIX GATE: VIX=${vix.toFixed(1)} < ${vixGate} — close short on delta trigger, wait for VIX recovery`);
+        const exitPx_ = callPx ?? 0;
+        const pnl_    = (entryPrice - exitPx_) * 100 * contracts;
+        premPnL += pnl_;
+        const days_   = Math.max(1, Math.round((todayD - new Date(entryDate+'T00:00:00'))/86400000));
+        const netPx_  = entryPrice - exitPx_;
+        const annYld_ = (netPx_ / entrySPY) * (365 / days_) * 100;
+        const eDelta_ = callDelta(entrySPY, entryStrike,
+          Math.round((expDate - new Date(entryDate+'T00:00:00'))/86400000), vixMap[entryDate]||vix, TNX);
+        cycles.push({
+          entryDate, exitDate:date, expiry:curC.expiry,
+          strike:entryStrike, otmPct:curC.otm_pct,
+          entryPx:entryPrice, exitPx:exitPx_,
+          entrySPY, exitSPY:spy,
+          pnl:pnl_, daysHeld:days_, annYld:annYld_, reason: reason + ' [VIX gate: no re-short]',
+          isExp:false, isInitial,
+          entryVix: vixMap[entryDate]||vix,
+          entryDelta:eDelta_, exitDelta:delta,
+          approx: _gaps.some(g=>g.substituted),
+        });
+        isInitial = false; posOpen = false; entryDelta_ = 0;
+        entryPrice = entryDate = entryStrike = entrySPY = null;
+        if (curC._entryPx) { delete curC._entryPx; delete curC._entryDate; }
+        waitingForVIX = true;
+        continue;
+      }
+    }
+
+    // ── VIX Recovery re-entry ─────────────────────────────────────────────
+    // If we were waiting for VIX to recover and it has, re-enter via INTL logic
+    if (waitingForVIX) {
+      // This case is handled in the !posOpen block above — waitingForVIX is
+      // checked there to find a new INTL contract when VIX recovers
+    }
 
     // ── Close cycle ──
     const exitPx = isExp ? Math.max(0, spy-entryStrike) : (callPx??0);
@@ -1679,21 +1761,22 @@ async function runSimulation() {
   // session-only overrides set via the param cards.
   const params = {
     ...getActiveParams(),
+    otmFixed:    parseFloat($('otm-select')?.value || String(STD.otmFixed || 0.03)),
     shares:      600,
     maxRolls:    _maxRolls,
     maxLookahead: _lookahead,
   };
 
-  
+  const gateStr = params.vixGate > 0 ? ` · VIX≥${params.vixGate} gate` : '';
   $('progress-log').textContent = ''; $('runlog-mirror').textContent = '';
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.5.7 · SPY Covered Call Backtest');
+  logMsg('v3.6.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
-  logMsg(`Running — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold} · ${params.maxLookahead}d lookahead`);
+  logMsg(`Running — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold}${gateStr} · ${params.maxLookahead}d lookahead`);
   await yield_();
 
   const result = await simulate(params);
@@ -1763,6 +1846,7 @@ async function publishRollParams(p) {
     const payload = {
       decayTrigger: p.decayTrigger, dteFloor: p.dteFloor,
       deltaThreshold: p.deltaThreshold, otmTarget: p.otmTarget,
+      vixGate: p.vixGate || 0,
       lastOptimized: today, optAnnYield: parseFloat(p.optAnnYield.toFixed(2)),
       note: 'Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.'
     };
@@ -1809,22 +1893,17 @@ async function runOptimization() {
 
   // Build grid from sweep state — respects debug mode
   const g        = getSweepGrid();
-  const decays = g.decay;
-  const floors = g.dte;
-  const deltas = g.delta;
-  const otms   = g.otm;
+  const decays   = g.decay;
+  const floors   = g.dte;
+  const deltas   = g.delta;
+  const vixgates = g.vixgate;
+  const otmFixed = parseFloat($('otm-select')?.value || '0.03');
 
-  const sweepDesc = ['decay','dte','delta','otm'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
-  const optRegime = $('opt-regime-select')?.value || 'all';
-  const regimeDesc = optRegime === 'calm' ? ' · scoring Calm (VIX<20) cycles only'
-                   : optRegime === 'stressed' ? ' · scoring Stressed (VIX\u226520) cycles only'
-                   : '';
-  logMsg(`Running optimization — sweeping: ${sweepDesc}${regimeDesc}${_debugMode?' [DEBUG]':''}...`);
-  await yield_();
+  const sweepDesc = ['decay','dte','delta','vixgate'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
+  logMsg(`Running optimization — sweeping: ${sweepDesc}${_debugMode?' [DEBUG]':''}`  + '...');
 
   const shares = 600;
-  const total  = decays.length * floors.length * deltas.length * otms.length;
-  let done = 0;
+  const total  = decays.length * floors.length * deltas.length * vixgates.length;
 
   // Flat results — no regime dimension
   const allResults = { grid:{}, best:null, bestYld:-Infinity, rows:[] };
@@ -1836,29 +1915,27 @@ async function runOptimization() {
     for (const decay of decays) {
       for (const floor of floors) {
         for (const delta of deltas) {
-          for (const otm of otms) {
-            logMsg(`⟳ Sweeping decay=${decay}% dte=${floor}d Δ=${delta} otm=${(otm*100).toFixed(0)}%...`);
+          for (const vixgate of vixgates) {
+            const gateLabel = vixgate > 0 ? ` VIX≥${vixgate}` : '';
+            logMsg(`⟳ Sweeping decay=${decay}% dte=${floor}d Δ=${delta}${gateLabel} otm=${(otmFixed*100).toFixed(0)}%...`);
             try {
               _gaps = [];
               const maxLookahead = parseInt($('lookahead-select')?.value || '90');
-              const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed:otm, shares, maxRolls:null, maxLookahead });
-              // Score by regime-filtered yield — 'all' falls back to stratYld
-              const regime = $('opt-regime-select')?.value || 'all';
+              const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed, vixGate:vixgate, shares, maxRolls:null, maxLookahead });
               let yld = null;
               if (r?.rolls?.length >= 2) {
-                yld = computeRegimeYield(r, regime);
+                yld = r.stratYld;
               }
               if (yld !== null && (allResults.grid[decay][floor] === null || yld > allResults.grid[decay][floor])) {
                 allResults.grid[decay][floor] = yld;
               }
-              let edgeRatio = null;
               if (yld !== null && yld > allResults.bestYld) {
                 allResults.bestYld = yld;
-                allResults.best = { decay, floor, delta, otm };
+                allResults.best = { decay, floor, delta, vixgate, otm: otmFixed };
               }
-              allResults.rows.push({ decay, floor, delta, otm, yld, rolls: r?.rolls?.length ?? 0, edgeRatio });
+              allResults.rows.push({ decay, floor, delta, vixgate, otm: otmFixed, yld, rolls: r?.rolls?.length ?? 0, edgeRatio: null });
             } catch(innerErr) {
-              const msg = `\u2717 Error decay=${decay} floor=${floor}: ${innerErr.message}`;
+              const msg = `✗ Error decay=${decay} floor=${floor}: ${innerErr.message}`;
               logMsg(msg,'err');
               console.error(msg, innerErr);
             }
@@ -1874,24 +1951,21 @@ async function runOptimization() {
     // (debug-toggle restore no longer needed — logDbg gates on _debugMode)
 
     const b = allResults.best;
-    _optParams = b ? { decayTrigger:b.decay, dteFloor:b.floor, deltaThreshold:b.delta, otmFixed:b.otm } : { ...STD };
+    _optParams = b ? { decayTrigger:b.decay, dteFloor:b.floor, deltaThreshold:b.delta, otmFixed:b.otm, vixGate:b.vixgate } : { ...STD };
 
     if (b) {
-      const regimeSuffix = optRegime !== 'all' ? ` [${optRegime}]` : '';
-      logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + ' / otm=' + (b.otm*100).toFixed(0) + '% \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld' + regimeSuffix, 'ok');
-      if (optRegime !== 'all') {
-        logMsg(`  (yield scored against ${optRegime} cycles only — full-period stratYld will differ)`, '');
-      }
+      const gateStr = b.vixgate > 0 ? ` / VIX\u2265${b.vixgate}` : '';
+      logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + gateStr + ' / otm=' + (b.otm*100).toFixed(0) + '% \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld', 'ok');
 
       // Store winner for publish button
-      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, optAnnYield: allResults.bestYld, regime: optRegime };
+      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, optAnnYield: allResults.bestYld };
       setRunButtonState('ready');
 
       // Re-run simulate() with the winning params so summary/blotter reflect
       // the optimizer's chosen configuration, not just the heatmap grid.
       const _winMaxLookahead = parseInt($('lookahead-select')?.value || '90');
       const winResult = await simulate({ ...STD, decayTrigger:b.decay, dteFloor:b.floor,
-        deltaThreshold:b.delta, otmFixed:b.otm, shares, maxRolls:null, maxLookahead:_winMaxLookahead });
+        deltaThreshold:b.delta, otmFixed:b.otm, vixGate:b.vixgate, shares, maxRolls:null, maxLookahead:_winMaxLookahead });
       if (winResult) {
         lastResult = winResult;
         buildRollSnapshots(winResult);
@@ -1915,16 +1989,16 @@ async function runOptimization() {
     
     
     
-    renderOptResults(allResults, decays, floors, deltas, otms);
+    renderOptResults(allResults, decays, floors, deltas, vixgates);
     updateParamDisplay();
 
     // Update var cards with winning values
     if (b) {
       const cardUpdates = {
-        decay: b.decay + '%',
-        dte:   b.floor + 'd',
-        delta: b.delta?.toFixed(2),
-        otm:   b.otm ? (b.otm*100).toFixed(0)+'%' : null,
+        decay:   b.decay + '%',
+        dte:     b.floor + 'd',
+        delta:   b.delta?.toFixed(3),
+        vixgate: b.vixgate > 0 ? 'VIX\u2265' + b.vixgate : 'Off',
       };
       for (const [v, winVal] of Object.entries(cardUpdates)) {
         if (!_sweepVars[v] || !winVal) continue;
@@ -2485,7 +2559,7 @@ function renderRollCandidates() {
   </div>`;
 }
 
-function renderOptResults(results, decays, floors, deltas, otms) {
+function renderOptResults(results, decays, floors, deltas, vixgates) {
   const TOP_N = 8;
 
   // results.rows has every combo; sort by yield descending
@@ -2500,29 +2574,26 @@ function renderOptResults(results, decays, floors, deltas, otms) {
   const b = results.best;
   const bestStr = b
     ? `\u2605 Best: decay=${b.decay}% / dte=${b.floor}d`
-      + (b.delta && _sweepVars.delta ? ` / \u0394${b.delta}` : '')
-      + (b.otm   && _sweepVars.otm   ? ` / otm=${(b.otm*100).toFixed(0)}%` : '')
+      + (b.delta   && _sweepVars.delta   ? ` / \u0394${b.delta}` : '')
+      + (b.vixgate && _sweepVars.vixgate ? ` / VIX\u2265${b.vixgate}` : '')
       + ` \u2192 ${results.bestYld.toFixed(1)}% ann.yld`
     : '\u26a0 No qualifying results';
 
-  // Edge-of-grid check: flag any swept dimension where the winner sits on
-  // the min or max of the tested range — signals the true optimum may lie
-  // outside what was searched, same logic we've applied manually each time
-  // we kept extending decay/dte/otm ranges.
+  // Edge-of-grid check
   let edgeWarning = '';
   let dataBoundaryWarning = '';
   if (b) {
     const edgeDims = [];
     const checkEdge = (val, arr, label, fmt) => {
-      if (!arr || arr.length < 2) return; // not actually swept, nothing to check
+      if (!arr || arr.length < 2) return;
       const min = Math.min(...arr), max = Math.max(...arr);
       if (val === min) edgeDims.push(`${label}=${fmt(val)} (at floor ${fmt(min)})`);
       else if (val === max) edgeDims.push(`${label}=${fmt(val)} (at ceiling ${fmt(max)})`);
     };
-    checkEdge(b.decay, decays, 'decay', v => v + '%');
-    checkEdge(b.floor, floors, 'dte',   v => v + 'd');
-    checkEdge(b.delta, deltas, '\u0394', v => v);
-    checkEdge(b.otm,   otms,   'otm',   v => (v*100).toFixed(0) + '%');
+    checkEdge(b.decay,   decays,   'decay', v => v + '%');
+    checkEdge(b.floor,   floors,   'dte',   v => v + 'd');
+    checkEdge(b.delta,   deltas,   '\u0394', v => v);
+    checkEdge(b.vixgate, vixgates, 'VIX gate', v => 'VIX\u2265' + v);
     if (edgeDims.length) {
       edgeWarning = `
     <div style="font-family:var(--mono);font-size:10px;color:var(--yellow);margin-bottom:8px;padding:8px;background:rgba(234,179,8,0.08);border:1px solid var(--yellow);border-radius:4px;">
@@ -2583,14 +2654,14 @@ function renderOptResults(results, decays, floors, deltas, otms) {
       </tr></thead><tbody>`;
 
     for (const row of top) {
-      const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.otm === b.otm;
+      const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.vixgate === b.vixgate;
       const vsDelta  = stdYld !== null ? row.yld - stdYld : null;
       const vsStr    = vsDelta !== null ? (vsDelta >= 0 ? '+' : '') + vsDelta.toFixed(1) + '%' : '\u2014';
       const vsClass  = vsDelta === null ? 'muted' : vsDelta >= 0 ? 'green' : 'red';
       const yldClass = row.yld >= 3 ? 'green' : row.yld >= 0 ? 'yellow' : 'red';
       const paramStr = `decay=${row.decay}% / dte=${row.floor}d`
-        + (row.delta && _sweepVars.delta ? ` / \u0394${row.delta}` : '')
-        + (row.otm   && _sweepVars.otm   ? ` / otm=${(row.otm*100).toFixed(0)}%` : '');
+        + (row.delta   && _sweepVars.delta   ? ` / \u0394${row.delta}` : '')
+        + (row.vixgate && _sweepVars.vixgate ? ` / VIX\u2265${row.vixgate}` : '');
       const winFlag  = isBest ? ' <span style="color:var(--green);font-size:9px;">\u2605</span>' : '';
       const edgeStr  = row.edgeRatio !== null && row.edgeRatio !== undefined
         ? (row.edgeRatio*100).toFixed(0) + '%'
