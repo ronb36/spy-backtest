@@ -43,7 +43,7 @@ DATA_PATH      = "data/spy_data.json"
 PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
-COLLECTOR_VERSION = "1.2.2"  # Add Phase 3 try/except + DM sanity check to diagnose crash
+COLLECTOR_VERSION = "1.2.4"  # Incremental commits every 10 expiries in Phase 3 — survives crashes
 
 # ── OTM target levels to store per expiry ─────────────────────────────────
 # 0.5% steps from 1%–20%, snapped to $5 grid — matches backfill exactly
@@ -91,6 +91,45 @@ def date_range_str(years_back=2):
 
 
 def get_monthly_expiries(start_date, end_date):
+    """Return 3rd-Friday expiry dates between start and end (inclusive)."""
+    import calendar
+    expiries = []
+    start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end   = datetime.strptime(end_date,   "%Y-%m-%d").date()
+    year, month = start.year, start.month
+    while date(year, month, 1) <= end:
+        cal = calendar.monthcalendar(year, month)
+        fridays = [week[calendar.FRIDAY] for week in cal if week[calendar.FRIDAY] != 0]
+        third_fri = fridays[2]
+        exp = date(year, month, third_fri)
+        if start <= exp <= end:
+            expiries.append(exp.strftime("%Y-%m-%d"))
+        month += 1
+        if month > 12:
+            month = 1
+            year += 1
+    return expiries
+
+
+def get_weekly_expiries(start_date, end_date):
+    """
+    Return all Friday expiry dates between start and end, EXCLUDING 3rd Fridays
+    (which are already covered by get_monthly_expiries). This gives the weekly
+    expiry universe without duplicating monthly entries.
+    SPY Friday weeklies are the most liquid — Mon/Wed weeklies excluded.
+    """
+    monthly_set = set(get_monthly_expiries(start_date, end_date))
+    expiries = []
+    start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end   = datetime.strptime(end_date,   "%Y-%m-%d").date()
+    current = start
+    while current <= end:
+        if current.weekday() == 4:  # Friday
+            iso = current.strftime("%Y-%m-%d")
+            if iso not in monthly_set:
+                expiries.append(iso)
+        current += timedelta(days=1)
+    return expiries
     """
     Return all 3rd-Friday monthly expiry dates between start and end.
     """
@@ -536,10 +575,11 @@ def daily_append(dm):
         total_expected  = 0
 
         existing_tickers = set(dm["options"].keys())
+        COMMIT_EVERY = 10  # commit after every N expiries to avoid losing work on crash
 
         # Process one expiry at a time — avoids building a massive dict in memory
         # (130 expiries × 500 SPY days × 22 OTM targets = ~1.4M ticker strings)
-        for exp in all_expiries:
+        for exp_idx, exp in enumerate(all_expiries):
             is_weekly  = exp not in monthly_set
             exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
             hist_start = max(two_yr_ago,
@@ -582,6 +622,15 @@ def daily_append(dm):
                     no_data += 1
                     no_data_tickers.append((ticker, strike, exp, hist_start))
                     if is_weekly: weekly_no_data += 1
+
+            # Incremental commit every N expiries — saves progress in case of crash.
+            # Next run is idempotent so any already-committed contracts are skipped.
+            if (exp_idx + 1) % COMMIT_EVERY == 0 and missing > 0:
+                dm["metadata"]["last_updated"] = today_iso
+                dm["metadata"]["options_count"] = len(dm["options"])
+                msg = f"Phase 3 incremental commit — {exp_idx+1}/{len(all_expiries)} expiries, {len(dm['options'])} contracts"
+                log(f"  → Incremental commit: {len(dm['options'])} contracts after {exp_idx+1} expiries...")
+                github_commit_file(DATA_PATH, dm, msg)
 
         log(f"  Expected unique contracts across all expiries: {total_expected}")
         log(f"  ✓ Inspection complete — {already_have} present, {missing} filled, {no_data} not in Polygon")
