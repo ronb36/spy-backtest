@@ -43,7 +43,7 @@ DATA_PATH      = "data/spy_data.json"
 PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
-COLLECTOR_VERSION = "1.2.0"  # Weekly expiry support + Git Data API commit + diagnostics
+COLLECTOR_VERSION = "1.2.1"  # Fix memory crash in Phase 3 — process expiries one at a time
 
 # ── OTM target levels to store per expiry ─────────────────────────────────
 # 0.5% steps from 1%–20%, snapped to $5 grid — matches backfill exactly
@@ -517,15 +517,27 @@ def daily_append(dm):
     monthly_set      = set(monthly_expiries)
     log(f"  Expiry universe: {len(all_expiries)} total ({len(monthly_expiries)} monthly + {len(weekly_expiries)} weekly)")
 
-    # Build full set of expected tickers across all expiries × all SPY days
-    # Use sorted SPY dates within each expiry's window
-    expected_by_expiry = {}
+    missing      = 0
+    already_have = 0
+    no_data      = 0
+    no_data_tickers = []
+    weekly_filled   = 0
+    weekly_no_data  = 0
+    total_expected  = 0
+
+    existing_tickers = set(dm["options"].keys())
+
+    # Process one expiry at a time — avoids building a massive dict in memory
+    # (130 expiries × 500 SPY days × 22 OTM targets = ~1.4M ticker strings)
     for exp in all_expiries:
+        is_weekly  = exp not in monthly_set
         exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
         hist_start = max(two_yr_ago,
                          (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
         hist_end   = min(exp, today_iso)
-        expected   = set()
+
+        # Build expected tickers for this expiry only
+        expected = set()
         for spy_date_str, spy_px in spy_by_date.items():
             if spy_date_str < hist_start or spy_date_str > hist_end:
                 continue
@@ -533,32 +545,11 @@ def daily_append(dm):
                 strike = find_nearest_strike(spy_px, otm_pct)
                 ticker = build_option_ticker(exp, strike)
                 expected.add(ticker)
-        expected_by_expiry[exp] = (expected, hist_start, hist_end)
 
-    total_expected = sum(len(v[0]) for v in expected_by_expiry.values())
-    log(f"  Expected unique contracts across all expiries: {total_expected}")
+        total_expected += len(expected)
+        missing_tickers = expected - existing_tickers
+        already_have   += len(expected) - len(missing_tickers)
 
-    missing      = 0
-    already_have = 0
-    no_data      = 0
-    no_data_tickers = []
-
-    # Track weekly-specific stats for diagnostic
-    weekly_missing  = 0
-    weekly_filled   = 0
-    weekly_no_data  = 0
-
-    existing_tickers = set(dm["options"].keys())
-
-    for exp, (expected_tickers, hist_start, hist_end) in expected_by_expiry.items():
-        is_weekly      = exp not in monthly_set
-        missing_tickers = expected_tickers - existing_tickers
-        already_have   += len(expected_tickers) - len(missing_tickers)
-
-        if not missing_tickers:
-            continue
-
-        exp_dt = datetime.strptime(exp, "%Y-%m-%d")
         for ticker in sorted(missing_tickers):
             strike    = int(ticker[-8:]) / 1000
             days_data = fetch_option_history(ticker, hist_start, hist_end)
@@ -582,6 +573,7 @@ def daily_append(dm):
                 no_data_tickers.append((ticker, strike, exp, hist_start))
                 if is_weekly: weekly_no_data += 1
 
+    log(f"  Expected unique contracts across all expiries: {total_expected}")
     log(f"  ✓ Inspection complete — {already_have} present, {missing} filled, {no_data} not in Polygon")
     log(f"  Weekly breakdown: {weekly_filled} filled, {weekly_no_data} not in Polygon")
 
