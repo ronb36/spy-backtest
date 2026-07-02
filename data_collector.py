@@ -43,18 +43,18 @@ DATA_PATH      = "data/spy_data.json"
 PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
-COLLECTOR_VERSION = "1.2.4"  # Incremental commits every 10 expiries in Phase 3 — survives crashes
+COLLECTOR_VERSION = "1.2.5"  # Trim OTM_TARGETS to 15% max — eliminates deep OTM tail with no Polygon data
 
 # ── OTM target levels to store per expiry ─────────────────────────────────
-# 0.5% steps from 1%–20%, snapped to $5 grid — matches backfill exactly
-# ~39 strikes per expiry; aligns with yield grid display
+# OTM targets trimmed to 15% max — deep OTM (18-35%) had no Polygon data
+# (3,732 "not in Polygon" contracts in testing) and the strategy never
+# selects strikes beyond ~10% OTM anyway. Keeping 1-15% in 1% steps
+# gives 15 strikes per expiry, clean coverage of the relevant range.
 OTM_TARGETS = [
     0.01, 0.02, 0.03, 0.04, 0.05,        # 1–5%:  tight band, near-ATM rolls
     0.06, 0.07, 0.08, 0.09, 0.10,        # 6–10%: core covered call range
     0.11, 0.12, 0.13, 0.14, 0.15,        # 11–15%: extended core
-    0.18, 0.20, 0.22, 0.25,              # 18–25%: defensive / post-crash
-    0.28, 0.30, 0.35,                    # 28–35%: deep OTM tail
-]  # 22 strikes — wider spacing = more unique $5 grid strikes per expiry  # 39 strikes × $5 grid per expiry — continuous surface, no gaps
+]  # 15 strikes per expiry — eliminates 18-35% tail that Polygon doesn't carry
 
 # ── Rate limiting ──────────────────────────────────────────────────────────
 CALL_DELAY = 0.25   # 4 calls/sec — safely under Polygon's 5/sec limit
