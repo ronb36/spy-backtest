@@ -43,7 +43,7 @@ DATA_PATH      = "data/spy_data.json"
 PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
-COLLECTOR_VERSION = "1.2.5"  # Trim OTM_TARGETS to 15% max — eliminates deep OTM tail with no Polygon data
+COLLECTOR_VERSION = "1.2.6"  # Phase 0: bootstrap full SPY/VIX history on empty DM for LFS rebuild
 
 # ── OTM target levels to store per expiry ─────────────────────────────────
 # OTM targets trimmed to 15% max — deep OTM (18-35%) had no Polygon data
@@ -481,6 +481,25 @@ def daily_append(dm):
     today_iso  = today_str()
     yesterday  = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     two_yr_ago = (date.today() - timedelta(days=730)).strftime("%Y-%m-%d")
+
+    # ── Phase 0: Bootstrap SPY/VIX history if DM is empty ────────────────
+    # On a fresh build, fetch the full 2-year history so Phase 3 has
+    # SPY price anchors for all historical trigger dates.
+    if len(dm["spy"]) == 0:
+        log("Phase 0: Empty DM detected — bootstrapping full SPY/VIX history...")
+        spy_results = fetch_aggs("SPY", two_yr_ago, yesterday)
+        time.sleep(CALL_DELAY)
+        for r in spy_results:
+            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            dm["spy"].append({"date": dt, "o": r["o"], "h": r["h"],
+                              "l": r["l"], "c": r["c"], "v": r.get("v", 0)})
+        log(f"  ✓ Loaded {len(dm['spy'])} SPY days")
+        vix_results = fetch_aggs("I:VIX", two_yr_ago, yesterday)
+        time.sleep(CALL_DELAY)
+        for r in vix_results:
+            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            dm["vix"].append({"date": dt, "c": round(r["c"], 2)})
+        log(f"  ✓ Loaded {len(dm['vix'])} VIX days")
 
     # ── Build SPY lookup ──────────────────────────────────────────────────
     spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
