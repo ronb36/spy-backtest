@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.3</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.5</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -408,7 +408,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.6.3 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.6.5 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
   </div>
 </div>
 
@@ -1137,6 +1137,46 @@ function logDMGapReport(snapshots) {
 }
 
 
+function logOTMDistribution(result) {
+  if (!result?.cycles?.length) return;
+
+  // Bucket the OTM% of each selected roll candidate
+  // Uses cycle.otmPct (stored at roll selection time from curC.otm_pct)
+  const buckets = [
+    { label: ' 1- 5%', min: 0,   max: 5   },
+    { label: ' 6-10%', min: 5,   max: 10  },
+    { label: '11-15%', min: 10,  max: 15  },
+    { label: '16-20%', min: 15,  max: 20  },
+    { label: '21-35%', min: 20,  max: 35  },
+    { label: '  >35%', min: 35,  max: 999 },
+  ];
+
+  const counts = buckets.map(() => 0);
+  let maxOTM = 0;
+
+  result.cycles.forEach(c => {
+    const pct = Math.abs((c.otmPct || 0) * 100);
+    if (pct > maxOTM) maxOTM = pct;
+    for (let i = 0; i < buckets.length; i++) {
+      if (pct > buckets[i].min && pct <= buckets[i].max) {
+        counts[i]++;
+        break;
+      }
+    }
+  });
+
+  const total = result.cycles.length;
+  logMsg(`  OTM distribution across ${total} roll candidates:`, '');
+  buckets.forEach((b, i) => {
+    if (counts[i] === 0) return;
+    const pct = (counts[i] / total * 100).toFixed(0);
+    logMsg(`    ${b.label}: ${counts[i]} rolls (${pct}%)`, '');
+  });
+  const safeMax = Math.ceil(maxOTM / 5) * 5; // round up to next 5%
+  logMsg(`    → Max OTM used: ${maxOTM.toFixed(1)}% — OTM_TARGETS could be trimmed to ${safeMax}% safely`, '');
+}
+
+
 function logVIXRegimeSplit(result) {
   // Diagnostic: how many cycles fall into each VIX regime bucket? Informs
   // whether regime-specific param optimization (low/normal/elevated/high)
@@ -1450,20 +1490,23 @@ async function simulate(p) {
   const startDate = DM.spy[0].date;
   const startSPY  = DM.spy[0].c;
 
-  // Find initial contract using yield maximizer
-  const initC = findNextContract(startDate, otmFixed, startSPY, maxLookahead, dteFloor, null, deltaThreshold, 0);
-  if (!initC) { logMsg('✗ No initial contract found', 'err'); return null; }
-  buildDayMap(initC);
-  const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(initC.expiry);
-  logDbg(`Intl: Short ${contracts*100} SPY ${_initExpFmt} ${initC.strike} C @ $${(initC._entryPx||0).toFixed(2)}`);
-
   const cycles = [], equity = [];
   let premPnL = 0;
-  let curC = initC;
+  let curC = null;
   let posOpen = false, entryPrice = null, entryDate = null;
   let entryStrike = null, entrySPY = null, entryDelta_ = 0;
   let isInitial = true, pendingContract = null;
-  let waitingForVIX = false; // true when position was closed on delta trigger but VIX too low to re-short
+  // If a VIX gate is set, start in waitingForVIX state so the initial entry
+  // is gated the same way as any re-entry after a delta close. If no gate,
+  // find the initial contract immediately so the log shows it upfront.
+  let waitingForVIX = vixGate > 0;
+  if (!waitingForVIX) {
+    curC = findNextContract(startDate, otmFixed, startSPY, maxLookahead, dteFloor, null, deltaThreshold, 0);
+    if (!curC) { logMsg('✗ No initial contract found', 'err'); return null; }
+    buildDayMap(curC);
+    const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
+    logDbg(`Intl: Short ${contracts*100} SPY ${_initExpFmt} ${curC.strike} C @ $${(curC._entryPx||0).toFixed(2)}`);
+  }
   let iter = 0;
   const TNX = 4.5;
 
@@ -1491,18 +1534,21 @@ async function simulate(p) {
       // the gate. If so, find a new contract via INTL logic and re-short.
       if (waitingForVIX) {
         if (vixGate === 0 || vix >= vixGate) {
-          // VIX has recovered — find new contract via INTL yield optimizer
+          // VIX has recovered (or initial entry) — find new contract via INTL yield optimizer
           const reentryC = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, null, deltaThreshold, 0);
           if (reentryC) {
             curC = reentryC;
             waitingForVIX = false;
-            logDbg(`  → VIX RECOVERY: VIX=${vix.toFixed(1)} ≥ ${vixGate} on ${date} — re-entering via INTL logic`);
+            const entryType = isInitial ? 'INITIAL ENTRY' : 'VIX RECOVERY';
+            logDbg(`  → ${entryType}: VIX=${vix.toFixed(1)} ≥ ${vixGate} on ${date} — entering via INTL logic`);
+            const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
+            logDbg(`Intl: Short ${contracts*100} SPY ${_initExpFmt} ${curC.strike} C @ $${(curC._entryPx||0).toFixed(2)}`);
           } else {
-            logDbg(`  → VIX RECOVERY: VIX=${vix.toFixed(1)} recovered but no contract found on ${date}`);
+            logDbg(`  → VIX=${vix.toFixed(1)} ≥ ${vixGate} on ${date} but no contract found — waiting`);
             continue;
           }
         } else {
-          // Still waiting for VIX to recover — update equity curve as naked long
+          // Still waiting for VIX — update equity curve as naked long SPY
           const bhRet_  = (spy/startSPY-1)*100;
           equity.push({ date, cc:bhRet_, bh:bhRet_, spy, vix });
           continue;
@@ -1608,11 +1654,11 @@ async function simulate(p) {
     logDbg(`  → TRIGGER: ${reason} on ${date} (SPY=$${spy.toFixed(2)} K=$${entryStrike} delta=${delta.toFixed(3)} dte=${dte} callPx=${callPx?.toFixed(2)||'null'})`);
 
     // ── VIX Gate ──────────────────────────────────────────────────────────
-    // When a VIX gate is set and current VIX is below the threshold:
-    //   Decay/DTE trigger → skip the roll entirely, let position run
-    //   Delta trigger → close the threatened short, go naked long SPY,
-    //                   wait for VIX to recover before re-shorting
-    if (vixGate > 0 && vix < vixGate && !isExp) {
+    // Gate only applies to ROLLS, not the initial sell. The initial position
+    // is always established regardless of VIX — you're already long SPY and
+    // just establishing the covered call leg. VIX gating only makes sense
+    // for roll decisions where premium quality matters.
+    if (vixGate > 0 && vix < vixGate && !isExp && !isInitial) {
       const isDeltaTrigger = reason.startsWith('delta');
       if (!isDeltaTrigger) {
         // Decay or DTE trigger — skip, not worth rolling in low-VIX environment
@@ -1791,7 +1837,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.6.3 · SPY Covered Call Backtest');
+  logMsg('v3.6.5 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1808,8 +1854,9 @@ async function runSimulation() {
   logVIXRegimeSplit(result);
   setProgress(100);
 
-  // Enable publish/backfill via the combined Run/Publish button after STD run
-  setRunButtonState('ready');
+  // STD run complete — stay on Run (blue). Publish only appears after OPT sweep.
+  setRunButtonState('idle');
+  logOTMDistribution(result);
   
   
   
@@ -1998,6 +2045,7 @@ async function runOptimization() {
         // report tells us exactly where DM coverage should be expanded to
         // potentially unlock even better candidates on future OPT runs.
         logDMGapReport(_rollSnapshots);
+        logOTMDistribution(winResult);
         setRunButtonState('ready');
       }
     } else {
