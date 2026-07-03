@@ -135,11 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.6</div>
-    <button id="debug-mode-btn" onclick="toggleDebugMode()"
-      style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
-      Debug Off
-    </button>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.7</div>
   </div>
 
   <!-- Initial Position -->
@@ -408,7 +404,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.6.6 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.6.7 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
   </div>
 </div>
 
@@ -588,9 +584,9 @@ function setRunButtonState(state, opts = {}) {
       card.style.background = 'var(--accent)';
       break;
     case 'ready':
-      btn.textContent = _debugMode ? '\u21ba Reset STD' : '\u2191 Publish';
+      btn.textContent = '\u2191 Publish';
       btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
-      card.style.background = _debugMode ? 'var(--yellow)' : '#2a9d5c';
+      card.style.background = '#2a9d5c';
       break;
     case 'ready-edge':
       btn.textContent = '\u21ba Re-Center Sweep';
@@ -665,64 +661,14 @@ function logDbg(msg) {
   if (_mode === 'optimize') return;
   // STD mode: always show structural lines; candidates only in debug mode
   const isStructural = msg.includes('TRIGGER') || msg.includes('→ Best') || msg.includes('Open:') || msg.includes('Intl:') || msg.includes('Roll ') || msg.includes('Initial sell') || msg.includes('cycles');
-  if (!isStructural && !_debugMode) return;
+  if (!isStructural) return;
   logMsg(msg, 'dbg');
 }
 function yield_() { return new Promise(r => setTimeout(r, 0)); }
 
 // ── Mode ───────────────────────────────────────────────────────────────────
 // ── Debug mode ─────────────────────────────────────────────────────────────
-let _debugMode = false;
-
-function toggleDebugMode() {
-  _debugMode = !_debugMode;
-  const btn = $('debug-mode-btn');
-  if (btn) {
-    btn.textContent = _debugMode ? 'Debug ON' : 'Debug Off';
-    btn.style.background    = _debugMode ? 'rgba(255,200,0,.15)' : 'var(--surface2)';
-    btn.style.borderColor   = _debugMode ? 'var(--yellow)' : 'var(--border)';
-    btn.style.color         = _debugMode ? 'var(--yellow)' : 'var(--muted)';
-  updatePublishBtn();
-  }
-  // Debug is a STD-only diagnostic lens — OPT is just STD looped to search
-  // params, and the two concerns shouldn't mix. Turning Debug on while a
-  // sweep is active reverts every toggled card back to STD/Click-to-optimize.
-  if (_debugMode && anySweepActive()) {
-    logMsg('Debug mode enabled — reverting active OPT sweep to STD', '');
-    for (const v of ['decay','dte','delta','vixgate']) {
-      if (_sweepVars[v]) toggleVar(v, true);
-    }
-    _optParams = null;
-    onConfigChanged();
-  }
-  // Clear all debug overrides on every toggle — session-only, never persisted.
-  clearAllDebugOverrides();
-  // Update sub-label hint depending on mode
-  for (const v of ['decay','dte','delta','vixgate']) {
-    const subEl = $('vsub-' + v);
-    if (subEl && subEl.textContent === 'Click to optimize' || subEl?.textContent === 'Click to override') {
-      subEl.textContent = _debugMode ? 'Click to override' : 'Click to optimize';
-    }
-  }
-  // Lock roll limit only during sweep — STD-debug keeps it free for limiting rolls
-  setRollLimitState(anySweepActive());
-  updateEvalCount();
-  updateParamDisplay();
-  // Visually lock the param cards while Debug is on — Debug is STD-only,
-  // OPT toggles shouldn't be clickable (toggleVar already rejects the
-  // click; this just makes that obvious without having to try).
-  for (const v of ['decay','dte','delta','vixgate']) {
-    const card = $('vcard-' + v);
-    if (card) {
-      card.style.opacity = _debugMode ? '.5' : '1';
-      card.style.cursor  = _debugMode ? 'not-allowed' : 'pointer';
-    }
-    if (!_sweepVars[v]) continue;
-    const sub  = $('vsub-' + v);
-    const info = _sweepRanges[v];
-    if (sub) sub.textContent = 'sweeping ' + (_debugMode ? info.debugSweep : info.sweep);
-  }
-}
+const _debugMode = true;  // Always on — full logging always enabled, no toggle needed
 
 function setRollLimitState(locked) {
   const rollSel  = $('single-roll-toggle');
@@ -820,12 +766,6 @@ const _sweepRanges = {
   vixgate: { std: 'Off',   sweep: 'VIX≥15–VIX≥25', debugSweep: 'VIX≥18–20', label: 'VIX Gate' },
 };
 function toggleVar(v, forceOff) {
-  // In Debug mode, clicking a card sets a session-only param override
-  // rather than opening a sweep range. OPT sweep is blocked entirely.
-  if (_debugMode && !forceOff) {
-    showDebugOverrideInput(v);
-    return;
-  }
   if (forceOff) { _sweepVars[v] = false; } else { _sweepVars[v] = !_sweepVars[v]; }
   const active = _sweepVars[v];
   const card = $('vcard-' + v);
@@ -841,7 +781,7 @@ function toggleVar(v, forceOff) {
                val.style.color = active ? 'var(--green)' : 'var(--accent)';
                val.style.fontSize = active ? '11px' : '14px';
                val.style.letterSpacing = active ? '.08em' : '0'; }
-  if (sub)  sub.textContent = active ? 'sweeping ' + (_debugMode ? info.debugSweep : info.sweep) : 'Click to optimize';
+  if (sub)  sub.textContent = active ? 'sweeping ' + info.sweep : 'Click to optimize';
 
   // Show/hide the min/max/step range inputs for this card
   const rangeRow = $('vrange-' + v);
@@ -1002,7 +942,7 @@ function updateEvalCount(done, total) {
   }
   const g = getSweepGrid();
   const evals = g.decay.length * g.dte.length * g.delta.length * g.vixgate.length;
-  counter.textContent = evals.toLocaleString() + ' evals' + (_debugMode ? ' (debug)' : '');
+  counter.textContent = evals.toLocaleString() + ' evals';
   counter.style.display = 'block';
 }
 
@@ -1025,14 +965,6 @@ async function handleRunOrPublish() {
   }
   if (currentLabel.includes('Re-Center')) {
     handleReCenter();
-    return;
-  }
-  if (currentLabel.includes('Reset')) {
-    // Debug mode — clear overrides and revert display to published STD values
-    clearAllDebugOverrides();
-    updateParamDisplay();
-    setRunButtonState('idle');
-    logMsg('STD params reset to published values', '');
     return;
   }
   if (currentLabel.includes('Published')) return; // terminal state, no-op
@@ -1211,7 +1143,7 @@ function logVIXRegimeSplit(result) {
   // since OPT's winner re-run is functionally a STD run on the winning
   // params — same diagnostic should apply regardless of which button
   // triggered the underlying simulate() call.
-  if (!_debugMode || !result?.rolls?.length) return;
+  if (!result?.rolls?.length) return;
   const counts = { low:0, normal:0, elevated:0, high:0 };
   result.rolls.forEach(r => { if (r.entryVix != null) counts[getVIXRegime(r.entryVix)]++; });
   const total = result.rolls.length;
@@ -1860,7 +1792,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.6.6 · SPY Covered Call Backtest');
+  logMsg('v3.6.7 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1896,7 +1828,63 @@ async function runSimulation() {
   showTab('log');
 }
 
-// ── Re-Center Sweep Ranges ─────────────────────────────────────────────────
+function logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates) {
+  const b = allResults.best;
+  if (!b || !allResults.grid) return;
+  const winYld = allResults.bestYld;
+  if (!winYld || winYld <= 0) return;
+
+  // For each swept dimension, read the yield at each edge and compare to winner
+  // Edge yield >= 90% of winner → 🔴 hot, something better likely outside
+  // Edge yield 70-89% → 🟡 warm, worth checking
+  // Edge yield < 70%  → 🟢 safe, surface dropping at boundary
+  const classify = (edgeYld) => {
+    if (edgeYld === null || edgeYld === undefined) return '—';
+    const ratio = edgeYld / winYld;
+    if (ratio >= 0.90) return `🔴 ${edgeYld.toFixed(1)}% (hot — widen)`;
+    if (ratio >= 0.70) return `🟡 ${edgeYld.toFixed(1)}% (warm)`;
+    return `🟢 ${edgeYld.toFixed(1)}% (safe)`;
+  };
+
+  // Get best yield for a given decay value (max across all floors)
+  const yldForDecay = (d) => {
+    if (!allResults.grid[d]) return null;
+    const vals = Object.values(allResults.grid[d]).filter(v => v !== null);
+    return vals.length ? Math.max(...vals) : null;
+  };
+  // Get best yield for a given floor (max across all decays)
+  const yldForFloor = (f) => {
+    const vals = decays.map(d => allResults.grid[d]?.[f]).filter(v => v !== null);
+    return vals.length ? Math.max(...vals) : null;
+  };
+
+  logMsg('── Sweep Boundary Analysis ──────────────────────────────', '');
+  logMsg(`  Winner: decay=${b.decay}% / dte=${b.floor}d / Δ${b.delta}${b.vixgate > 0 ? ' / VIX≥'+b.vixgate : ''} → ${winYld.toFixed(1)}%`, '');
+
+  if (_sweepVars.decay && decays.length >= 2) {
+    const lo = yldForDecay(decays[0]), hi = yldForDecay(decays[decays.length-1]);
+    logMsg(`  Decay   floor(${decays[0]}%): ${classify(lo)}  ·  ceiling(${decays[decays.length-1]}%): ${classify(hi)}`, '');
+  }
+  if (_sweepVars.dte && floors.length >= 2) {
+    const lo = yldForFloor(floors[0]), hi = yldForFloor(floors[floors.length-1]);
+    logMsg(`  DTE     floor(${floors[0]}d): ${classify(lo)}  ·  ceiling(${floors[floors.length-1]}d): ${classify(hi)}`, '');
+  }
+  if (_sweepVars.delta && deltas.length >= 2) {
+    // Delta doesn't feed into grid directly — use rows
+    const rowsLo = allResults.rows.filter(r => r.delta === deltas[0] && r.yld !== null);
+    const rowsHi = allResults.rows.filter(r => r.delta === deltas[deltas.length-1] && r.yld !== null);
+    const lo = rowsLo.length ? Math.max(...rowsLo.map(r => r.yld)) : null;
+    const hi = rowsHi.length ? Math.max(...rowsHi.map(r => r.yld)) : null;
+    logMsg(`  Delta   floor(${deltas[0]}): ${classify(lo)}  ·  ceiling(${deltas[deltas.length-1]}): ${classify(hi)}`, '');
+  }
+  if (_sweepVars.vixgate && vixgates.length >= 2) {
+    const rowsLo = allResults.rows.filter(r => r.vixgate === vixgates[0] && r.yld !== null);
+    const rowsHi = allResults.rows.filter(r => r.vixgate === vixgates[vixgates.length-1] && r.yld !== null);
+    const lo = rowsLo.length ? Math.max(...rowsLo.map(r => r.yld)) : null;
+    const hi = rowsHi.length ? Math.max(...rowsHi.map(r => r.yld)) : null;
+    logMsg(`  VIXGate floor(VIX≥${vixgates[0]}): ${classify(lo)}  ·  ceiling(VIX≥${vixgates[vixgates.length-1]}): ${classify(hi)}`, '');
+  }
+}
 // When OPT winner lands at a sweep boundary, Re-Center updates the sweep
 // input fields to be centered ±3 steps around the winner — without publishing
 // params. Button reverts to Run so user can re-run OPT with tighter ranges.
@@ -1968,8 +1956,8 @@ function updatePublishBtn() {
   const btn = $('run-btn');
   if (!btn) return;
   const label = btn.textContent || '';
-  if (label.includes('Publish') || label.includes('Reset') || label.includes('Re-Center')) {
-    setRunButtonState(btn.disabled ? 'idle' : 
+  if (label.includes('Publish') || label.includes('Re-Center')) {
+    setRunButtonState(btn.disabled ? 'idle' :
       label.includes('Re-Center') ? 'ready-edge' : 'ready');
   }
 }
@@ -2059,7 +2047,7 @@ async function runOptimization() {
   const otmFixed = parseFloat($('otm-select')?.value || '0.03');
 
   const sweepDesc = ['decay','dte','delta','vixgate'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
-  logMsg(`Running optimization — sweeping: ${sweepDesc}${_debugMode?' [DEBUG]':''}`  + '...');
+  logMsg(`Running optimization — sweeping: ${sweepDesc}...`);
 
   const shares = 600;
   const total  = decays.length * floors.length * deltas.length * vixgates.length;
@@ -2116,6 +2104,7 @@ async function runOptimization() {
     if (b) {
       const gateStr = b.vixgate > 0 ? ` / VIX\u2265${b.vixgate}` : '';
       logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + gateStr + ' / otm=' + (b.otm*100).toFixed(0) + '% \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld', 'ok');
+      logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates);
 
       // Check if winner is at sweep boundary — determines Publish vs Re-Center button
       const _atEdge = (() => {
