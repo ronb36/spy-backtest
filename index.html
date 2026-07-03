@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.8</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.9</div>
   </div>
 
   <!-- Initial Position -->
@@ -404,7 +404,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.6.8 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.6.9 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
   </div>
 </div>
 
@@ -729,6 +729,8 @@ function updateSweepRange(v) {
   let min = parseFloat(minEl.value), max = parseFloat(maxEl.value), step = parseFloat(stepEl.value);
   if (min > max) { max = min; maxEl.value = max; }
   _sweepConfig[v] = { min, max, step };
+  // Persist to localStorage so ranges survive page refresh
+  try { localStorage.setItem('sweepConfig', JSON.stringify(_sweepConfig)); } catch(e) {}
   // Refresh sweep range label + eval count
   const arr = buildRange(min, max, step);
   const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(3)) : (x => 'VIX≥'+x);
@@ -782,6 +784,7 @@ function toggleVar(v, forceOff) {
     const arr = buildRange(def.min, def.max, def.step);
     const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(2)) : (x => (x*100).toFixed(0)+'%');
     _sweepRanges[v].sweep = fmt(arr[0]) + '–' + fmt(arr[arr.length-1]);
+    try { localStorage.setItem('sweepConfig', JSON.stringify(_sweepConfig)); } catch(e) {}
   }
   // legacy btn compat
   const btn = $('vbtn-' + v); if (btn) btn.classList.toggle('active', active);
@@ -1769,7 +1772,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.6.8 · SPY Covered Call Backtest');
+  logMsg('v3.6.9 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2909,6 +2912,23 @@ async function loadData() {
     status.style.color='var(--green)';
     setRunButtonState('idle', { dmReady: true });
     await loadRollParams();
+    // Restore sweep ranges from localStorage (persisted from last session)
+    try {
+      const saved = localStorage.getItem('sweepConfig');
+      if (saved) {
+        const cfg = JSON.parse(saved);
+        for (const [v, r] of Object.entries(cfg)) {
+          if (!_sweepConfig[v]) continue;
+          _sweepConfig[v] = { min: r.min, max: r.max, step: r.step };
+          const minEl  = $('vmin-'  + v);
+          const maxEl  = $('vmax-'  + v);
+          const stepEl = $('vstep-' + v);
+          if (minEl)  minEl.value  = r.min;
+          if (maxEl)  maxEl.value  = r.max;
+          if (stepEl) stepEl.value = r.step;
+        }
+      }
+    } catch(e) {}
     populateInitDates();
     updateParamDisplay();
     setRollLimitState(false);
