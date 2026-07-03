@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.7.0</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.7.1</div>
   </div>
 
   <!-- Initial Position -->
@@ -404,7 +404,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.7.0 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.7.1 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
   </div>
 </div>
 
@@ -674,15 +674,11 @@ function setRollLimitState(locked) {
 
 function getSweepGrid() {
   // Returns sweep arrays for each variable, built from user-editable
-  // _sweepConfig (min/max/step) rather than hardcoded arrays. When a
-  // dimension isn't toggled for sweeping, hold it at the live STD value so
-  // edits to roll_params.json take effect immediately on any partial sweep.
-  // Debug mode collapses any active dimension to its first 2 values for a
-  // fast smoke-test run.
+  // _sweepConfig (min/max/step). When a dimension isn't toggled for sweeping,
+  // holds it at the live STD value so roll_params.json changes take effect immediately.
   const build = (v) => {
     const c = _sweepConfig[v];
-    const arr = buildRange(c.min, c.max, c.step);
-    return _debugMode ? arr.slice(0, 2) : arr;
+    return buildRange(c.min, c.max, c.step);
   };
   return {
     decay:   _sweepVars.decay   ? build('decay')   : [STD.decayTrigger],
@@ -1772,7 +1768,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.7.0 · SPY Covered Call Backtest');
+  logMsg('v3.7.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
