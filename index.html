@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.5</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.6</div>
     <button id="debug-mode-btn" onclick="toggleDebugMode()"
       style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">
       Debug Off
@@ -408,7 +408,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.6.5 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.6.6 · Remove Max Edge %; fix button revert-to-Run on param change; bold/larger Run/Publish button; solid green Publish; blur-on-Enter for sweep inputs; VIX Regime label fix</span>
   </div>
 </div>
 
@@ -481,6 +481,20 @@ async function loadRollParams() {
     // Sync OTM dropdown to published value
     const otmSel = $('otm-select');
     if (otmSel) otmSel.value = String(STD.otmFixed);
+    // Restore sweep ranges from published params if available
+    if (data.sweepRanges) {
+      for (const [v, r] of Object.entries(data.sweepRanges)) {
+        if (!_sweepConfig[v]) continue;
+        _sweepConfig[v] = { min: r.min, max: r.max, step: r.step };
+        const minEl  = $('vmin-'  + v);
+        const maxEl  = $('vmax-'  + v);
+        const stepEl = $('vstep-' + v);
+        if (minEl)  minEl.value  = r.min;
+        if (maxEl)  maxEl.value  = r.max;
+        if (stepEl) stepEl.value = r.step;
+      }
+      logMsg('  Sweep ranges restored from roll_params.json', '');
+    }
     console.log("STD params loaded from roll_params.json:", STD);
   } catch(e) {
     console.warn("Could not load roll_params.json — using fallback STD params.", e);
@@ -577,6 +591,11 @@ function setRunButtonState(state, opts = {}) {
       btn.textContent = _debugMode ? '\u21ba Reset STD' : '\u2191 Publish';
       btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
       card.style.background = _debugMode ? 'var(--yellow)' : '#2a9d5c';
+      break;
+    case 'ready-edge':
+      btn.textContent = '\u21ba Re-Center Sweep';
+      btn.style.color = '#000'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+      card.style.background = 'var(--yellow)';
       break;
     case 'publishing':
       btn.textContent = 'Publishing...';
@@ -1002,6 +1021,10 @@ async function handleRunOrPublish() {
   // starting a new backtest run.
   if (currentLabel.includes('Publish')) {
     handlePublish();
+    return;
+  }
+  if (currentLabel.includes('Re-Center')) {
+    handleReCenter();
     return;
   }
   if (currentLabel.includes('Reset')) {
@@ -1837,7 +1860,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.6.5 · SPY Covered Call Backtest');
+  logMsg('v3.6.6 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1873,14 +1896,81 @@ async function runSimulation() {
   showTab('log');
 }
 
-// ── Publish roll_params.json to GitHub ────────────────────────────────────
+// ── Re-Center Sweep Ranges ─────────────────────────────────────────────────
+// When OPT winner lands at a sweep boundary, Re-Center updates the sweep
+// input fields to be centered ±3 steps around the winner — without publishing
+// params. Button reverts to Run so user can re-run OPT with tighter ranges.
+
+function computeCenteredRanges(b) {
+  // Returns {decay, dte, delta, vixgate} each with {min, max, step}
+  // centered ±3 steps around the winning value, clamped to valid bounds.
+  const STEPS = 3;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const round3 = v => Math.round(v * 1000) / 1000;
+
+  const cfg = _sweepConfig;
+  return {
+    decay: (() => {
+      const s = cfg.decay.step;
+      return { min: clamp(round3(b.decay - STEPS*s), 1, 99), max: clamp(round3(b.decay + STEPS*s), 1, 99), step: s };
+    })(),
+    dte: (() => {
+      const s = cfg.dte.step;
+      return { min: clamp(b.floor - STEPS*s, 7, 90), max: clamp(b.floor + STEPS*s, 7, 90), step: s };
+    })(),
+    delta: (() => {
+      const s = cfg.delta.step;
+      return { min: clamp(round3(b.delta - STEPS*s), 0.05, 0.95), max: clamp(round3(b.delta + STEPS*s), 0.05, 0.95), step: s };
+    })(),
+    vixgate: (() => {
+      const s = cfg.vixgate.step;
+      return { min: clamp(b.vixgate - STEPS*s, 0, 40), max: clamp(b.vixgate + STEPS*s, 0, 40), step: s };
+    })(),
+  };
+}
+
+function handleReCenter() {
+  const b = _pendingPublish;
+  if (!b) { setRunButtonState('idle'); return; }
+
+  const ranges = computeCenteredRanges(b);
+
+  // Update _sweepConfig and HTML input fields for each swept dimension
+  for (const [v, r] of Object.entries(ranges)) {
+    if (!_sweepVars[v]) continue; // only update dimensions that were swept
+    _sweepConfig[v] = { min: r.min, max: r.max, step: r.step };
+    const minEl  = $('vmin-'  + v);
+    const maxEl  = $('vmax-'  + v);
+    const stepEl = $('vstep-' + v);
+    if (minEl)  minEl.value  = r.min;
+    if (maxEl)  maxEl.value  = r.max;
+    if (stepEl) stepEl.value = r.step;
+    // Update sub-label to show new range
+    const arr = buildRange(r.min, r.max, r.step);
+    const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(3)) : (x => 'VIX≥'+x);
+    _sweepRanges[v].sweep = fmt(arr[0]) + '–' + fmt(arr[arr.length-1]);
+    const sub = $('vsub-' + v);
+    if (sub) sub.textContent = 'sweeping ' + _sweepRanges[v].sweep + ` (${arr.length})`;
+  }
+
+  logMsg(`↺ Sweep ranges re-centered ±3 steps around winner — re-run OPT to confirm interior optimum`, '');
+  for (const [v, r] of Object.entries(ranges)) {
+    if (!_sweepVars[v]) continue;
+    const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(3)) : (x => 'VIX≥'+x);
+    logMsg(`  ${_sweepRanges[v].label}: ${fmt(r.min)} – ${fmt(r.max)} step ${r.step}`, '');
+  }
+
+  updateEvalCount();
+  setRunButtonState('idle');
+}
 
 function updatePublishBtn() {
   const btn = $('run-btn');
   if (!btn) return;
   const label = btn.textContent || '';
-  if (label.includes('Publish') || label.includes('Reset')) {
-    setRunButtonState(btn.disabled ? 'idle' : 'ready');
+  if (label.includes('Publish') || label.includes('Reset') || label.includes('Re-Center')) {
+    setRunButtonState(btn.disabled ? 'idle' : 
+      label.includes('Re-Center') ? 'ready-edge' : 'ready');
   }
 }
 
@@ -1909,11 +1999,14 @@ async function publishRollParams(p) {
     const sha = (await (await fetch(url, { headers: gh })).json()).sha;
     if (!sha) throw new Error('Could not get file SHA');
     const today = new Date().toISOString().slice(0, 10);
+    // Compute centered sweep ranges ±3 steps around winner for next session
+    const centeredRanges = computeCenteredRanges(p);
     const payload = {
       decayTrigger: p.decayTrigger, dteFloor: p.dteFloor,
       deltaThreshold: p.deltaThreshold, otmTarget: p.otmTarget,
       vixGate: p.vixGate || 0,
       lastOptimized: today, optAnnYield: parseFloat(p.optAnnYield.toFixed(2)),
+      sweepRanges: centeredRanges,
       note: 'Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.'
     };
     const put = await fetch(url, {
@@ -2024,9 +2117,20 @@ async function runOptimization() {
       const gateStr = b.vixgate > 0 ? ` / VIX\u2265${b.vixgate}` : '';
       logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + gateStr + ' / otm=' + (b.otm*100).toFixed(0) + '% \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld', 'ok');
 
-      // Store winner for publish button
-      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, optAnnYield: allResults.bestYld };
-      setRunButtonState('ready');
+      // Check if winner is at sweep boundary — determines Publish vs Re-Center button
+      const _atEdge = (() => {
+        const checkE = (val, arr) => {
+          if (!arr || arr.length < 2) return false;
+          const mn = Math.min(...arr), mx = Math.max(...arr);
+          return val === mn || val === mx;
+        };
+        return checkE(b.decay, decays) || checkE(b.floor, floors) ||
+               checkE(b.delta, deltas) || checkE(b.vixgate, vixgates);
+      })();
+
+      // Store winner for publish/re-center button
+      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, optAnnYield: allResults.bestYld, decay: b.decay, floor: b.floor, delta: b.delta, vixgate: b.vixgate };
+      setRunButtonState(_atEdge ? 'ready-edge' : 'ready');
 
       // Re-run simulate() with the winning params so summary/blotter reflect
       // the optimizer's chosen configuration, not just the heatmap grid.
@@ -2039,14 +2143,9 @@ async function runOptimization() {
         renderSummary(winResult);
         renderCycleTable(winResult);
         renderGapsTab(_gaps);
-        // DM gap report — runs after every OPT winner re-simulation regardless
-        // of debug mode, since this is the most actionable moment: we know the
-        // winning params, we know the roll decisions they drive, and the gap
-        // report tells us exactly where DM coverage should be expanded to
-        // potentially unlock even better candidates on future OPT runs.
         logDMGapReport(_rollSnapshots);
         logOTMDistribution(winResult);
-        setRunButtonState('ready');
+        setRunButtonState(_atEdge ? 'ready-edge' : 'ready');
       }
     } else {
       logMsg('\u26a0 No qualifying results — using STD params', 'err');
