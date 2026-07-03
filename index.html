@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.6.9</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.7.0</div>
   </div>
 
   <!-- Initial Position -->
@@ -404,7 +404,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.6.9 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.7.0 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
   </div>
 </div>
 
@@ -1772,7 +1772,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.6.9 · SPY Covered Call Backtest');
+  logMsg('v3.7.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1792,6 +1792,7 @@ async function runSimulation() {
   // STD run complete — stay on Run (blue). Publish only appears after OPT sweep.
   setRunButtonState('idle');
   logOTMDistribution(result);
+  logDMGapReport(_rollSnapshots);
   
   
   
@@ -2030,7 +2031,6 @@ async function runOptimization() {
         renderSummary(winResult);
         renderCycleTable(winResult);
         renderGapsTab(_gaps);
-        logDMGapReport(_rollSnapshots);
         logOTMDistribution(winResult);
         setRunButtonState('ready');
       }
