@@ -43,21 +43,44 @@ DATA_PATH      = "data/spy_data.json"
 PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
-COLLECTOR_VERSION = "1.2.6"  # Phase 0: bootstrap full SPY/VIX history on empty DM for LFS rebuild
+COLLECTOR_VERSION = "1.3.0"  # data_universe.json config — all DM params driven by repo file, no redeploy needed
 
-# ── OTM target levels to store per expiry ─────────────────────────────────
-# OTM targets trimmed to 15% max — deep OTM (18-35%) had no Polygon data
-# (3,732 "not in Polygon" contracts in testing) and the strategy never
-# selects strikes beyond ~10% OTM anyway. Keeping 1-15% in 1% steps
-# gives 15 strikes per expiry, clean coverage of the relevant range.
-OTM_TARGETS = [
-    0.01, 0.02, 0.03, 0.04, 0.05,        # 1–5%:  tight band, near-ATM rolls
-    0.06, 0.07, 0.08, 0.09, 0.10,        # 6–10%: core covered call range
-    0.11, 0.12, 0.13, 0.14, 0.15,        # 11–15%: extended core
-]  # 15 strikes per expiry — eliminates 18-35% tail that Polygon doesn't carry
+# ── Load DM universe config from repo file ─────────────────────────────────
+# data_universe.json lives in the repo root. Edit it and CRON:Run Now to
+# change the DM universe without redeploying the collector.
+UNIVERSE_PATH = "data_universe.json"
 
-# ── Rate limiting ──────────────────────────────────────────────────────────
-CALL_DELAY = 0.25   # 4 calls/sec — safely under Polygon's 5/sec limit
+def load_universe_config():
+    """Load DM universe config from local file (copied into container by Railway)."""
+    try:
+        with open(UNIVERSE_PATH) as f:
+            cfg = json.load(f)
+        return cfg
+    except Exception as e:
+        log(f"⚠ Could not load {UNIVERSE_PATH}: {e} — using defaults")
+        return {}
+
+# Load config at startup — used throughout collector
+_cfg = load_universe_config()
+
+OTM_TARGETS     = _cfg.get("otm_targets", [
+    0.01, 0.02, 0.03, 0.04, 0.05,
+    0.06, 0.07, 0.08, 0.09, 0.10,
+    0.11, 0.12, 0.13, 0.14, 0.15,
+    0.18, 0.20, 0.22, 0.25,
+    0.28, 0.30, 0.35,
+])
+CALL_DELAY      = _cfg.get("call_delay", 0.25)
+COMMIT_EVERY    = _cfg.get("commit_every", 10)
+USE_MONTHLY     = _cfg.get("monthly", True)
+USE_WEEKLY      = _cfg.get("weekly", False)
+START_DATE      = _cfg.get("start_date", "2024-06-25")
+MAX_LOOKAHEAD   = _cfg.get("max_expiry_lookahead_days", 180)
+EXP_LOOKBACK    = _cfg.get("expiry_lookback_days", 365)
+PRUNE_OTM_ABOVE = _cfg.get("prune_otm_above", None)
+PRUNE_BEFORE    = _cfg.get("prune_expiries_before", None)
+DO_RESET        = _cfg.get("reset", False)
+LOG_NOT_IN_POLY = _cfg.get("not_in_polygon_log", True)
 
 
 def log(msg):
@@ -480,21 +503,54 @@ def daily_append(dm):
 
     today_iso  = today_str()
     yesterday  = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    two_yr_ago = (date.today() - timedelta(days=730)).strftime("%Y-%m-%d")
+    two_yr_ago = START_DATE  # From data_universe.json
 
-    # ── Phase 0: Bootstrap SPY/VIX history if DM is empty ────────────────
-    # On a fresh build, fetch the full 2-year history so Phase 3 has
-    # SPY price anchors for all historical trigger dates.
+    # ── Phase 0: Reset / Prune / Bootstrap ───────────────────────────────────
+    if DO_RESET:
+        log("Phase 0: RESET flag set — wiping DM to empty...")
+        dm["spy"] = []; dm["vix"] = []; dm["options"] = {}
+        dm["metadata"]["options_count"] = 0
+        log("  ✓ DM wiped — will rebuild from scratch")
+        # Self-clear: write reset:false back to data_universe.json in GitHub
+        try:
+            _cfg["reset"] = False
+            headers = {"Authorization": f"token {GITHUB_TOKEN}",
+                      "Accept": "application/vnd.github.v3+json"}
+            base = f"https://api.github.com/repos/{GITHUB_REPO}"
+            r = requests.get(f"{base}/contents/{UNIVERSE_PATH}", headers=headers, timeout=30)
+            sha = r.json().get("sha")
+            content_b64 = base64.b64encode(json.dumps(_cfg, indent=2).encode()).decode()
+            requests.put(f"{base}/contents/{UNIVERSE_PATH}", headers=headers,
+                json={"message": "Auto-clear reset flag after DM wipe",
+                      "content": content_b64, "sha": sha}, timeout=30)
+            log("  ✓ Reset flag cleared in data_universe.json")
+        except Exception as e:
+            log(f"  ⚠ Could not clear reset flag: {e}")
+
+    if PRUNE_OTM_ABOVE is not None:
+        before = len(dm["options"])
+        dm["options"] = {k: v for k, v in dm["options"].items()
+                        if abs(v.get("otm_pct", 0)) <= PRUNE_OTM_ABOVE}
+        removed = before - len(dm["options"])
+        log(f"Phase 0: Pruned {removed} contracts > {PRUNE_OTM_ABOVE*100:.0f}% OTM — {len(dm['options'])} remaining")
+
+    if PRUNE_BEFORE is not None:
+        before = len(dm["options"])
+        dm["options"] = {k: v for k, v in dm["options"].items()
+                        if v.get("expiry", "9999") >= PRUNE_BEFORE}
+        removed = before - len(dm["options"])
+        log(f"Phase 0: Pruned {removed} contracts expiring before {PRUNE_BEFORE} — {len(dm['options'])} remaining")
+
     if len(dm["spy"]) == 0:
         log("Phase 0: Empty DM detected — bootstrapping full SPY/VIX history...")
-        spy_results = fetch_aggs("SPY", two_yr_ago, yesterday)
+        spy_results = fetch_aggs("SPY", START_DATE, yesterday)
         time.sleep(CALL_DELAY)
         for r in spy_results:
             dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
             dm["spy"].append({"date": dt, "o": r["o"], "h": r["h"],
                               "l": r["l"], "c": r["c"], "v": r.get("v", 0)})
         log(f"  ✓ Loaded {len(dm['spy'])} SPY days")
-        vix_results = fetch_aggs("I:VIX", two_yr_ago, yesterday)
+        vix_results = fetch_aggs("I:VIX", START_DATE, yesterday)
         time.sleep(CALL_DELAY)
         for r in vix_results:
             dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
@@ -578,12 +634,12 @@ def daily_append(dm):
 
     try:
 
-        future_end      = (date.today() + timedelta(days=180)).strftime("%Y-%m-%d")
-        monthly_expiries = get_monthly_expiries(two_yr_ago, future_end)
-        weekly_expiries  = get_weekly_expiries(two_yr_ago, future_end)
+        future_end       = (date.today() + timedelta(days=MAX_LOOKAHEAD)).strftime("%Y-%m-%d")
+        monthly_expiries = get_monthly_expiries(two_yr_ago, future_end) if USE_MONTHLY else []
+        weekly_expiries  = get_weekly_expiries(two_yr_ago, future_end)  if USE_WEEKLY  else []
         all_expiries     = sorted(set(monthly_expiries + weekly_expiries))
         monthly_set      = set(monthly_expiries)
-        log(f"  Expiry universe: {len(all_expiries)} total ({len(monthly_expiries)} monthly + {len(weekly_expiries)} weekly)")
+        log(f"  Expiry universe: {len(all_expiries)} expiries ({len(monthly_expiries)} monthly + {len(weekly_expiries)} weekly)")
 
         missing      = 0
         already_have = 0
@@ -594,15 +650,13 @@ def daily_append(dm):
         total_expected  = 0
 
         existing_tickers = set(dm["options"].keys())
-        COMMIT_EVERY = 10  # commit after every N expiries to avoid losing work on crash
 
         # Process one expiry at a time — avoids building a massive dict in memory
-        # (130 expiries × 500 SPY days × 22 OTM targets = ~1.4M ticker strings)
         for exp_idx, exp in enumerate(all_expiries):
             is_weekly  = exp not in monthly_set
             exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
             hist_start = max(two_yr_ago,
-                             (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
+                             (exp_dt - timedelta(days=EXP_LOOKBACK)).strftime("%Y-%m-%d"))
             hist_end   = min(exp, today_iso)
 
             # Build expected tickers for this expiry only
@@ -672,10 +726,9 @@ def daily_append(dm):
     log(f"Phase 4: Syncing future expiry strikes (SPY=${current_spy:.2f})...")
     new_future = 0
 
-    future_expiries = sorted(set(
-        get_monthly_expiries(today_iso, future_end) +
-        get_weekly_expiries(today_iso, future_end)
-    ))
+    future_expiries_m = get_monthly_expiries(today_iso, future_end) if USE_MONTHLY else []
+    future_expiries_w = get_weekly_expiries(today_iso, future_end)  if USE_WEEKLY  else []
+    future_expiries   = sorted(set(future_expiries_m + future_expiries_w))
     for exp in future_expiries:
         exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
         hist_start = max(two_yr_ago,
@@ -770,6 +823,7 @@ def gap_fill(dm):
 if __name__ == "__main__":
     log(f"SPY Backtest Data Collector v{COLLECTOR_VERSION} starting...")
     log(f"Mode: {RUN_MODE.upper()} | Repo: {GITHUB_REPO}")
+    log(f"Universe: start={START_DATE} | OTM 1-{int(max(OTM_TARGETS)*100)}% ({len(OTM_TARGETS)} targets) | monthly={USE_MONTHLY} weekly={USE_WEEKLY} | reset={DO_RESET}")
 
     if RUN_MODE == "full":
         # Full load from scratch

@@ -1,0 +1,28 @@
+{
+  "comment": "SPY Covered Call DM Universe Config — edit and CRON:Run Now to apply. No redeploy needed.",
+
+  "start_date": "2024-07-01",
+
+  "otm_targets": [
+    0.01, 0.02, 0.03, 0.04, 0.05,
+    0.06, 0.07, 0.08, 0.09, 0.10,
+    0.11, 0.12, 0.13, 0.14, 0.15,
+    0.18, 0.20, 0.22, 0.25,
+    0.28, 0.30, 0.35
+  ],
+
+  "monthly": true,
+  "weekly": false,
+
+  "max_expiry_lookahead_days": 180,
+  "expiry_lookback_days": 365,
+
+  "commit_every": 10,
+  "call_delay": 0.25,
+
+  "prune_otm_above": null,
+  "prune_expiries_before": null,
+  "reset": false,
+
+  "not_in_polygon_log": true
+}
