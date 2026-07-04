@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.7.2</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.7.3</div>
   </div>
 
   <!-- Initial Position -->
@@ -425,7 +425,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.7.2 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.7.3 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
   </div>
 </div>
 
@@ -511,7 +511,8 @@ let _optParams = null;   // optimized params per regime {low,normal,elevated,hig
 let _martView = 'spy';   // active data mart tab
 let _gaps = [];          // gap contracts found during simulation
 let _pendingPublish = null;
-let lastResult = null; // cached for price chart roll markers // winner params waiting to be published
+let lastResult = null; // cached for price chart roll markers
+let _dmExpiryIndex = {}; // expiry → [contracts] index, rebuilt at start of each simulate()
 
 // ── Utility ───────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -1467,7 +1468,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
   let bestContract = null, bestYield = -Infinity;
 
   for (const exp of allExp) {
-    const expContracts = Object.values(DM.options).filter(c => c.expiry === exp);
+    const expContracts = _dmExpiryIndex[exp] || [];
 
     if (!expContracts.length) {
       _gaps.push({ expiry: exp, otm: targetOTM, needed: afterDate, substituted: true });
@@ -1582,7 +1583,14 @@ async function simulate(p) {
   const startDate = DM.spy[0].date;
   const startSPY  = DM.spy[0].c;
 
-  const cycles = [], equity = [];
+  // Pre-build expiry index for O(1) lookups in findNextContract.
+  // Without this, every candidate search scans all DM contracts — O(n) per
+  // trigger × per expiry × per simulate() call = millions of iterations at scale.
+  _dmExpiryIndex = {};
+  Object.values(DM.options).forEach(c => {
+    if (!_dmExpiryIndex[c.expiry]) _dmExpiryIndex[c.expiry] = [];
+    _dmExpiryIndex[c.expiry].push(c);
+  });
   let premPnL = 0;
   let curC = null;
   let posOpen = false, entryPrice = null, entryDate = null;
@@ -1929,7 +1937,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.7.2 · SPY Covered Call Backtest');
+  logMsg('v3.7.3 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
