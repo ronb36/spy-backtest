@@ -38,20 +38,13 @@ ET = ZoneInfo("America/New_York")
 POLYGON_KEY    = os.environ["POLYGON_KEY"]
 GITHUB_TOKEN   = os.environ["GITHUB_TOKEN"]
 GITHUB_REPO    = os.environ.get("GITHUB_REPO", "ronb36/spy-backtest")
-RUN_MODE       = os.environ.get("RUN_MODE", "daily")
-DATA_PATH      = "data/spy_data.json"
-PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
-PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
-COLLECTOR_VERSION = "1.3.0"  # data_universe.json config — all DM params driven by repo file, no redeploy needed
+COLLECTOR_VERSION = "1.4.0"  # LFS Batch API commit — no file size limit
 
-# ── Load DM universe config from repo file ─────────────────────────────────
-# data_universe.json lives in the repo root. Edit it and CRON:Run Now to
-# change the DM universe without redeploying the collector.
+# ── Load DM universe config ────────────────────────────────────────────────
 UNIVERSE_PATH = "data_universe.json"
 
 def load_universe_config():
-    """Load DM universe config from local file (copied into container by Railway)."""
     try:
         with open(UNIVERSE_PATH) as f:
             cfg = json.load(f)
@@ -60,27 +53,42 @@ def load_universe_config():
         log(f"⚠ Could not load {UNIVERSE_PATH}: {e} — using defaults")
         return {}
 
-# Load config at startup — used throughout collector
 _cfg = load_universe_config()
 
-OTM_TARGETS     = _cfg.get("otm_targets", [
+OTM_TARGETS   = _cfg.get("otm_targets", [
     0.01, 0.02, 0.03, 0.04, 0.05,
     0.06, 0.07, 0.08, 0.09, 0.10,
     0.11, 0.12, 0.13, 0.14, 0.15,
-    0.18, 0.20, 0.22, 0.25,
-    0.28, 0.30, 0.35,
+    0.18, 0.20, 0.22, 0.25, 0.28, 0.30, 0.35,
 ])
-CALL_DELAY      = _cfg.get("call_delay", 0.25)
-COMMIT_EVERY    = _cfg.get("commit_every", 10)
-USE_MONTHLY     = _cfg.get("monthly", True)
-USE_WEEKLY      = _cfg.get("weekly", False)
-START_DATE      = _cfg.get("start_date", "2024-06-25")
-MAX_LOOKAHEAD   = _cfg.get("max_expiry_lookahead_days", 180)
-EXP_LOOKBACK    = _cfg.get("expiry_lookback_days", 365)
+CALL_DELAY    = _cfg.get("call_delay", 0.25)
+COMMIT_EVERY  = _cfg.get("commit_every", 10)
+USE_MONTHLY   = _cfg.get("monthly", True)
+USE_WEEKLY    = _cfg.get("weekly", False)
+START_DATE    = _cfg.get("start_date", "2024-07-01")
+MAX_LOOKAHEAD = _cfg.get("max_expiry_lookahead_days", 180)
+EXP_LOOKBACK  = _cfg.get("expiry_lookback_days", 365)
+DO_RESET      = _cfg.get("reset", False)
 PRUNE_OTM_ABOVE = _cfg.get("prune_otm_above", None)
-PRUNE_BEFORE    = _cfg.get("prune_expiries_before", None)
-DO_RESET        = _cfg.get("reset", False)
-LOG_NOT_IN_POLY = _cfg.get("not_in_polygon_log", True)
+PRUNE_BEFORE  = _cfg.get("prune_expiries_before", None)
+RUN_MODE       = os.environ.get("RUN_MODE", "daily")
+DATA_PATH      = "data/spy_data.json"
+PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
+PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
+
+# ── OTM target levels to store per expiry ─────────────────────────────────
+# 0.5% steps from 1%–20%, snapped to $5 grid — matches backfill exactly
+# ~39 strikes per expiry; aligns with yield grid display
+OTM_TARGETS = [
+    0.01, 0.02, 0.03, 0.04, 0.05,        # 1–5%:  tight band, near-ATM rolls
+    0.06, 0.07, 0.08, 0.09, 0.10,        # 6–10%: core covered call range
+    0.11, 0.12, 0.13, 0.14, 0.15,        # 11–15%: extended core
+    0.18, 0.20, 0.22, 0.25,              # 18–25%: defensive / post-crash
+    0.28, 0.30, 0.35,                    # 28–35%: deep OTM tail
+]  # 22 strikes — wider spacing = more unique $5 grid strikes per expiry  # 39 strikes × $5 grid per expiry — continuous surface, no gaps
+
+# ── Rate limiting ──────────────────────────────────────────────────────────
+CALL_DELAY = 0.25   # 4 calls/sec — safely under Polygon's 5/sec limit
 
 
 def log(msg):
@@ -115,14 +123,14 @@ def date_range_str(years_back=2):
 
 def get_monthly_expiries(start_date, end_date):
     """Return 3rd-Friday expiry dates between start and end (inclusive)."""
-    import calendar
+    import calendar as cal_mod
     expiries = []
     start = datetime.strptime(start_date, "%Y-%m-%d").date()
     end   = datetime.strptime(end_date,   "%Y-%m-%d").date()
     year, month = start.year, start.month
     while date(year, month, 1) <= end:
-        cal = calendar.monthcalendar(year, month)
-        fridays = [week[calendar.FRIDAY] for week in cal if week[calendar.FRIDAY] != 0]
+        cal = cal_mod.monthcalendar(year, month)
+        fridays = [week[cal_mod.FRIDAY] for week in cal if week[cal_mod.FRIDAY] != 0]
         third_fri = fridays[2]
         exp = date(year, month, third_fri)
         if start <= exp <= end:
@@ -135,12 +143,7 @@ def get_monthly_expiries(start_date, end_date):
 
 
 def get_weekly_expiries(start_date, end_date):
-    """
-    Return all Friday expiry dates between start and end, EXCLUDING 3rd Fridays
-    (which are already covered by get_monthly_expiries). This gives the weekly
-    expiry universe without duplicating monthly entries.
-    SPY Friday weeklies are the most liquid — Mon/Wed weeklies excluded.
-    """
+    """Return all Fridays excluding 3rd Fridays (already in monthly)."""
     monthly_set = set(get_monthly_expiries(start_date, end_date))
     expiries = []
     start = datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -300,82 +303,125 @@ def github_get_file(path):
 
 def github_commit_file(path, content_dict, message, sha=None):
     """
-    Commit JSON file to GitHub using the Git Data API.
-    This avoids the ~100MB encoded limit of the Contents API PUT endpoint
-    by using the low-level blob → tree → commit → ref update flow.
+    Commit JSON file to GitHub using LFS for large files.
+    Flow:
+      1. Serialize content and compute SHA256 + size
+      2. Request LFS upload via Batch API
+      3. Upload raw bytes to LFS storage
+      4. Create LFS pointer file as blob in Git tree
+      5. Create tree → commit → update ref
+    Falls back to direct Git Data API blob if file is small enough.
     """
-    headers = {
+    import hashlib
+
+    headers_gh = {
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
         "Content-Type": "application/json",
     }
     base = f"https://api.github.com/repos/{GITHUB_REPO}"
+
     content_bytes = json.dumps(content_dict, indent=2).encode("utf-8")
-    content_b64   = base64.b64encode(content_bytes).decode("utf-8")
+    size_mb = len(content_bytes) / 1024 / 1024
 
     try:
-        # 1. Create blob
-        r = requests.post(f"{base}/git/blobs",
-            headers=headers,
-            json={"content": content_b64, "encoding": "base64"},
-            timeout=120)
-        if r.status_code not in (200, 201):
-            log(f"  ✗ GitHub blob creation failed: {r.status_code} {r.text[:200]}")
-            return False
-        blob_sha = r.json()["sha"]
-        log(f"  ✓ Blob created ({len(content_bytes)/1024/1024:.1f} MB)")
+        # ── Step 1: Compute SHA256 ────────────────────────────────────────
+        oid = hashlib.sha256(content_bytes).hexdigest()
+        size = len(content_bytes)
+        log(f"  Preparing commit ({size_mb:.1f} MB, sha256={oid[:8]}...)")
 
-        # 2. Get current HEAD commit SHA and its tree SHA
-        r = requests.get(f"{base}/git/ref/heads/main", headers=headers, timeout=30)
+        # ── Step 2: LFS Batch API — request upload ────────────────────────
+        lfs_headers = {
+            "Authorization": f"token {GITHUB_TOKEN}",
+            "Accept": "application/vnd.git-lfs+json",
+            "Content-Type": "application/vnd.git-lfs+json",
+        }
+        lfs_url = f"https://github.com/{GITHUB_REPO}.git/info/lfs/objects/batch"
+        batch_payload = {
+            "operation": "upload",
+            "transfers": ["basic"],
+            "objects": [{"oid": oid, "size": size}]
+        }
+        r = requests.post(lfs_url, headers=lfs_headers,
+                         json=batch_payload, timeout=30)
+        if r.status_code not in (200, 201):
+            raise Exception(f"LFS batch failed: {r.status_code} {r.text[:200]}")
+
+        batch = r.json()
+        obj = batch["objects"][0]
+
+        # ── Step 3: Upload to LFS storage (if not already there) ──────────
+        if "error" not in obj:
+            upload_info = obj.get("actions", {}).get("upload", {})
+            if upload_info:
+                upload_url = upload_info["href"]
+                upload_headers = upload_info.get("header", {})
+                upload_headers["Content-Type"] = "application/octet-stream"
+                r = requests.put(upload_url, headers=upload_headers,
+                                data=content_bytes, timeout=120)
+                if r.status_code not in (200, 201):
+                    raise Exception(f"LFS upload failed: {r.status_code}")
+                log(f"  ✓ LFS object uploaded ({size_mb:.1f} MB)")
+            else:
+                log(f"  ✓ LFS object already exists — skipping upload")
+
+        # ── Step 4: Create LFS pointer content ───────────────────────────
+        pointer = (
+            f"version https://git-lfs.github.com/spec/v1\n"
+            f"oid sha256:{oid}\n"
+            f"size {size}\n"
+        )
+        pointer_b64 = base64.b64encode(pointer.encode("utf-8")).decode("utf-8")
+
+        # ── Step 5: Create blob for pointer ──────────────────────────────
+        r = requests.post(f"{base}/git/blobs", headers=headers_gh,
+            json={"content": pointer_b64, "encoding": "base64"}, timeout=30)
+        if r.status_code not in (200, 201):
+            raise Exception(f"Blob creation failed: {r.status_code} {r.text[:200]}")
+        blob_sha = r.json()["sha"]
+
+        # ── Step 6: Get HEAD commit and tree SHA ──────────────────────────
+        r = requests.get(f"{base}/git/ref/heads/main",
+                        headers=headers_gh, timeout=30)
         if r.status_code != 200:
-            log(f"  ✗ GitHub ref fetch failed: {r.status_code} {r.text[:200]}")
-            return False
+            raise Exception(f"Ref fetch failed: {r.status_code}")
         head_commit_sha = r.json()["object"]["sha"]
 
-        r = requests.get(f"{base}/git/commits/{head_commit_sha}", headers=headers, timeout=30)
+        r = requests.get(f"{base}/git/commits/{head_commit_sha}",
+                        headers=headers_gh, timeout=30)
         if r.status_code != 200:
-            log(f"  ✗ GitHub commit fetch failed: {r.status_code} {r.text[:200]}")
-            return False
+            raise Exception(f"Commit fetch failed: {r.status_code}")
         base_tree_sha = r.json()["tree"]["sha"]
 
-        # 3. Create tree referencing the new blob
-        r = requests.post(f"{base}/git/trees",
-            headers=headers,
+        # ── Step 7: Create tree with LFS pointer ─────────────────────────
+        r = requests.post(f"{base}/git/trees", headers=headers_gh,
             json={"base_tree": base_tree_sha,
                   "tree": [{"path": path, "mode": "100644",
                              "type": "blob", "sha": blob_sha}]},
-            timeout=60)
+            timeout=30)
         if r.status_code not in (200, 201):
-            log(f"  ✗ GitHub tree creation failed: {r.status_code} {r.text[:200]}")
-            return False
+            raise Exception(f"Tree creation failed: {r.status_code}")
         new_tree_sha = r.json()["sha"]
 
-        # 4. Create commit
-        r = requests.post(f"{base}/git/commits",
-            headers=headers,
-            json={"message": message,
-                  "tree": new_tree_sha,
-                  "parents": [head_commit_sha]},
-            timeout=30)
+        # ── Step 8: Create commit ─────────────────────────────────────────
+        r = requests.post(f"{base}/git/commits", headers=headers_gh,
+            json={"message": message, "tree": new_tree_sha,
+                  "parents": [head_commit_sha]}, timeout=30)
         if r.status_code not in (200, 201):
-            log(f"  ✗ GitHub commit creation failed: {r.status_code} {r.text[:200]}")
-            return False
+            raise Exception(f"Commit creation failed: {r.status_code}")
         new_commit_sha = r.json()["sha"]
 
-        # 5. Update HEAD ref
-        r = requests.patch(f"{base}/git/refs/heads/main",
-            headers=headers,
-            json={"sha": new_commit_sha},
-            timeout=30)
+        # ── Step 9: Update HEAD ref ───────────────────────────────────────
+        r = requests.patch(f"{base}/git/refs/heads/main", headers=headers_gh,
+            json={"sha": new_commit_sha}, timeout=30)
         if r.status_code not in (200, 201):
-            log(f"  ✗ GitHub ref update failed: {r.status_code} {r.text[:200]}")
-            return False
+            raise Exception(f"Ref update failed: {r.status_code} {r.text[:200]}")
 
-        log(f"  ✓ Committed {path} to GitHub ({new_commit_sha[:7]})")
+        log(f"  ✓ Committed {path} via LFS ({new_commit_sha[:7]})")
         return True
 
     except Exception as e:
-        log(f"  ✗ GitHub commit exception: {e}")
+        log(f"  ✗ GitHub commit failed: {e}")
         return False
 
 
@@ -505,58 +551,6 @@ def daily_append(dm):
     yesterday  = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     two_yr_ago = START_DATE  # From data_universe.json
 
-    # ── Phase 0: Reset / Prune / Bootstrap ───────────────────────────────────
-    if DO_RESET:
-        log("Phase 0: RESET flag set — wiping DM to empty...")
-        dm["spy"] = []; dm["vix"] = []; dm["options"] = {}
-        dm["metadata"]["options_count"] = 0
-        log("  ✓ DM wiped — will rebuild from scratch")
-        # Self-clear: write reset:false back to data_universe.json in GitHub
-        try:
-            _cfg["reset"] = False
-            headers = {"Authorization": f"token {GITHUB_TOKEN}",
-                      "Accept": "application/vnd.github.v3+json"}
-            base = f"https://api.github.com/repos/{GITHUB_REPO}"
-            r = requests.get(f"{base}/contents/{UNIVERSE_PATH}", headers=headers, timeout=30)
-            sha = r.json().get("sha")
-            content_b64 = base64.b64encode(json.dumps(_cfg, indent=2).encode()).decode()
-            requests.put(f"{base}/contents/{UNIVERSE_PATH}", headers=headers,
-                json={"message": "Auto-clear reset flag after DM wipe",
-                      "content": content_b64, "sha": sha}, timeout=30)
-            log("  ✓ Reset flag cleared in data_universe.json")
-        except Exception as e:
-            log(f"  ⚠ Could not clear reset flag: {e}")
-
-    if PRUNE_OTM_ABOVE is not None:
-        before = len(dm["options"])
-        dm["options"] = {k: v for k, v in dm["options"].items()
-                        if abs(v.get("otm_pct", 0)) <= PRUNE_OTM_ABOVE}
-        removed = before - len(dm["options"])
-        log(f"Phase 0: Pruned {removed} contracts > {PRUNE_OTM_ABOVE*100:.0f}% OTM — {len(dm['options'])} remaining")
-
-    if PRUNE_BEFORE is not None:
-        before = len(dm["options"])
-        dm["options"] = {k: v for k, v in dm["options"].items()
-                        if v.get("expiry", "9999") >= PRUNE_BEFORE}
-        removed = before - len(dm["options"])
-        log(f"Phase 0: Pruned {removed} contracts expiring before {PRUNE_BEFORE} — {len(dm['options'])} remaining")
-
-    if len(dm["spy"]) == 0:
-        log("Phase 0: Empty DM detected — bootstrapping full SPY/VIX history...")
-        spy_results = fetch_aggs("SPY", START_DATE, yesterday)
-        time.sleep(CALL_DELAY)
-        for r in spy_results:
-            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
-            dm["spy"].append({"date": dt, "o": r["o"], "h": r["h"],
-                              "l": r["l"], "c": r["c"], "v": r.get("v", 0)})
-        log(f"  ✓ Loaded {len(dm['spy'])} SPY days")
-        vix_results = fetch_aggs("I:VIX", START_DATE, yesterday)
-        time.sleep(CALL_DELAY)
-        for r in vix_results:
-            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
-            dm["vix"].append({"date": dt, "c": round(r["c"], 2)})
-        log(f"  ✓ Loaded {len(dm['vix'])} VIX days")
-
     # ── Build SPY lookup ──────────────────────────────────────────────────
     spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
 
@@ -617,122 +611,130 @@ def daily_append(dm):
                 appended += 1
     log(f"  ✓ {appended} option day records appended")
 
+    # ── Phase 0: Reset / Prune / Bootstrap ───────────────────────────────────
+    if DO_RESET:
+        log("Phase 0: RESET flag set — wiping DM to empty...")
+        dm["spy"] = []; dm["vix"] = []; dm["options"] = {}
+        dm["metadata"]["options_count"] = 0
+        log("  ✓ DM wiped")
+
+    if PRUNE_OTM_ABOVE is not None:
+        before = len(dm["options"])
+        dm["options"] = {k: v for k, v in dm["options"].items()
+                        if abs(v.get("otm_pct", 0)) <= PRUNE_OTM_ABOVE}
+        log(f"Phase 0: Pruned {before - len(dm['options'])} contracts > {PRUNE_OTM_ABOVE*100:.0f}% OTM")
+
+    if len(dm["spy"]) == 0:
+        log("Phase 0: Empty DM — bootstrapping full SPY/VIX history...")
+        spy_results = fetch_aggs("SPY", START_DATE, yesterday)
+        time.sleep(CALL_DELAY)
+        for r in spy_results:
+            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            dm["spy"].append({"date": dt, "o": r["o"], "h": r["h"],
+                              "l": r["l"], "c": r["c"], "v": r.get("v", 0)})
+        log(f"  ✓ {len(dm['spy'])} SPY days loaded")
+        vix_results = fetch_aggs("I:VIX", START_DATE, yesterday)
+        time.sleep(CALL_DELAY)
+        for r in vix_results:
+            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            dm["vix"].append({"date": dt, "c": round(r["c"], 2)})
+        log(f"  ✓ {len(dm['vix'])} VIX days loaded")
+
     # ── Phase 3: Smart inspection — daily-anchored strike coverage ──────────
-    # For every expiry in the 2yr window (monthly + weekly), compute expected
-    # strikes using EVERY SPY trading day as an anchor.
-    # Idempotent: second run finds nothing new.
     log("Phase 3: Inspecting DM for missing contracts (daily-anchored)...")
 
-    # Sanity check — confirm DM loaded correctly before Phase 3
+    # DM sanity check
     opt_count = len(dm.get("options", {}))
     spy_count = len(dm.get("spy", []))
-    sample_key = next(iter(dm["options"]), None) if dm.get("options") else None
-    log(f"  DM sanity: {opt_count} contracts, {spy_count} SPY days, sample={sample_key}")
-    if opt_count == 0 or spy_count == 0:
-        log("  ✗ DM appears empty — aborting Phase 3")
-        return dm
+    log(f"  DM sanity: {opt_count} contracts, {spy_count} SPY days")
 
-    try:
+    future_end       = (date.today() + timedelta(days=MAX_LOOKAHEAD)).strftime("%Y-%m-%d")
+    monthly_expiries = get_monthly_expiries(two_yr_ago, future_end) if USE_MONTHLY else []
+    weekly_expiries  = get_weekly_expiries(two_yr_ago, future_end)  if USE_WEEKLY  else []
+    all_expiries     = sorted(set(monthly_expiries + weekly_expiries))
+    monthly_set      = set(monthly_expiries)
+    log(f"  Expiry universe: {len(all_expiries)} expiries ({len(monthly_expiries)} monthly + {len(weekly_expiries)} weekly)")
 
-        future_end       = (date.today() + timedelta(days=MAX_LOOKAHEAD)).strftime("%Y-%m-%d")
-        monthly_expiries = get_monthly_expiries(two_yr_ago, future_end) if USE_MONTHLY else []
-        weekly_expiries  = get_weekly_expiries(two_yr_ago, future_end)  if USE_WEEKLY  else []
-        all_expiries     = sorted(set(monthly_expiries + weekly_expiries))
-        monthly_set      = set(monthly_expiries)
-        log(f"  Expiry universe: {len(all_expiries)} expiries ({len(monthly_expiries)} monthly + {len(weekly_expiries)} weekly)")
+    missing      = 0
+    already_have = 0
+    no_data      = 0
+    no_data_tickers = []
+    weekly_filled   = 0
+    weekly_no_data  = 0
+    total_expected  = 0
+    existing_tickers = set(dm["options"].keys())
 
-        missing      = 0
-        already_have = 0
-        no_data      = 0
-        no_data_tickers = []
-        weekly_filled   = 0
-        weekly_no_data  = 0
-        total_expected  = 0
+    for exp_idx, exp in enumerate(all_expiries):
+        is_weekly  = exp not in monthly_set
+        exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
+        hist_start = max(two_yr_ago,
+                         (exp_dt - timedelta(days=EXP_LOOKBACK)).strftime("%Y-%m-%d"))
+        hist_end   = min(exp, today_iso)
 
-        existing_tickers = set(dm["options"].keys())
+        expected = set()
+        for spy_date_str, spy_px in spy_by_date.items():
+            if spy_date_str < hist_start or spy_date_str > hist_end:
+                continue
+            for otm_pct in OTM_TARGETS:
+                strike = find_nearest_strike(spy_px, otm_pct)
+                ticker = build_option_ticker(exp, strike)
+                expected.add(ticker)
 
-        # Process one expiry at a time — avoids building a massive dict in memory
-        for exp_idx, exp in enumerate(all_expiries):
-            is_weekly  = exp not in monthly_set
-            exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
-            hist_start = max(two_yr_ago,
-                             (exp_dt - timedelta(days=EXP_LOOKBACK)).strftime("%Y-%m-%d"))
-            hist_end   = min(exp, today_iso)
+        total_expected += len(expected)
+        missing_tickers = expected - existing_tickers
+        already_have   += len(expected) - len(missing_tickers)
 
-            # Build expected tickers for this expiry only
-            expected = set()
-            for spy_date_str, spy_px in spy_by_date.items():
-                if spy_date_str < hist_start or spy_date_str > hist_end:
-                    continue
-                for otm_pct in OTM_TARGETS:
-                    strike = find_nearest_strike(spy_px, otm_pct)
-                    ticker = build_option_ticker(exp, strike)
-                    expected.add(ticker)
+        for ticker in sorted(missing_tickers):
+            strike    = int(ticker[-8:]) / 1000
+            days_data = fetch_option_history(ticker, hist_start, hist_end)
+            time.sleep(CALL_DELAY)
+            if days_data:
+                first_date = days_data[0]["date"]
+                entry_spy  = spy_by_date.get(first_date, current_spy)
+                dm["options"][ticker] = {
+                    "strike":    strike,
+                    "expiry":    exp,
+                    "otm_pct":   round((strike / entry_spy - 1), 3),
+                    "entry_spy": entry_spy,
+                    "days":      days_data,
+                }
+                existing_tickers.add(ticker)
+                missing += 1
+                if is_weekly: weekly_filled += 1
+                log(f"  + {ticker} ({len(days_data)}d){'[W]' if is_weekly else ''}")
+            else:
+                no_data += 1
+                no_data_tickers.append((ticker, strike, exp, hist_start))
+                if is_weekly: weekly_no_data += 1
 
-            total_expected += len(expected)
-            missing_tickers = expected - existing_tickers
-            already_have   += len(expected) - len(missing_tickers)
+        # Incremental commit every N expiries — saves progress if container crashes
+        if (exp_idx + 1) % COMMIT_EVERY == 0 and missing > 0:
+            dm["metadata"]["last_updated"] = today_iso
+            dm["metadata"]["options_count"] = len(dm["options"])
+            msg = f"Phase 3 incremental — {exp_idx+1}/{len(all_expiries)} expiries, {len(dm['options'])} contracts"
+            log(f"  → Incremental commit: {len(dm['options'])} contracts after {exp_idx+1} expiries...")
+            github_commit_file(DATA_PATH, dm, msg)
 
-            for ticker in sorted(missing_tickers):
-                strike    = int(ticker[-8:]) / 1000
-                days_data = fetch_option_history(ticker, hist_start, hist_end)
-                time.sleep(CALL_DELAY)
-                if days_data:
-                    first_date = days_data[0]["date"]
-                    entry_spy  = spy_by_date.get(first_date, current_spy)
-                    dm["options"][ticker] = {
-                        "strike":    strike,
-                        "expiry":    exp,
-                        "otm_pct":   round((strike / entry_spy - 1), 3),
-                        "entry_spy": entry_spy,
-                        "days":      days_data,
-                    }
-                    existing_tickers.add(ticker)
-                    missing += 1
-                    if is_weekly: weekly_filled += 1
-                    log(f"  + {ticker} ({len(days_data)}d){'[W]' if is_weekly else ''}")
-                else:
-                    no_data += 1
-                    no_data_tickers.append((ticker, strike, exp, hist_start))
-                    if is_weekly: weekly_no_data += 1
+    log(f"  ✓ Inspection complete — {already_have} present, {missing} filled, {no_data} not in Polygon")
+    log(f"  Weekly breakdown: {weekly_filled} filled, {weekly_no_data} not in Polygon")
 
-            # Incremental commit every N expiries — saves progress in case of crash.
-            # Next run is idempotent so any already-committed contracts are skipped.
-            if (exp_idx + 1) % COMMIT_EVERY == 0 and missing > 0:
-                dm["metadata"]["last_updated"] = today_iso
-                dm["metadata"]["options_count"] = len(dm["options"])
-                msg = f"Phase 3 incremental commit — {exp_idx+1}/{len(all_expiries)} expiries, {len(dm['options'])} contracts"
-                log(f"  → Incremental commit: {len(dm['options'])} contracts after {exp_idx+1} expiries...")
-                github_commit_file(DATA_PATH, dm, msg)
-
-        log(f"  Expected unique contracts across all expiries: {total_expected}")
-        log(f"  ✓ Inspection complete — {already_have} present, {missing} filled, {no_data} not in Polygon")
-        log(f"  Weekly breakdown: {weekly_filled} filled, {weekly_no_data} not in Polygon")
-
-        # Sample of weekly gaps for diagnosis
+    if no_data_tickers:
         weekly_gaps = [(t, s, e, h) for t, s, e, h in no_data_tickers if e not in monthly_set]
         if weekly_gaps:
-            sample = weekly_gaps[:5]
-            log(f"  Weekly gap samples: {', '.join(t for t,s,e,h in sample)}")
-
-    except Exception as e:
-        import traceback
-        log(f"  ✗ Phase 3 crashed: {type(e).__name__}: {e}")
-        log(f"  Traceback: {traceback.format_exc()[:500]}")
-        log(f"  State at crash: {opt_count} contracts, expiries processed so far: {len(all_expiries) if 'all_expiries' in dir() else 'unknown'}")
+            log(f"  Weekly gap samples: {', '.join(t for t,s,e,h in weekly_gaps[:5])}")
 
     # ── Phase 4: Add new future strikes if SPY has moved ─────────────────
-    # Ensures current-SPY strikes exist for all upcoming expiries
     log(f"Phase 4: Syncing future expiry strikes (SPY=${current_spy:.2f})...")
     new_future = 0
 
     future_expiries_m = get_monthly_expiries(today_iso, future_end) if USE_MONTHLY else []
     future_expiries_w = get_weekly_expiries(today_iso, future_end)  if USE_WEEKLY  else []
     future_expiries   = sorted(set(future_expiries_m + future_expiries_w))
+
     for exp in future_expiries:
         exp_dt     = datetime.strptime(exp, "%Y-%m-%d")
         hist_start = max(two_yr_ago,
-                         (exp_dt - timedelta(days=365)).strftime("%Y-%m-%d"))
+                         (exp_dt - timedelta(days=EXP_LOOKBACK)).strftime("%Y-%m-%d"))
         for otm_pct in OTM_TARGETS:
             strike = find_nearest_strike(current_spy, otm_pct)
             ticker = build_option_ticker(exp, strike)
@@ -822,7 +824,7 @@ def gap_fill(dm):
 # ── Main ───────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     log(f"SPY Backtest Data Collector v{COLLECTOR_VERSION} starting...")
-    log(f"Mode: {RUN_MODE.upper()} | Repo: {GITHUB_REPO}")
+    log(f"Mode: DAILY | Repo: {GITHUB_REPO}")
     log(f"Universe: start={START_DATE} | OTM 1-{int(max(OTM_TARGETS)*100)}% ({len(OTM_TARGETS)} targets) | monthly={USE_MONTHLY} weekly={USE_WEEKLY} | reset={DO_RESET}")
 
     if RUN_MODE == "full":
