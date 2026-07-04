@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.7.5</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.7.6</div>
   </div>
 
   <!-- Initial Position -->
@@ -425,7 +425,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.7.5 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.7.6 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
   </div>
 </div>
 
@@ -1937,7 +1937,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.7.5 · SPY Covered Call Backtest');
+  logMsg('v3.7.6 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3049,25 +3049,11 @@ async function loadData() {
     }
     pat = pat.trim();
 
-    // Use raw content endpoint with LFS media type — GitHub resolves LFS
-    // pointers server-side and returns actual file content transparently.
-    const rawUrl = `https://media.githubusercontent.com/media/${GITHUB_REPO}/main/${DATA_FILE}`;
-    logMsg('  Fetching DM via LFS-aware endpoint...');
-    try {
-      const r = await fetch(rawUrl, {
-        headers: { 'Authorization': 'token ' + pat }
-      });
-      if (r.ok) {
-        const json = await r.text();
-        return JSON.parse(json);
-      }
-    } catch(e) {
-      logMsg('  media.githubusercontent.com failed, trying API...');
-    }
-
-    // Fallback: GitHub API blob approach (works for non-LFS or small files)
+    // Step 1: Get file SHA via Contents API
     const url = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + DATA_FILE;
-    const r = await fetch(url, { headers: { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json' } });
+    const r = await fetch(url, {
+      headers: { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json' }
+    });
     if (!r.ok) {
       if (r.status === 401 || r.status === 403) { localStorage.removeItem('gh_pat'); }
       throw new Error('GitHub API ' + r.status);
@@ -3075,19 +3061,36 @@ async function loadData() {
     const meta = await r.json();
     const sha = meta.sha;
     if (!sha) throw new Error('No SHA in GitHub API response');
+
+    // Step 2: Fetch blob — try raw content first (resolves LFS automatically)
     const blobUrl = 'https://api.github.com/repos/' + GITHUB_REPO + '/git/blobs/' + sha;
+
+    // Try with application/vnd.github.raw+json which returns raw file content
+    // and resolves LFS pointers server-side
     const br = await fetch(blobUrl, {
+      headers: {
+        'Authorization': 'token ' + pat,
+        'Accept': 'application/vnd.github.raw+json'
+      }
+    });
+    if (br.ok) {
+      const text = await br.text();
+      if (!text.startsWith('version https://git-lfs')) {
+        return JSON.parse(text);
+      }
+    }
+
+    // Fallback: standard base64 blob decode
+    const br2 = await fetch(blobUrl, {
       headers: { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json' }
     });
-    if (!br.ok) throw new Error('Blob fetch failed: ' + br.status);
-    const blob = await br.json();
+    if (!br2.ok) throw new Error('Blob fetch failed: ' + br2.status);
+    const blob = await br2.json();
     const b64 = blob.content.replace(/\n/g, '');
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     const text = new TextDecoder().decode(bytes);
-
-    // Detect LFS pointer — content starts with LFS version header
-    if (text.startsWith('version https://git-lfs.github.com/spec/v1')) {
-      throw new Error('LFS pointer returned but LFS Batch API unavailable from browser — check PAT has LFS access');
+    if (text.startsWith('version https://git-lfs')) {
+      throw new Error('LFS pointer returned — PAT may need LFS read permission, or use public repo');
     }
     return JSON.parse(text);
   }
