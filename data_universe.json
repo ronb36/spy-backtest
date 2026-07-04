@@ -12,7 +12,7 @@
   ],
 
   "monthly": true,
-  "weekly": false,
+  "weekly": true,
 
   "max_expiry_lookahead_days": 180,
   "expiry_lookback_days": 365,
