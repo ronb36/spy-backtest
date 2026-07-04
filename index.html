@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.7.4</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.7.5</div>
   </div>
 
   <!-- Initial Position -->
@@ -425,7 +425,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.7.4 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.7.5 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
   </div>
 </div>
 
@@ -1937,7 +1937,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.7.4 · SPY Covered Call Backtest');
+  logMsg('v3.7.5 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3041,7 +3041,6 @@ async function loadData() {
   const status=$('data-status');
 
   async function fetchDM() {
-    // Authenticated GitHub API fetch — repo is private, always use this path
     let pat = localStorage.getItem('gh_pat');
     if (!pat) {
       pat = window.prompt('Repo is private — enter your GitHub PAT to load the data mart:');
@@ -3049,6 +3048,24 @@ async function loadData() {
       localStorage.setItem('gh_pat', pat.trim());
     }
     pat = pat.trim();
+
+    // Use raw content endpoint with LFS media type — GitHub resolves LFS
+    // pointers server-side and returns actual file content transparently.
+    const rawUrl = `https://media.githubusercontent.com/media/${GITHUB_REPO}/main/${DATA_FILE}`;
+    logMsg('  Fetching DM via LFS-aware endpoint...');
+    try {
+      const r = await fetch(rawUrl, {
+        headers: { 'Authorization': 'token ' + pat }
+      });
+      if (r.ok) {
+        const json = await r.text();
+        return JSON.parse(json);
+      }
+    } catch(e) {
+      logMsg('  media.githubusercontent.com failed, trying API...');
+    }
+
+    // Fallback: GitHub API blob approach (works for non-LFS or small files)
     const url = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + DATA_FILE;
     const r = await fetch(url, { headers: { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json' } });
     if (!r.ok) {
@@ -3068,39 +3085,10 @@ async function loadData() {
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     const text = new TextDecoder().decode(bytes);
 
-    // Detect LFS pointer — if content starts with LFS version header, follow the pointer
+    // Detect LFS pointer — content starts with LFS version header
     if (text.startsWith('version https://git-lfs.github.com/spec/v1')) {
-      const oidMatch  = text.match(/oid sha256:([a-f0-9]+)/);
-      const sizeMatch = text.match(/size (\d+)/);
-      if (!oidMatch) throw new Error('Invalid LFS pointer — no OID');
-      const oid  = oidMatch[1];
-      const size = sizeMatch ? parseInt(sizeMatch[1]) : 0;
-      logMsg(`  LFS pointer detected (${(size/1024/1024).toFixed(1)} MB) — fetching from LFS storage...`);
-
-      // Request download URL from LFS Batch API
-      const lfsUrl = 'https://github.com/' + GITHUB_REPO + '.git/info/lfs/objects/batch';
-      const lfsRes = await fetch(lfsUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': 'token ' + pat,
-          'Accept': 'application/vnd.git-lfs+json',
-          'Content-Type': 'application/vnd.git-lfs+json',
-        },
-        body: JSON.stringify({ operation: 'download', transfers: ['basic'],
-                               objects: [{ oid, size }] })
-      });
-      if (!lfsRes.ok) throw new Error('LFS batch failed: ' + lfsRes.status);
-      const lfsData = await lfsRes.json();
-      const downloadUrl = lfsData.objects?.[0]?.actions?.download?.href;
-      if (!downloadUrl) throw new Error('No LFS download URL in batch response');
-
-      // Fetch actual content from LFS storage
-      const dataRes = await fetch(downloadUrl);
-      if (!dataRes.ok) throw new Error('LFS download failed: ' + dataRes.status);
-      const json = await dataRes.text();
-      return JSON.parse(json);
+      throw new Error('LFS pointer returned but LFS Batch API unavailable from browser — check PAT has LFS access');
     }
-
     return JSON.parse(text);
   }
 
