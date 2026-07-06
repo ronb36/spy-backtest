@@ -5,7 +5,7 @@ Collects and maintains a historical data mart for the SPY covered call backtest.
 Runs as a Railway cron service — smart daily run appends new data, inspects the
 DM for missing contracts, and backfills gaps automatically. Idempotent: running
 twice produces the same result.
-"forced another rebuild"
+"forced another"
 Data collected:
   - SPY daily OHLCV (2 years rolling)
   - VIX daily close (2 years rolling)
