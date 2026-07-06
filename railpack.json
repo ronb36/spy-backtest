@@ -1,6 +1,10 @@
 {
   "provider": "python",
+  "build": {
+    "installCommand": "pip install -r requirements.txt"
+  },
   "deploy": {
     "startCommand": "python data_collector.py"
   }
 }
+
