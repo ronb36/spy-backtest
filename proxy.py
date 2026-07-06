@@ -27,9 +27,9 @@ log = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)  # Allow all origins — backtester is on GitHub Pages
 
-GH_PAT       = os.environ["GH_PAT"]
+GH_PAT       = os.environ["GITHUB_TOKEN"]
 GH_OWNER     = os.environ.get("GH_OWNER", "ronb36")
-GH_REPO      = os.environ.get("GH_REPO", "spy-backtest")
+GH_REPO      = os.environ.get("GITHUB_REPO", "spy-backtest")
 GH_FILE_PATH = os.environ.get("GH_FILE_PATH", "data/spy_data.json")
 
 PROXY_VERSION = "1.0.0"
