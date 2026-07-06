@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.7.8</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.7.9</div>
   </div>
 
   <!-- Initial Position -->
@@ -425,7 +425,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.7.8 · Remove Debug toggle — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.7.9 · DM fetch via spy-agent proxy (LFS fix) — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
   </div>
 </div>
 
@@ -1937,7 +1937,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.7.8 · SPY Covered Call Backtest');
+  logMsg('v3.7.9 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3041,20 +3041,13 @@ async function loadData() {
   const status=$('data-status');
 
   async function fetchDM() {
-    // Repo is public — raw.githubusercontent.com resolves LFS pointers
-    // automatically and serves actual file content for public repos.
-    const rawUrl = 'https://raw.githubusercontent.com/' + GITHUB_REPO + '/main/' + DATA_FILE;
-    const r = await fetch(rawUrl + '?_=' + Date.now());
+    // spy_data.json is Git LFS tracked — raw.githubusercontent.com only returns
+    // the LFS pointer, not the file. The spy-agent Railway service proxies the
+    // LFS Batch API server-side (no CORS) and returns the actual JSON.
+    const proxyUrl = 'https://spy-agent-production.up.railway.app/dm';
+    const r = await fetch(proxyUrl + '?_=' + Date.now());
     if (!r.ok) throw new Error('DM fetch failed: ' + r.status);
-    const text = await r.text();
-    if (text.startsWith('version https://git-lfs')) {
-      // raw.githubusercontent.com returned pointer — try media.githubusercontent.com
-      const mediaUrl = 'https://media.githubusercontent.com/media/' + GITHUB_REPO + '/main/' + DATA_FILE;
-      const r2 = await fetch(mediaUrl + '?_=' + Date.now());
-      if (!r2.ok) throw new Error('LFS media fetch failed: ' + r2.status);
-      return JSON.parse(await r2.text());
-    }
-    return JSON.parse(text);
+    return r.json();
   }
 
   try {
