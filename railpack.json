@@ -1,0 +1,9 @@
+{
+  "provider": "python",
+  "packages": {
+    "requests": "latest"
+  },
+  "deploy": {
+    "startCommand": "python data_collector.py"
+  }
+}
