@@ -1,7 +1,7 @@
 {
   "provider": "python",
-  "packages": {
-    "requests": "latest"
+  "install": {
+    "commands": ["pip install -r requirements.txt"]
   },
   "deploy": {
     "startCommand": "python data_collector.py"
