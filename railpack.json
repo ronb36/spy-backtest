@@ -1,0 +1,6 @@
+{
+  "provider": "python",
+  "deploy": {
+    "startCommand": "python data_collector.py"
+  }
+}
