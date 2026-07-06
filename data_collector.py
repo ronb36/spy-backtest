@@ -39,7 +39,7 @@ POLYGON_KEY    = os.environ["POLYGON_KEY"]
 GITHUB_TOKEN   = os.environ["GITHUB_TOKEN"]
 GITHUB_REPO    = os.environ.get("GITHUB_REPO", "ronb36/spy-backtest")
 
-COLLECTOR_VERSION = "1.4.0"  # LFS Batch API commit — no file size limit
+COLLECTOR_VERSION = "1.5.0"  # Git Data API commit — no LFS dependency
 
 # ── Load DM universe config ────────────────────────────────────────────────
 UNIVERSE_PATH = "data_universe.json"
@@ -76,19 +76,7 @@ DATA_PATH      = "data/spy_data.json"
 PUSHOVER_USER  = os.environ.get("PUSHOVER_USER_TOKEN")
 PUSHOVER_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 
-# ── OTM target levels to store per expiry ─────────────────────────────────
-# 0.5% steps from 1%–20%, snapped to $5 grid — matches backfill exactly
-# ~39 strikes per expiry; aligns with yield grid display
-OTM_TARGETS = [
-    0.01, 0.02, 0.03, 0.04, 0.05,        # 1–5%:  tight band, near-ATM rolls
-    0.06, 0.07, 0.08, 0.09, 0.10,        # 6–10%: core covered call range
-    0.11, 0.12, 0.13, 0.14, 0.15,        # 11–15%: extended core
-    0.18, 0.20, 0.22, 0.25,              # 18–25%: defensive / post-crash
-    0.28, 0.30, 0.35,                    # 28–35%: deep OTM tail
-]  # 22 strikes — wider spacing = more unique $5 grid strikes per expiry  # 39 strikes × $5 grid per expiry — continuous surface, no gaps
 
-# ── Rate limiting ──────────────────────────────────────────────────────────
-CALL_DELAY = 0.25   # 4 calls/sec — safely under Polygon's 5/sec limit
 
 
 def log(msg):
@@ -155,30 +143,6 @@ def get_weekly_expiries(start_date, end_date):
             if iso not in monthly_set:
                 expiries.append(iso)
         current += timedelta(days=1)
-    return expiries
-    """
-    Return all 3rd-Friday monthly expiry dates between start and end.
-    """
-    import calendar
-    expiries = []
-    start = datetime.strptime(start_date, "%Y-%m-%d").date()
-    end   = datetime.strptime(end_date,   "%Y-%m-%d").date()
-
-    year, month = start.year, start.month
-    while date(year, month, 1) <= end:
-        # Find 3rd Friday
-        cal       = calendar.monthcalendar(year, month)
-        fridays   = [week[calendar.FRIDAY] for week in cal if week[calendar.FRIDAY] != 0]
-        third_fri = fridays[2]
-        exp       = date(year, month, third_fri)
-        if start <= exp <= end:
-            expiries.append(exp.strftime("%Y-%m-%d"))
-        # Advance month
-        month += 1
-        if month > 12:
-            month = 1
-            year += 1
-
     return expiries
 
 
@@ -303,121 +267,74 @@ def github_get_file(path):
 
 def github_commit_file(path, content_dict, message, sha=None):
     """
-    Commit JSON file to GitHub using LFS for large files.
+    Commit JSON file to GitHub using the Git Data API (no LFS).
+    Works for files up to ~100MB — well above current DM size.
     Flow:
-      1. Serialize content and compute SHA256 + size
-      2. Request LFS upload via Batch API
-      3. Upload raw bytes to LFS storage
-      4. Create LFS pointer file as blob in Git tree
-      5. Create tree → commit → update ref
-    Falls back to direct Git Data API blob if file is small enough.
+      1. Serialize + base64-encode content
+      2. Create blob
+      3. Get HEAD ref → base tree SHA
+      4. Create new tree with updated blob
+      5. Create commit
+      6. Update HEAD ref
     """
-    import hashlib
-
-    headers_gh = {
+    headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
         "Content-Type": "application/json",
     }
     base = f"https://api.github.com/repos/{GITHUB_REPO}"
 
-    content_bytes = json.dumps(content_dict, indent=2).encode("utf-8")
+    content_bytes = json.dumps(content_dict, separators=(",", ":")).encode("utf-8")
     size_mb = len(content_bytes) / 1024 / 1024
+    log(f"  Preparing commit ({size_mb:.1f} MB)...")
 
     try:
-        # ── Step 1: Compute SHA256 ────────────────────────────────────────
-        oid = hashlib.sha256(content_bytes).hexdigest()
-        size = len(content_bytes)
-        log(f"  Preparing commit ({size_mb:.1f} MB, sha256={oid[:8]}...)")
-
-        # ── Step 2: LFS Batch API — request upload ────────────────────────
-        lfs_headers = {
-            "Authorization": f"token {GITHUB_TOKEN}",
-            "Accept": "application/vnd.git-lfs+json",
-            "Content-Type": "application/vnd.git-lfs+json",
-        }
-        lfs_url = f"https://github.com/{GITHUB_REPO}.git/info/lfs/objects/batch"
-        batch_payload = {
-            "operation": "upload",
-            "transfers": ["basic"],
-            "objects": [{"oid": oid, "size": size}]
-        }
-        r = requests.post(lfs_url, headers=lfs_headers,
-                         json=batch_payload, timeout=30)
-        if r.status_code not in (200, 201):
-            raise Exception(f"LFS batch failed: {r.status_code} {r.text[:200]}")
-
-        batch = r.json()
-        obj = batch["objects"][0]
-
-        # ── Step 3: Upload to LFS storage (if not already there) ──────────
-        if "error" not in obj:
-            upload_info = obj.get("actions", {}).get("upload", {})
-            if upload_info:
-                upload_url = upload_info["href"]
-                upload_headers = upload_info.get("header", {})
-                upload_headers["Content-Type"] = "application/octet-stream"
-                r = requests.put(upload_url, headers=upload_headers,
-                                data=content_bytes, timeout=120)
-                if r.status_code not in (200, 201):
-                    raise Exception(f"LFS upload failed: {r.status_code}")
-                log(f"  ✓ LFS object uploaded ({size_mb:.1f} MB)")
-            else:
-                log(f"  ✓ LFS object already exists — skipping upload")
-
-        # ── Step 4: Create LFS pointer content ───────────────────────────
-        pointer = (
-            f"version https://git-lfs.github.com/spec/v1\n"
-            f"oid sha256:{oid}\n"
-            f"size {size}\n"
-        )
-        pointer_b64 = base64.b64encode(pointer.encode("utf-8")).decode("utf-8")
-
-        # ── Step 5: Create blob for pointer ──────────────────────────────
-        r = requests.post(f"{base}/git/blobs", headers=headers_gh,
-            json={"content": pointer_b64, "encoding": "base64"}, timeout=30)
+        # ── Step 1: Create blob ───────────────────────────────────────────
+        b64 = base64.b64encode(content_bytes).decode("utf-8")
+        r = requests.post(f"{base}/git/blobs", headers=headers,
+                          json={"content": b64, "encoding": "base64"}, timeout=60)
         if r.status_code not in (200, 201):
             raise Exception(f"Blob creation failed: {r.status_code} {r.text[:200]}")
         blob_sha = r.json()["sha"]
+        log(f"  ✓ Blob created ({size_mb:.1f} MB, sha={blob_sha[:7]}...)")
 
-        # ── Step 6: Get HEAD commit and tree SHA ──────────────────────────
-        r = requests.get(f"{base}/git/ref/heads/main",
-                        headers=headers_gh, timeout=30)
+        # ── Step 2: Get HEAD ref ──────────────────────────────────────────
+        r = requests.get(f"{base}/git/ref/heads/main", headers=headers, timeout=15)
         if r.status_code != 200:
             raise Exception(f"Ref fetch failed: {r.status_code}")
         head_commit_sha = r.json()["object"]["sha"]
 
-        r = requests.get(f"{base}/git/commits/{head_commit_sha}",
-                        headers=headers_gh, timeout=30)
+        # ── Step 3: Get base tree SHA ─────────────────────────────────────
+        r = requests.get(f"{base}/git/commits/{head_commit_sha}", headers=headers, timeout=15)
         if r.status_code != 200:
             raise Exception(f"Commit fetch failed: {r.status_code}")
         base_tree_sha = r.json()["tree"]["sha"]
 
-        # ── Step 7: Create tree with LFS pointer ─────────────────────────
-        r = requests.post(f"{base}/git/trees", headers=headers_gh,
-            json={"base_tree": base_tree_sha,
-                  "tree": [{"path": path, "mode": "100644",
-                             "type": "blob", "sha": blob_sha}]},
-            timeout=30)
+        # ── Step 4: Create new tree ───────────────────────────────────────
+        r = requests.post(f"{base}/git/trees", headers=headers,
+                          json={"base_tree": base_tree_sha,
+                                "tree": [{"path": path, "mode": "100644",
+                                          "type": "blob", "sha": blob_sha}]},
+                          timeout=30)
         if r.status_code not in (200, 201):
             raise Exception(f"Tree creation failed: {r.status_code}")
         new_tree_sha = r.json()["sha"]
 
-        # ── Step 8: Create commit ─────────────────────────────────────────
-        r = requests.post(f"{base}/git/commits", headers=headers_gh,
-            json={"message": message, "tree": new_tree_sha,
-                  "parents": [head_commit_sha]}, timeout=30)
+        # ── Step 5: Create commit ─────────────────────────────────────────
+        r = requests.post(f"{base}/git/commits", headers=headers,
+                          json={"message": message, "tree": new_tree_sha,
+                                "parents": [head_commit_sha]}, timeout=30)
         if r.status_code not in (200, 201):
             raise Exception(f"Commit creation failed: {r.status_code}")
         new_commit_sha = r.json()["sha"]
 
-        # ── Step 9: Update HEAD ref ───────────────────────────────────────
-        r = requests.patch(f"{base}/git/refs/heads/main", headers=headers_gh,
-            json={"sha": new_commit_sha}, timeout=30)
+        # ── Step 6: Update HEAD ref ───────────────────────────────────────
+        r = requests.patch(f"{base}/git/refs/heads/main", headers=headers,
+                           json={"sha": new_commit_sha}, timeout=15)
         if r.status_code not in (200, 201):
             raise Exception(f"Ref update failed: {r.status_code} {r.text[:200]}")
 
-        log(f"  ✓ Committed {path} via LFS ({new_commit_sha[:7]})")
+        log(f"  ✓ Committed {path} ({new_commit_sha[:7]})")
         return True
 
     except Exception as e:
@@ -554,6 +471,35 @@ def daily_append(dm):
     # ── Build SPY lookup ──────────────────────────────────────────────────
     spy_by_date = {r["date"]: r["c"] for r in dm["spy"]}
 
+    # ── Phase 0: Reset / Prune / Bootstrap ───────────────────────────────────
+    if DO_RESET:
+        log("Phase 0: RESET flag set — wiping DM to empty...")
+        dm["spy"] = []; dm["vix"] = []; dm["options"] = {}
+        dm["metadata"]["options_count"] = 0
+        log("  ✓ DM wiped")
+
+    if PRUNE_OTM_ABOVE is not None:
+        before = len(dm["options"])
+        dm["options"] = {k: v for k, v in dm["options"].items()
+                        if abs(v.get("otm_pct", 0)) <= PRUNE_OTM_ABOVE}
+        log(f"Phase 0: Pruned {before - len(dm['options'])} contracts > {PRUNE_OTM_ABOVE*100:.0f}% OTM")
+
+    if len(dm["spy"]) == 0:
+        log("Phase 0: Empty DM — bootstrapping full SPY/VIX history...")
+        spy_results = fetch_aggs("SPY", START_DATE, today_iso)
+        time.sleep(CALL_DELAY)
+        for r in spy_results:
+            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            dm["spy"].append({"date": dt, "o": r["o"], "h": r["h"],
+                              "l": r["l"], "c": r["c"], "v": r.get("v", 0)})
+        log(f"  ✓ {len(dm['spy'])} SPY days loaded")
+        vix_results = fetch_aggs("I:VIX", START_DATE, today_iso)
+        time.sleep(CALL_DELAY)
+        for r in vix_results:
+            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            dm["vix"].append({"date": dt, "c": round(r["c"], 2)})
+        log(f"  ✓ {len(dm['vix'])} VIX days loaded")
+
     # ── Phase 1: SPY daily append ─────────────────────────────────────────
     existing_spy_dates = dates_in_dataset(dm["spy"])
     if yesterday not in existing_spy_dates:
@@ -610,35 +556,6 @@ def daily_append(dm):
                 })
                 appended += 1
     log(f"  ✓ {appended} option day records appended")
-
-    # ── Phase 0: Reset / Prune / Bootstrap ───────────────────────────────────
-    if DO_RESET:
-        log("Phase 0: RESET flag set — wiping DM to empty...")
-        dm["spy"] = []; dm["vix"] = []; dm["options"] = {}
-        dm["metadata"]["options_count"] = 0
-        log("  ✓ DM wiped")
-
-    if PRUNE_OTM_ABOVE is not None:
-        before = len(dm["options"])
-        dm["options"] = {k: v for k, v in dm["options"].items()
-                        if abs(v.get("otm_pct", 0)) <= PRUNE_OTM_ABOVE}
-        log(f"Phase 0: Pruned {before - len(dm['options'])} contracts > {PRUNE_OTM_ABOVE*100:.0f}% OTM")
-
-    if len(dm["spy"]) == 0:
-        log("Phase 0: Empty DM — bootstrapping full SPY/VIX history...")
-        spy_results = fetch_aggs("SPY", START_DATE, yesterday)
-        time.sleep(CALL_DELAY)
-        for r in spy_results:
-            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
-            dm["spy"].append({"date": dt, "o": r["o"], "h": r["h"],
-                              "l": r["l"], "c": r["c"], "v": r.get("v", 0)})
-        log(f"  ✓ {len(dm['spy'])} SPY days loaded")
-        vix_results = fetch_aggs("I:VIX", START_DATE, yesterday)
-        time.sleep(CALL_DELAY)
-        for r in vix_results:
-            dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
-            dm["vix"].append({"date": dt, "c": round(r["c"], 2)})
-        log(f"  ✓ {len(dm['vix'])} VIX days loaded")
 
     # ── Phase 3: Smart inspection — daily-anchored strike coverage ──────────
     log("Phase 3: Inspecting DM for missing contracts (daily-anchored)...")
