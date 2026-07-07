@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.3</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.4</div>
   </div>
 
   <!-- Initial Position -->
@@ -425,7 +425,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.1 · DM fetch directly from Supabase (no proxy) — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.4 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -548,22 +548,40 @@ function copyDebugLog() {
     });
   }
 
+  // Truncate if too large for iOS clipboard (keep tail — summary is most important)
+  const MAX_CHARS = 50000;
+  if (text.length > MAX_CHARS) {
+    text = '...[truncated — showing last ' + MAX_CHARS + ' chars]\n' + text.slice(-MAX_CHARS);
+  }
+
   navigator.clipboard.writeText(text).then(() => {
     ['copy-log-btn','copy-log-btn2'].forEach(id => {
       const btn = document.getElementById(id);
       if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
     });
   }).catch(() => {
+    // iPad clipboard fallback — show modal with selectable text
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--surface1);border:1px solid var(--border);border-radius:8px;padding:16px;width:100%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;gap:10px;';
+    const title = document.createElement('div');
+    title.style.cssText = 'color:var(--text);font-family:var(--mono);font-size:12px;';
+    title.textContent = 'Select all and copy:';
     const ta = document.createElement('textarea');
     ta.value = text;
-    document.body.appendChild(ta);
+    ta.style.cssText = 'flex:1;min-height:300px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:8px;font-family:var(--mono);font-size:10px;resize:none;';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:6px 16px;cursor:pointer;font-family:var(--mono);font-size:11px;';
+    closeBtn.onclick = () => document.body.removeChild(overlay);
+    box.appendChild(title);
+    box.appendChild(ta);
+    box.appendChild(closeBtn);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    ta.focus();
     ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    ['copy-log-btn','copy-log-btn2'].forEach(id => {
-      const btn = document.getElementById(id);
-      if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
-    });
   });
 }
 
@@ -662,9 +680,7 @@ function logMsg(msg, cls='') {
 function logDbg(msg) {
   // OPT mode: suppress everything — sweep headers and winner use logMsg directly
   if (_mode === 'optimize') return;
-  // STD mode: always show structural lines; candidates only in debug mode
-  const isStructural = msg.includes('TRIGGER') || msg.includes('→ Best') || msg.includes('Open:') || msg.includes('Intl:') || msg.includes('Roll ') || msg.includes('Initial sell') || msg.includes('cycles');
-  if (!isStructural) return;
+  // STD mode with _debugMode: log everything
   logMsg(msg, 'dbg');
 }
 function yield_() { return new Promise(r => setTimeout(r, 0)); }
