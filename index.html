@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.0</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.1</div>
   </div>
 
   <!-- Initial Position -->
@@ -425,7 +425,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.7.9 · DM fetch via spy-agent proxy (LFS fix) — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.1 · DM fetch directly from Supabase (no proxy) — full logging always on; VIX regime split always runs after STD; sweep boundary analysis added to OPT log (🔴🟡🟢 edge heat)</span>
   </div>
 </div>
 
@@ -3043,13 +3043,82 @@ async function loadData() {
   const status=$('data-status');
 
   async function fetchDM() {
-    // spy_data.json is Git LFS tracked — raw.githubusercontent.com only returns
-    // the LFS pointer, not the file. The spy-agent Railway service proxies the
-    // LFS Batch API server-side (no CORS) and returns the actual JSON.
-    const proxyUrl = 'https://spy-agent-production.up.railway.app/dm';
-    const r = await fetch(proxyUrl + '?_=' + Date.now());
-    if (!r.ok) throw new Error('DM fetch failed: ' + r.status);
-    return r.json();
+    // Fetch data mart directly from Supabase REST API.
+    // No proxy needed — Supabase supports CORS from any origin.
+    const SB_URL = 'https://pepdnkwytziegjvgkofq.supabase.co/rest/v1';
+    const SB_KEY = 'sb_publishable_k2TqNhnYKZYUBicrpsRflw_tlODD6Ma';
+    const headers = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+
+    const sbFetch = async (table, params='') => {
+      const r = await fetch(`${SB_URL}/${table}?${params}`, { headers });
+      if (!r.ok) throw new Error(`Supabase ${table} failed: ${r.status}`);
+      return r.json();
+    };
+
+    // Paginated fetch for large tables
+    const sbFetchAll = async (table, params='') => {
+      const pageSize = 1000;
+      let rows = [], offset = 0;
+      while (true) {
+        const page = await sbFetch(table, `${params}&limit=${pageSize}&offset=${offset}`);
+        rows = rows.concat(page);
+        if (page.length < pageSize) break;
+        offset += pageSize;
+      }
+      return rows;
+    };
+
+    logMsg('Fetching SPY/VIX daily data...', '');
+    const [spyRows, vixRows, metaRows] = await Promise.all([
+      sbFetchAll('spy_daily', 'order=date.asc'),
+      sbFetchAll('vix_daily', 'order=date.asc'),
+      sbFetch('metadata', 'select=key,value'),
+    ]);
+
+    logMsg(`Fetching ${await (async () => {
+      const r = await sbFetch('options', 'select=ticker&limit=1&offset=0');
+      return '...';
+    })()} option contracts...`, '');
+
+    const optRows = await sbFetchAll('options', 'select=ticker,strike,expiry,otm_pct,entry_spy');
+    logMsg(`Fetched ${optRows.length} contracts — loading price history...`, '');
+
+    const optDayRows = await sbFetchAll('option_days',
+      'select=ticker,date,o,h,l,c,vw,v&order=ticker.asc,date.asc');
+
+    // Group option_days by ticker
+    const daysByTicker = {};
+    for (const d of optDayRows) {
+      if (!daysByTicker[d.ticker]) daysByTicker[d.ticker] = [];
+      daysByTicker[d.ticker].push({ date: d.date, o: d.o, h: d.h, l: d.l,
+                                    c: d.c, v: d.v, vw: d.vw });
+    }
+
+    // Build options object
+    const options = {};
+    for (const o of optRows) {
+      options[o.ticker] = {
+        strike:    o.strike,
+        expiry:    o.expiry,
+        otm_pct:   o.otm_pct,
+        entry_spy: o.entry_spy,
+        days:      daysByTicker[o.ticker] || [],
+      };
+    }
+
+    // Build metadata
+    const meta = {};
+    for (const m of metaRows) meta[m.key] = m.value;
+
+    return {
+      spy:      spyRows.map(r => ({ date: r.date, o: r.o, h: r.h, l: r.l, c: r.c, v: r.v })),
+      vix:      vixRows.map(r => ({ date: r.date, c: r.c })),
+      options,
+      metadata: {
+        last_updated:   meta.last_updated || '—',
+        options_count:  parseInt(meta.options_count || optRows.length),
+      },
+    };
   }
 
   try {
