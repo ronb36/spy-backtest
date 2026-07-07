@@ -1597,6 +1597,7 @@ async function simulate(p) {
   let entryStrike = null, entrySPY = null, entryDelta_ = 0;
   let isInitial = true, pendingContract = null;
   const cycles = [];
+  const equity = [];
   // If a VIX gate is set, start in waitingForVIX state so the initial entry
   // is gated the same way as any re-entry after a delta close. If no gate,
   // find the initial contract immediately so the log shows it upfront.
