@@ -6,7 +6,7 @@
     }
   },
   "deploy": {
-    "startCommand": "pip install requests && python data_collector.py"
+  "startCommand": "pip install requests && python data_collector.py"
   }
 }
 
