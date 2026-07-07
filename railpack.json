@@ -2,11 +2,11 @@
   "provider": "python",
   "steps": {
     "install": {
-      "dependsOn": ["code"],
       "commands": ["pip install requests"]
     }
   },
   "deploy": {
-    "startCommand": "python data_collector.py"
+    "startCommand": "pip install requests && python data_collector.py"
   }
 }
+
