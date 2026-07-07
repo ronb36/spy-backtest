@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.7</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.8</div>
   </div>
 
   <!-- Initial Position -->
@@ -425,7 +425,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.7 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.8 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1873,17 +1873,23 @@ async function simulate(p) {
     }
   }
 
-  // If simulation ends with an open position, capture it as pendingContract
-  if (posOpen && curC) {
-    // Write local sim vars back onto the contract object so renderCycleTable
-    // can display the open row correctly (entryDate, entryPx, entrySPY are
-    // never stored on curC during normal simulation flow)
-    curC.entryPx   = entryPrice;
-    curC.entryDate = entryDate;
-    curC.entrySPY  = entrySPY;
+  // If simulation ends with an open or freshly-selected position, capture as pendingContract.
+  // Two cases:
+  //   posOpen=true:  sim ran out of dates while position was live (entryDate/Price set)
+  //   posOpen=false: curC just assigned via findNextContract after last roll but
+  //                  open-position block hadn't run before dates ended; use _entryPx
+  if (curC && !pendingContract) {
+    if (posOpen) {
+      curC.entryPx   = entryPrice;
+      curC.entryDate = entryDate;
+      curC.entrySPY  = entrySPY;
+    } else if (curC._entryPx) {
+      curC.entryPx   = curC._entryPx;
+      curC.entryDate = curC._entryDate || entryDate;
+      curC.entrySPY  = entrySPY;
+    }
     pendingContract = curC;
-    const lastSpy = DM.spy[DM.spy.length-1];
-    logMsg(`  Open position at end: ${curC.expiry} $${curC.strike} (entered ${entryDate} @ $${entryPrice?.toFixed(2)||'?'})`, 'ok');
+    logMsg(`  Open position at end: ${curC.expiry} $${curC.strike} @ $${curC.entryPx?.toFixed(2)||'?'}`, 'ok');
   }
 
   if (!cycles.length) return null;
