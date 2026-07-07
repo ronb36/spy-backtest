@@ -11,7 +11,7 @@ Tables (created via SQL Editor in Supabase dashboard):
   options       — ticker PK, strike, expiry, otm_pct, entry_spy
   option_days   — (ticker, date) PK, o, h, l, c, vw, v
   metadata      — key PK, value
-
+"force rebuild"
 Environment variables (Railway):
   POLYGON_KEY       — Polygon API key
   SUPABASE_URL      — https://pepdnkwytziegjvgkofq.supabase.co
