@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.1</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.2</div>
   </div>
 
   <!-- Initial Position -->
@@ -2144,7 +2144,6 @@ async function runOptimization() {
         for (const delta of deltas) {
           for (const vixgate of vixgates) {
             const gateLabel = vixgate > 0 ? ` VIX≥${vixgate}` : '';
-            logMsg(`⟳ Sweeping decay=${decay}% dte=${floor}d Δ=${delta}${gateLabel} otm=${(otmFixed*100).toFixed(0)}%...`);
             try {
               _gaps = [];
               const maxLookahead = parseInt($('lookahead-select')?.value || '90');
