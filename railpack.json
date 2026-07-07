@@ -2,6 +2,7 @@
   "provider": "python",
   "steps": {
     "install": {
+      "dependsOn": ["code"],
       "commands": ["pip install requests"]
     }
   },
