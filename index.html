@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.2</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.3</div>
   </div>
 
   <!-- Initial Position -->
@@ -1462,7 +1462,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
   const allExp = getMartExpiries().filter(e => {
     if (e <= afterDate || e > maxStr) return false;
     const dte = Math.round((new Date(e+'T00:00:00') - afterD) / 86400000);
-    return dte > Math.max(dteFloor * 2, dteFloor + 21); // need 2x floor to avoid immediate re-trigger
+    return dte >= Math.max(dteFloor * 2, dteFloor + 21);
   });
 
   let bestContract = null, bestYield = -Infinity;
@@ -1860,6 +1860,13 @@ async function simulate(p) {
       pendingContract = next;
       break;
     }
+  }
+
+  // If simulation ends with an open position, capture it as pendingContract
+  if (posOpen && curC) {
+    pendingContract = curC;
+    const lastSpy = DM.spy[DM.spy.length-1];
+    logMsg(`  Open position at end: ${curC.expiry} $${curC.strike} (entered ${entryDate} @ $${entryPrice?.toFixed(2)||'?'})`, 'ok');
   }
 
   if (!cycles.length) return null;
