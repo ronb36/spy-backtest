@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.6</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.7</div>
   </div>
 
   <!-- Initial Position -->
@@ -425,7 +425,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.4 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.7 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -2299,53 +2299,27 @@ function renderCycleTable(r) {
     <td class="muted" style="font-size:10px;">initial · yield-selected</td>
   </tr>` : '';
 
-  const rows = r.rolls.map((c,i) => {
-    // c = rolls[i] = the NEW contract we opened (entryPx = what we sold it for)
-    // cycles[i] = the PRIOR contract we closed (exitPx = what we bought it back for)
-    // For the last row when stopped early, pending is the new leg not yet in cycles
-    const closedCycle = r.cycles[i];  // what we covered
+
+
+  // rolls[i] = cycles[i+1] = closed cycle whose entryPx is what we sold the new leg for
+  // cycles[i] = the prior contract covered when roll i triggered
+  // pendingContract = newly opened leg not yet closed — rendered as a final separate row
+  const rows = r.rolls.map((c, i) => {
+    const closedCycle = r.cycles[i];
     const coverPx     = closedCycle ? closedCycle.exitPx : null;
     const coverStrike = closedCycle ? closedCycle.strike : null;
-
-    // New leg = c itself (rolls[i] is what we opened)
-    // For last row when stopped, try pendingContract if c has no entryPx yet
-    const isLastPending = (i === r.rolls.length - 1) && r.pendingContract && !c.entryPx;
-    const newLegC   = isLastPending ? null : c;
-    const pendingC  = isLastPending ? r.pendingContract : null;
-    let newPx = c.entryPx || 0;
-    if (!newPx && pendingC) {
-      buildDayMap(pendingC);
-      const pk = c.exitDate?.trim().slice(0,10) || '';
-      const pd = pendingC._dm[pk] || pendingC.days.find(d=>d.date>=c.exitDate);
-      newPx = pd ? (pd.vw||pd.c) : 0;
-    }
-    const newLegStrike = newLegC ? c.strike : (pendingC?.strike || '—');
-    const newLegExpiry = newLegC ? c.expiry : (pendingC?.expiry || '—');
-    const newLegStr = newPx > 0
-      ? `Sell $${newLegStrike} ${newLegExpiry} @ $${fmt(newPx)}`
-      : '—';
-
-    // Roll credit = new premium sold - buyback cost
-    const rollCredit = coverPx !== null ? (newPx - coverPx) * 100 * contracts : null;
-    const cClass     = rollCredit===null?'muted':rollCredit>=0?'green':'red';
-
-    // Roll yield = roll credit / SPY × (365 / new contract DTE)
-    const newDTE  = Math.round((new Date(c.expiry+'T00:00:00') - new Date(c.entryDate+'T00:00:00')) / 86400000);
-    const rollYld = (rollCredit!==null && newDTE > 0)
-      ? ((newPx - (coverPx||0)) / c.entrySPY) * (365 / newDTE) * 100
-      : null;
-    const yClass  = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
-
-    const approx  = c.approx?'<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>':'';
-
-    // Date shown = trigger/roll date = when the spread was executed
-    const rollDate = closedCycle ? closedCycle.exitDate : c.entryDate;
-    const isOpenPos = (i === r.rolls.length - 1) && r.pendingContract && !closedCycle?.exitDate?.length;
-    const openBadge = isOpenPos
-      ? `<span style="background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">OPEN</span>`
-      : '';
-    return `<tr${isOpenPos ? ' style="opacity:0.85;border-top:2px solid var(--accent);"' : ''}>
-      <td class="muted" style="font-size:10px;">${rollDate}${approx}${openBadge}</td>
+    const newPx       = c.entryPx || 0;
+    const newLegStr   = newPx > 0 ? `Sell $${c.strike} ${c.expiry} @ $${fmt(newPx)}` : '—';
+    const rollCredit  = coverPx !== null ? (newPx - coverPx) * 100 * contracts : null;
+    const cClass      = rollCredit===null?'muted':rollCredit>=0?'green':'red';
+    const newDTE      = Math.round((new Date(c.expiry+'T00:00:00') - new Date(c.entryDate+'T00:00:00')) / 86400000);
+    const rollYld     = (rollCredit!==null && newDTE>0 && c.entrySPY)
+      ? ((newPx-(coverPx||0))/c.entrySPY)*(365/newDTE)*100 : null;
+    const yClass      = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
+    const approx      = c.approx?'<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>':'';
+    const rollDate    = closedCycle ? closedCycle.exitDate : c.entryDate;
+    return `<tr>
+      <td class="muted" style="font-size:10px;">${rollDate}${approx}</td>
       <td class="red">${coverStrike ? `Cover $${coverStrike} @ $${fmt(coverPx)}` : '—'}</td>
       <td class="accent">${newLegStr}</td>
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
@@ -2354,12 +2328,40 @@ function renderCycleTable(r) {
     </tr>`;
   }).join('');
 
+  // Open position row: pendingContract is the newly opened leg (not yet in cycles)
+  // Its cover leg is cycles[rolls.length] — the last cycle that was closed
+  let openRow = '';
+  if (r.pendingContract) {
+    const pc          = r.pendingContract;
+    const lastClosed  = r.cycles[r.rolls.length];
+    const coverPx     = lastClosed ? lastClosed.exitPx : null;
+    const coverStrike = lastClosed ? lastClosed.strike : null;
+    const newPx       = pc.entryPx || 0;
+    const newLegStr   = newPx > 0 ? `Sell $${pc.strike} ${pc.expiry} @ $${fmt(newPx)}` : '—';
+    const rollCredit  = coverPx !== null && newPx > 0 ? (newPx - coverPx) * 100 * contracts : null;
+    const cClass      = rollCredit===null?'muted':rollCredit>=0?'green':'red';
+    const newDTE      = Math.round((new Date(pc.expiry+'T00:00:00') - new Date(pc.entryDate+'T00:00:00')) / 86400000);
+    const rollYld     = (rollCredit!==null && newDTE>0 && pc.entrySPY)
+      ? ((newPx-(coverPx||0))/pc.entrySPY)*(365/newDTE)*100 : null;
+    const yClass      = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
+    const rollDate    = lastClosed ? lastClosed.exitDate : pc.entryDate;
+    const openBadge   = `<span style="background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">OPEN</span>`;
+    openRow = `<tr style="border-top:2px solid var(--accent);opacity:0.85;">
+      <td class="muted" style="font-size:10px;">${rollDate}${openBadge}</td>
+      <td class="red">${coverStrike ? `Cover $${coverStrike} @ $${fmt(coverPx)}` : '—'}</td>
+      <td class="accent">${newLegStr}</td>
+      <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
+      <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
+      <td class="muted" style="font-size:10px;">${pc.reason || 'open position'}</td>
+    </tr>`;
+  }
+
   $('cycle-table').innerHTML = `<table class="tbl">
     <thead><tr>
       <th>Date</th><th>Cover (Close)</th><th>New Leg (Open)</th>
       <th>Roll Credit</th><th>Ann Yield</th><th>Trigger</th>
     </tr></thead>
-    <tbody>${initRow}${rows}</tbody>
+    <tbody>${initRow}${rows}${openRow}</tbody>
   </table>`;
 }
 
