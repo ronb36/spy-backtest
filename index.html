@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.4</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.5</div>
   </div>
 
   <!-- Initial Position -->
@@ -548,12 +548,7 @@ function copyDebugLog() {
     });
   }
 
-  // Truncate if too large for iOS clipboard (keep tail — summary is most important)
-  const MAX_CHARS = 50000;
-  if (text.length > MAX_CHARS) {
-    text = '...[truncated — showing last ' + MAX_CHARS + ' chars]\n' + text.slice(-MAX_CHARS);
-  }
-
+  // No truncation — full log preserved for upload/analysis
   navigator.clipboard.writeText(text).then(() => {
     ['copy-log-btn','copy-log-btn2'].forEach(id => {
       const btn = document.getElementById(id);
