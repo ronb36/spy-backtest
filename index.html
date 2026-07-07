@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.9</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.11</div>
   </div>
 
   <!-- Initial Position -->
@@ -425,7 +425,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.9 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.11 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1034,8 +1034,6 @@ function logDMGapReport(snapshots) {
       boundary.strikeHigh.hits++;
       if (boundary.strikeHigh.triggers.length < 6) boundary.strikeHigh.triggers.push(label);
     }
-    // Expiry-near: use calendar days, not index position — flag only when selected
-    // expiry is within 30d of trigger date (meaningful short-DTE constraint)
     const selectedDTE = Math.round((new Date(bestCell.exp+'T00:00:00') - new Date(s.date+'T00:00:00')) / 86400000);
     if (selectedDTE <= 30) {
       boundary.expiryNear.hits++;
@@ -1521,7 +1519,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       // Roll yield = (new premium - buyback) / SPY × 365/DTE
       const netCredit  = entryPx - (buybackPx || 0);
       const rawYield   = (netCredit / currentSPY) * (365 / dte) * 100;
-      const dtePenalty = Math.min(1, (dte - dteFloor) / (90 - dteFloor)); // ramp from 0 at dteFloor to 1 at 90d
+      const dtePenalty = Math.min(1, dte / 45);
       const adjYield   = rawYield * dtePenalty;
       const candDelta_ = callDelta(currentSPY, c.strike, dte, 18, 4.5);
       const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
@@ -1877,10 +1875,6 @@ async function simulate(p) {
   }
 
   // If simulation ends with an open or freshly-selected position, capture as pendingContract.
-  // Two cases:
-  //   posOpen=true:  sim ran out of dates while position was live (entryDate/Price set)
-  //   posOpen=false: curC just assigned via findNextContract after last roll but
-  //                  open-position block hadn't run before dates ended; use _entryPx
   if (curC && !pendingContract) {
     if (posOpen) {
       curC.entryPx   = entryPrice;
@@ -2308,11 +2302,6 @@ function renderCycleTable(r) {
     <td class="muted" style="font-size:10px;">initial · yield-selected</td>
   </tr>` : '';
 
-
-
-  // rolls[i] = cycles[i+1] = closed cycle whose entryPx is what we sold the new leg for
-  // cycles[i] = the prior contract covered when roll i triggered
-  // pendingContract = newly opened leg not yet closed — rendered as a final separate row
   const rows = r.rolls.map((c, i) => {
     const closedCycle = r.cycles[i];
     const coverPx     = closedCycle ? closedCycle.exitPx : null;
@@ -2337,8 +2326,6 @@ function renderCycleTable(r) {
     </tr>`;
   }).join('');
 
-  // Open position row: pendingContract is the newly opened leg (not yet in cycles)
-  // Its cover leg is cycles[rolls.length] — the last cycle that was closed
   let openRow = '';
   if (r.pendingContract) {
     const pc          = r.pendingContract;
