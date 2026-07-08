@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.14</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.14</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Initial Position -->
@@ -703,8 +703,10 @@ function toggleDebug() {
   _debugMode = !_debugMode;
   const btn = $('debug-btn');
   if (btn) {
-    btn.classList.toggle('active', _debugMode);
     btn.textContent = _debugMode ? 'Debug ON' : 'Debug';
+    btn.style.borderColor  = _debugMode ? 'var(--yellow)' : 'var(--border)';
+    btn.style.color        = _debugMode ? 'var(--yellow)' : 'var(--muted)';
+    btn.style.background   = _debugMode ? 'rgba(234,179,8,.08)' : 'var(--surface2)';
   }
   // Hide scan tab when debug is on
   const scanTab = $('tab-btn-scan');
@@ -2043,9 +2045,12 @@ async function runSimulation() {
   // Show Scan tab only in non-debug STD mode
   const scanBtn = $('tab-btn-scan');
   if (scanBtn) scanBtn.style.display = _debugMode ? 'none' : '';
-  showTab('log');
-  // Auto-run scan in non-debug mode
-  if (!_debugMode) { runRollScan(); showTab('scan'); }
+  if (!_debugMode) {
+    showTab('scan');   // switch to scan tab first so user sees it loading
+    runRollScan();     // async — populates the tab
+  } else {
+    showTab('log');
+  }
 }
 
 function logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates) {
