@@ -135,7 +135,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.11</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.13</div>
   </div>
 
   <!-- Initial Position -->
@@ -146,6 +146,7 @@ select.display-box { cursor:pointer; outline:none; }
       <span style="color:var(--muted);">Entry <span id="init-entry-date" style="color:var(--text);">—</span></span>
       <span style="color:var(--muted);">Qty <span id="init-qty" style="color:var(--text);">—</span></span>
       <span style="color:var(--muted);">SPY <span id="init-spy" style="color:var(--text);">—</span></span>
+      <span style="color:var(--muted);">OTM <span style="color:var(--text);">3%</span></span>
     </div>
     <select id="init-date" style="display:none;"></select>
     <div id="init-strike" style="display:none;"></div>
@@ -158,7 +159,7 @@ select.display-box { cursor:pointer; outline:none; }
     <input type="checkbox" id="debug-toggle" checked style="display:none;">
 
     <!-- Row 1: sweepable param cards -->
-    <div id="var-card-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
+    <div id="var-card-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;">
       <div class="stat-card var-card" id="vcard-decay" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('decay')" style="cursor:inherit;">
           <div class="stat-label">Decay Trigger</div>
@@ -173,20 +174,7 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-decay" value="2" min="1" max="50" step="1" onchange="updateSweepRange('decay')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-dte" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
-        <div onclick="toggleVar('dte')" style="cursor:inherit;">
-          <div class="stat-label">DTE Floor</div>
-          <div class="stat-value accent" id="vval-dte" style="font-size:14px;">30d</div>
-          <div class="stat-sub" id="vsub-dte">Click to optimize</div>
-        </div>
-        <div id="vrange-dte" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
-          <input type="number" id="vmin-dte" value="21" min="1" max="180" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
-          <span style="color:var(--muted);">–</span>
-          <input type="number" id="vmax-dte" value="45" min="1" max="180" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
-          <span style="color:var(--muted);">step</span>
-          <input type="number" id="vstep-dte" value="3" min="1" max="50" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
-        </div>
-      </div>
+
       <div class="stat-card var-card" id="vcard-delta" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('delta')" style="cursor:inherit;">
           <div class="stat-label">Delta Δ</div>
@@ -218,20 +206,21 @@ select.display-box { cursor:pointer; outline:none; }
     </div>
 
 
-    <!-- Row 2: dropdowns + combined Run/Publish button -->
-    <div id="controls-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;grid-auto-rows:80px;">
-      <div class="stat-card" id="roll-limit-card" style="height:80px;box-sizing:border-box;border:1px solid var(--border);">
-        <div class="stat-label">Roll Limit</div>
+    <!-- Row 2: DTE + Lookahead + Run (3 col, OTM fixed at 3% in Initial Position bar) -->
+    <div id="controls-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;grid-auto-rows:80px;">
+      <div class="stat-card" style="height:80px;box-sizing:border-box;border:1px solid var(--border);">
+        <div class="stat-label">DTE Floor</div>
         <div style="margin-top:6px;">
-          <select id="single-roll-toggle" onchange="updateParamDisplay(); onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
-            <option value="0" selected>All</option>
-            <option value="1">1</option>
-            <option value="3">3</option>
-            <option value="5">5</option>
-            <option value="10">10</option>
+          <select id="dte-select" onchange="updateParamDisplay(); onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
+            <option value="1">1d</option>
+            <option value="7" selected>7d</option>
+            <option value="14">14d</option>
+            <option value="21">21d</option>
+            <option value="30">30d</option>
+            <option value="45">45d</option>
           </select>
         </div>
-        <div class="stat-sub" style="margin-top:4px;">Max rolls per run</div>
+        <div class="stat-sub" style="margin-top:4px;">Min DTE for candidates</div>
       </div>
       <div class="stat-card" style="height:80px;box-sizing:border-box;border:1px solid var(--border);">
         <div class="stat-label">Max Lookahead</div>
@@ -253,19 +242,6 @@ select.display-box { cursor:pointer; outline:none; }
           </select>
         </div>
         <div class="stat-sub" style="margin-top:4px;">Candidate search window</div>
-      </div>
-      <div class="stat-card" style="height:80px;box-sizing:border-box;border:1px solid var(--border);">
-        <div class="stat-label">OTM %</div>
-        <div style="margin-top:6px;">
-          <select id="otm-select" onchange="updateParamDisplay(); onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
-            <option value="0.01">1%</option>
-            <option value="0.02">2%</option>
-            <option value="0.03" selected>3%</option>
-            <option value="0.04">4%</option>
-            <option value="0.05">5%</option>
-          </select>
-        </div>
-        <div class="stat-sub" style="margin-top:4px;">Initial strike target</div>
       </div>
       <div id="run-publish-card" style="height:80px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
         <button class="btn" id="run-btn" onclick="handleRunOrPublish()" disabled
@@ -425,7 +401,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.11 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.13 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -685,8 +661,8 @@ function yield_() { return new Promise(r => setTimeout(r, 0)); }
 const _debugMode = true;  // Always on — full logging always enabled, no toggle needed
 
 function setRollLimitState(locked) {
-  const rollSel  = $('single-roll-toggle');
-  const rollCard = $('roll-limit-card');
+  const rollSel  = null; // Roll limit removed
+  const rollCard = null;
   if (locked) {
     if (rollSel) {
       rollSel.value    = '0';
@@ -789,7 +765,14 @@ function toggleVar(v, forceOff) {
     card.style.borderColor = '';
     card.style.background  = '';
   }
-  if (val)  { val.textContent = active ? 'OPTIMIZE' : info.std;
+  // When deactivating, restore from STD (live published value) not hardcoded std string
+  const restoreVal = active ? 'OPTIMIZE'
+    : v === 'vixgate' ? (STD.vixGate > 0 ? 'VIX\u2265' + STD.vixGate : 'Off')
+    : v === 'decay'   ? STD.decayTrigger + '%'
+    : v === 'dte'     ? STD.dteFloor + 'd'
+    : v === 'delta'   ? STD.deltaThreshold.toFixed(3)
+    : info.std;
+  if (val)  { val.textContent = restoreVal;
                val.style.color = active ? 'var(--green)' : 'var(--accent)';
                val.style.fontSize = active ? '11px' : '14px';
                val.style.letterSpacing = active ? '.08em' : '0'; }
@@ -1215,13 +1198,14 @@ function updateParamDisplay() {
   const isOpt = anySweepActive() && _optParams && _optParams.decayTrigger;
   const pr  = $('p-regime');     if (pr)  pr.textContent  = 'All';
   const prs = $('p-regime-sub'); if (prs) prs.textContent = isOpt ? 'Optimized (full period)' : 'Updates after optimize';
-  const rv  = parseInt($('single-roll-toggle')?.value || '0');
+  const rv  = 0; // Roll limit removed — always All
   const pr2 = $('p-rolls');      if (pr2) pr2.textContent = rv > 0 ? rv : 'All';
   const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
-  const otmVal = parseFloat($('otm-select')?.value || String(p.otmFixed || 0.03));
+  const otmVal = 0.03; // OTM fixed at 3% — removed from UI
   set('p-otm',   (otmVal*100).toFixed(0) + '%');
   set('p-decay', p.decayTrigger + '%');
   set('p-dte',   p.dteFloor + 'd');
+  const dteSel = $('dte-select'); if (dteSel && !_sweepVars.dte) { dteSel.value = String(p.dteFloor); }
   set('p-delta', p.deltaThreshold.toFixed(2));
   set('p-vixgate', p.vixGate > 0 ? 'VIX≥' + p.vixGate : 'Off');
   // Update vixgate card display
@@ -1949,13 +1933,15 @@ async function runSimulation() {
   _gaps = [];
 
   const _lookahead = parseInt($('lookahead-select')?.value || '90');
-  const _maxRolls  = (() => { const v=parseInt($('single-roll-toggle')?.value||'0'); return v>0?v:null; })();
+  const _maxRolls  = null; // Roll limit removed — always run all rolls
+  const _dteFloor  = parseInt($('dte-select')?.value || String(STD.dteFloor || 7));
   // Use getActiveParams() so debug overrides take effect when Debug mode is on.
   // In normal STD mode this returns plain STD; in debug mode it merges any
   // session-only overrides set via the param cards.
   const params = {
     ...getActiveParams(),
-    otmFixed:    parseFloat($('otm-select')?.value || String(STD.otmFixed || 0.03)),
+    otmFixed:    0.03, // OTM fixed at 3%
+    dteFloor:    _dteFloor,
     shares:      600,
     maxRolls:    _maxRolls,
     maxLookahead: _lookahead,
