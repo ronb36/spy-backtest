@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.17</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.18</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Initial Position -->
@@ -363,11 +363,34 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Scan tab -->
     <div id="tab-scan" style="display:none">
-      <div class="chart-panel">
-        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="chart-title">🔍 Roll Scanner — Live Candidates</span>
-          <button id="rescan-btn" onclick="runRollScan()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⟳ Re-scan</button>
+      <!-- Position inputs -->
+      <div class="chart-panel" style="margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span class="mono-label" style="margin:0;">Current Position</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Strike</span>
+            <input type="number" id="scan-strike" step="1" placeholder="780"
+              style="width:64px;font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:4px 6px;text-align:right;"
+              onchange="saveScanPosition()">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Expiry</span>
+            <input type="date" id="scan-expiry"
+              style="font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:4px 6px;"
+              onchange="saveScanPosition()">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Call Mid</span>
+            <input type="number" id="scan-call-mid" step="0.01" placeholder="auto"
+              style="width:64px;font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:4px 6px;text-align:right;">
+          </div>
+          <button onclick="runRollScan()" id="rescan-btn"
+            style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⟳ Re-scan</button>
         </div>
+      </div>
+      <!-- Results -->
+      <div class="chart-panel">
+        <div class="chart-header"><span class="chart-title">🔍 Roll Scanner — Live Candidates</span></div>
         <div class="scan-status" id="scan-status"></div>
         <div id="roll-best-summary-wrap"></div>
         <div style="overflow-x:auto;"><div id="roll-table-container"></div></div>
@@ -435,7 +458,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.17 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.18 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1300,6 +1323,8 @@ function showTab(tab) {
   });
   if (tab === 'mart') renderMartCards();
   if (tab === 'chart') setChartView('price');
+  if (tab === 'scan') initScanPosition();
+  if (tab === 'scan') initScanPosition();
   if (tab === 'runlog') {
     // Sync mirror with live progress-log content
     const src = $('progress-log');
@@ -2009,7 +2034,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.17 · SPY Covered Call Backtest');
+  logMsg('v3.8.18 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3250,6 +3275,39 @@ function getScanPolygonKey() {
   return key;
 }
 
+function saveScanPosition() {
+  const strike = $('scan-strike')?.value || '';
+  const expiry = $('scan-expiry')?.value || '';
+  if (strike) localStorage.setItem('scan_short_strike', strike);
+  if (expiry) localStorage.setItem('scan_short_expiry', expiry);
+}
+
+function initScanPosition() {
+  const strike = localStorage.getItem('scan_short_strike') || '780';
+  const expiry = localStorage.getItem('scan_short_expiry') || '2026-11-20';
+  const strikeEl = $('scan-strike');
+  const expiryEl = $('scan-expiry');
+  if (strikeEl && !strikeEl.value) strikeEl.value = strike;
+  if (expiryEl && !expiryEl.value) expiryEl.value = expiry;
+}
+
+function saveScanPosition() {
+  const strike = $('scan-strike')?.value || '';
+  const expiry = $('scan-expiry')?.value || '';
+  if (strike) localStorage.setItem('scan_short_strike', strike);
+  if (expiry) localStorage.setItem('scan_short_expiry', expiry);
+}
+
+function initScanPosition() {
+  // Pre-populate from localStorage
+  const strike = localStorage.getItem('scan_short_strike') || '780';
+  const expiry = localStorage.getItem('scan_short_expiry') || '2026-11-20';
+  const strikeEl = $('scan-strike');
+  const expiryEl = $('scan-expiry');
+  if (strikeEl) strikeEl.value = strike;
+  if (expiryEl) expiryEl.value = expiry;
+}
+
 function buildScanTicker(expiryISO, strike) {
   const d  = new Date(expiryISO + 'T12:00:00Z');
   const yy = String(d.getUTCFullYear()).slice(2);
@@ -3320,24 +3378,23 @@ async function runRollScan() {
     return;
   }
 
-  // Current short position — stored in localStorage after each roll
-  let posStrike = parseFloat(localStorage.getItem('scan_short_strike') || '0');
-  let posExpiry = localStorage.getItem('scan_short_expiry') || '';
-  if (!posStrike || !posExpiry) {
-    posStrike = parseFloat(window.prompt('Current short call strike (e.g. 780):') || '0');
-    posExpiry = (window.prompt('Current short call expiry ISO (e.g. 2026-11-20):') || '').trim();
-    if (posStrike && posExpiry) {
-      localStorage.setItem('scan_short_strike', posStrike);
-      localStorage.setItem('scan_short_expiry', posExpiry);
-    }
-  }
+  // Read position from panel inputs (pre-populated from localStorage)
+  const posStrike = parseFloat($('scan-strike')?.value || localStorage.getItem('scan_short_strike') || '0');
+  const posExpiry = ($('scan-expiry')?.value || localStorage.getItem('scan_short_expiry') || '').trim();
+  if (posStrike) localStorage.setItem('scan_short_strike', posStrike);
+  if (posExpiry) localStorage.setItem('scan_short_expiry', posExpiry);
 
-  // Fetch current call mid (buyback cost)
-  let currentCallMid = 0;
-  if (posStrike && posExpiry) {
+  // Check if call mid is manually entered; otherwise fetch live
+  let currentCallMid = parseFloat($('scan-call-mid')?.value || '0');
+  if (!currentCallMid && posStrike && posExpiry) {
     statusEl.textContent = 'Fetching $' + posStrike + 'C ' + posExpiry + ' mid...';
     const curSnap = await fetchContractSnapshot(posExpiry, posStrike, polygonKey);
-    if (curSnap) currentCallMid = curSnap.mid;
+    if (curSnap) {
+      currentCallMid = curSnap.mid;
+      // Populate the field so user can see/override it
+      const midEl = $('scan-call-mid');
+      if (midEl) midEl.value = currentCallMid.toFixed(2);
+    }
   }
 
   const p          = getActiveParams();
