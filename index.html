@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.15</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.16</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Initial Position -->
@@ -435,7 +435,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.15 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.16 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -711,7 +711,10 @@ function toggleDebug() {
   // Hide scan tab when debug is on
   const scanTab = $('tab-btn-scan');
   if (scanTab && _debugMode) { scanTab.style.display = 'none'; showTab('log'); }
-  logMsg(_debugMode ? '  Debug mode ON — Scan tab hidden' : '  Debug mode OFF — Scan tab enabled after STD run', '');
+  // Reset run button and progress bar on any debug toggle
+  setProgress(0);
+  setRunButtonState('idle');
+  logMsg(_debugMode ? '  Debug mode ON — Scan tab hidden' : '  Debug mode OFF — Scan tab enabled after next STD run', '');
 }
 
 function setRollLimitState(locked) {
@@ -1260,7 +1263,7 @@ function updateParamDisplay() {
   set('p-decay', p.decayTrigger + '%');
   set('p-dte',   p.dteFloor + 'd');
   const dteSel = $('dte-select'); if (dteSel && !_sweepVars.dte) { dteSel.value = String(p.dteFloor); }
-  set('p-delta', p.deltaThreshold.toFixed(2));
+  set('p-delta', p.deltaThreshold.toFixed(3));
   set('p-vixgate', p.vixGate > 0 ? 'VIX≥' + p.vixGate : 'Off');
   // Update vixgate card display
   const vgVal = $('vval-vixgate');
@@ -1289,7 +1292,7 @@ function updateParamDisplay() {
 
 // ── Tab management ─────────────────────────────────────────────────────────
 function showTab(tab) {
-  ['log','chart','heatmap','gaps','runlog','mart','ai'].forEach(t => {
+  ['log','chart','heatmap','gaps','runlog','scan','mart','ai'].forEach(t => {
     const el = $('tab-' + t);
     const btn = $('tab-btn-' + t);
     if (el)  el.style.display  = t === tab ? 'block' : 'none';
@@ -2006,7 +2009,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.15 · SPY Covered Call Backtest');
+  logMsg('v3.8.16 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3290,30 +3293,38 @@ async function runRollScan() {
   const rescanBtn = $('rescan-btn');
   if (!statusEl) return;
 
+  // Key check — lazy prompt, never fires on page load
   const polygonKey = getScanPolygonKey();
-  if (!polygonKey) { statusEl.textContent = 'No Polygon key — scan cancelled.'; statusEl.className = 'scan-status err'; return; }
+  if (!polygonKey) {
+    statusEl.textContent = 'No Polygon key — scan cancelled.';
+    statusEl.className = 'scan-status err';
+    setRunButtonState('idle', { dmReady: true });
+    return;
+  }
 
   if (rescanBtn) rescanBtn.disabled = true;
-  // Show scanning state on main run button if called from STD flow
-  const mainBtn = $('run-btn');
+
+  // Show Scanning... on main run button
+  const mainBtn  = $('run-btn');
   const mainCard = $('run-publish-card');
-  const fromStd = mainBtn && mainBtn.disabled === false;
-  if (fromStd && mainCard) {
-    mainBtn.textContent = '⟳ Scanning...';
-    mainBtn.disabled = true;
-    mainBtn.style.opacity = '1';
-  }
+  if (mainBtn) { mainBtn.textContent = '⟳ Scanning...'; mainBtn.disabled = true; mainBtn.style.opacity = '1'; }
+
   statusEl.textContent = 'Fetching live SPY price...';
   statusEl.className = 'scan-status';
 
-  // Fetch live SPY price
+  // Live SPY price
   let spyNow = await fetchLiveSPY(polygonKey);
-  if (!spyNow) {
-    // Fallback: use last DM SPY price
-    spyNow = DM.spy.length ? DM.spy[DM.spy.length-1].c : 750;
+  if (!spyNow && DM && DM.spy && DM.spy.length) {
+    spyNow = DM.spy[DM.spy.length-1].c;
     statusEl.textContent = 'Live SPY unavailable — using last DM close $' + spyNow.toFixed(2);
+  } else if (spyNow) {
+    statusEl.textContent = 'SPY $' + spyNow.toFixed(2) + ' (live) — building candidate list...';
   } else {
-    statusEl.textContent = 'SPY $' + spyNow.toFixed(2) + ' live — scanning candidates...';
+    statusEl.textContent = 'Could not fetch SPY price.';
+    statusEl.className = 'scan-status err';
+    if (rescanBtn) rescanBtn.disabled = false;
+    setRunButtonState('idle', { dmReady: true });
+    return;
   }
 
   const p          = getActiveParams();
@@ -3322,60 +3333,75 @@ async function runRollScan() {
   const otmTarget  = p.otmFixed || 0.03;
   const deltaThres = p.deltaThreshold || 0.475;
 
-  // Use DM expiries within lookahead window (includes weeklies)
+  // Build candidate list from actual DM contracts for future expiries
+  // This ensures we only fetch strikes that exist in Polygon
   const today   = new Date(); today.setHours(0,0,0,0);
   const maxDate = new Date(today); maxDate.setDate(maxDate.getDate() + lookahead);
-  const dmExpiries = Object.keys(
-    Object.values(DM.options).reduce((acc, c) => { acc[c.expiry] = 1; return acc; }, {})
-  ).filter(exp => {
-    const d   = new Date(exp + 'T12:00:00Z');
-    const dte = Math.round((d - today) / 86400000);
-    return dte >= dteFloor && d <= maxDate;
-  }).sort();
 
-  if (!dmExpiries.length) {
-    statusEl.textContent = 'No DM expiries found within ' + lookahead + 'd window.';
+  // Collect unique future expiries from DM
+  const futureExpiries = new Set();
+  if (DM && DM.options) {
+    Object.values(DM.options).forEach(contract => {
+      const d   = new Date(contract.expiry + 'T12:00:00Z');
+      const dte = Math.round((d - today) / 86400000);
+      if (dte >= dteFloor && d <= maxDate) futureExpiries.add(contract.expiry);
+    });
+  }
+  const expList = Array.from(futureExpiries).sort();
+
+  if (!expList.length) {
+    statusEl.textContent = 'No future DM expiries found within ' + lookahead + 'd lookahead.';
     statusEl.className = 'scan-status err';
     if (rescanBtn) rescanBtn.disabled = false;
+    setRunButtonState('idle', { dmReady: true });
     return;
   }
 
-  // Strike range: ±$30 around ideal OTM target, $5 grid
+  // Build combos from actual DM contracts — only strikes that exist in DM
+  // Filter to strikes near OTM target (within ±8% of SPY) to keep scan focused
   const idealStrike = Math.round(spyNow * (1 + otmTarget) / 5) * 5;
-  const strikes = [];
-  for (let s = idealStrike - 30; s <= idealStrike + 30; s += 5) strikes.push(s);
-
-  const expLabels = dmExpiries.map(exp => {
-    const d   = new Date(exp + 'T12:00:00Z');
-    const dte = Math.round((d - today) / 86400000);
-    return exp + ' (' + dte + 'DTE)';
-  });
-  statusEl.textContent = 'Scanning ' + dmExpiries.length + ' expiries × ' + strikes.length + ' strikes | Target $' + idealStrike + ' (' + (otmTarget*100).toFixed(0) + '% OTM)...';
+  const strikeMin   = spyNow * 0.97;  // 3% ITM floor
+  const strikeMax   = spyNow * 1.12;  // 12% OTM ceiling
 
   const combos = [];
-  for (const exp of dmExpiries)
-    for (const s of strikes) combos.push({ exp, strike: s });
+  const seenKeys = new Set();
+  if (DM && DM.options) {
+    Object.values(DM.options).forEach(contract => {
+      if (!futureExpiries.has(contract.expiry)) return;
+      if (contract.strike < strikeMin || contract.strike > strikeMax) return;
+      const key = contract.expiry + '_' + contract.strike;
+      if (seenKeys.has(key)) return;
+      seenKeys.add(key);
+      const d   = new Date(contract.expiry + 'T12:00:00Z');
+      const dte = Math.round((d - today) / 86400000);
+      combos.push({ exp: contract.expiry, strike: contract.strike, dte });
+    });
+  }
+  combos.sort((a,b) => a.dte - b.dte || a.strike - b.strike);
 
-  const BATCH   = 4;
+  statusEl.textContent = 'Scanning ' + expList.length + ' expiries · ' + combos.length + ' DM contracts | SPY $' + spyNow.toFixed(2) + ' | Target $' + idealStrike + ' (' + (otmTarget*100).toFixed(0) + '% OTM)...';
+
+  const BATCH   = 5;
   const results = [];
   for (let b = 0; b < combos.length; b += BATCH) {
     const batch   = combos.slice(b, b+BATCH);
     const fetched = await Promise.all(batch.map(c => fetchContractSnapshot(c.exp, c.strike, polygonKey)));
     for (let j = 0; j < fetched.length; j++) {
       if (fetched[j]) results.push(Object.assign({}, fetched[j], {
-        exp:  batch[j].exp,
-        dte:  Math.round((new Date(batch[j].exp + 'T12:00:00Z') - today) / 86400000),
+        exp: batch[j].exp,
+        dte: batch[j].dte,
       }));
     }
-    statusEl.textContent = 'Scanning... ' + Math.min(b+BATCH, combos.length) + ' / ' + combos.length;
-    await new Promise(r => setTimeout(r, 300));
+    statusEl.textContent = 'Scanning... ' + Math.min(b+BATCH, combos.length) + ' / ' + combos.length + ' contracts';
+    await new Promise(r => setTimeout(r, 250));
   }
 
   if (rescanBtn) rescanBtn.disabled = false;
 
   if (!results.length) {
-    statusEl.textContent = 'No quotes returned — market may be closed or Polygon key invalid.';
+    statusEl.textContent = 'No live quotes returned — market may be closed or outside trading hours.';
     statusEl.className = 'scan-status err';
+    setRunButtonState('idle', { dmReady: true });
     return;
   }
 
@@ -3394,16 +3420,35 @@ async function runRollScan() {
   }).sort((a,b) => b.score - a.score || b.adjYield - a.adjYield);
 
   renderRollScanTable(scored, spyNow, deltaThres);
-  const creditCount = scored.filter(r => r.deltaOk).length;
-  // Restore main run button
-  if (mainBtn && mainCard) {
-    mainBtn.textContent = '\u25b6 Run';
-    mainBtn.disabled = false;
-    mainBtn.style.opacity = '1';
-    mainBtn.style.cursor = 'pointer';
-    mainCard.style.background = 'var(--accent)';
+
+  const withinDelta = scored.filter(r => r.deltaOk).length;
+  const best        = scored.find(r => r.score > 0);
+
+  // Log scan summary to run log
+  logMsg('── Scan Results ─────────────────────────────────────────────────────────', '');
+  logMsg('  SPY $' + spyNow.toFixed(2) + ' live | ' + combos.length + ' contracts scanned | ' + results.length + ' with quotes | ' + withinDelta + ' within Δ threshold', 'ok');
+  if (best) {
+    logMsg('  Best: $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2) + ' | ' + best.adjYield.toFixed(1) + '% adj.yield | ' + best.otmPct.toFixed(1) + '% OTM | Δ ' + best.delta.toFixed(3), 'ok');
+  } else {
+    logMsg('  No candidates within delta threshold — consider wider lookahead or waiting for higher VIX', 'err');
   }
-  statusEl.textContent = 'Scanned ' + combos.length + ' combos — ' + results.length + ' with quotes — ' + creditCount + ' within delta threshold';
+
+  // Final button state — Scan Complete with count
+  if (mainBtn && mainCard) {
+    mainBtn.textContent = '✓ Scan Complete';
+    mainBtn.disabled    = false;
+    mainBtn.style.opacity  = '1';
+    mainBtn.style.cursor   = 'pointer';
+    mainBtn.style.fontSize = '12px';
+    mainCard.style.background = '#2a9d5c';
+    const countEl = $('run-eval-count');
+    if (countEl) {
+      countEl.style.display = 'block';
+      countEl.textContent   = withinDelta + ' candidate' + (withinDelta !== 1 ? 's' : '');
+    }
+  }
+
+  statusEl.textContent = 'Scanned ' + combos.length + ' contracts across ' + expList.length + ' expiries — ' + results.length + ' with quotes — ' + withinDelta + ' within Δ threshold';
   statusEl.className = 'scan-status ok';
 }
 
