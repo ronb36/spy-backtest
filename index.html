@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.14</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.15</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Initial Position -->
@@ -435,7 +435,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.14 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.15 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -2006,7 +2006,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.14 · SPY Covered Call Backtest');
+  logMsg('v3.8.15 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2046,8 +2046,8 @@ async function runSimulation() {
   const scanBtn = $('tab-btn-scan');
   if (scanBtn) scanBtn.style.display = _debugMode ? 'none' : '';
   if (!_debugMode) {
-    showTab('scan');   // switch to scan tab first so user sees it loading
-    runRollScan();     // async — populates the tab
+    showTab('scan');
+    await runRollScan();
   } else {
     showTab('log');
   }
@@ -3294,6 +3294,15 @@ async function runRollScan() {
   if (!polygonKey) { statusEl.textContent = 'No Polygon key — scan cancelled.'; statusEl.className = 'scan-status err'; return; }
 
   if (rescanBtn) rescanBtn.disabled = true;
+  // Show scanning state on main run button if called from STD flow
+  const mainBtn = $('run-btn');
+  const mainCard = $('run-publish-card');
+  const fromStd = mainBtn && mainBtn.disabled === false;
+  if (fromStd && mainCard) {
+    mainBtn.textContent = '⟳ Scanning...';
+    mainBtn.disabled = true;
+    mainBtn.style.opacity = '1';
+  }
   statusEl.textContent = 'Fetching live SPY price...';
   statusEl.className = 'scan-status';
 
@@ -3386,6 +3395,14 @@ async function runRollScan() {
 
   renderRollScanTable(scored, spyNow, deltaThres);
   const creditCount = scored.filter(r => r.deltaOk).length;
+  // Restore main run button
+  if (mainBtn && mainCard) {
+    mainBtn.textContent = '\u25b6 Run';
+    mainBtn.disabled = false;
+    mainBtn.style.opacity = '1';
+    mainBtn.style.cursor = 'pointer';
+    mainCard.style.background = 'var(--accent)';
+  }
   statusEl.textContent = 'Scanned ' + combos.length + ' combos — ' + results.length + ' with quotes — ' + creditCount + ' within delta threshold';
   statusEl.className = 'scan-status ok';
 }
