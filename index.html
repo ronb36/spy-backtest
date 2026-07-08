@@ -122,6 +122,25 @@ select.display-box { cursor:pointer; outline:none; }
 /* Gap report */
 .gap-box { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:10px; white-space:pre; color:var(--muted); font-size:10px; line-height:1.8; margin-top:10px; }
 
+
+/* Roll Scanner (Scan tab) */
+.scan-status { font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:10px;min-height:14px; }
+.scan-status.ok  { color:var(--green); }
+.scan-status.err { color:var(--red); }
+.roll-best-summary { background:var(--surface2);border-left:3px solid var(--green);border-radius:3px;padding:8px 12px;font-family:var(--mono);font-size:11px;color:var(--text);margin-bottom:10px;line-height:1.6; }
+.roll-table { width:100%;border-collapse:collapse; }
+.roll-table th { font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap; }
+.roll-table td { font-family:var(--mono);font-size:11px;color:var(--text);padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap; }
+.roll-table tr:last-child td { border-bottom:none; }
+.roll-table tr.best-row td { background:#1a2d20; }
+.roll-table tr.debit-row td { opacity:0.5; }
+.roll-table td.green  { color:var(--green); }
+.roll-table td.yellow { color:var(--yellow); }
+.roll-table td.red    { color:var(--red); }
+.roll-table td.muted  { color:var(--muted); }
+.best-badge { display:inline-block;font-family:var(--mono);font-size:9px;font-weight:600;padding:1px 6px;border-radius:2px;background:#1a2d20;color:var(--green);margin-left:6px; }
+#debug-btn.active { border-color:var(--yellow);color:var(--yellow);background:rgba(234,179,8,.08); }
+
 .footer { font-size:11px; color:var(--muted); border-top:1px solid var(--border); padding-top:12px; margin-top:8px; line-height:1.6; }
 @media(max-width:700px) { .init-grid { grid-template-columns:repeat(3,1fr); } .summary-grid { grid-template-columns:repeat(2,1fr); } #controls-row { grid-template-columns:repeat(2,1fr); } }
 </style>
@@ -135,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.13</div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.14</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Debug</button></div>
   </div>
 
   <!-- Initial Position -->
@@ -270,6 +289,7 @@ select.display-box { cursor:pointer; outline:none; }
       <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Opt Results</button>
       <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
       <button class="tab-btn" id="tab-btn-runlog" onclick="showTab('runlog')">📄 Logs</button>
+      <button class="tab-btn" id="tab-btn-scan" onclick="showTab('scan')" style="display:none">🔍 Scan</button>
       <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
       <button class="tab-btn" id="tab-btn-ai" onclick="showTab('ai')" style="display:none">🤖 AI Analysis</button>
     </div>
@@ -340,6 +360,20 @@ select.display-box { cursor:pointer; outline:none; }
       <div id="gaps-instructions" style="display:none;margin-top:12px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.9;"></div>
     </div>
 
+
+    <!-- Scan tab -->
+    <div id="tab-scan" style="display:none">
+      <div class="chart-panel">
+        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="chart-title">🔍 Roll Scanner — Live Candidates</span>
+          <button id="rescan-btn" onclick="runRollScan()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⟳ Re-scan</button>
+        </div>
+        <div class="scan-status" id="scan-status"></div>
+        <div id="roll-best-summary-wrap"></div>
+        <div style="overflow-x:auto;"><div id="roll-table-container"></div></div>
+      </div>
+    </div>
+
     <!-- Logs tab -->
     <div id="tab-runlog" style="display:none">
       <div class="chart-panel">
@@ -401,7 +435,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.13 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.14 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -597,6 +631,11 @@ function setRunButtonState(state, opts = {}) {
       btn.disabled = true;
       card.style.background = '#2a9d5c';
       break;
+    case 'scan':
+      btn.textContent = '\u25b6 Run';
+      btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+      card.style.background = 'var(--accent)';
+      break;
   }
 }
 function onConfigChanged() {
@@ -658,7 +697,20 @@ function yield_() { return new Promise(r => setTimeout(r, 0)); }
 
 // ── Mode ───────────────────────────────────────────────────────────────────
 // ── Debug mode ─────────────────────────────────────────────────────────────
-const _debugMode = true;  // Always on — full logging always enabled, no toggle needed
+let _debugMode = false;  // Toggled via Debug button; false = normal flow with Scan tab
+
+function toggleDebug() {
+  _debugMode = !_debugMode;
+  const btn = $('debug-btn');
+  if (btn) {
+    btn.classList.toggle('active', _debugMode);
+    btn.textContent = _debugMode ? 'Debug ON' : 'Debug';
+  }
+  // Hide scan tab when debug is on
+  const scanTab = $('tab-btn-scan');
+  if (scanTab && _debugMode) { scanTab.style.display = 'none'; showTab('log'); }
+  logMsg(_debugMode ? '  Debug mode ON — Scan tab hidden' : '  Debug mode OFF — Scan tab enabled after STD run', '');
+}
 
 function setRollLimitState(locked) {
   const rollSel  = null; // Roll limit removed
@@ -1952,7 +2004,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.7.9 · SPY Covered Call Backtest');
+  logMsg('v3.8.14 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -1988,7 +2040,12 @@ async function runSimulation() {
   $('results-area').style.display = 'block';
   $('tab-btn-heatmap').style.display = 'none';
   const aiBtn = $('tab-btn-ai'); if (aiBtn) aiBtn.style.display = 'none';
+  // Show Scan tab only in non-debug STD mode
+  const scanBtn = $('tab-btn-scan');
+  if (scanBtn) scanBtn.style.display = _debugMode ? 'none' : '';
   showTab('log');
+  // Auto-run scan in non-debug mode
+  if (!_debugMode) { runRollScan(); showTab('scan'); }
 }
 
 function logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates) {
@@ -3171,6 +3228,220 @@ async function loadData() {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 loadData();
+
+// ── Roll Scanner ─────────────────────────────────────────────────────────
+// Lifted from spy-tracker. Uses DM expiries + live Polygon quotes.
+// Polygon key stored in localStorage as 'polygon_key'.
+
+function getScanPolygonKey() {
+  let key = localStorage.getItem('polygon_key') || '';
+  if (!key) {
+    key = window.prompt('Enter Polygon.io API key (stored locally):') || '';
+    if (key) localStorage.setItem('polygon_key', key);
+  }
+  return key;
+}
+
+function buildScanTicker(expiryISO, strike) {
+  const d  = new Date(expiryISO + 'T12:00:00Z');
+  const yy = String(d.getUTCFullYear()).slice(2);
+  const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+  const dd = String(d.getUTCDate()).padStart(2,'0');
+  return 'O:SPY' + yy + mm + dd + 'C' + String(Math.round(strike*1000)).padStart(8,'0');
+}
+
+async function fetchContractSnapshot(expiryISO, strike, polygonKey) {
+  const ticker = buildScanTicker(expiryISO, strike);
+  try {
+    const res  = await fetch('https://api.polygon.io/v3/snapshot/options/SPY/' + ticker + '?apiKey=' + polygonKey);
+    if (res.status === 404 || res.status === 403) return null;
+    const data = await res.json();
+    if (!data.results) return null;
+    const r   = data.results;
+    const bid = r.last_quote && r.last_quote.bid || 0;
+    const ask = r.last_quote && r.last_quote.ask || 0;
+    const mid = bid > 0 && ask > 0 ? (bid+ask)/2 : (r.day && r.day.close || 0);
+    if (mid <= 0) return null;
+    return { strike, expiryISO, mid,
+      delta: r.greeks && r.greeks.delta || null,
+      theta: r.greeks && r.greeks.theta || null,
+      iv:    r.implied_volatility || null,
+      oi:    r.open_interest || 0 };
+  } catch(e) { return null; }
+}
+
+async function fetchLiveSPY(polygonKey) {
+  try {
+    const res  = await fetch('https://api.polygon.io/v2/last/trade/SPY?apiKey=' + polygonKey);
+    const data = await res.json();
+    return data.results && data.results.p ? data.results.p : null;
+  } catch(e) { return null; }
+}
+
+async function runRollScan() {
+  const statusEl  = $('scan-status');
+  const summaryEl = $('roll-best-summary-wrap');
+  const tableEl   = $('roll-table-container');
+  const rescanBtn = $('rescan-btn');
+  if (!statusEl) return;
+
+  const polygonKey = getScanPolygonKey();
+  if (!polygonKey) { statusEl.textContent = 'No Polygon key — scan cancelled.'; statusEl.className = 'scan-status err'; return; }
+
+  if (rescanBtn) rescanBtn.disabled = true;
+  statusEl.textContent = 'Fetching live SPY price...';
+  statusEl.className = 'scan-status';
+
+  // Fetch live SPY price
+  let spyNow = await fetchLiveSPY(polygonKey);
+  if (!spyNow) {
+    // Fallback: use last DM SPY price
+    spyNow = DM.spy.length ? DM.spy[DM.spy.length-1].c : 750;
+    statusEl.textContent = 'Live SPY unavailable — using last DM close $' + spyNow.toFixed(2);
+  } else {
+    statusEl.textContent = 'SPY $' + spyNow.toFixed(2) + ' live — scanning candidates...';
+  }
+
+  const p          = getActiveParams();
+  const dteFloor   = p.dteFloor || 7;
+  const lookahead  = parseInt($('lookahead-select')?.value || '90');
+  const otmTarget  = p.otmFixed || 0.03;
+  const deltaThres = p.deltaThreshold || 0.475;
+
+  // Use DM expiries within lookahead window (includes weeklies)
+  const today   = new Date(); today.setHours(0,0,0,0);
+  const maxDate = new Date(today); maxDate.setDate(maxDate.getDate() + lookahead);
+  const dmExpiries = Object.keys(
+    Object.values(DM.options).reduce((acc, c) => { acc[c.expiry] = 1; return acc; }, {})
+  ).filter(exp => {
+    const d   = new Date(exp + 'T12:00:00Z');
+    const dte = Math.round((d - today) / 86400000);
+    return dte >= dteFloor && d <= maxDate;
+  }).sort();
+
+  if (!dmExpiries.length) {
+    statusEl.textContent = 'No DM expiries found within ' + lookahead + 'd window.';
+    statusEl.className = 'scan-status err';
+    if (rescanBtn) rescanBtn.disabled = false;
+    return;
+  }
+
+  // Strike range: ±$30 around ideal OTM target, $5 grid
+  const idealStrike = Math.round(spyNow * (1 + otmTarget) / 5) * 5;
+  const strikes = [];
+  for (let s = idealStrike - 30; s <= idealStrike + 30; s += 5) strikes.push(s);
+
+  const expLabels = dmExpiries.map(exp => {
+    const d   = new Date(exp + 'T12:00:00Z');
+    const dte = Math.round((d - today) / 86400000);
+    return exp + ' (' + dte + 'DTE)';
+  });
+  statusEl.textContent = 'Scanning ' + dmExpiries.length + ' expiries × ' + strikes.length + ' strikes | Target $' + idealStrike + ' (' + (otmTarget*100).toFixed(0) + '% OTM)...';
+
+  const combos = [];
+  for (const exp of dmExpiries)
+    for (const s of strikes) combos.push({ exp, strike: s });
+
+  const BATCH   = 4;
+  const results = [];
+  for (let b = 0; b < combos.length; b += BATCH) {
+    const batch   = combos.slice(b, b+BATCH);
+    const fetched = await Promise.all(batch.map(c => fetchContractSnapshot(c.exp, c.strike, polygonKey)));
+    for (let j = 0; j < fetched.length; j++) {
+      if (fetched[j]) results.push(Object.assign({}, fetched[j], {
+        exp:  batch[j].exp,
+        dte:  Math.round((new Date(batch[j].exp + 'T12:00:00Z') - today) / 86400000),
+      }));
+    }
+    statusEl.textContent = 'Scanning... ' + Math.min(b+BATCH, combos.length) + ' / ' + combos.length;
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  if (rescanBtn) rescanBtn.disabled = false;
+
+  if (!results.length) {
+    statusEl.textContent = 'No quotes returned — market may be closed or Polygon key invalid.';
+    statusEl.className = 'scan-status err';
+    return;
+  }
+
+  // Score by adj yield — mirrors findNextContract() exactly
+  const scored = results.map(r => {
+    const otmPct      = ((r.strike - spyNow) / spyNow) * 100;
+    const adjYield    = (r.mid / spyNow) * (365 / r.dte) * 100;
+    const delta       = r.delta !== null ? Math.abs(r.delta) : 0.30;
+    const deltaOk     = delta <= deltaThres;
+    const deltaSweet  = delta <= 0.25;
+    const thetaAbs    = r.theta ? Math.abs(r.theta) : null;
+    const thetaNeeded = r.dte > 0 ? (r.mid * 0.80) / (r.dte * 0.80) : null;
+    const thetaOk     = thetaAbs !== null && thetaNeeded !== null ? thetaAbs >= thetaNeeded * 0.7 : true;
+    const score       = deltaOk ? adjYield : 0;
+    return Object.assign({}, r, { otmPct, adjYield, delta, deltaOk, deltaSweet, thetaAbs, thetaNeeded, thetaOk, score });
+  }).sort((a,b) => b.score - a.score || b.adjYield - a.adjYield);
+
+  renderRollScanTable(scored, spyNow, deltaThres);
+  const creditCount = scored.filter(r => r.deltaOk).length;
+  statusEl.textContent = 'Scanned ' + combos.length + ' combos — ' + results.length + ' with quotes — ' + creditCount + ' within delta threshold';
+  statusEl.className = 'scan-status ok';
+}
+
+function renderRollScanTable(rows, spyNow, deltaThres) {
+  const summaryEl = $('roll-best-summary-wrap');
+  const tableEl   = $('roll-table-container');
+  if (!rows.length) {
+    if (summaryEl) summaryEl.innerHTML = '';
+    if (tableEl)   tableEl.innerHTML   = '<div style="font-size:12px;color:var(--muted);padding:8px 0;">No qualifying candidates.</div>';
+    return;
+  }
+
+  const best = rows.find(r => r.score > 0) || null;
+
+  if (summaryEl) {
+    if (!best) {
+      summaryEl.innerHTML = '<div class="roll-best-summary" style="border-left-color:var(--yellow);">No candidates within delta threshold. Consider waiting for higher VIX or scanning further out.</div>';
+    } else {
+      summaryEl.innerHTML = '<div class="roll-best-summary">'
+        + '<strong>Best:</strong> $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2)
+        + ' | ' + best.adjYield.toFixed(1) + '% adj.yield'
+        + ' | ' + best.otmPct.toFixed(1) + '% OTM'
+        + ' | Δ ' + best.delta.toFixed(3)
+        + (best.oi ? ' | OI ' + best.oi.toLocaleString() : '')
+        + '</div>';
+    }
+  }
+
+  const thead = '<thead><tr>'
+    + '<th>Strike</th><th>OTM%</th><th>Expiry</th><th>DTE</th>'
+    + '<th>Mid</th><th>Adj.Yield</th><th>Delta</th><th>Theta</th><th>IV</th><th>OI</th><th>Rating</th>'
+    + '</tr></thead>';
+
+  const tbody = rows.map((r, i) => {
+    const isTop      = i === 0 && r.score > 0;
+    const rowClass   = isTop ? 'best-row' : !r.deltaOk ? 'debit-row' : '';
+    const deltaClass = r.delta <= 0.25 ? 'green' : r.delta <= deltaThres ? 'yellow' : 'red';
+    const yldClass   = r.adjYield >= 5 ? 'green' : r.adjYield >= 2 ? 'yellow' : 'muted';
+    const otmClass   = Math.abs(r.otmPct - 3) <= 1.5 ? 'green' : 'muted';
+    const rating     = r.deltaOk && r.delta <= 0.25 ? '★★★' : r.deltaOk && r.delta <= 0.35 ? '★★' : r.deltaOk ? '★' : '—';
+    const badge      = isTop ? '<span class="best-badge">BEST</span>' : '';
+    const thetaCls   = r.thetaAbs && r.thetaNeeded ? (r.thetaAbs >= r.thetaNeeded ? 'green' : r.thetaAbs >= r.thetaNeeded*0.7 ? 'yellow' : 'red') : 'muted';
+    return '<tr class="' + rowClass + '">'
+      + '<td>$' + r.strike + badge + '</td>'
+      + '<td class="' + otmClass + '">' + r.otmPct.toFixed(1) + '%</td>'
+      + '<td>' + r.exp + '</td>'
+      + '<td>' + r.dte + '</td>'
+      + '<td>' + r.mid.toFixed(2) + '</td>'
+      + '<td class="' + yldClass + '">' + r.adjYield.toFixed(1) + '%</td>'
+      + '<td class="' + deltaClass + '">' + r.delta.toFixed(3) + '</td>'
+      + '<td class="' + thetaCls + '">' + (r.thetaAbs ? '$' + r.thetaAbs.toFixed(2) : '—') + '</td>'
+      + '<td class="muted">' + (r.iv !== null ? (r.iv*100).toFixed(1) + '%' : '—') + '</td>'
+      + '<td class="muted">' + (r.oi ? r.oi.toLocaleString() : '—') + '</td>'
+      + '<td>' + rating + '</td>'
+      + '</tr>';
+  }).join('');
+
+  if (tableEl) tableEl.innerHTML = '<table class="roll-table">' + thead + '<tbody>' + tbody + '</tbody></table>';
+}
+
 </script>
 </body>
 </html>
