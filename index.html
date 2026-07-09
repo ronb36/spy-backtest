@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.22</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.23</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Initial Position -->
@@ -434,7 +434,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.22 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.23 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -493,7 +493,7 @@ async function loadRollParams() {
     const updates = {
       'vval-decay':   STD.decayTrigger + '%',
       'vval-dte':     STD.dteFloor + 'd',
-      'vval-delta':   STD.deltaThreshold.toFixed(2),
+      'vval-delta':   STD.deltaThreshold.toFixed(3),
       'vval-vixgate': STD.vixGate > 0 ? 'VIX≥' + STD.vixGate : 'Off',
     };
     Object.entries(updates).forEach(([id, val]) => {
@@ -502,7 +502,7 @@ async function loadRollParams() {
     // Also update _sweepRanges std display
     _sweepRanges.decay.std   = STD.decayTrigger + '%';
     _sweepRanges.dte.std     = STD.dteFloor + 'd';
-    _sweepRanges.delta.std   = STD.deltaThreshold.toFixed(2);
+    _sweepRanges.delta.std   = STD.deltaThreshold.toFixed(3);
     _sweepRanges.vixgate.std = STD.vixGate > 0 ? 'VIX≥' + STD.vixGate : 'Off';
     // Sync OTM dropdown to published value
     const otmSel = $('otm-select');
@@ -2008,7 +2008,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.22 · SPY Covered Call Backtest');
+  logMsg('v3.8.23 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3460,10 +3460,7 @@ async function runRollScan() {
       edgeWarnings.push('⚠ Best strike $' + best.strike + ' is at high edge of DM coverage for ' + best.exp + ' — better candidates may exist further OTM');
     }
 
-    // Expiry edge — at max lookahead boundary
-    if (best.exp === expList[expList.length - 1]) {
-      edgeWarnings.push('⚠ Best expiry ' + best.exp + ' is at max lookahead (' + lookahead + 'd) — consider widening to find further-dated candidates');
-    }
+    // Expiry edge — handled by coverageWarnings block below
 
     // Interior gaps — neighbor strike/expiry in DM scan window but no live quote
     const expIdx = expList.indexOf(best.exp);
