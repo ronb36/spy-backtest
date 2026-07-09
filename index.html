@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.43</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.44</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -339,7 +339,7 @@ select.display-box { cursor:pointer; outline:none; }
     <!-- Heatmap tab -->
     <div id="tab-heatmap" style="display:none">
       <div class="chart-panel">
-        <div class="chart-header"><span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span></div>
+        <div class="chart-header"><span class="chart-title" id="heatmap-title">Regime Optimization — Exp. Yield % by Decay × DTE Min</span></div>
         <div id="heatmap-container"></div>
       </div>
     </div>
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.43 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.44 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -532,6 +532,7 @@ async function loadRollParams() {
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
+let _avgCycleDays = null; // avg cycle duration from last STD run — ERY basis for scan
 let _martView = 'spy';   // active data mart tab
 let _gaps = [];          // gap contracts found during simulation
 let _pendingPublish = null;
@@ -553,7 +554,7 @@ function copyDebugLog() {
   const blotterRows = document.querySelectorAll('#roll-log-body tr');
   if (blotterRows.length) {
     text += '\n── ROLL LOG ─────────────────────────────────────────────────────\n';
-    text += ['Date','Cover (Close)','New Leg (Open)','Roll Credit','Ann Yield','Trigger'].join('\t') + '\n';
+    text += ['Date','Cover (Close)','New Leg (Open)','Roll Credit','Exp Yield','Trigger'].join('\t') + '\n';
     blotterRows.forEach(row => {
       const cells = row.querySelectorAll('td');
       text += Array.from(cells).map(td => td.innerText.trim().replace(/\n/g,' ')).join('\t') + '\n';
@@ -1995,6 +1996,10 @@ async function simulate(p) {
   const totalPnl = rolls.reduce((s,c)=>s+c.pnl,0);
   const avgYld   = rolls.length ? rolls.reduce((s,c)=>s+c.annYld,0)/rolls.length : 0;
   const winRate  = rolls.length ? rolls.filter(c=>c.pnl>0).length/rolls.length*100 : 0;
+  // Avg cycle duration — used for Expected Realized Yield (ERY)
+  const avgCycleDays = rolls.length
+    ? rolls.reduce((s,c) => s + (c.daysHeld || 0), 0) / rolls.length
+    : 38; // fallback if no rolls
   // covRet computed below after rollCreditTotal and dayCount are available
   const maxDD    = calcMaxDD(equity.map(e=>e.cc));
 
@@ -2036,7 +2041,7 @@ async function simulate(p) {
   const spyRet     = (Math.pow(1 + rawSpyRet/100, 365/dayCount) - 1) * 100;
   const covRet     = (Math.pow(1 + ccTotalRet/100, 365/dayCount) - 1) * 100;
 
-  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld };
+  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, avgCycleDays };
 }
 
 // ── Run simulation ─────────────────────────────────────────────────────────
@@ -2065,7 +2070,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.43 · SPY Covered Call Backtest');
+  logMsg('v3.8.44 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2079,6 +2084,8 @@ async function runSimulation() {
   buildRollSnapshots(result);
 
   logMsg(`✓ ${result.rolls.length} roll cycles`,'ok');
+  _avgCycleDays = result.avgCycleDays; // store for scan ERY scoring
+  logMsg(`  Avg cycle: ${Math.round(_avgCycleDays)}d — ERY basis set`, 'ok');
   if (_debugMode) {
     logVIXRegimeSplit(result);
   }
@@ -2247,7 +2254,7 @@ async function publishRollParams(p) {
       method: 'PUT',
       headers: Object.assign({ 'Content-Type': 'application/json' }, gh),
       body: JSON.stringify({
-        message: 'Update roll_params.json — ' + payload.optAnnYield + '% ann. yield (' + today + ')',
+        message: 'Update roll_params.json — ' + payload.optAnnYield + '% exp. yield (' + today + ')',
         content: btoa(JSON.stringify(payload, null, 2) + '\n'),
         sha: sha
       })
@@ -2270,7 +2277,7 @@ async function publishRollParams(p) {
     });
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
-    logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% ann. yield · ' + today, 'ok');
+    logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% exp. yield · ' + today, 'ok');
     setRunButtonState('published');
     updateParamDisplay();
   } catch(e) {
@@ -2332,7 +2339,11 @@ async function runOptimization() {
               const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed, vixGate:vixgate, shares, maxRolls:null, maxLookahead });
               let yld = null;
               if (r?.rolls?.length >= 2) {
-                yld = r.stratYld;
+                // ERY: avg net credit per share / spyNow, annualized over avg cycle days
+                const spyNowEst = DM?.spy?.[DM.spy.length-1]?.c || 1;
+                const avgCD = r.avgCycleDays || 38;
+                const avgNetCreditPerSh = r.rolls.reduce((s,c) => s + (c.entryPx - c.exitPx), 0) / r.rolls.length;
+                yld = spyNowEst > 0 ? (avgNetCreditPerSh / spyNowEst) * (365 / avgCD) * 100 : null;
               }
               if (yld !== null && (allResults.grid[decay][floor] === null || yld > allResults.grid[decay][floor])) {
                 allResults.grid[decay][floor] = yld;
@@ -2444,6 +2455,7 @@ function renderSummary(r) {
     <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmt(r.covRet,1)}%</div><div class="stat-sub">Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
     <div class="stat-card"><div class="stat-label">Total Cycles</div><div class="stat-value accent">${r.cycles.length}</div><div class="stat-sub">${r.rolls.length} rolls + 1 initial</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Cycle</div><div class="stat-value accent">${Math.round(r.avgCycleDays)}d</div><div class="stat-sub">Exp. realized yield basis</div></div>
   `;
 }
 
@@ -2515,7 +2527,7 @@ function renderCycleTable(r) {
   $('cycle-table').innerHTML = `<table class="tbl">
     <thead><tr>
       <th>Date</th><th>Cover (Close)</th><th>New Leg (Open)</th>
-      <th>Roll Credit</th><th>Ann Yield</th><th>Trigger</th>
+      <th>Roll Credit</th><th>Exp Yield</th><th>Trigger</th>
     </tr></thead>
     <tbody>${initRow}${rows}${openRow}</tbody>
   </table>`;
@@ -3053,7 +3065,7 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
   if (_sweepVars.vixgate)   sweptDims.push('VIX Gate');
   if (_sweepVars.lookahead) sweptDims.push('DTE Max');
   const titleEl = $('heatmap-title');
-  if (titleEl) titleEl.textContent = 'Regime Optimization — Ann. Yield % by ' + (sweptDims.join(' × ') || 'Params');
+  if (titleEl) titleEl.textContent = 'Regime Optimization — Exp. Yield % by ' + (sweptDims.join(' × ') || 'Params');
 
   let html = `
     ${edgeWarning}
@@ -3069,7 +3081,7 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
       <thead><tr>
         <th>Params</th>
         <th>Rolls</th>
-        <th>Ann. Yield</th>
+        <th>Exp. Yield</th>
         <th>vs STD</th>
         <th>DM Edge %</th>
       </tr></thead><tbody>`;
@@ -3544,7 +3556,10 @@ async function runRollScan() {
   // Filter: net credit > 0 AND delta ≤ threshold — same gates as OPT
   const scored = results.map(r => {
     const netCredit    = currentCallMid > 0 ? r.mid - currentCallMid : r.mid;
-    const rollAdjYield = spyNow > 0 ? (netCredit / spyNow) * (365 / r.dte) * 100 : 0;
+    // ERY: annualize net credit over avg cycle days (from last STD run), not full DTE
+    const avgCD        = _avgCycleDays || 38;
+    const rollExpYield = spyNow > 0 ? (netCredit / spyNow) * (365 / avgCD) * 100 : 0;
+    const rollAdjYield = rollExpYield; // kept for sort/filter compat
     const otmPct       = ((r.strike - spyNow) / spyNow) * 100;
     const delta        = r.delta !== null ? Math.abs(r.delta) : 0.30;
     const deltaOk      = delta <= deltaThres;
@@ -3625,7 +3640,7 @@ async function runRollScan() {
       const adjYield = (netCredit / spyBasis * 600) * (365 / r.dte) * 100;
       const isBest = scored.length > 0 && r.exp === scored[0].exp && r.strike === scored[0].strike;
       logMsg('    $' + r.strike + 'C — PASS: net +$' + netCredit.toFixed(2) +
-        ' | ' + adjYield.toFixed(1) + '% adj.yield | Δ ' + delta.toFixed(3) +
+        ' | ' + adjYield.toFixed(1) + '% exp.yield | Δ ' + delta.toFixed(3) +
         ' | ' + otmPct + '% OTM' + strikeEdge + (isBest ? ' ★ best' : ''), 'ok');
     } else {
       // SKIP — determine reason (data filtering only, not delta threshold)
@@ -3741,7 +3756,7 @@ async function runRollScan() {
   if (best) {
     logMsg('  ★ Best: $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2) +
       ' | Net +$' + best.netCredit.toFixed(2) +
-      ' | ' + best.rollAdjYield.toFixed(1) + '% adj.yield | Δ ' + best.delta.toFixed(3), 'ok');
+      ' | ' + best.rollAdjYield.toFixed(1) + '% exp.yield | Δ ' + best.delta.toFixed(3), 'ok');
   }
 
   if (mainBtn && mainCard) {
@@ -3782,7 +3797,7 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     + (hasCoverPrice ? 'Cover $' + currentCallMid.toFixed(2) + ' | ' : '')
     + 'Sell $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2)
     + ' | +$' + best.netCredit.toFixed(2) + '/sh net credit'
-    + ' | ' + best.rollAdjYield.toFixed(1) + '% adj.yield'
+    + ' | ' + best.rollAdjYield.toFixed(1) + '% exp.yield'
     + ' | ' + best.otmPct.toFixed(1) + '% OTM | \u0394 ' + best.delta.toFixed(3)
     + (best.oi ? ' | OI ' + best.oi.toLocaleString() : '')
     + '</div>';
@@ -3812,7 +3827,7 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     + '<th>Cover</th>'
     + '<th>Sell</th>'
     + '<th>Net Credit</th>'
-    + '<th>Ann. Yield</th>'
+    + '<th>Exp. Yield</th>'
     + '<th>Trigger</th>'
     + '<th>Edge</th>'
     + '<th></th>'
