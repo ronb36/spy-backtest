@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.29</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.31</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Initial Position -->
@@ -338,7 +338,7 @@ select.display-box { cursor:pointer; outline:none; }
     <!-- Heatmap tab -->
     <div id="tab-heatmap" style="display:none">
       <div class="chart-panel">
-        <div class="chart-header"><span class="chart-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span></div>
+        <div class="chart-header"><span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span></div>
         <div id="heatmap-container"></div>
       </div>
     </div>
@@ -427,7 +427,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.29 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.31 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -993,7 +993,7 @@ function updateEvalCount(done, total) {
     return;
   }
   const g = getSweepGrid();
-  const evals = g.decay.length * g.dte.length * g.delta.length * g.vixgate.length;
+  const evals = g.decay.length * g.dte.length * g.delta.length * g.vixgate.length * g.lookahead.length;
   counter.textContent = evals.toLocaleString() + ' evals';
   counter.style.display = 'block';
 }
@@ -2011,7 +2011,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.29 · SPY Covered Call Backtest');
+  logMsg('v3.8.31 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2314,7 +2314,7 @@ async function runOptimization() {
     
     
     
-    renderOptResults(allResults, decays, floors, deltas, vixgates);
+    renderOptResults(allResults, decays, floors, deltas, vixgates, lookaheads);
     updateParamDisplay();
 
     // Update var cards with winning values
@@ -2883,7 +2883,7 @@ function renderRollCandidates() {
   </div>`;
 }
 
-function renderOptResults(results, decays, floors, deltas, vixgates) {
+function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads) {
   const TOP_N = 8;
 
   // results.rows has every combo; sort by yield descending
@@ -2898,8 +2898,9 @@ function renderOptResults(results, decays, floors, deltas, vixgates) {
   const b = results.best;
   const bestStr = b
     ? `\u2605 Best: decay=${b.decay}% / dte=${b.floor}d`
-      + (b.delta   && _sweepVars.delta   ? ` / \u0394${b.delta}` : '')
-      + (b.vixgate && _sweepVars.vixgate ? ` / VIX\u2265${b.vixgate}` : '')
+      + (b.delta     && _sweepVars.delta     ? ` / \u0394${b.delta}` : '')
+      + (b.vixgate   && _sweepVars.vixgate   ? ` / VIX\u2265${b.vixgate}` : '')
+      + (b.lookahead && _sweepVars.lookahead ? ` / dteMax=${b.lookahead}d` : '')
       + ` \u2192 ${results.bestYld.toFixed(1)}% ann.yld`
     : '\u26a0 No qualifying results';
 
@@ -2914,10 +2915,11 @@ function renderOptResults(results, decays, floors, deltas, vixgates) {
       if (val === min) edgeDims.push(`${label}=${fmt(val)} (at floor ${fmt(min)})`);
       else if (val === max) edgeDims.push(`${label}=${fmt(val)} (at ceiling ${fmt(max)})`);
     };
-    checkEdge(b.decay,   decays,   'decay', v => v + '%');
-    checkEdge(b.floor,   floors,   'dte',   v => v + 'd');
-    checkEdge(b.delta,   deltas,   '\u0394', v => v);
-    checkEdge(b.vixgate, vixgates, 'VIX gate', v => 'VIX\u2265' + v);
+    checkEdge(b.decay,    decays,    'decay',    v => v + '%');
+    checkEdge(b.floor,    floors,    'dte',      v => v + 'd');
+    checkEdge(b.delta,    deltas,    '\u0394',   v => v);
+    checkEdge(b.vixgate,  vixgates,  'VIX gate', v => 'VIX\u2265' + v);
+    if (lookaheads) checkEdge(b.lookahead, lookaheads, 'dteMax', v => v + 'd');
     if (edgeDims.length) {
       edgeWarning = `
     <div style="font-family:var(--mono);font-size:10px;color:var(--yellow);margin-bottom:8px;padding:8px;background:rgba(234,179,8,0.08);border:1px solid var(--yellow);border-radius:4px;">
@@ -2958,6 +2960,16 @@ function renderOptResults(results, decays, floors, deltas, vixgates) {
     }
   }
 
+  // Update heatmap title to reflect swept dimensions
+  const sweptDims = [];
+  if (_sweepVars.decay)     sweptDims.push('Decay');
+  if (_sweepVars.dte)       sweptDims.push('DTE Min');
+  if (_sweepVars.delta)     sweptDims.push('Delta');
+  if (_sweepVars.vixgate)   sweptDims.push('VIX Gate');
+  if (_sweepVars.lookahead) sweptDims.push('DTE Max');
+  const titleEl = $('heatmap-title');
+  if (titleEl) titleEl.textContent = 'Regime Optimization — Ann. Yield % by ' + (sweptDims.join(' × ') || 'Params');
+
   let html = `
     ${edgeWarning}
     ${dataBoundaryWarning}
@@ -2978,14 +2990,15 @@ function renderOptResults(results, decays, floors, deltas, vixgates) {
       </tr></thead><tbody>`;
 
     for (const row of top) {
-      const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.vixgate === b.vixgate;
+      const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.vixgate === b.vixgate && row.lookahead === b.lookahead;
       const vsDelta  = stdYld !== null ? row.yld - stdYld : null;
       const vsStr    = vsDelta !== null ? (vsDelta >= 0 ? '+' : '') + vsDelta.toFixed(1) + '%' : '\u2014';
       const vsClass  = vsDelta === null ? 'muted' : vsDelta >= 0 ? 'green' : 'red';
       const yldClass = row.yld >= 3 ? 'green' : row.yld >= 0 ? 'yellow' : 'red';
       const paramStr = `decay=${row.decay}% / dte=${row.floor}d`
-        + (row.delta   && _sweepVars.delta   ? ` / \u0394${row.delta}` : '')
-        + (row.vixgate && _sweepVars.vixgate ? ` / VIX\u2265${row.vixgate}` : '');
+        + (row.delta     && _sweepVars.delta     ? ` / \u0394${row.delta}` : '')
+        + (row.vixgate   && _sweepVars.vixgate   ? ` / VIX\u2265${row.vixgate}` : '')
+        + (row.lookahead && _sweepVars.lookahead ? ` / dteMax=${row.lookahead}d` : '');
       const winFlag  = isBest ? ' <span style="color:var(--green);font-size:9px;">\u2605</span>' : '';
       const edgeStr  = row.edgeRatio !== null && row.edgeRatio !== undefined
         ? (row.edgeRatio*100).toFixed(0) + '%'
