@@ -4,15 +4,15 @@
   "deltaThreshold": 0.475,
   "otmTarget": 0.03,
   "vixGate": 16,
-  "maxLookahead": 102,
+  "maxLookahead": 180,
   "lastOptimized": "2026-07-09",
-  "optAnnYield": 8.99,
+  "optAnnYield": 8.4,
   "shares": 600,
   "shortStrike": 760,
   "shortExpiry": "2026-10-16",
   "entryDate": "2026-07-09",
+  "netPremium": 3.64,
   "coverPrice": 17.55,
   "sellPrice": 21.19,
-  "netPremium": 3.64,
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep."
 }
