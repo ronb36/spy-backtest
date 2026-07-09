@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.39</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.40</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.39 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.40 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -494,6 +494,8 @@ async function loadRollParams() {
       shortExpiry:    data.shortExpiry || null,
       entryDate:      data.entryDate || null,
       netPremium:     data.netPremium != null ? data.netPremium : null,
+      coverPrice:     data.coverPrice != null ? data.coverPrice : null,
+      sellPrice:      data.sellPrice  != null ? data.sellPrice  : null,
     };
     // Update var-card display values
     const updates = {
@@ -1641,7 +1643,16 @@ function updateInitPosition() {
   if (el_strike)  el_strike.textContent  = STD.shortStrike  ? '$' + STD.shortStrike  : '—';
   if (el_expiry)  el_expiry.textContent  = STD.shortExpiry  || '—';
   if (el_entry)   el_entry.textContent   = STD.entryDate    || '—';
-  if (el_premium) el_premium.textContent = STD.netPremium != null ? '$' + Number(STD.netPremium).toFixed(2) + '/sh' : '—';
+  if (el_premium) {
+    if (STD.coverPrice != null && STD.sellPrice != null) {
+      const net = (STD.sellPrice - STD.coverPrice).toFixed(2);
+      el_premium.textContent = 'Cover $' + Number(STD.coverPrice).toFixed(2) + ' \u2192 Sell $' + Number(STD.sellPrice).toFixed(2) + ' | Net $' + net + '/sh';
+    } else if (STD.netPremium != null) {
+      el_premium.textContent = '$' + Number(STD.netPremium).toFixed(2) + '/sh';
+    } else {
+      el_premium.textContent = '\u2014';
+    }
+  }
 
   $('init-panel').style.display = 'block';
 
@@ -2054,7 +2065,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.39 · SPY Covered Call Backtest');
+  logMsg('v3.8.40 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2228,6 +2239,8 @@ async function publishRollParams(p) {
       shortExpiry: _existingJson.shortExpiry ?? STD.shortExpiry ?? null,
       entryDate:   _existingJson.entryDate   ?? STD.entryDate   ?? null,
       netPremium:  _existingJson.netPremium  ?? STD.netPremium  ?? null,
+      coverPrice:  _existingJson.coverPrice  ?? STD.coverPrice  ?? null,
+      sellPrice:   _existingJson.sellPrice   ?? STD.sellPrice   ?? null,
       note: 'Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.'
     };
     const put = await fetch(url, {
@@ -3689,9 +3702,12 @@ async function runRollScan() {
     let primaryType = 'decay', currentVal = null, decayVal = null;
     const rp = STD;
 
-    // Decay trigger: (entryPremium - currentMid) / entryPremium
-    if (STD.netPremium && currentCallMid > 0) {
-      const decay = (STD.netPremium - currentCallMid) / STD.netPremium * 100;
+    // Decay trigger: (sellPrice - currentMid) / sellPrice
+    // sellPrice = price received when selling the call (decay basis)
+    // netPremium = sell - cover (yield basis only, not decay basis)
+    const decayBasis = STD.sellPrice || STD.netPremium;
+    if (decayBasis && currentCallMid > 0) {
+      const decay = (decayBasis - currentCallMid) / decayBasis * 100;
       decayVal = decay;
       if (decay >= (rp.decayTrigger || 15)) {
         allTypes.push('decay');
@@ -3715,9 +3731,6 @@ async function runRollScan() {
         if (!allTypes.includes('decay')) primaryType = 'dte';
       }
     }
-
-    // If nothing fired, still show decay as context
-    if (allTypes.length === 0) allTypes.push('decay');
 
     return { type: primaryType, currentVal, allTypes, decayVal, rawTrigger: '' };
   })();
