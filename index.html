@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.41</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.43</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.41 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.43 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -2065,7 +2065,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.41 · SPY Covered Call Backtest');
+  logMsg('v3.8.43 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3800,11 +3800,13 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
 
   // Blotter-style table — Trade Blotter aesthetic
   // Cover leg details from current position
-  const coverStrike = currentCallMid > 0 ? (STD.shortStrike || '—') : null;
+  const coverStrike = STD.shortStrike || null;
   const coverExpiry = STD.shortExpiry || '';
-  const coverDisp   = coverStrike
+  const coverDisp   = coverStrike && currentCallMid > 0
     ? '$' + coverStrike + 'C ' + coverExpiry + ' @ $' + currentCallMid.toFixed(2)
-    : '—';
+    : coverStrike
+      ? '$' + coverStrike + 'C ' + coverExpiry
+      : '—';
 
   const thead = '<thead><tr>'
     + '<th>Cover</th>'
@@ -3858,13 +3860,195 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
       + '<td class="' + yldClass + '">' + yldDisp + '</td>'
       + '<td class="muted" style="font-size:10px;">' + triggerDisp + '</td>'
       + '<td style="font-size:10px;">' + edgeDisp + '</td>'
-      + '<td><button onclick="alert(\'Trade functionality coming soon\')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;letter-spacing:.05em;">Trade</button></td>'
+      + '<td><button onclick="openTradeModal(' + r.strike + ',\'' + r.exp + '\',' + r.dte + ',' + r.delta.toFixed(4) + ',' + (r.otmPct/100).toFixed(4) + ')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;letter-spacing:.05em;">Trade</button></td>'
       + '</tr>';
   }).join('');
 
   if (tableEl) tableEl.innerHTML = '<table class="roll-table">' + thead + '<tbody>' + tbody + '</tbody></table>';
 }
 
+// ── Trade Modal ────────────────────────────────────────────────────────────
+let _tradeCandidate = null;
+
+function openTradeModal(strike, exp, dte, delta, otm) {
+  _tradeCandidate = { strike, exp, dte, delta, otm };
+  const overlay = document.getElementById('trade-modal-overlay');
+
+  const coverStrike = STD.shortStrike || '?';
+  const coverExpiry = STD.shortExpiry || '?';
+  document.getElementById('trade-cover-desc').textContent =
+    '$' + coverStrike + 'C  ' + coverExpiry;
+  document.getElementById('trade-sell-desc').textContent =
+    '$' + strike + 'C  ' + exp + '  ·  ' + dte + ' DTE  ·  \u0394 ' + delta.toFixed(3) + '  ·  ' + (otm*100).toFixed(1) + '% OTM';
+
+  document.getElementById('trade-cover-price').value = '';
+  document.getElementById('trade-sell-price').value  = '';
+  document.getElementById('trade-net-display').textContent = '\u2014';
+  document.getElementById('trade-net-display').style.color = 'var(--muted)';
+  document.getElementById('trade-modal-status').textContent = '';
+  document.getElementById('trade-confirm-btn').disabled = false;
+  document.getElementById('trade-confirm-btn').textContent = 'Confirm \u0026 Publish';
+
+  overlay.style.display = 'flex';
+  setTimeout(() => document.getElementById('trade-cover-price').focus(), 50);
+}
+
+function closeTradeModal() {
+  document.getElementById('trade-modal-overlay').style.display = 'none';
+  _tradeCandidate = null;
+}
+
+function updateTradeNet() {
+  const cover = parseFloat(document.getElementById('trade-cover-price').value);
+  const sell  = parseFloat(document.getElementById('trade-sell-price').value);
+  const el    = document.getElementById('trade-net-display');
+  if (!isNaN(cover) && !isNaN(sell)) {
+    const net = sell - cover;
+    el.textContent = (net >= 0 ? '+$' : '-$') + Math.abs(net).toFixed(2) + '/sh';
+    el.style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
+  } else {
+    el.textContent = '\u2014';
+    el.style.color = 'var(--muted)';
+  }
+}
+
+async function confirmTrade() {
+  const cover = parseFloat(document.getElementById('trade-cover-price').value);
+  const sell  = parseFloat(document.getElementById('trade-sell-price').value);
+  const statusEl = document.getElementById('trade-modal-status');
+
+  if (isNaN(cover) || cover <= 0) { statusEl.textContent = 'Enter cover price.'; statusEl.style.color='var(--red)'; return; }
+  if (isNaN(sell)  || sell  <= 0) { statusEl.textContent = 'Enter sell price.';  statusEl.style.color='var(--red)'; return; }
+  if (!_tradeCandidate)           { statusEl.textContent = 'No candidate selected.'; return; }
+
+  const btn = document.getElementById('trade-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Publishing...';
+  statusEl.textContent = '';
+
+  try {
+    let pat = localStorage.getItem('gh_pat');
+    if (!pat) {
+      pat = window.prompt('Enter your GitHub PAT (Contents read+write on spy-backtest):');
+      if (!pat) { btn.disabled=false; btn.textContent='Confirm \u0026 Publish'; return; }
+      localStorage.setItem('gh_pat', pat.trim());
+    }
+    pat = pat.trim();
+
+    const url = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + PARAMS_FILE;
+    const gh  = { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json' };
+    const sha = (await (await fetch(url, { headers: gh })).json()).sha;
+    if (!sha) throw new Error('Could not get file SHA');
+
+    const today = new Date().toISOString().slice(0, 10);
+    let existing = {};
+    try {
+      const r = await fetch('https://ronb36.github.io/spy-backtest/roll_params.json?_=' + Date.now(), { cache: 'no-store' });
+      if (r.ok) existing = await r.json();
+    } catch(e) {}
+
+    const netPremium = parseFloat((sell - cover).toFixed(2));
+    const payload = {
+      decayTrigger:   existing.decayTrigger   ?? (STD.decayTrigger / 100),
+      dteFloor:       existing.dteFloor       ?? STD.dteFloor,
+      deltaThreshold: existing.deltaThreshold ?? STD.deltaThreshold,
+      otmTarget:      existing.otmTarget      ?? STD.otmFixed,
+      vixGate:        existing.vixGate        ?? STD.vixGate ?? 0,
+      maxLookahead:   existing.maxLookahead   ?? STD.maxLookahead,
+      lastOptimized:  existing.lastOptimized  ?? today,
+      optAnnYield:    existing.optAnnYield    ?? null,
+      shares:         existing.shares         ?? STD.shares ?? 600,
+      shortStrike:    _tradeCandidate.strike,
+      shortExpiry:    _tradeCandidate.exp,
+      entryDate:      today,
+      coverPrice:     parseFloat(cover.toFixed(2)),
+      sellPrice:      parseFloat(sell.toFixed(2)),
+      netPremium:     netPremium,
+      note:           existing.note ?? 'Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.'
+    };
+
+    const put = await fetch(url, {
+      method: 'PUT',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, gh),
+      body: JSON.stringify({
+        message: 'Roll executed \u2014 $' + _tradeCandidate.strike + 'C ' + _tradeCandidate.exp + ' \u00b7 ' + today,
+        content: btoa(JSON.stringify(payload, null, 2) + '\n'),
+        sha: sha
+      })
+    });
+    if (!put.ok) {
+      if (put.status === 401 || put.status === 403) { localStorage.removeItem('gh_pat'); throw new Error('Auth failed \u2014 PAT cleared'); }
+      throw new Error('GitHub API ' + put.status);
+    }
+
+    // Update STD in memory immediately
+    STD.shortStrike = _tradeCandidate.strike;
+    STD.shortExpiry = _tradeCandidate.exp;
+    STD.entryDate   = today;
+    STD.coverPrice  = payload.coverPrice;
+    STD.sellPrice   = payload.sellPrice;
+    STD.netPremium  = netPremium;
+    updateInitPosition();
+
+    statusEl.textContent = '\u2713 Published \u2014 position updated';
+    statusEl.style.color = 'var(--green)';
+    btn.textContent = '\u2713 Done';
+
+    setTimeout(() => { closeTradeModal(); runScan(); }, 1200);
+
+  } catch(e) {
+    statusEl.textContent = '\u2717 ' + e.message;
+    statusEl.style.color = 'var(--red)';
+    btn.disabled = false;
+    btn.textContent = 'Confirm \u0026 Publish';
+  }
+}
+
 </script>
+<!-- ── Trade Modal ─────────────────────────────────────────────────────── -->
+<div id="trade-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;width:min(420px,92vw);font-family:var(--mono);color:var(--text);">
+    <div style="font-size:13px;font-weight:600;letter-spacing:.08em;color:var(--text);margin-bottom:16px;">EXECUTE ROLL</div>
+
+    <!-- Cover leg -->
+    <div style="margin-bottom:12px;">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">COVER (BUY BACK)</div>
+      <div id="trade-cover-desc" style="font-size:11px;color:var(--red);margin-bottom:6px;">—</div>
+      <input id="trade-cover-price" type="number" step="0.01" min="0" placeholder="Price paid"
+        oninput="updateTradeNet()"
+        style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;">
+    </div>
+
+    <!-- Sell leg -->
+    <div style="margin-bottom:12px;">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">SELL (NEW CALL)</div>
+      <div id="trade-sell-desc" style="font-size:11px;color:var(--green);margin-bottom:6px;">—</div>
+      <input id="trade-sell-price" type="number" step="0.01" min="0" placeholder="Price received"
+        oninput="updateTradeNet()"
+        style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;">
+    </div>
+
+    <!-- Net credit display -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:10px;color:var(--muted);letter-spacing:.06em;">NET CREDIT / DEBIT</span>
+      <span id="trade-net-display" style="font-size:14px;font-weight:600;color:var(--muted);">—</span>
+    </div>
+
+    <!-- Buttons -->
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="closeTradeModal()"
+        style="font-family:var(--mono);font-size:10px;padding:7px 16px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:.06em;">
+        Cancel
+      </button>
+      <button id="trade-confirm-btn" onclick="confirmTrade()"
+        style="font-family:var(--mono);font-size:10px;padding:7px 16px;border-radius:4px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;letter-spacing:.06em;">
+        Confirm &amp; Publish
+      </button>
+    </div>
+
+    <div id="trade-modal-status" style="margin-top:12px;font-size:10px;color:var(--muted);min-height:16px;"></div>
+  </div>
+</div>
+
 </body>
 </html>
