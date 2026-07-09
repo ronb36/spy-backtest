@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.25</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.29</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Initial Position -->
@@ -224,34 +224,34 @@ select.display-box { cursor:pointer; outline:none; }
     </div>
 
 
-    <!-- Row 2: DTE + Lookahead + Run (3 col, OTM fixed at 3% in Initial Position bar) -->
+    <!-- Row 2: DTE + DTE Max + Run (3 col, OTM fixed at 3% in Initial Position bar) -->
     <div id="controls-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;grid-auto-rows:80px;">
-      <div class="stat-card" style="height:80px;box-sizing:border-box;border:1px solid var(--border);">
-        <div class="stat-label">DTE Floor</div>
-        <div style="margin-top:6px;">
-          <select id="dte-select" onchange="updateParamDisplay(); onConfigChanged();" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 8px;height:30px;outline:none;cursor:pointer;width:100%;">
-            <option value="1">1d</option>
-            <option value="7" selected>7d</option>
-            <option value="14">14d</option>
-            <option value="21">21d</option>
-            <option value="30">30d</option>
-            <option value="45">45d</option>
-          </select>
+      <div class="stat-card var-card" id="vcard-dte" style="position:relative;height:80px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
+        <div onclick="toggleVar('dte')" style="cursor:inherit;">
+          <div class="stat-label">DTE Min</div>
+          <div class="stat-value accent" id="vval-dte" style="font-size:14px;">7d</div>
+          <div class="stat-sub" id="vsub-dte">Click to optimize</div>
         </div>
-        <div class="stat-sub" style="margin-top:4px;">Min DTE for candidates</div>
+        <div id="vrange-dte" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
+          <input type="number" id="vmin-dte" value="1" min="1" max="60" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">–</span>
+          <input type="number" id="vmax-dte" value="30" min="1" max="60" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">step</span>
+          <input type="number" id="vstep-dte" value="7" min="1" max="30" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+        </div>
       </div>
       <div class="stat-card var-card" id="vcard-lookahead" style="position:relative;height:80px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('lookahead')" style="cursor:inherit;">
-          <div class="stat-label">Lookahead</div>
-          <div class="stat-value accent" id="vval-lookahead" style="font-size:14px;">90d</div>
+          <div class="stat-label">DTE Max</div>
+          <div class="stat-value accent" id="vval-lookahead" style="font-size:14px;">180d</div>
           <div class="stat-sub" id="vsub-lookahead">Click to optimize</div>
         </div>
         <div id="vrange-lookahead" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
-          <input type="number" id="vmin-lookahead" value="30" min="7" max="365" step="15" onchange="updateSweepRange('lookahead')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vmin-lookahead" value="90" min="7" max="365" step="30" onchange="updateSweepRange('lookahead')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
-          <input type="number" id="vmax-lookahead" value="150" min="7" max="365" step="15" onchange="updateSweepRange('lookahead')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vmax-lookahead" value="270" min="7" max="365" step="30" onchange="updateSweepRange('lookahead')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">step</span>
-          <input type="number" id="vstep-lookahead" value="15" min="1" max="90" step="1" onchange="updateSweepRange('lookahead')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vstep-lookahead" value="30" min="1" max="90" step="1" onchange="updateSweepRange('lookahead')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
       <div id="run-publish-card" style="height:80px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
@@ -338,7 +338,7 @@ select.display-box { cursor:pointer; outline:none; }
     <!-- Heatmap tab -->
     <div id="tab-heatmap" style="display:none">
       <div class="chart-panel">
-        <div class="chart-header"><span class="chart-title">Regime Optimization — Ann. Yield % by Decay × DTE Floor</span></div>
+        <div class="chart-header"><span class="chart-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span></div>
         <div id="heatmap-container"></div>
       </div>
     </div>
@@ -427,7 +427,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.25 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.29 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -459,10 +459,10 @@ const POLYGON_KEY = 'JsAPh2b2fCJ7oXlkS3oqwfuxINVeK0QL';
 let STD = {
   otmFixed:       0.03,
   decayTrigger:   80,
-  dteFloor:       30,
+  dteFloor:       7,
   deltaThreshold: 0.40,
   vixGate:        0,    // 0 = off (no VIX gate)
-  maxLookahead:   90,
+  maxLookahead:   180,
 };
 
 // Session-only param overrides set via the param cards in Debug mode.
@@ -480,7 +480,7 @@ async function loadRollParams() {
       dteFloor:       data.dteFloor,
       deltaThreshold: data.deltaThreshold,
       vixGate:        data.vixGate || 0,
-      maxLookahead:   90,
+      maxLookahead:   180,
     };
     // Update var-card display values
     const updates = {
@@ -496,6 +496,7 @@ async function loadRollParams() {
     // Also update _sweepRanges std display
     _sweepRanges.decay.std   = STD.decayTrigger + '%';
     _sweepRanges.dte.std     = STD.dteFloor + 'd';
+    if ($('vval-dte') && !_sweepVars.dte) $('vval-dte').textContent = STD.dteFloor + 'd';
     _sweepRanges.delta.std   = STD.deltaThreshold.toFixed(3);
     _sweepRanges.vixgate.std = STD.vixGate > 0 ? 'VIX≥' + STD.vixGate : 'Off';
     _sweepRanges.lookahead.std = STD.maxLookahead + 'd';
@@ -764,7 +765,7 @@ let _sweepConfig = {
   dte:     { min: 21,  max: 45,  step: 3     },
   delta:   { min: 0.25, max: 0.35, step: 0.025 },
   vixgate: { min: 15,  max: 25,  step: 1     },
-  lookahead: { min: 30,  max: 150, step: 15    },
+  lookahead: { min: 90,  max: 270, step: 30    },
 };
 // Frozen copy of the original defaults — used to reset a card's range
 // inputs back to baseline whenever it's toggled off, so manual edits don't
@@ -802,10 +803,10 @@ function updateSweepRange(v) {
 // Sweep ranges shown on cards
 const _sweepRanges = {
   decay:   { std: '80%',   sweep: '15–35%',       debugSweep: '75–80%',    label: 'Decay Trigger' },
-  dte:     { std: '30d',   sweep: '21–45d',        debugSweep: '21–30d',    label: 'DTE Floor' },
+  dte:     { std: '30d',   sweep: '21–45d',        debugSweep: '21–30d',    label: 'DTE Min' },
   delta:   { std: '0.40',  sweep: '0.25–0.35',     debugSweep: '0.30–0.35', label: 'Delta Δ' },
   vixgate: { std: 'Off',   sweep: 'VIX≥15–VIX≥25', debugSweep: 'VIX≥18–20', label: 'VIX Gate' },
-  lookahead: { std: '90d',  sweep: '30–150d',         debugSweep: '60–120d',   label: 'Lookahead' },
+  lookahead: { std: '180d', sweep: '90–270d',         debugSweep: '120–240d',  label: 'DTE Max' },
 };
 function toggleVar(v, forceOff) {
   if (forceOff) { _sweepVars[v] = false; } else { _sweepVars[v] = !_sweepVars[v]; }
@@ -870,7 +871,7 @@ function toggleVar(v, forceOff) {
 
 const _debugParamMeta = {
   decay:   { label:'Decay Trigger',   key:'decayTrigger',     min:1,    max:99,  step:1,     parse: v => parseFloat(v) },
-  dte:     { label:'DTE Floor',       key:'dteFloor',         min:7,    max:90,  step:1,     parse: v => parseInt(v) },
+  dte:     { label:'DTE Min',       key:'dteFloor',         min:7,    max:90,  step:1,     parse: v => parseInt(v) },
   delta:   { label:'Delta Threshold', key:'deltaThreshold',   min:0.05, max:0.95,step:0.025, parse: v => parseFloat(v) },
   vixgate: { label:'VIX Gate',        key:'vixGate',          min:0,    max:40,  step:1,     parse: v => parseFloat(v) },
 };
@@ -1260,7 +1261,7 @@ function updateParamDisplay() {
   set('p-otm',   (otmVal*100).toFixed(0) + '%');
   set('p-decay', p.decayTrigger + '%');
   set('p-dte',   p.dteFloor + 'd');
-  const dteSel = $('dte-select'); if (dteSel && !_sweepVars.dte) { dteSel.value = String(p.dteFloor); }
+  const dteVal = $('vval-dte'); if (dteVal && !_sweepVars.dte) { dteVal.textContent = (p.dteFloor || STD.dteFloor || 7) + 'd'; }
   const laVal = $('vval-lookahead'); if (laVal && !_sweepVars.lookahead) { laVal.textContent = (p.maxLookahead || STD.maxLookahead || 90) + 'd'; }
   set('p-delta', p.deltaThreshold.toFixed(3));
   set('p-vixgate', p.vixGate > 0 ? 'VIX≥' + p.vixGate : 'Off');
@@ -1278,7 +1279,7 @@ function updateParamDisplay() {
   const rollCard = $('roll-limit-card');
   if (rollCard) rollCard.style.border = rv > 0 ? greenBorder : defaultBorder;
 
-  // Lookahead var-card: green border when being swept
+  // DTE Max var-card: green border when being swept
   const lookCard2 = $('vcard-lookahead');
   if (lookCard2) lookCard2.style.borderColor = _sweepVars.lookahead ? 'var(--green)' : '';
 
@@ -1510,8 +1511,9 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
   maxDate.setDate(maxDate.getDate() + maxLookahead);
   const maxStr  = maxDate.toISOString().slice(0, 10);
 
-  // Lookahead is an optimizable hard gate — same pattern as VIX gate.
-  // Sweep finds the best ceiling; that value is then enforced as a constraint.
+  // DTE Max is an optimizable hard gate — same pattern as VIX gate.
+  // maxLookahead is the true search window — no hidden multipliers.
+  // What the param shows (180d) is exactly what gets searched.
   const allExp = getMartExpiries().filter(e => {
     if (e <= afterDate || e > maxStr) return false;
     const dte = Math.round((new Date(e+'T00:00:00') - afterD) / 86400000);
@@ -1991,7 +1993,7 @@ async function runSimulation() {
 
   const _lookahead = STD.maxLookahead || 90;
   const _maxRolls  = null; // Roll limit removed — always run all rolls
-  const _dteFloor  = parseInt($('dte-select')?.value || String(STD.dteFloor || 7));
+  const _dteFloor  = STD.dteFloor || 7;
   // Use getActiveParams() so debug overrides take effect when Debug mode is on.
   // In normal STD mode this returns plain STD; in debug mode it merges any
   // session-only overrides set via the param cards.
@@ -2009,11 +2011,11 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.25 · SPY Covered Call Backtest');
+  logMsg('v3.8.29 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
-  logMsg(`Running — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold}${gateStr} · ${params.maxLookahead}d lookahead`);
+  logMsg(`Running — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold}${gateStr} · ${params.maxLookahead}d DTE max`);
   await yield_();
 
   const result = await simulate(params);
@@ -2041,7 +2043,6 @@ async function runSimulation() {
     const _wr     = result.rolls?.length ? Math.round(result.rolls.filter(r=>r.netCredit>0).length/result.rolls.length*100) : 0;
     logMsg(`  ${result.rolls.length} cycles · ${(result.stratYld||0).toFixed(1)}% yield · $${Math.round(result.totalCredit||0).toLocaleString()} credit · ${_wr}% win rate · OTM 1-5%=${_otmPct}% max=${_otmMax.toFixed(1)}%`, 'ok');
   }
-  logDMGapReport(_rollSnapshots);
   initAIAnalysis(result);
   
   
@@ -2129,7 +2130,7 @@ function logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, 
     const rowsHi = allResults.rows.filter(r => r.lookahead === lookaheads[lookaheads.length-1] && r.yld !== null);
     const lo = rowsLo.length ? Math.max(...rowsLo.map(r => r.yld)) : null;
     const hi = rowsHi.length ? Math.max(...rowsHi.map(r => r.yld)) : null;
-    logMsg(`  Lookahead floor(${lookaheads[0]}d): ${classify(lo)}  ·  ceiling(${lookaheads[lookaheads.length-1]}d): ${classify(hi)}`, '');
+    logMsg(`  DTE Max floor(${lookaheads[0]}d): ${classify(lo)}  ·  ceiling(${lookaheads[lookaheads.length-1]}d): ${classify(hi)}`, '');
   }
 }
 function updatePublishBtn() {
@@ -2184,7 +2185,7 @@ async function publishRollParams(p) {
     });
     if (!put.ok) throw new Error('GitHub API ' + put.status);
     STD = { otmFixed: payload.otmTarget, decayTrigger: payload.decayTrigger * 100,
-            dteFloor: payload.dteFloor, deltaThreshold: payload.deltaThreshold, maxLookahead: payload.maxLookahead || 90 };
+            dteFloor: payload.dteFloor, deltaThreshold: payload.deltaThreshold, maxLookahead: payload.maxLookahead || 180 };
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
     logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% ann. yield · ' + today, 'ok');
@@ -2281,7 +2282,7 @@ async function runOptimization() {
 
     if (b) {
       const gateStr = b.vixgate > 0 ? ` / VIX\u2265${b.vixgate}` : '';
-      const laStr = b.lookahead ? ` / ${b.lookahead}d lookahead` : '';
+      const laStr = b.lookahead ? ` / ${b.lookahead}d DTE max` : '';
       logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + gateStr + ' / otm=' + (b.otm*100).toFixed(0) + '%' + laStr + ' \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld', 'ok');
       logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, lookaheads);
 
@@ -2781,9 +2782,9 @@ function renderRollCandidates() {
   const headerDTE = validExpiries.map(exp => {
     const dte = Math.round((new Date(exp+'T00:00:00') - new Date(snap.triggerDate+'T00:00:00')) / 86400000);
     const isOpenedExp = exp === openingExpiry;
-    const outsideLookahead = dte > p.maxLookahead;
-    const style = isOpenedExp ? 'color:var(--accent);' : outsideLookahead ? 'opacity:0.45;' : '';
-    const lookaheadMark = outsideLookahead ? '<br><span style="font-size:7px;opacity:.5;">beyond window</span>' : '';
+    const outsideDTEMax = dte > p.maxLookahead;
+    const style = isOpenedExp ? 'color:var(--accent);' : outsideDTEMax ? 'opacity:0.45;' : '';
+    const lookaheadMark = outsideDTEMax ? '<br><span style="font-size:7px;opacity:.5;">beyond window</span>' : '';
     return `<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-align:center;${style}">${fmtExp(exp)}<br><span style="font-size:8px;opacity:.7;">${dte}d</span>${lookaheadMark}</th>`;
   }).join('');
 
