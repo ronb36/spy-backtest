@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.33</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.34</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.33 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.34 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -473,8 +473,12 @@ let _debugOverrides = {};
 async function loadRollParams() {
   try {
     // roll_params.json is served via GitHub Pages — stays accessible even on private repo with Pro
-    const res  = await fetch("https://ronb36.github.io/spy-backtest/roll_params.json?_=" + Date.now());
-    if (!res.ok) throw new Error('HTTP ' + res.status + ' fetching roll_params.json');
+    const _url = "https://ronb36.github.io/spy-backtest/roll_params.json?_=" + Date.now();
+    const res  = await fetch(_url, { cache: 'no-store' });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error('HTTP ' + res.status + ' — ' + txt.slice(0, 100));
+    }
     const data = await res.json();
     console.log('roll_params.json raw:', JSON.stringify(data).slice(0, 200));
     STD = {
@@ -518,7 +522,7 @@ async function loadRollParams() {
     console.warn("Could not load roll_params.json — using fallback STD params.", e);
     // Show visible warning in data-status so we know the fetch failed
     const st = $('data-status');
-    if (st) st.textContent += ' · ⚠ roll_params.json load failed — using defaults';
+    if (st) st.textContent += ' · ⚠ roll_params.json load failed — ' + e.message;
   }
 }
 
@@ -2037,7 +2041,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.33 · SPY Covered Call Backtest');
+  logMsg('v3.8.34 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
