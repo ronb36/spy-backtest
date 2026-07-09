@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.47</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.49</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.47 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.49 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1886,7 +1886,7 @@ async function simulate(p) {
         const exitPx_ = callPx ?? 0;
         const pnl_    = (entryPrice - exitPx_) * 100 * contracts;
         premPnL += pnl_;
-        const days_   = Math.max(1, Math.round((todayD - new Date(entryDate+'T00:00:00'))/86400000));
+        const days_   = Math.max(1, Math.round((new Date(date+'T00:00:00') - new Date(entryDate+'T00:00:00'))/86400000));
         const netPx_  = entryPrice - exitPx_;
         const annYld_ = (netPx_ / entrySPY) * (365 / days_) * 100;
         const eDelta_ = callDelta(entrySPY, entryStrike,
@@ -1921,7 +1921,7 @@ async function simulate(p) {
     const exitPx = isExp ? Math.max(0, spy-entryStrike) : (callPx??0);
     const pnl    = (entryPrice-exitPx)*100*contracts;
     premPnL += pnl;
-    const days   = Math.max(1, Math.round((todayD-new Date(entryDate+'T00:00:00'))/86400000));
+    const days   = Math.max(1, Math.round((new Date(date+'T00:00:00')-new Date(entryDate+'T00:00:00'))/86400000));
     const netPx  = entryPrice-exitPx;
     const annYld = (netPx/entrySPY)*(365/days)*100;
     const eDelta = callDelta(entrySPY, entryStrike,
@@ -2080,7 +2080,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.47 · SPY Covered Call Backtest');
+  logMsg('v3.8.49 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
