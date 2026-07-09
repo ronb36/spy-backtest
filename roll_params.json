@@ -6,7 +6,7 @@
   "vixGate": 16,
   "maxLookahead": 180,
   "lastOptimized": "2026-07-09",
-  "optExpYield": 8.4,
+  "optProjYield": 8.4,
   "aveCycleDays": 38,
   "shares": 600,
   "shortStrike": 760,
