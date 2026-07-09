@@ -434,7 +434,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.19 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.22 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1041,22 +1041,17 @@ function getVIXRegime(vix) {
 // This gives the broadest possible gap report — the winning params drive
 // roll decisions across the full date range, exposing gaps that a single
 // STD run with different params would miss.
-function logDMGapReport(snapshots) {
-  if (!snapshots?.length) return;
-
+function analyzeDMGapReport(snapshots) {
+  // Returns a summary object — used by both debug (full log) and non-debug (warn-only)
+  if (!snapshots?.length) return null;
   const total = snapshots.length;
-
-  // Boundary hit buckets — four directions
   const boundary = {
     strikeLow:  { hits: 0, triggers: [], label: 'Strike-low  (near-ATM)' },
     strikeHigh: { hits: 0, triggers: [], label: 'Strike-high (deep OTM)' },
     expiryNear: { hits: 0, triggers: [], label: 'Expiry-near (short DTE)' },
     expiryFar:  { hits: 0, triggers: [], label: 'Expiry-far  (long DTE)' },
   };
-
-  // Interior data gaps — within current OTM_TARGETS range but no Polygon data
   const gaps = { strike: [], expiry: [] };
-
   snapshots.forEach(s => {
     if (!s.bestKey) return;
     const bestCell  = s.cells[s.bestKey];
@@ -1064,8 +1059,6 @@ function logDMGapReport(snapshots) {
     const expIdx    = s.validExpiries.indexOf(bestCell.exp);
     const otmPct    = ((bestCell.strike - s.spyPx) / s.spyPx * 100).toFixed(1);
     const label     = `${s.label}($${bestCell.strike}, ${otmPct}% OTM)`;
-
-    // Classify boundary direction
     if (strikeIdx === 0) {
       boundary.strikeLow.hits++;
       if (boundary.strikeLow.triggers.length < 6) boundary.strikeLow.triggers.push(label);
@@ -1081,8 +1074,6 @@ function logDMGapReport(snapshots) {
       boundary.expiryFar.hits++;
       if (boundary.expiryFar.triggers.length < 6) boundary.expiryFar.triggers.push(label);
     }
-
-    // Interior data gaps — neighbor exists in grid but has no Polygon pricing
     const neighborKeys = [];
     if (strikeIdx > 0)
       neighborKeys.push({ key: s.validExpiries[expIdx] + '_' + s.allStrikes[strikeIdx-1], dim: 'strike', lbl: s.label });
@@ -1092,51 +1083,60 @@ function logDMGapReport(snapshots) {
       neighborKeys.push({ key: s.validExpiries[expIdx-1] + '_' + bestCell.strike, dim: 'expiry', lbl: s.label });
     if (expIdx < s.validExpiries.length - 1)
       neighborKeys.push({ key: s.validExpiries[expIdx+1] + '_' + bestCell.strike, dim: 'expiry', lbl: s.label });
-
     neighborKeys.filter(n => s.cells[n.key] && !s.cells[n.key].hasData).forEach(n => {
       if (n.dim === 'strike' && gaps.strike.length < 8) gaps.strike.push(n.lbl);
       if (n.dim === 'expiry' && gaps.expiry.length < 8) gaps.expiry.push(n.lbl);
     });
   });
-
   const totalBoundary = Object.values(boundary).reduce((s, b) => s + b.hits, 0);
   const totalGaps = gaps.strike.length + gaps.expiry.length;
-
-  logMsg(`── DM Coverage Report (${total} triggers) ──────────────────────`, '');
-
+  const SYSTEMATIC_THRESHOLD = 0.30;
+  const systematicDirs = [], situationalTriggers = [];
   if (totalBoundary > 0) {
-    // Classify each direction as systematic (>30% of all boundary hits) or situational
-    const SYSTEMATIC_THRESHOLD = 0.30;
-    const systematicDirs = [], situationalTriggers = [];
-
     Object.entries(boundary).forEach(([key, b]) => {
       if (b.hits === 0) return;
       const pct = b.hits / totalBoundary;
-      const flag = pct >= SYSTEMATIC_THRESHOLD ? 'SYSTEMATIC' : 'situational';
-      logMsg(`  ${pct >= SYSTEMATIC_THRESHOLD ? '\u26a0' : '\u2192'} ${b.label}: ${b.hits} hits (${(pct*100).toFixed(0)}%) — ${flag}`, pct >= SYSTEMATIC_THRESHOLD ? 'err' : '');
-      if (b.triggers.length) logMsg(`    e.g. ${b.triggers.join(' · ')}`, '');
-      if (pct >= SYSTEMATIC_THRESHOLD) {
-        systematicDirs.push(b.label);
-      } else {
-        b.triggers.forEach(t => { if (!situationalTriggers.includes(t)) situationalTriggers.push(t); });
-      }
+      if (pct >= SYSTEMATIC_THRESHOLD) systematicDirs.push(b.label);
+      else b.triggers.forEach(t => { if (!situationalTriggers.includes(t)) situationalTriggers.push(t); });
     });
-
-    if (systematicDirs.length) {
-      logMsg(`  → PERMANENT FIX: Update OTM_TARGETS or expiry window in data_collector.py for: ${systematicDirs.join(', ')}`, 'err');
-    }
-    if (situationalTriggers.length) {
-      logMsg(`  → GAP FILL: ${situationalTriggers.join(', ')}`, '');
-    }
   }
+  return { total, boundary, gaps, totalBoundary, totalGaps, systematicDirs, situationalTriggers };
+}
 
-  if (totalGaps > 0) {
-    if (gaps.strike.length) logMsg(`  \u26a0 Interior strike gaps: ${gaps.strike.join(', ')} — GAP fill`, 'err');
-    if (gaps.expiry.length) logMsg(`  \u26a0 Interior expiry gaps: ${gaps.expiry.join(', ')} — GAP fill`, 'err');
-  }
+function logDMGapReport(snapshots) {
+  const r = analyzeDMGapReport(snapshots);
+  if (!r) return;
 
-  if (totalBoundary === 0 && totalGaps === 0) {
-    logMsg(`  \u2713 All ${total} trigger candidates sit in interior of DM coverage — no gaps detected`, 'ok');
+  if (_debugMode) {
+    // Full verbose output in debug
+    logMsg(`── DM Coverage Report (${r.total} triggers) ──────────────────────`, '');
+    if (r.totalBoundary > 0) {
+      const SYSTEMATIC_THRESHOLD = 0.30;
+      Object.entries(r.boundary).forEach(([key, b]) => {
+        if (b.hits === 0) return;
+        const pct = b.hits / r.totalBoundary;
+        const flag = pct >= SYSTEMATIC_THRESHOLD ? 'SYSTEMATIC' : 'situational';
+        logMsg(`  ${pct >= SYSTEMATIC_THRESHOLD ? '\u26a0' : '\u2192'} ${b.label}: ${b.hits} hits (${(pct*100).toFixed(0)}%) — ${flag}`, pct >= SYSTEMATIC_THRESHOLD ? 'err' : '');
+        if (b.triggers.length) logMsg(`    e.g. ${b.triggers.join(' · ')}`, '');
+      });
+      if (r.systematicDirs.length)
+        logMsg(`  → PERMANENT FIX: Update OTM_TARGETS or expiry window in data_collector.py for: ${r.systematicDirs.join(', ')}`, 'err');
+      if (r.situationalTriggers.length)
+        logMsg(`  → GAP FILL: ${r.situationalTriggers.join(', ')}`, '');
+    }
+    if (r.totalGaps > 0) {
+      if (r.gaps.strike.length) logMsg(`  \u26a0 Interior strike gaps: ${r.gaps.strike.join(', ')} — GAP fill`, 'err');
+      if (r.gaps.expiry.length) logMsg(`  \u26a0 Interior expiry gaps: ${r.gaps.expiry.join(', ')} — GAP fill`, 'err');
+    }
+    if (r.totalBoundary === 0 && r.totalGaps === 0)
+      logMsg(`  \u2713 All ${r.total} trigger candidates sit in interior of DM coverage — no gaps detected`, 'ok');
+  } else {
+    // Non-debug: silent when clean, single warning line when not
+    if (r.systematicDirs.length)
+      logMsg(`  \u26a0 DM coverage: systematic boundary hits in ${r.systematicDirs.join(', ')} — enable Debug for details`, 'err');
+    else if (r.totalGaps > 0)
+      logMsg(`  \u26a0 DM coverage: interior data gaps on ${r.totalGaps} trigger(s) — enable Debug for details`, 'err');
+    // else: clean — no output
   }
 }
 
@@ -2008,7 +2008,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.19 · SPY Covered Call Backtest');
+  logMsg('v3.8.22 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2022,12 +2022,24 @@ async function runSimulation() {
   buildRollSnapshots(result);
 
   logMsg(`✓ ${result.rolls.length} roll cycles`,'ok');
-  logVIXRegimeSplit(result);
+  if (_debugMode) {
+    logVIXRegimeSplit(result);
+  }
   setProgress(100);
 
   // STD run complete — stay on Run (blue). Publish only appears after OPT sweep.
   setRunButtonState('idle');
-  logOTMDistribution(result);
+  if (_debugMode) {
+    logOTMDistribution(result);
+    logDMGapReport(_rollSnapshots);
+  } else {
+    // Non-debug: compact one-line STD summary before Scan takes over the log
+    const _otmMax = Math.max(...(result.cycles||[]).map(c => Math.abs((c.otmPct||0)*100)));
+    const _otm15  = (result.cycles||[]).filter(c => Math.abs((c.otmPct||0)*100) <= 5).length;
+    const _otmPct = result.cycles?.length ? Math.round(_otm15/result.cycles.length*100) : 0;
+    const _wr     = result.rolls?.length ? Math.round(result.rolls.filter(r=>r.netCredit>0).length/result.rolls.length*100) : 0;
+    logMsg(`  ${result.rolls.length} cycles · ${(result.stratYld||0).toFixed(1)}% yield · $${Math.round(result.totalCredit||0).toLocaleString()} credit · ${_wr}% win rate · OTM 1-5%=${_otmPct}% max=${_otmMax.toFixed(1)}%`, 'ok');
+  }
   logDMGapReport(_rollSnapshots);
   initAIAnalysis(result);
   
@@ -3469,20 +3481,126 @@ async function runRollScan() {
     });
   }
 
-  renderRollScanTable(scored, spyNow, deltaThres, currentCallMid, edgeWarnings);
+  // ── Build full candidate log (all evaluated, PASS/SKIP + per-candidate edge) ──
+  // We need all fetched results before filtering — build from raw results array
+  // and the scored (filtered) set so we can identify which were dropped and why.
+  const scoredKeys = new Set(scored.map(r => r.exp + '_' + r.strike));
 
-  const best = scored[0] || null;
+  // Per-expiry sorted strike list for edge tagging
+  const allResultsByKey = {};
+  results.forEach(r => { allResultsByKey[r.exp + '_' + r.strike] = r; });
+
+  // Collect all evaluated combos (fetched quotes only) sorted by expiry then strike
+  const allEvaluated = results.slice().sort((a,b) =>
+    a.exp < b.exp ? -1 : a.exp > b.exp ? 1 : a.strike - b.strike
+  );
+
   logMsg('── Scan Results ─────────────────────────────────────────────────────────', '');
   logMsg('  SPY $' + spyNow.toFixed(2) + (currentCallMid > 0 ? ' | Cover $' + currentCallMid.toFixed(2) : '') +
-    ' | ' + results.length + ' quotes | ' + scored.length + ' qualifying candidate' + (scored.length !== 1 ? 's' : ''), 'ok');
-  if (best) {
-    logMsg('  Best: $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2) +
-      ' | Net +$' + best.netCredit.toFixed(2) +
-      ' | ' + best.rollAdjYield.toFixed(1) + '% adj.yield | \u0394 ' + best.delta.toFixed(3), 'ok');
-  } else {
+    ' | ' + results.length + ' quotes across ' + expList.length + ' expiries', '');
+
+  // Per-candidate lines
+  let lastExp = null;
+  allEvaluated.forEach(r => {
+    if (r.exp !== lastExp) {
+      const dte = Math.round((new Date(r.exp + 'T12:00:00Z') - new Date()) / 86400000);
+      const expEdge = r.exp === expList[expList.length - 1] ? ' ⚠ expiry-edge' : '';
+      logMsg('  ' + r.exp + ' (' + dte + 'd)' + expEdge, '');
+      lastExp = r.exp;
+    }
+    const key = r.exp + '_' + r.strike;
+    const netCredit = currentCallMid > 0 ? r.mid - currentCallMid : r.mid;
+    const delta = r.delta !== null ? Math.abs(r.delta) : 0.30;
+    const otmPct = ((r.strike - spyNow) / spyNow * 100).toFixed(1);
+    const allStrikesExp = dmStrikesPerExpiry[r.exp] || [];
+    const sIdx = allStrikesExp.indexOf(r.strike);
+    const strikeEdge = sIdx === 0 ? ' ⚠ strike-floor' : sIdx === allStrikesExp.length - 1 ? ' ⚠ strike-ceil' : '';
+
+    if (scoredKeys.has(key)) {
+      // PASS — qualifying candidate
+      const adjYield = (netCredit / spyBasis * 600) * (365 / r.dte) * 100;
+      const isBest = scored.length > 0 && r.exp === scored[0].exp && r.strike === scored[0].strike;
+      logMsg('    $' + r.strike + 'C — PASS: net +$' + netCredit.toFixed(2) +
+        ' | ' + adjYield.toFixed(1) + '% adj.yield | Δ ' + delta.toFixed(3) +
+        ' | ' + otmPct + '% OTM' + strikeEdge + (isBest ? ' ★ best' : ''), 'ok');
+    } else {
+      // SKIP — determine reason (data filtering only, not delta threshold)
+      let skipReason = '';
+      if (delta > deltaThres) {
+        skipReason = 'Δ ' + delta.toFixed(3) + ' > ' + deltaThres.toFixed(3);
+      } else if (netCredit <= 0) {
+        skipReason = 'net debit $' + netCredit.toFixed(2);
+      } else {
+        skipReason = 'score=0';
+      }
+      logMsg('    $' + r.strike + 'C — SKIP: ' + skipReason + strikeEdge, 'dbg');
+    }
+  });
+
+  // ── Coverage synthesis ────────────────────────────────────────────────────
+  const coverageWarnings = [];
+  const coverageOk = [];
+  if (scored.length > 0) {
+    const best = scored[0];
+    const allStrikesExp = dmStrikesPerExpiry[best.exp] || [];
+    const sIdx = allStrikesExp.indexOf(best.strike);
+    // Expiry axis
+    if (best.exp === expList[expList.length - 1]) {
+      const nextExpInDM = (expList[expList.length - 1] > (expList[expList.length - 2] || ''))
+        ? 'no further expiries in DM within lookahead' : '';
+      coverageWarnings.push('⚠ Best expiry ' + best.exp + ' is at max lookahead (' + lookahead + 'd) — further-dated candidates not evaluated');
+    } else {
+      // Check if longer-expiry neighbor was evaluated and lost
+      const longerExp = expList[expList.indexOf(best.exp) + 1];
+      const longerKey = longerExp ? longerExp + '_' + best.strike : null;
+      if (longerKey && allResultsByKey[longerKey]) {
+        coverageOk.push('✓ Longer expiry (' + longerExp + ') evaluated and ranked lower — expiry choice confirmed');
+      }
+    }
+    // Strike axis
+    if (sIdx === 0) {
+      coverageWarnings.push('⚠ Best strike $' + best.strike + ' is at DM strike floor for ' + best.exp + ' — lower strikes not in DM');
+    } else if (sIdx === allStrikesExp.length - 1) {
+      coverageWarnings.push('⚠ Best strike $' + best.strike + ' is at DM strike ceiling for ' + best.exp + ' — higher strikes not in DM');
+    } else {
+      // Neighbor strikes were available — confirm they were evaluated
+      const lowerKey = best.exp + '_' + allStrikesExp[sIdx - 1];
+      const higherKey = best.exp + '_' + allStrikesExp[sIdx + 1];
+      const lowerOk  = allResultsByKey[lowerKey] || (fetchedMap[lowerKey] === false ? 'gap' : false);
+      const higherOk = allResultsByKey[higherKey] || (fetchedMap[higherKey] === false ? 'gap' : false);
+      if (lowerOk === 'gap' || higherOk === 'gap') {
+        coverageWarnings.push('⚠ Interior gap: neighbor strike exists in DM but returned no live quote — coverage incomplete');
+      } else {
+        coverageOk.push('✓ Neighbor strikes evaluated and ranked lower — strike choice confirmed');
+      }
+    }
+    // Interior quote gaps (from existing edgeWarnings)
+    edgeWarnings.filter(w => w.includes('Interior gap')).forEach(w => {
+      if (!coverageWarnings.some(cw => cw.includes('Interior gap'))) coverageWarnings.push(w);
+    });
+  }
+
+  logMsg('── Scan Coverage ────────────────────────────────────────────────────────', '');
+  coverageOk.forEach(m => logMsg('  ' + m, 'ok'));
+  if (coverageWarnings.length === 0 && scored.length > 0) {
+    logMsg('  ✓ Best candidate sits in interior of DM on all axes — choice confirmed', 'ok');
+  }
+  coverageWarnings.forEach(w => logMsg('  ' + w, 'err'));
+  if (scored.length === 0) {
     logMsg('  No qualifying candidates — all rolls are debits or above delta threshold at current SPY level', 'err');
   }
-  edgeWarnings.forEach(w => logMsg('  ' + w, 'err'));
+
+  // Merge coverage warnings into edgeWarnings for UI display
+  const allUiWarnings = [...new Set([...edgeWarnings, ...coverageWarnings])];
+
+  renderRollScanTable(scored, spyNow, deltaThres, currentCallMid, allUiWarnings);
+
+  const best = scored[0] || null;
+  if (best) {
+    logMsg('  ★ Best: $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2) +
+      ' | Net +$' + best.netCredit.toFixed(2) +
+      ' | ' + best.rollAdjYield.toFixed(1) + '% adj.yield | Δ ' + best.delta.toFixed(3), 'ok');
+  }
 
   if (mainBtn && mainCard) {
     mainBtn.textContent    = '\u2713 Scan Complete';
@@ -3500,7 +3618,7 @@ async function runRollScan() {
 
   statusEl.textContent = scored.length + ' qualifying candidate' + (scored.length !== 1 ? 's' : '') +
     ' from ' + results.length + ' quotes across ' + expList.length + ' expiries' +
-    (edgeWarnings.length ? ' · ⚠ data edge detected' : '');
+    (allUiWarnings.length ? ' · ⚠ data edge detected' : '');
   statusEl.className = scored.length > 0 ? 'scan-status ok' : 'scan-status err';
 }
 
