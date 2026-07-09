@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.44</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.45</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.44 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.45 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -496,7 +496,11 @@ async function loadRollParams() {
       netPremium:     data.netPremium != null ? data.netPremium : null,
       coverPrice:     data.coverPrice != null ? data.coverPrice : null,
       sellPrice:      data.sellPrice  != null ? data.sellPrice  : null,
+      optExpYield:    data.optExpYield ?? data.optAnnYield ?? null, // backward compat
+      avgCycleDays:   data.avgCycleDays || null,
     };
+    // Seed _avgCycleDays from JSON if available (before STD runs)
+    if (STD.avgCycleDays) _avgCycleDays = STD.avgCycleDays;
     // Update var-card display values
     const updates = {
       'vval-decay':   STD.decayTrigger + '%',
@@ -2070,7 +2074,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.44 · SPY Covered Call Backtest');
+  logMsg('v3.8.45 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2239,7 +2243,8 @@ async function publishRollParams(p) {
       deltaThreshold: p.deltaThreshold, otmTarget: p.otmTarget,
       vixGate: p.vixGate || 0,
       maxLookahead: p.maxLookahead || STD.maxLookahead,
-      lastOptimized: today, optAnnYield: parseFloat(p.optAnnYield.toFixed(1)),
+      lastOptimized: today, optExpYield: parseFloat((p.optExpYield || p.optAnnYield).toFixed(1)),
+      avgCycleDays: Math.round(_avgCycleDays || 38),
       // Preserve position fields from existing JSON
       shares:      _existingJson.shares      ?? STD.shares      ?? 600,
       shortStrike: _existingJson.shortStrike ?? STD.shortStrike ?? null,
@@ -2254,7 +2259,7 @@ async function publishRollParams(p) {
       method: 'PUT',
       headers: Object.assign({ 'Content-Type': 'application/json' }, gh),
       body: JSON.stringify({
-        message: 'Update roll_params.json — ' + payload.optAnnYield + '% exp. yield (' + today + ')',
+        message: 'Update roll_params.json — ' + payload.optExpYield + '% exp. yield (' + today + ')',
         content: btoa(JSON.stringify(payload, null, 2) + '\n'),
         sha: sha
       })
@@ -2277,7 +2282,7 @@ async function publishRollParams(p) {
     });
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
-    logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% exp. yield · ' + today, 'ok');
+    logMsg('\u2713 Published roll_params.json — ' + payload.optExpYield + '% exp. yield · ' + today, 'ok');
     setRunButtonState('published');
     updateParamDisplay();
   } catch(e) {
@@ -2380,7 +2385,7 @@ async function runOptimization() {
       logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, lookaheads);
 
       // Store winner for publish button
-      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, maxLookahead: b.lookahead, optAnnYield: allResults.bestYld, decay: b.decay, floor: b.floor, delta: b.delta, vixgate: b.vixgate, lookahead: b.lookahead };
+      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, maxLookahead: b.lookahead, optAnnYield: allResults.bestYld, optExpYield: allResults.bestYld, decay: b.decay, floor: b.floor, delta: b.delta, vixgate: b.vixgate, lookahead: b.lookahead };
       setRunButtonState('ready');
 
       // Re-run simulate() with the winning params so summary/blotter reflect
@@ -3971,7 +3976,8 @@ async function confirmTrade() {
       vixGate:        existing.vixGate        ?? STD.vixGate ?? 0,
       maxLookahead:   existing.maxLookahead   ?? STD.maxLookahead,
       lastOptimized:  existing.lastOptimized  ?? today,
-      optAnnYield:    existing.optAnnYield    ?? null,
+      optExpYield:    existing.optExpYield    ?? existing.optAnnYield ?? null,
+      avgCycleDays:   existing.avgCycleDays   ?? Math.round(_avgCycleDays || 38),
       shares:         existing.shares         ?? STD.shares ?? 600,
       shortStrike:    _tradeCandidate.strike,
       shortExpiry:    _tradeCandidate.exp,
