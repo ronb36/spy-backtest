@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.36</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.38</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.36 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.38 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -2054,7 +2054,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.36 · SPY Covered Call Backtest');
+  logMsg('v3.8.38 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3692,20 +3692,27 @@ async function runRollScan() {
     const allTypes = [];
     let primaryType = 'decay', currentVal = null, decayVal = null;
 
-    // Parse decay
-    const decayM = trig.match(/(\d+(?:\.\d+)?)%\s*decay/);
-    if (decayM) { allTypes.push('decay'); decayVal = parseFloat(decayM[1]); primaryType = 'decay'; currentVal = decayVal; }
-
-    // Parse delta
-    if (trig.includes('delta') || trig.includes('\u0394')) {
-      allTypes.push('delta');
-      const deltaM = trig.match(/delta\s+([0-9.]+)/);
-      if (deltaM) { primaryType = 'delta'; currentVal = parseFloat(deltaM[1]); }
+    // Parse decay — format: "32% decay"
+    const decayM = trig.match(/(\d+(?:\.\d+)?)%\s*decay/) || trig.match(/decay/);
+    if (decayM) {
+      allTypes.push('decay');
+      const numM = trig.match(/(\d+(?:\.\d+)?)%/);
+      decayVal = numM ? parseFloat(numM[1]) : null;
+      primaryType = 'decay';
+      currentVal = decayVal;
     }
 
-    // Parse DTE
-    if (trig.includes('dte') || trig.includes('floor')) {
-      allTypes.push('dte'); if (primaryType === 'decay') primaryType = 'dte';
+    // Parse delta — format: "delta 0.51" or "delta0.51"
+    if (trig.includes('delta')) {
+      allTypes.push('delta');
+      const deltaM = trig.match(/delta\s*([0-9.]+)/);
+      if (deltaM) { if (primaryType !== 'decay') primaryType = 'delta'; currentVal = parseFloat(deltaM[1]); }
+    }
+
+    // Parse DTE — format: "7d DTE"
+    if (trig.includes('dte') || trig.match(/\dd\b/)) {
+      allTypes.push('dte');
+      if (!allTypes.includes('decay') && !allTypes.includes('delta')) primaryType = 'dte';
     }
 
     return { type: primaryType, currentVal, allTypes, decayVal, rawTrigger: lastCycle.reason || '' };
@@ -3776,7 +3783,10 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
   // Blotter-style table — Trade Blotter aesthetic
   // Cover leg details from current position
   const coverStrike = currentCallMid > 0 ? (STD.shortStrike || '—') : null;
-  const coverDisp   = coverStrike ? 'Cover $' + coverStrike + 'C @ $' + currentCallMid.toFixed(2) : '—';
+  const coverExpiry = STD.shortExpiry || '';
+  const coverDisp   = coverStrike
+    ? 'Cover $' + coverStrike + 'C ' + coverExpiry + ' @ $' + currentCallMid.toFixed(2)
+    : '—';
 
   const thead = '<thead><tr>'
     + '<th>Cover</th>'
@@ -3784,6 +3794,8 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     + '<th>Net Credit</th>'
     + '<th>Ann. Yield</th>'
     + '<th>Trigger</th>'
+    + '<th>Edge</th>'
+    + '<th></th>'
     + '</tr></thead>';
 
   const tbody = rows.map((r, i) => {
@@ -3795,35 +3807,41 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     const yldDisp    = hasCoverPrice ? r.rollAdjYield.toFixed(1) + '%'
                      : (r.mid / spyNow * 365 / r.dte * 100).toFixed(1) + '%*';
 
-    // Contextual trigger — show all triggers that fired with actual values
+    // Contextual trigger — show all triggers with spelled-out labels
     const triggers = [];
-    if (triggerType === 'delta' || (ti.allTypes && ti.allTypes.includes('delta'))) {
-      const oldDelta = triggerCurrentVal != null ? triggerCurrentVal.toFixed(3) : '—';
-      triggers.push('\u0394 ' + oldDelta + ' \u00bb ' + r.delta.toFixed(3));
+    if (ti.allTypes && ti.allTypes.includes('decay')) {
+      const decayVal = ti.decayVal != null ? 'Decay ' + ti.decayVal.toFixed(0) + '%' : 'Decay';
+      triggers.push(decayVal);
     }
-    if (triggerType === 'decay' || (ti.allTypes && ti.allTypes.includes('decay'))) {
-      const decayVal = ti.decayVal != null ? ti.decayVal.toFixed(0) + '% decay' : (ti.rawTrigger || 'decay');
-      if (!triggers.some(t => t.includes('decay'))) triggers.push(decayVal);
+    if (ti.allTypes && ti.allTypes.includes('delta')) {
+      const oldDelta = ti.currentVal != null ? ti.currentVal.toFixed(3) : '—';
+      triggers.push('Delta ' + oldDelta + ' >> ' + r.delta.toFixed(3));
     }
-    if (triggerType === 'dte' || (ti.allTypes && ti.allTypes.includes('dte'))) {
+    if (ti.allTypes && ti.allTypes.includes('dte')) {
       triggers.push('DTE ' + r.dte + 'd');
     }
-    const triggerDisp = triggers.length ? triggers.join(' · ') : (ti.rawTrigger || 'decay');
+    const triggerDisp = triggers.length ? triggers.join(' · ') : (ti.rawTrigger || '—');
 
-    // Data edge detection for this candidate
+    // Data edge detection — last column
     const _allStrikesRow = dmStrikesPerExpiry ? (dmStrikesPerExpiry[r.exp] || []) : [];
     const _sIdxRow = _allStrikesRow.indexOf(r.strike);
-    const _strikeEdgeRow = _sIdxRow === 0 ? ' ⚠s' : _sIdxRow === _allStrikesRow.length - 1 ? ' ⚠s' : '';
-    const _expEdgeRow = expList && r.exp === expList[expList.length - 1] ? ' ⚠e' : '';
-    const _edgeBadge = (_strikeEdgeRow || _expEdgeRow)
-      ? '<span style="font-size:8px;color:var(--yellow);margin-left:4px;" title="Data edge: ' + (_strikeEdgeRow ? 'strike boundary' : '') + (_expEdgeRow ? ' expiry boundary' : '') + '">⚠</span>' : '';
+    const _strikeEdge = _sIdxRow === 0 || _sIdxRow === _allStrikesRow.length - 1;
+    const _expEdge = expList && r.exp === expList[expList.length - 1];
+    const edgeParts = [];
+    if (_strikeEdge) edgeParts.push('strike');
+    if (_expEdge) edgeParts.push('expiry');
+    const edgeDisp = edgeParts.length
+      ? '<span style="color:var(--yellow);">⚠ ' + edgeParts.join('+') + '</span>'
+      : '<span style="color:var(--muted);">—</span>';
 
     return '<tr class="' + rowClass + '">'
       + '<td class="red" style="font-size:10px;">' + coverDisp + '</td>'
-      + '<td style="color:var(--green);">Sell $' + r.strike + 'C ' + r.exp + badge + _edgeBadge + '</td>'
+      + '<td style="color:var(--green);">Sell $' + r.strike + 'C ' + r.exp + ' @ $' + r.mid.toFixed(2) + badge + '</td>'
       + '<td class="green">' + creditDisp + '</td>'
       + '<td class="' + yldClass + '">' + yldDisp + '</td>'
       + '<td class="muted" style="font-size:10px;">' + triggerDisp + '</td>'
+      + '<td style="font-size:10px;">' + edgeDisp + '</td>'
+      + '<td><button onclick="alert(\'Trade functionality coming soon\')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;letter-spacing:.05em;">Trade</button></td>'
       + '</tr>';
   }).join('');
 
