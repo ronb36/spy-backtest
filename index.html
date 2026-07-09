@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.46</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.47</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.46 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.47 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -558,7 +558,7 @@ function copyDebugLog() {
   const blotterRows = document.querySelectorAll('#roll-log-body tr');
   if (blotterRows.length) {
     text += '\n── ROLL LOG ─────────────────────────────────────────────────────\n';
-    text += ['Date','Cover (Close)','New Leg (Open)','Roll Credit','Exp Yield','Trigger'].join('\t') + '\n';
+    text += ['Date','Cover (Close)','New Leg (Open)','Roll Credit','Days Held','Exp Yield','Trigger'].join('\t') + '\n';
     blotterRows.forEach(row => {
       const cells = row.querySelectorAll('td');
       text += Array.from(cells).map(td => td.innerText.trim().replace(/\n/g,' ')).join('\t') + '\n';
@@ -2080,7 +2080,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.46 · SPY Covered Call Backtest');
+  logMsg('v3.8.47 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2504,6 +2504,7 @@ function renderCycleTable(r) {
       <td class="red">${coverStrike ? `Cover $${coverStrike} @ $${fmt(coverPx)}` : '—'}</td>
       <td class="accent">${newLegStr}</td>
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
+      <td class="muted" style="font-size:10px;">${closedCycle?.daysHeld != null ? closedCycle.daysHeld + 'd' : '—'}</td>
       <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
       <td class="muted" style="font-size:10px;">${c.reason}</td>
     </tr>`;
@@ -2530,6 +2531,7 @@ function renderCycleTable(r) {
       <td class="red">${coverStrike ? `Cover $${coverStrike} @ $${fmt(coverPx)}` : '—'}</td>
       <td class="accent">${newLegStr}</td>
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
+      <td class="muted" style="font-size:10px;">—</td>
       <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
       <td class="muted" style="font-size:10px;">${pc.reason || 'open position'}</td>
     </tr>`;
@@ -2538,7 +2540,7 @@ function renderCycleTable(r) {
   $('cycle-table').innerHTML = `<table class="tbl">
     <thead><tr>
       <th>Date</th><th>Cover (Close)</th><th>New Leg (Open)</th>
-      <th>Roll Credit</th><th>Exp Yield</th><th>Trigger</th>
+      <th>Roll Credit</th><th>Days Held</th><th>Exp Yield</th><th>Trigger</th>
     </tr></thead>
     <tbody>${initRow}${rows}${openRow}</tbody>
   </table>`;
