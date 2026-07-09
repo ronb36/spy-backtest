@@ -153,18 +153,19 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.31</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.32</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
-  <!-- Initial Position -->
+  <!-- Live Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none;padding:10px 16px;">
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;">
-      <span class="mono-label" style="margin:0;">Initial Position</span>
-      <span class="init-badge" style="margin:0;">📌 Long SPY — call selected by yield optimizer</span>
+      <span class="mono-label" style="margin:0;">Live Position</span>
+      <span class="init-badge" style="margin:0;">📈 Long SPY + Short Call</span>
+      <span style="color:var(--muted);">Qty <span id="init-qty" style="color:var(--text);">—</span> shares</span>
+      <span style="color:var(--muted);">Short <span id="init-strike-display" style="color:var(--text);">—</span></span>
+      <span style="color:var(--muted);">Exp <span id="init-expiry-display" style="color:var(--text);">—</span></span>
       <span style="color:var(--muted);">Entry <span id="init-entry-date" style="color:var(--text);">—</span></span>
-      <span style="color:var(--muted);">Qty <span id="init-qty" style="color:var(--text);">—</span></span>
-      <span style="color:var(--muted);">SPY <span id="init-spy" style="color:var(--text);">—</span></span>
-      <span style="color:var(--muted);">OTM <span style="color:var(--text);">3%</span></span>
+      <span style="color:var(--muted);">Net Premium <span id="init-net-premium" style="color:var(--green);">—</span></span>
     </div>
     <select id="init-date" style="display:none;"></select>
     <div id="init-strike" style="display:none;"></div>
@@ -177,8 +178,8 @@ select.display-box { cursor:pointer; outline:none; }
     <input type="checkbox" id="debug-toggle" checked style="display:none;">
 
     <!-- Row 1: sweepable param cards -->
-    <div id="var-card-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;">
-      <div class="stat-card var-card" id="vcard-decay" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
+    <div id="var-card-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;grid-auto-rows:88px;">
+      <div class="stat-card var-card" id="vcard-decay" style="position:relative;height:88px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('decay')" style="cursor:inherit;">
           <div class="stat-label">Decay Trigger</div>
           <div class="stat-value accent" id="vval-decay" style="font-size:14px;">80%</div>
@@ -193,7 +194,7 @@ select.display-box { cursor:pointer; outline:none; }
         </div>
       </div>
 
-      <div class="stat-card var-card" id="vcard-delta" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
+      <div class="stat-card var-card" id="vcard-delta" style="position:relative;height:88px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('delta')" style="cursor:inherit;">
           <div class="stat-label">Delta Δ</div>
           <div class="stat-value accent" id="vval-delta" style="font-size:14px;">0.40</div>
@@ -207,7 +208,7 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-delta" value="0.025" min="0.01" max="0.5" step="0.01" onchange="updateSweepRange('delta')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-vixgate" style="position:relative;height:96px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
+      <div class="stat-card var-card" id="vcard-vixgate" style="position:relative;height:88px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('vixgate')" style="cursor:inherit;">
           <div class="stat-label">VIX Gate</div>
           <div class="stat-value accent" id="vval-vixgate" style="font-size:14px;">Off</div>
@@ -225,8 +226,8 @@ select.display-box { cursor:pointer; outline:none; }
 
 
     <!-- Row 2: DTE + DTE Max + Run (3 col, OTM fixed at 3% in Initial Position bar) -->
-    <div id="controls-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;grid-auto-rows:80px;">
-      <div class="stat-card var-card" id="vcard-dte" style="position:relative;height:80px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
+    <div id="controls-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;grid-auto-rows:88px;">
+      <div class="stat-card var-card" id="vcard-dte" style="position:relative;height:88px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('dte')" style="cursor:inherit;">
           <div class="stat-label">DTE Min</div>
           <div class="stat-value accent" id="vval-dte" style="font-size:14px;">7d</div>
@@ -240,7 +241,7 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-dte" value="7" min="1" max="30" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div class="stat-card var-card" id="vcard-lookahead" style="position:relative;height:80px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
+      <div class="stat-card var-card" id="vcard-lookahead" style="position:relative;height:88px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('lookahead')" style="cursor:inherit;">
           <div class="stat-label">DTE Max</div>
           <div class="stat-value accent" id="vval-lookahead" style="font-size:14px;">180d</div>
@@ -254,7 +255,7 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-lookahead" value="30" min="1" max="90" step="1" onchange="updateSweepRange('lookahead')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div id="run-publish-card" style="height:80px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
+      <div id="run-publish-card" style="height:88px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
         <button class="btn" id="run-btn" onclick="handleRunOrPublish()" disabled
           style="font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.04em;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;padding:0;line-height:1.3;text-align:center;">
           ▶ Run
@@ -427,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.31 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.32 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -480,7 +481,13 @@ async function loadRollParams() {
       dteFloor:       data.dteFloor,
       deltaThreshold: data.deltaThreshold,
       vixGate:        data.vixGate || 0,
-      maxLookahead:   180,
+      maxLookahead:   data.maxLookahead || 180,
+      // Live position fields
+      shares:         data.shares || 600,
+      shortStrike:    data.shortStrike || null,
+      shortExpiry:    data.shortExpiry || null,
+      entryDate:      data.entryDate || null,
+      netPremium:     data.netPremium != null ? data.netPremium : null,
     };
     // Update var-card display values
     const updates = {
@@ -811,6 +818,8 @@ const _sweepRanges = {
 function toggleVar(v, forceOff) {
   if (forceOff) { _sweepVars[v] = false; } else { _sweepVars[v] = !_sweepVars[v]; }
   const active = _sweepVars[v];
+  // Auto-disable debug mode when any sweep is activated — OPT and debug are incompatible
+  if (active && _debugMode) toggleDebug();
   const card = $('vcard-' + v);
   const val  = $('vval-' + v);
   const sub  = $('vsub-' + v);
@@ -1596,21 +1605,32 @@ function onSharesChange()   { updateInitPosition(); }
 
 function updateInitPosition() {
   if (!DM) return;
-  const firstSPY = DM.spy[0];
-  if (!firstSPY) return;
 
-  $('init-entry-date').textContent = firstSPY.date;
-  $('init-qty').textContent        = '600 shares';
-  $('init-spy').textContent        = '$' + firstSPY.c.toFixed(2);
-  $('init-panel').style.display    = 'block';
+  // Qty from position JSON (STD.shares) — falls back to 600 if not set
+  const qty = STD.shares || 600;
+  const el_qty = $('init-qty'); if (el_qty) el_qty.textContent = qty.toLocaleString();
 
-  // Set hidden expiry to first available expiry >= 30d from mart start
-  const target = new Date(firstSPY.date + 'T00:00:00');
-  target.setDate(target.getDate() + 30);
-  const tStr = target.toISOString().slice(0,10);
-  const expiries = getMartExpiries();
-  const best = expiries.find(e => e >= tStr) || expiries[0];
-  if ($('init-date')) $('init-date').value = best;
+  // Short call details from position JSON
+  const el_strike  = $('init-strike-display');
+  const el_expiry  = $('init-expiry-display');
+  const el_entry   = $('init-entry-date');
+  const el_premium = $('init-net-premium');
+  if (el_strike)  el_strike.textContent  = STD.shortStrike  ? '$' + STD.shortStrike  : '—';
+  if (el_expiry)  el_expiry.textContent  = STD.shortExpiry  || '—';
+  if (el_entry)   el_entry.textContent   = STD.entryDate    || '—';
+  if (el_premium) el_premium.textContent = STD.netPremium != null ? '$' + Number(STD.netPremium).toFixed(2) + '/sh' : '—';
+
+  $('init-panel').style.display = 'block';
+
+  // Set hidden expiry to first available expiry >= 30d from mart start (backtester uses this)
+  if (DM.spy[0]) {
+    const target = new Date(DM.spy[0].date + 'T00:00:00');
+    target.setDate(target.getDate() + 30);
+    const tStr = target.toISOString().slice(0,10);
+    const expiries = getMartExpiries();
+    const best = expiries.find(e => e >= tStr) || expiries[0];
+    if ($('init-date')) $('init-date').value = best;
+  }
 }
 
 
@@ -2001,7 +2021,7 @@ async function runSimulation() {
     ...getActiveParams(),
     otmFixed:    0.03, // OTM fixed at 3%
     dteFloor:    _dteFloor,
-    shares:      600,
+    shares:      STD.shares || 600,
     maxRolls:    _maxRolls,
     maxLookahead: _lookahead,
   };
@@ -2011,7 +2031,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.31 · SPY Covered Call Backtest');
+  logMsg('v3.8.32 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2171,6 +2191,7 @@ async function publishRollParams(p) {
       decayTrigger: p.decayTrigger, dteFloor: p.dteFloor,
       deltaThreshold: p.deltaThreshold, otmTarget: p.otmTarget,
       vixGate: p.vixGate || 0,
+      maxLookahead: p.maxLookahead || STD.maxLookahead,
       lastOptimized: today, optAnnYield: parseFloat(p.optAnnYield.toFixed(2)),
       note: 'Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.'
     };
@@ -2185,7 +2206,20 @@ async function publishRollParams(p) {
     });
     if (!put.ok) throw new Error('GitHub API ' + put.status);
     STD = { otmFixed: payload.otmTarget, decayTrigger: payload.decayTrigger * 100,
-            dteFloor: payload.dteFloor, deltaThreshold: payload.deltaThreshold, maxLookahead: payload.maxLookahead || 180 };
+            dteFloor: payload.dteFloor, deltaThreshold: payload.deltaThreshold,
+            vixGate: payload.vixGate || 0, maxLookahead: payload.maxLookahead || 180 };
+    // Refresh all var-cards with newly published values
+    const pubUpdates = {
+      'vval-decay':    STD.decayTrigger + '%',
+      'vval-dte':      STD.dteFloor + 'd',
+      'vval-delta':    STD.deltaThreshold.toFixed(3),
+      'vval-vixgate':  STD.vixGate > 0 ? 'VIX\u2265' + STD.vixGate : 'Off',
+      'vval-lookahead': STD.maxLookahead + 'd',
+    };
+    Object.entries(pubUpdates).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el && !_sweepVars[id.replace('vval-','')]) el.textContent = val;
+    });
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
     logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% ann. yield · ' + today, 'ok');
@@ -2227,7 +2261,7 @@ async function runOptimization() {
   const sweepDesc = ['decay','dte','delta','vixgate','lookahead'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
   logMsg(`Running optimization — sweeping: ${sweepDesc}...`);
 
-  const shares = 600;
+  const shares = STD.shares || 600;
   const total  = decays.length * floors.length * deltas.length * vixgates.length * lookaheads.length;
   let done = 0;
 
@@ -2320,10 +2354,11 @@ async function runOptimization() {
     // Update var cards with winning values
     if (b) {
       const cardUpdates = {
-        decay:   b.decay + '%',
-        dte:     b.floor + 'd',
-        delta:   b.delta?.toFixed(3),
-        vixgate: b.vixgate > 0 ? 'VIX\u2265' + b.vixgate : 'Off',
+        decay:     b.decay + '%',
+        dte:       b.floor + 'd',
+        delta:     b.delta?.toFixed(3),
+        vixgate:   b.vixgate > 0 ? 'VIX\u2265' + b.vixgate : 'Off',
+        lookahead: b.lookahead ? b.lookahead + 'd' : null,
       };
       for (const [v, winVal] of Object.entries(cardUpdates)) {
         if (!_sweepVars[v] || !winVal) continue;
@@ -2996,9 +3031,9 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
       const vsClass  = vsDelta === null ? 'muted' : vsDelta >= 0 ? 'green' : 'red';
       const yldClass = row.yld >= 3 ? 'green' : row.yld >= 0 ? 'yellow' : 'red';
       const paramStr = `decay=${row.decay}% / dte=${row.floor}d`
-        + (row.delta     && _sweepVars.delta     ? ` / \u0394${row.delta}` : '')
-        + (row.vixgate   && _sweepVars.vixgate   ? ` / VIX\u2265${row.vixgate}` : '')
-        + (row.lookahead && _sweepVars.lookahead ? ` / dteMax=${row.lookahead}d` : '');
+        + ` / \u0394${row.delta ?? STD.deltaThreshold}`
+        + ` / VIX\u2265${row.vixgate ?? STD.vixGate}`
+        + ` / dteMax=${row.lookahead ?? STD.maxLookahead}d`;
       const winFlag  = isBest ? ' <span style="color:var(--green);font-size:9px;">\u2605</span>' : '';
       const edgeStr  = row.edgeRatio !== null && row.edgeRatio !== undefined
         ? (row.edgeRatio*100).toFixed(0) + '%'
