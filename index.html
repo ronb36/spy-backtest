@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.45</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.46</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.45 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.46 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -2000,10 +2000,16 @@ async function simulate(p) {
   const totalPnl = rolls.reduce((s,c)=>s+c.pnl,0);
   const avgYld   = rolls.length ? rolls.reduce((s,c)=>s+c.annYld,0)/rolls.length : 0;
   const winRate  = rolls.length ? rolls.filter(c=>c.pnl>0).length/rolls.length*100 : 0;
-  // Avg cycle duration — used for Expected Realized Yield (ERY)
-  const avgCycleDays = rolls.length
-    ? rolls.reduce((s,c) => s + (c.daysHeld || 0), 0) / rolls.length
-    : 38; // fallback if no rolls
+  // Avg cycle duration — closed cycles only, exclude outliers below dteFloor
+  const dteFloorVal = p.dteFloor || 7;
+  const closedRolls = rolls.filter(c => (c.daysHeld || 0) >= dteFloorVal);
+  const sortedDays  = closedRolls.map(c => c.daysHeld).sort((a,b) => a-b);
+  const mid         = Math.floor(sortedDays.length / 2);
+  const avgCycleDays = sortedDays.length
+    ? (sortedDays.length % 2 === 0
+        ? (sortedDays[mid-1] + sortedDays[mid]) / 2
+        : sortedDays[mid])
+    : 38; // fallback
   // covRet computed below after rollCreditTotal and dayCount are available
   const maxDD    = calcMaxDD(equity.map(e=>e.cc));
 
@@ -2074,7 +2080,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.45 · SPY Covered Call Backtest');
+  logMsg('v3.8.46 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
