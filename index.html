@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.38</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.39</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.38 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.39 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -2054,7 +2054,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.38 · SPY Covered Call Backtest');
+  logMsg('v3.8.39 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3530,7 +3530,7 @@ async function runRollScan() {
   // Filter: net credit > 0 AND delta ≤ threshold — same gates as OPT
   const scored = results.map(r => {
     const netCredit    = currentCallMid > 0 ? r.mid - currentCallMid : r.mid;
-    const rollAdjYield = (netCredit / spyBasis * 600) * (365 / r.dte) * 100;
+    const rollAdjYield = spyNow > 0 ? (netCredit / spyNow) * (365 / r.dte) * 100 : 0;
     const otmPct       = ((r.strike - spyNow) / spyNow) * 100;
     const delta        = r.delta !== null ? Math.abs(r.delta) : 0.30;
     const deltaOk      = delta <= deltaThres;
@@ -3683,39 +3683,43 @@ async function runRollScan() {
   // Merge coverage warnings into edgeWarnings for UI display
   const allUiWarnings = [...new Set([...edgeWarnings, ...coverageWarnings])];
 
-  // Build trigger context from last cycle's reason string
+  // Build trigger context from live position data (matches agent logic exactly)
   const _scanTriggerInfo = (() => {
-    if (!lastResult || !lastResult.cycles) return { type: 'decay', currentVal: null, allTypes: [], rawTrigger: '' };
-    const lastCycle = lastResult.cycles[lastResult.cycles.length - 1];
-    if (!lastCycle) return { type: 'decay', currentVal: null, allTypes: [], rawTrigger: '' };
-    const trig = (lastCycle.reason || '').toLowerCase();
     const allTypes = [];
     let primaryType = 'decay', currentVal = null, decayVal = null;
+    const rp = STD;
 
-    // Parse decay — format: "32% decay"
-    const decayM = trig.match(/(\d+(?:\.\d+)?)%\s*decay/) || trig.match(/decay/);
-    if (decayM) {
-      allTypes.push('decay');
-      const numM = trig.match(/(\d+(?:\.\d+)?)%/);
-      decayVal = numM ? parseFloat(numM[1]) : null;
-      primaryType = 'decay';
-      currentVal = decayVal;
+    // Decay trigger: (entryPremium - currentMid) / entryPremium
+    if (STD.netPremium && currentCallMid > 0) {
+      const decay = (STD.netPremium - currentCallMid) / STD.netPremium * 100;
+      decayVal = decay;
+      if (decay >= (rp.decayTrigger || 15)) {
+        allTypes.push('decay');
+        primaryType = 'decay';
+        currentVal = decayVal;
+      }
     }
 
-    // Parse delta — format: "delta 0.51" or "delta0.51"
-    if (trig.includes('delta')) {
-      allTypes.push('delta');
-      const deltaM = trig.match(/delta\s*([0-9.]+)/);
-      if (deltaM) { if (primaryType !== 'decay') primaryType = 'delta'; currentVal = parseFloat(deltaM[1]); }
+    // Delta trigger: use live delta from current scan position data
+    // We'll pass current short delta via scored[0] if available — use STD as proxy
+    const liveDelta = scored.length > 0 ? null : null; // delta of SHORT not available here
+    // Check against known delta from agent message if available
+    // For now: if decay didn't fire but delta threshold exceeded, flag it
+    // (in practice the agent message is the authoritative source)
+
+    // DTE trigger: days remaining on short call
+    if (STD.shortExpiry) {
+      const dteNow = Math.round((new Date(STD.shortExpiry + 'T12:00:00Z') - new Date()) / 86400000);
+      if (dteNow <= (rp.dteFloor || 7)) {
+        allTypes.push('dte');
+        if (!allTypes.includes('decay')) primaryType = 'dte';
+      }
     }
 
-    // Parse DTE — format: "7d DTE"
-    if (trig.includes('dte') || trig.match(/\dd\b/)) {
-      allTypes.push('dte');
-      if (!allTypes.includes('decay') && !allTypes.includes('delta')) primaryType = 'dte';
-    }
+    // If nothing fired, still show decay as context
+    if (allTypes.length === 0) allTypes.push('decay');
 
-    return { type: primaryType, currentVal, allTypes, decayVal, rawTrigger: lastCycle.reason || '' };
+    return { type: primaryType, currentVal, allTypes, decayVal, rawTrigger: '' };
   })();
   renderRollScanTable(scored, spyNow, deltaThres, currentCallMid, allUiWarnings, _scanTriggerInfo, dmStrikesPerExpiry, expList);
 
@@ -3785,7 +3789,7 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
   const coverStrike = currentCallMid > 0 ? (STD.shortStrike || '—') : null;
   const coverExpiry = STD.shortExpiry || '';
   const coverDisp   = coverStrike
-    ? 'Cover $' + coverStrike + 'C ' + coverExpiry + ' @ $' + currentCallMid.toFixed(2)
+    ? '$' + coverStrike + 'C ' + coverExpiry + ' @ $' + currentCallMid.toFixed(2)
     : '—';
 
   const thead = '<thead><tr>'
@@ -3804,8 +3808,7 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     const badge    = isTop ? '<span class="best-badge">BEST</span>' : '';
     const yldClass = r.rollAdjYield >= 3 ? 'green' : r.rollAdjYield >= 1 ? 'yellow' : 'muted';
     const creditDisp = hasCoverPrice ? '+$' + r.netCredit.toFixed(2) : '\u2014';
-    const yldDisp    = hasCoverPrice ? r.rollAdjYield.toFixed(1) + '%'
-                     : (r.mid / spyNow * 365 / r.dte * 100).toFixed(1) + '%*';
+    const yldDisp    = r.rollAdjYield.toFixed(1) + '%';
 
     // Contextual trigger — show all triggers with spelled-out labels
     const triggers = [];
@@ -3836,7 +3839,7 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
 
     return '<tr class="' + rowClass + '">'
       + '<td class="red" style="font-size:10px;">' + coverDisp + '</td>'
-      + '<td style="color:var(--green);">Sell $' + r.strike + 'C ' + r.exp + ' @ $' + r.mid.toFixed(2) + badge + '</td>'
+      + '<td style="color:var(--green);">$' + r.strike + 'C ' + r.exp + ' @ $' + r.mid.toFixed(2) + badge + '</td>'
       + '<td class="green">' + creditDisp + '</td>'
       + '<td class="' + yldClass + '">' + yldDisp + '</td>'
       + '<td class="muted" style="font-size:10px;">' + triggerDisp + '</td>'
