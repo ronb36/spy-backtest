@@ -4,7 +4,7 @@
   "deltaThreshold": 0.475,
   "otmTarget": 0.03,
   "vixGate": 16,
-  "lastOptimized": "2026-07-07",
-  "optAnnYield": 8.39,
+  "lastOptimized": "2026-07-09",
+  "optAnnYield": 8.99,
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep."
 }
