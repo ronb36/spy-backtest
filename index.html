@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.5</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.6</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.9.5 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.9.6 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1605,9 +1605,11 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       if (dte <= 0) continue;
 
       const netCredit  = entryPx - (buybackPx || 0);
-      const rawYield   = (netCredit / currentSPY) * (365 / dte) * 100;
-      const dtePenalty = Math.min(1, dte / 45);
-      const adjYield   = rawYield * dtePenalty;
+      // Score on expected realized yield over projected hold period (dte × holdPct)
+      // This makes DTE irrelevant to ranking — winner is highest net credit per SPY dollar
+      const holdPct_   = _holdPct || 0.20;
+      const projDays   = Math.max(7, Math.round(dte * holdPct_));
+      const adjYield   = (netCredit / currentSPY) * (365 / projDays) * 100;
       const candDelta_ = callDelta(currentSPY, c.strike, dte, 18, 4.5);
       const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
 
@@ -1616,7 +1618,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
         debitCount++;
       } else {
         // Credit — log individually
-        logDbg('  Credit ' + exp + ' $' + c.strike + ' (' + candOTM_ + '% OTM): px=$' + entryPx.toFixed(2) + ' net=$' + netCredit.toFixed(2) + ' DTE=' + dte + ' Δ=' + candDelta_.toFixed(3) + ' adj=' + adjYield.toFixed(1) + '%');
+        logDbg('  Credit ' + exp + ' $' + c.strike + ' (' + candOTM_ + '% OTM): px=$' + entryPx.toFixed(2) + ' net=$' + netCredit.toFixed(2) + ' DTE=' + dte + ' proj=' + projDays + 'd Δ=' + candDelta_.toFixed(3) + ' projYld=' + adjYield.toFixed(1) + '%');
       }
 
       if (adjYield > bestYield) {
@@ -2057,7 +2059,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.9.5 · SPY Covered Call Backtest');
+  logMsg('v3.9.6 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
