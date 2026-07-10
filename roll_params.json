@@ -1,13 +1,14 @@
 {
-  "decayTrigger": 0.15,
+  "decayTrigger": 0.25,
   "dteFloor": 7,
   "deltaThreshold": 0.475,
   "otmTarget": 0.03,
-  "vixGate": 16,
+  "vixGate": 24,
   "maxLookahead": 180,
-  "lastOptimized": "2026-07-09",
-  "optProjYield": 8.4,
-  "aveCycleDays": 38,
+  "lastOptimized": "2026-07-10",
+  "optProjYield": 0.2,
+  "avgCycleDays": 6,
+  "holdPct": 0.041,
   "shares": 600,
   "shortStrike": 760,
   "shortExpiry": "2026-10-16",
@@ -15,6 +16,5 @@
   "netPremium": 3.64,
   "coverPrice": 17.55,
   "sellPrice": 21.19,
-  "netPremium": 3.64,
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep."
 }
