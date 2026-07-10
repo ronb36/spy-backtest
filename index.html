@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.4</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.9.3 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.9.4 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1567,14 +1567,15 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
     const expContracts = _dmExpiryIndex[exp] || [];
     if (!expContracts.length) {
       _gaps.push({ expiry: exp, otm: targetOTM, needed: afterDate, substituted: true });
-      logDbg('  Gap ' + exp + ': no contracts in mart');
+      logDbg('  Price Gap: ' + afterDate + ' — no contracts in mart for expiry ' + exp);
       continue;
     }
 
-    for (const c of expContracts) {
-      if (c.strike <= currentSPY) continue; // must be OTM
+    let gapCount = 0, gapMinOTM = Infinity;
 
-      // Delta gate
+    for (const c of expContracts) {
+      if (c.strike <= currentSPY) continue;
+
       if (deltaThreshold > 0) {
         const candDTE   = Math.round((new Date(c.expiry+'T00:00:00') - afterD) / 86400000);
         const candDelta = callDelta(currentSPY, c.strike, candDTE, 18, 4.5);
@@ -1588,7 +1589,9 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       const afterKey = afterDate.trim().slice(0, 10);
       const entryDay = dm[afterKey];
       if (!entryDay) {
-        logDbg('  Gap ' + c.expiry + ' $' + c.strike + ': no price on ' + afterKey);
+        const otmPct = ((c.strike - currentSPY) / currentSPY * 100);
+        gapCount++;
+        if (otmPct < gapMinOTM) gapMinOTM = otmPct;
         continue;
       }
 
@@ -1607,7 +1610,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       logDbg('  Candidate ' + exp + ' $' + c.strike + ' (' + candOTM_ + '% OTM): px=$' + entryPx.toFixed(2) + ' net=$' + netCredit.toFixed(2) + ' DTE=' + dte + ' Δ=' + candDelta_.toFixed(3) + ' raw=' + rawYield.toFixed(1) + '% adj=' + adjYield.toFixed(1) + '%');
 
       if (adjYield > bestYield) {
-        bestYield = adjYield;
+        bestYield     = adjYield;
         bestContract  = c;
         bestEntryPx   = entryPx;
         bestEntryDate = entryDay.date.trim().slice(0, 10);
@@ -1615,6 +1618,10 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
         bestDelta     = candDelta_;
         bestOTM       = parseFloat(candOTM_);
       }
+    }
+
+    if (gapCount > 0) {
+      logDbg('  Price Gap: ' + afterDate + ' — ' + gapCount + ' contract' + (gapCount>1?'s':'') + ' above ' + gapMinOTM.toFixed(0) + '% OTM skipped for expiry ' + exp);
     }
   }
 
@@ -2039,7 +2046,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.9.3 · SPY Covered Call Backtest');
+  logMsg('v3.9.4 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
