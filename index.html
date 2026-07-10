@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.51</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.52</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.51 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.52 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -498,9 +498,11 @@ async function loadRollParams() {
       sellPrice:      data.sellPrice  != null ? data.sellPrice  : null,
       optProjYield:    data.optProjYield ?? data.optAnnYield ?? null, // backward compat
       avgCycleDays:   data.avgCycleDays || null,
+      holdPct:        data.holdPct || null,
     };
-    // Seed _avgCycleDays from JSON if available (before STD runs)
+    // Seed _avgCycleDays and _holdPct from JSON if available (before STD runs)
     if (STD.avgCycleDays) _avgCycleDays = STD.avgCycleDays;
+    if (STD.holdPct)      _holdPct      = STD.holdPct;
     // Update var-card display values
     const updates = {
       'vval-decay':   STD.decayTrigger + '%',
@@ -536,7 +538,8 @@ async function loadRollParams() {
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
-let _avgCycleDays = null; // avg cycle duration from last STD run — ERY basis for scan
+let _avgCycleDays = null; // avg cycle duration from last STD run — proj.yield basis for scan
+let _holdPct = null;      // avg % of DTE held before rolling — proj.yield per-candidate basis
 let _martView = 'spy';   // active data mart tab
 let _gaps = [];          // gap contracts found during simulation
 let _pendingPublish = null;
@@ -2014,6 +2017,17 @@ async function simulate(p) {
   const avgCycleDays = (rangeDays > 0 && completedRolls.length > 1)
     ? Math.round(rangeDays / (completedRolls.length - 1))
     : 28; // fallback
+
+  // Hold %: avg fraction of contract DTE held before rolling
+  const holdPctVals = completedRolls.map(c => {
+    const contractDTE = c.expiry && c.entryDate
+      ? Math.round((new Date(c.expiry+'T00:00:00') - new Date(c.entryDate+'T00:00:00')) / 86400000)
+      : 0;
+    return contractDTE > 0 ? (c.daysHeld || 0) / contractDTE : null;
+  }).filter(v => v !== null && v <= 1.5); // exclude outliers > 150% DTE
+  const holdPct = holdPctVals.length
+    ? holdPctVals.reduce((s,v) => s+v, 0) / holdPctVals.length
+    : 0.39; // fallback
   // covRet computed below after rollCreditTotal and dayCount are available
   const maxDD    = calcMaxDD(equity.map(e=>e.cc));
 
@@ -2055,7 +2069,7 @@ async function simulate(p) {
   const spyRet     = (Math.pow(1 + rawSpyRet/100, 365/dayCount) - 1) * 100;
   const covRet     = (Math.pow(1 + ccTotalRet/100, 365/dayCount) - 1) * 100;
 
-  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, avgCycleDays };
+  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, avgCycleDays, holdPct };
 }
 
 // ── Run simulation ─────────────────────────────────────────────────────────
@@ -2084,7 +2098,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.51 · SPY Covered Call Backtest');
+  logMsg('v3.8.52 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2098,8 +2112,9 @@ async function runSimulation() {
   buildRollSnapshots(result);
 
   logMsg(`✓ ${result.rolls.length} roll cycles`,'ok');
-  _avgCycleDays = result.avgCycleDays; // store for scan ERY scoring
-  logMsg(`  Proj cycle: ${Math.round(_avgCycleDays)}d — proj.yield basis set`, 'ok');
+  _avgCycleDays = result.avgCycleDays; // store for scan proj.yield scoring
+  _holdPct      = result.holdPct;
+  logMsg(`  Proj cycle: ${Math.round(_avgCycleDays)}d · Hold %: ${(_holdPct*100).toFixed(1)}% of DTE — proj.yield basis set`, 'ok');
   if (_debugMode) {
     logVIXRegimeSplit(result);
   }
@@ -2255,6 +2270,7 @@ async function publishRollParams(p) {
       maxLookahead: p.maxLookahead || STD.maxLookahead,
       lastOptimized: today, optProjYield: parseFloat((p.optProjYield || p.optAnnYield).toFixed(1)),
       avgCycleDays: Math.round(_avgCycleDays || 38),
+      holdPct:      parseFloat((_holdPct || 0.39).toFixed(3)),
       // Preserve position fields from existing JSON
       shares:      _existingJson.shares      ?? STD.shares      ?? 600,
       shortStrike: _existingJson.shortStrike ?? STD.shortStrike ?? null,
@@ -2354,11 +2370,19 @@ async function runOptimization() {
               const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed, vixGate:vixgate, shares, maxRolls:null, maxLookahead });
               let yld = null;
               if (r?.rolls?.length >= 2) {
-                // ERY: avg net credit per share / spyNow, annualized over avg cycle days
-                const spyNowEst = DM?.spy?.[DM.spy.length-1]?.c || 1;
-                const avgCD = r.avgCycleDays || 38;
+                // Proj yield: avg net credit / spyNow, annualized over projected hold (DTE × holdPct)
+                const spyNowEst  = DM?.spy?.[DM.spy.length-1]?.c || 1;
+                const holdPct_   = r.holdPct || 0.39;
                 const avgNetCreditPerSh = r.rolls.reduce((s,c) => s + (c.entryPx - c.exitPx), 0) / r.rolls.length;
-                yld = spyNowEst > 0 ? (avgNetCreditPerSh / spyNowEst) * (365 / avgCD) * 100 : null;
+                // Use avg DTE of rolls as representative DTE
+                const avgDTE = r.rolls.reduce((s,c) => {
+                  const dte = c.expiry && c.entryDate
+                    ? Math.round((new Date(c.expiry+'T00:00:00') - new Date(c.entryDate+'T00:00:00')) / 86400000)
+                    : 60;
+                  return s + dte;
+                }, 0) / r.rolls.length;
+                const projDays = Math.max(7, Math.round(avgDTE * holdPct_));
+                yld = spyNowEst > 0 ? (avgNetCreditPerSh / spyNowEst) * (365 / projDays) * 100 : null;
               }
               if (yld !== null && (allResults.grid[decay][floor] === null || yld > allResults.grid[decay][floor])) {
                 allResults.grid[decay][floor] = yld;
@@ -2470,7 +2494,8 @@ function renderSummary(r) {
     <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmt(r.covRet,1)}%</div><div class="stat-sub">Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
     <div class="stat-card"><div class="stat-label">Total Cycles</div><div class="stat-value accent">${r.cycles.length}</div><div class="stat-sub">${r.rolls.length} rolls + 1 initial</div></div>
-    <div class="stat-card"><div class="stat-label">Proj Cycle</div><div class="stat-value accent">${Math.round(r.avgCycleDays)}d</div><div class="stat-sub">Proj. yield basis</div></div>
+    <div class="stat-card"><div class="stat-label">Proj Cycle</div><div class="stat-value accent">${Math.round(r.avgCycleDays)}d</div><div class="stat-sub">Total range / completed rolls</div></div>
+    <div class="stat-card"><div class="stat-label">Hold %</div><div class="stat-value accent">${r.holdPct != null ? (r.holdPct*100).toFixed(1) : '—'}%</div><div class="stat-sub">Avg % of DTE held · proj.yield basis</div></div>
   `;
 }
 
@@ -3573,10 +3598,11 @@ async function runRollScan() {
   // Filter: net credit > 0 AND delta ≤ threshold — same gates as OPT
   const scored = results.map(r => {
     const netCredit    = currentCallMid > 0 ? r.mid - currentCallMid : r.mid;
-    // ERY: annualize net credit over avg cycle days (from last STD run), not full DTE
-    const avgCD        = _avgCycleDays || 38;
-    const rollExpYield = spyNow > 0 ? (netCredit / spyNow) * (365 / avgCD) * 100 : 0;
-    const rollAdjYield = rollExpYield; // kept for sort/filter compat
+    // Proj yield: annualize net credit over projected hold period (DTE × holdPct)
+    // holdPct = avg fraction of DTE held before rolling (from STD history)
+    const holdPct_     = _holdPct || 0.39;
+    const projDays     = Math.max(7, Math.round(r.dte * holdPct_));
+    const rollAdjYield = spyNow > 0 ? (netCredit / spyNow) * (365 / projDays) * 100 : 0;
     const otmPct       = ((r.strike - spyNow) / spyNow) * 100;
     const delta        = r.delta !== null ? Math.abs(r.delta) : 0.30;
     const deltaOk      = delta <= deltaThres;
@@ -3990,6 +4016,7 @@ async function confirmTrade() {
       lastOptimized:  existing.lastOptimized  ?? today,
       optProjYield:    existing.optProjYield    ?? existing.optAnnYield ?? null,
       avgCycleDays:   existing.avgCycleDays   ?? Math.round(_avgCycleDays || 38),
+      holdPct:        existing.holdPct        ?? parseFloat((_holdPct || 0.39).toFixed(3)),
       shares:         existing.shares         ?? STD.shares ?? 600,
       shortStrike:    _tradeCandidate.strike,
       shortExpiry:    _tradeCandidate.exp,
