@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.6</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.7</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -373,6 +373,7 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span class="chart-title" id="runlog-status">📄 Run Log</span>
           <button onclick="copyDebugLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="copy-log-btn2">Copy Log</button>
+          <button onclick="downloadLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="download-log-btn">Download Log</button>
         </div>
         <div class="progress-log" id="runlog-mirror" style="max-height:480px;overflow-y:auto;white-space:pre;"></div>
       </div>
@@ -428,7 +429,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.9.6 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.9.7 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -551,6 +552,43 @@ const $ = id => document.getElementById(id);
 const fmt = (n, d=2) => (n == null || isNaN(n)) ? '—' : n.toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d});
 const fmtD = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+$':'-$') + fmt(Math.abs(n), 0);
 const fmtP = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+':'') + fmt(n,1) + '%';
+
+function downloadLog() {
+  const el = document.getElementById('progress-log');
+  if (!el) return;
+  let text = el.textContent || '';
+
+  // Append stat cards
+  const statCards = document.querySelectorAll('#summary-grid .stat-card');
+  if (statCards.length) {
+    text += '\n── PERFORMANCE SUMMARY ──────────────────────────────────────────\n';
+    statCards.forEach(card => {
+      const label = card.querySelector('.stat-label')?.innerText?.trim() || '';
+      const value = card.querySelector('.stat-value')?.innerText?.trim() || '';
+      const sub   = card.querySelector('.stat-sub')?.innerText?.trim()   || '';
+      text += `${label}: ${value}  (${sub})\n`;
+    });
+  }
+
+  const now   = new Date();
+  const stamp = now.getFullYear() + '-' +
+    String(now.getMonth()+1).padStart(2,'0') + '-' +
+    String(now.getDate()).padStart(2,'0') + '_' +
+    String(now.getHours()).padStart(2,'0') +
+    String(now.getMinutes()).padStart(2,'0');
+  const filename = 'SPY_Log_' + stamp + '.txt';
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  const btn = document.getElementById('download-log-btn');
+  if (btn) { btn.textContent = '✓ Saved'; setTimeout(() => btn.textContent = 'Download Log', 2000); }
+}
 
 function copyDebugLog() {
   const el = document.getElementById('progress-log');
@@ -715,6 +753,11 @@ function logDbg(msg) {
   // STD mode with _debugMode: log everything
   logMsg(msg, 'dbg');
 }
+function logSim(msg, cls='') {
+  // Suppress simulate() roll-by-roll detail during OPT — only show in STD
+  if (_mode === 'optimize') return;
+  logMsg(msg, cls);
+}
 function yield_() { return new Promise(r => setTimeout(r, 0)); }
 
 // ── Mode ───────────────────────────────────────────────────────────────────
@@ -841,6 +884,11 @@ const _sweepRanges = {
   lookahead: { std: '180d', sweep: '90–270d',         debugSweep: '120–240d',  label: 'DTE Max' },
 };
 function toggleVar(v, forceOff) {
+  // If debug is ON, don't activate sweep — debug and OPT are incompatible
+  if (_debugMode && !forceOff) {
+    logMsg('Debug mode is ON — turn off Debug to run OPT sweep', '');
+    return;
+  }
   if (forceOff) { _sweepVars[v] = false; } else { _sweepVars[v] = !_sweepVars[v]; }
   const active = _sweepVars[v];
   // Auto-disable debug mode when any sweep is activated — OPT and debug are incompatible
@@ -1753,7 +1801,7 @@ async function simulate(p) {
     posOpen      = true;
     buildDayMap(contract);
     const label = isInit ? 'INITIAL ENTRY' : 'OPEN';
-    logMsg(`  ${label}  ${date}  $${entryStrike}C ${contract.expiry}  @$${entryPx.toFixed(2)}  DTE=${dte}  Δ=${delta.toFixed(3)}  ${otmPct.toFixed(1)}% OTM`, '');
+    logSim(`  ${label}  ${date}  $${entryStrike}C ${contract.expiry}  @$${entryPx.toFixed(2)}  DTE=${dte}  Δ=${delta.toFixed(3)}  ${otmPct.toFixed(1)}% OTM`, '');
   }
 
   // ── Helper: close position + open new ──────────────────────────────────
@@ -1788,9 +1836,9 @@ async function simulate(p) {
     const coverExpiry  = curContract.expiry;
 
     // Log close leg
-    logMsg(`\n── Roll ${cycles.length} ─────────────────────────── ${date}`, '');
-    logMsg(`  TRIGGER  ${reason}  SPY=$${spy.toFixed(2)}  DTE=${Math.round((new Date(curContract.expiry+'T00:00:00')-new Date(date+'T00:00:00'))/86400000)}  days held=${days}`, '');
-    logMsg(`  CLOSE    $${coverStrike}C ${coverExpiry}  @$${exitPx.toFixed(2)}  P&L ${pnl>=0?'+':''}$${pnl.toFixed(0)}`, '');
+    logSim(`\n── Roll ${cycles.length} ─────────────────────────── ${date}`, '');
+    logSim(`  TRIGGER  ${reason}  SPY=$${spy.toFixed(2)}  DTE=${Math.round((new Date(curContract.expiry+'T00:00:00')-new Date(date+'T00:00:00'))/86400000)}  days held=${days}`, '');
+    logSim(`  CLOSE    $${coverStrike}C ${coverExpiry}  @$${exitPx.toFixed(2)}  P&L ${pnl>=0?'+':''}$${pnl.toFixed(0)}`, '');
 
     // Reset position state
     isInitial = false; posOpen = false; entryDelta_ = 0; entryDTE_ = null;
@@ -1799,7 +1847,7 @@ async function simulate(p) {
     if (rollResult) {
       const netCredit = (rollResult.entryPx - exitPx) * 100 * contracts;
       const creditStr = (netCredit >= 0 ? '+$' : '-$') + Math.abs(netCredit).toFixed(0);
-      logMsg(`  OPEN     $${rollResult.contract.strike}C ${rollResult.contract.expiry}  @$${rollResult.entryPx.toFixed(2)}  DTE=${rollResult.dte}  Δ=${rollResult.delta.toFixed(3)}  Net ${creditStr}`, '');
+      logSim(`  OPEN     $${rollResult.contract.strike}C ${rollResult.contract.expiry}  @$${rollResult.entryPx.toFixed(2)}  DTE=${rollResult.dte}  Δ=${rollResult.delta.toFixed(3)}  Net ${creditStr}`, '');
 
       // Blotter line — use captured cover details
       const bl = `  ${date}  Cover $${coverStrike}C@$${exitPx.toFixed(2)}  Sell $${rollResult.contract.strike}C ${rollResult.contract.expiry}@$${rollResult.entryPx.toFixed(2)}  ${creditStr}  ${days}d  ${reason}`;
@@ -1822,16 +1870,16 @@ async function simulate(p) {
       equity.push({ date, cc:(spy/startSPY-1)*100, bh:(spy/startSPY-1)*100, spy, vix });
       continue;
     }
-    logMsg(`\n── Initial Entry ───────────────────────── ${date}`, '');
+    logSim(`\n── Initial Entry ───────────────────────── ${date}`, '');
     const initResult = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, deltaThreshold, 0);
-    if (!initResult) { logMsg('✗ No initial contract found', 'err'); return null; }
+    if (!initResult) { logSim('✗ No initial contract found', 'err'); return null; }
     openPosition(initResult, date, spy, vix, true);
     blotterLines.push(`  ${date}  —  Sell $${initResult.contract.strike}C ${initResult.contract.expiry}@$${initResult.entryPx.toFixed(2)}  —  ${initResult.dte}d  initial`);
     equity.push({ date, cc:(spy/startSPY-1)*100, bh:(spy/startSPY-1)*100, spy, vix });
     initialOpened = true;
     break;
   }
-  if (!initialOpened) { logMsg('✗ Could not open initial position', 'err'); return null; }
+  if (!initialOpened) { logSim('✗ Could not open initial position', 'err'); return null; }
 
   // ── Main loop: scan for triggers ────────────────────────────────────────
   for (const date of spyDates) {
@@ -1845,7 +1893,7 @@ async function simulate(p) {
       if (_mode !== 'optimize') setProgress(20 + Math.min(60, iter / 5));
       await yield_();
     }
-    if (iter > 6000) { logMsg('⚠ Safety limit reached', 'err'); break; }
+    if (iter > 6000) { logSim('⚠ Safety limit reached', 'err'); break; }
 
     if (!posOpen) continue;
 
@@ -1913,12 +1961,12 @@ async function simulate(p) {
     logDbg(`  → TRIGGER: ${reason} on ${date} (SPY=$${spy.toFixed(2)} K=$${entryStrike} delta=${delta.toFixed(3)} dte=${dte})`);
 
     const rollResult = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, deltaThreshold, exitPx);
-    if (!rollResult) { logMsg(`  No contract found within ${maxLookahead}d of ${date} — done`, 'err'); break; }
+    if (!rollResult) { logSim(`  No contract found within ${maxLookahead}d of ${date} — done`, 'err'); break; }
 
     closeAndRoll(date, spy, vix, exitPx, reason, rollResult);
 
     if (p.maxRolls && cycles.filter(c=>!c.isInitial).length >= p.maxRolls) {
-      logMsg(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok');
+      logSim(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok');
       pendingContract = rollResult.contract;
       break;
     }
@@ -1930,13 +1978,13 @@ async function simulate(p) {
     curContract.entryDate = entryDate;
     curContract.entrySPY  = entrySPY;
     pendingContract = curContract;
-    logMsg(`  Open position at end: ${curContract.expiry} $${entryStrike} @ $${entryPrice?.toFixed(2)||'?'}`, 'ok');
+    logSim(`  Open position at end: ${curContract.expiry} $${entryStrike} @ $${entryPrice?.toFixed(2)||'?'}`, 'ok');
   }
 
   if (!cycles.length) return null;
 
   const gapCount = _gaps.filter(g=>g.substituted).length;
-  if (gapCount) logMsg(`⚠ ${gapCount} gap(s) — results approximate`, 'err');
+  if (gapCount) logSim(`⚠ ${gapCount} gap(s) — results approximate`, 'err');
 
   // ── Compute metrics ─────────────────────────────────────────────────────
   const rolls = cycles.filter(c=>!c.isInitial);
@@ -1988,9 +2036,9 @@ async function simulate(p) {
 
   // ── End-of-log blotter + summary ────────────────────────────────────────
   const fmtMoney = n => (n>=0?'+$':'-$') + Math.abs(n).toLocaleString(undefined,{maximumFractionDigits:0});
-  logMsg('\n── Trade Blotter ────────────────────────────────────────────', '');
-  logMsg('  Date        Cover                Sell                         Credit    Days  Trigger', '');
-  blotterLines.forEach(l => logMsg(l, ''));
+  logSim('\n── Trade Blotter ────────────────────────────────────────────', '');
+  logSim('  Date        Cover                Sell                         Credit    Days  Trigger', '');
+  blotterLines.forEach(l => logSim(l, ''));
 
   const avgDTEOpen  = completedRolls.length ? completedRolls.reduce((s,c)=>s+(c.contractDTE||0),0)/completedRolls.length : 0;
   const avgDaysHeld = completedRolls.length ? completedRolls.reduce((s,c)=>s+(c.daysHeld||0),0)/completedRolls.length : 0;
@@ -2000,24 +2048,24 @@ async function simulate(p) {
   const bestCycle  = [...completedRolls].sort((a,b)=>b.pnl-a.pnl)[0];
   const worstCycle = [...completedRolls].sort((a,b)=>a.pnl-b.pnl)[0];
 
-  logMsg('\n── Summary Metrics ──────────────────────────────────────────', '');
-  logMsg(`DM days reviewed:   ${dmDays}`, '');
-  logMsg(`Trigger dates:      ${rolls.length}`, '');
-  logMsg(`Total cycles:       ${cycles.length}  (${rolls.length} rolls + 1 initial)`, '');
-  logMsg(`Win rate:           ${winRate.toFixed(0)}%`, '');
-  logMsg(`Avg DTE at open:    ${avgDTEOpen.toFixed(0)}d`, '');
-  logMsg(`Avg days held:      ${avgDaysHeld.toFixed(0)}d`, '');
-  logMsg(`Avg hold %:         ${(holdPct*100).toFixed(1)}%`, '');
-  logMsg(`Avg delta at open:  ${avgDeltaOpen.toFixed(3)}`, '');
-  logMsg(`Avg delta at close: ${avgDeltaClose.toFixed(3)}`, '');
-  logMsg(`Avg OTM% at open:   ${avgOTM.toFixed(1)}%`, '');
-  logMsg(`Avg net credit/roll:${fmtMoney(rollCreditTotal/Math.max(1,rolls.length))}`, '');
-  logMsg(`Total roll credit:  ${fmtMoney(rollCreditTotal)}`, '');
-  logMsg(`Strategy yield:     ${stratYld.toFixed(1)}%  (Ann. roll credit / SPY basis)`, '');
-  logMsg(`Max drawdown:       ${maxDD.toFixed(1)}%`, '');
-  logMsg(`Proj cycle:         ${avgCycleDays}d  (total range / completed rolls)`, '');
-  logMsg(`Best cycle:         ${bestCycle ? fmtMoney(bestCycle.pnl) + ' on ' + bestCycle.exitDate : '—'}`, '');
-  logMsg(`Worst cycle:        ${worstCycle ? fmtMoney(worstCycle.pnl) + ' on ' + worstCycle.exitDate : '—'}`, '');
+  logSim('\n── Summary Metrics ──────────────────────────────────────────', '');
+  logSim(`DM days reviewed:   ${dmDays}`, '');
+  logSim(`Trigger dates:      ${rolls.length}`, '');
+  logSim(`Total cycles:       ${cycles.length}  (${rolls.length} rolls + 1 initial)`, '');
+  logSim(`Win rate:           ${winRate.toFixed(0)}%`, '');
+  logSim(`Avg DTE at open:    ${avgDTEOpen.toFixed(0)}d`, '');
+  logSim(`Avg days held:      ${avgDaysHeld.toFixed(0)}d`, '');
+  logSim(`Avg hold %:         ${(holdPct*100).toFixed(1)}%`, '');
+  logSim(`Avg delta at open:  ${avgDeltaOpen.toFixed(3)}`, '');
+  logSim(`Avg delta at close: ${avgDeltaClose.toFixed(3)}`, '');
+  logSim(`Avg OTM% at open:   ${avgOTM.toFixed(1)}%`, '');
+  logSim(`Avg net credit/roll:${fmtMoney(rollCreditTotal/Math.max(1,rolls.length))}`, '');
+  logSim(`Total roll credit:  ${fmtMoney(rollCreditTotal)}`, '');
+  logSim(`Strategy yield:     ${stratYld.toFixed(1)}%  (Ann. roll credit / SPY basis)`, '');
+  logSim(`Max drawdown:       ${maxDD.toFixed(1)}%`, '');
+  logSim(`Proj cycle:         ${avgCycleDays}d  (total range / completed rolls)`, '');
+  logSim(`Best cycle:         ${bestCycle ? fmtMoney(bestCycle.pnl) + ' on ' + bestCycle.exitDate : '—'}`, '');
+  logSim(`Worst cycle:        ${worstCycle ? fmtMoney(worstCycle.pnl) + ' on ' + worstCycle.exitDate : '—'}`, '');
 
   // VIX regime split
   const regimeCounts = { low:0, normal:0, elevated:0, high:0 };
@@ -2028,7 +2076,7 @@ async function simulate(p) {
     else if (v < 25) regimeCounts.elevated++;
     else regimeCounts.high++;
   });
-  logMsg(`VIX at open:        low(<15)=${regimeCounts.low} · normal(15-20)=${regimeCounts.normal} · elevated(20-25)=${regimeCounts.elevated} · high(≥25)=${regimeCounts.high}`, '');
+  logSim(`VIX at open:        low(<15)=${regimeCounts.low} · normal(15-20)=${regimeCounts.normal} · elevated(20-25)=${regimeCounts.elevated} · high(≥25)=${regimeCounts.high}`, '');
 
   return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, avgCycleDays, holdPct };
 }
@@ -2059,7 +2107,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.9.6 · SPY Covered Call Backtest');
+  logMsg('v3.9.7 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
