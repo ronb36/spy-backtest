@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.59</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.59 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.9.0 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1697,7 +1697,7 @@ async function simulate(p) {
   const gateStr = vixGate > 0 ? ` · VIX≥${vixGate} gate` : '';
   const dmDays  = DM.spy.length;
   const dmContracts = Object.keys(DM.options).length;
-  logMsg(`Running — ${(otmFixed*100).toFixed(0)}% OTM · ${(decayTrigger*100).toFixed(0)}% decay · ${dteFloor}d floor · Δ${deltaThreshold} · ${maxLookahead}d DTE max${gateStr}`, '');
+  logMsg(`Running — ${(otmFixed*100).toFixed(0)}% OTM · ${decayTrigger}% decay · ${dteFloor}d floor · Δ${deltaThreshold} · ${maxLookahead}d DTE max${gateStr}`, '');
   logMsg(`DM range: ${startDate} → ${endDate} · ${dmDays} SPY days · ${dmContracts} contracts`, '');
 
   // ── Helper: open a position from a findNextContract result ──────────────
@@ -1706,15 +1706,14 @@ async function simulate(p) {
   // ── State ───────────────────────────────────────────────────────────────
   let premPnL    = 0;
   let posOpen    = false;
-  let curContract= null; // the DM contract object currently shorted
+  let curContract= null;
   let entryPrice = null, entryDate = null, entryStrike = null;
   let entrySPY   = null, entryDelta_= 0,  entryDTE_   = null;
   let isInitial  = true;
-  let waitingForVIX = false;
   let pendingContract = null;
   const cycles   = [];
   const equity   = [];
-  const blotterLines = []; // for end-of-log blotter
+  const blotterLines = [];
   let iter = 0;
   const TNX = 4.5;
 
@@ -1819,22 +1818,6 @@ async function simulate(p) {
     }
     if (iter > 6000) { logMsg('⚠ Safety limit reached', 'err'); break; }
 
-    // ── VIX recovery re-entry ──────────────────────────────────────────
-    if (waitingForVIX) {
-      if (parseFloat(vix.toFixed(1)) >= vixGate || vixGate === 0) {
-        logMsg(`\n── VIX Recovery Entry ──────────────────── ${date}`, '');
-        const reResult = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, deltaThreshold, 0);
-        if (reResult) {
-          openPosition(reResult, date, spy, vix, false);
-          blotterLines.push(`  ${date}  —  Sell $${reResult.contract.strike}C ${reResult.contract.expiry}@$${reResult.entryPx.toFixed(2)}  —  ${reResult.dte}d  VIX recovery`);
-          waitingForVIX = false;
-        }
-      } else {
-        equity.push({ date, cc:equity[equity.length-1]?.cc||(spy/startSPY-1)*100, bh:(spy/startSPY-1)*100, spy, vix });
-        continue;
-      }
-    }
-
     if (!posOpen) continue;
 
     // ── Mark ──────────────────────────────────────────────────────────
@@ -1870,14 +1853,15 @@ async function simulate(p) {
     let roll = false, reason = '';
     if (isExp) {
       roll = true; reason = 'expired';
-    } else if (daysHeldSoFar >= 3) {
-      if (callPx !== null) {
-        const decay = ((entryPrice-callPx)/entryPrice)*100;
-        if (decay >= decayTrigger) { roll=true; reason=`${decay.toFixed(0)}% decay`; }
-      }
+    } else if (daysHeldSoFar >= 3 && callPx !== null) { // require live price to trigger
+      const decay = ((entryPrice-callPx)/entryPrice)*100;
+      if (decay >= decayTrigger) { roll=true; reason=`${decay.toFixed(0)}% decay`; }
       if (!roll && dte <= dteFloor) { roll=true; reason=`${dte}d DTE`; }
       if (delta < deltaThreshold) entryDelta_ = delta;
       if (!roll && delta >= deltaThreshold && entryDelta_ < deltaThreshold) { roll=true; reason=`delta ${delta.toFixed(2)}`; }
+    } else if (daysHeldSoFar >= 3) {
+      // No price available — still update delta low-water mark
+      if (delta < deltaThreshold) entryDelta_ = delta;
     }
 
     // ── Debug: daily trigger state ────────────────────────────────────
@@ -1889,21 +1873,10 @@ async function simulate(p) {
 
     if (!roll) continue;
 
-    // ── VIX Gate ──────────────────────────────────────────────────────
-    if (vixGate > 0 && parseFloat(vix.toFixed(1)) < vixGate && !isExp && !isInitial) {
-      const isDeltaTrigger = reason.startsWith('delta');
-      if (!isDeltaTrigger) {
-        logDbg(`  → VIX GATE: VIX=${vix.toFixed(1)} < ${vixGate} — skip ${reason} trigger, let position run`);
-        continue;
-      } else {
-        // Delta trigger with low VIX — close but don't re-open immediately
-        logDbg(`  → VIX GATE: VIX=${vix.toFixed(1)} < ${vixGate} — close on delta, wait for VIX recovery`);
-        const exitPx_ = callPx ?? 0;
-        closeAndRoll(date, spy, vix, exitPx_, reason + ' [VIX gate: no re-short]', null);
-        logMsg(`  Waiting for VIX ≥ ${vixGate} to re-enter`, '');
-        waitingForVIX = true;
-        continue;
-      }
+    // ── VIX Gate — skip roll if VIX below gate (expiry always executes) ───
+    if (vixGate > 0 && parseFloat(vix.toFixed(1)) < vixGate && !isExp) {
+      logDbg(`  → VIX GATE: VIX=${vix.toFixed(1)} < ${vixGate} — skip ${reason} trigger, position runs`);
+      continue;
     }
 
     // ── Trigger fired — find new contract and roll ─────────────────────
@@ -2057,7 +2030,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.59 · SPY Covered Call Backtest');
+  logMsg('v3.9.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
