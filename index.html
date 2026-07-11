@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.10</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.11</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -429,7 +429,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.9.10 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.9.11 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1784,6 +1784,7 @@ async function simulate(p) {
   let curContract= null;
   let entryPrice = null, entryDate = null, entryStrike = null;
   let entrySPY   = null, entryDelta_= 0,  entryDTE_   = null;
+  let entryTimeValue = null; // time value at entry = entryPrice - max(0, entrySPY - strike)
   let isInitial  = true;
   let waitingForVIX = false; // closed on trigger, waiting for VIX to recover before re-entry
   let pendingContract = null;
@@ -1796,17 +1797,19 @@ async function simulate(p) {
   // ── Helper: open position ───────────────────────────────────────────────
   function openPosition(result, date, spy, vix, isInit) {
     const { contract, entryPx, dte, delta, otmPct } = result;
-    curContract  = contract;
-    entryPrice   = entryPx;
-    entryDate    = date;
-    entryStrike  = contract.strike;
-    entrySPY     = spyMap[date]?.c || spy;
-    entryDTE_    = dte;
-    entryDelta_  = delta >= deltaThreshold ? 0 : delta; // reset low-water mark
-    posOpen      = true;
+    curContract    = contract;
+    entryPrice     = entryPx;
+    entryDate      = date;
+    entryStrike    = contract.strike;
+    entrySPY       = spyMap[date]?.c || spy;
+    entryDTE_      = dte;
+    entryDelta_    = delta >= deltaThreshold ? 0 : delta;
+    // Time value at entry = price - intrinsic value (max 0 since we sell OTM calls)
+    entryTimeValue = entryPx - Math.max(0, entrySPY - contract.strike);
+    posOpen        = true;
     buildDayMap(contract);
     const label = isInit ? 'INITIAL ENTRY' : 'OPEN';
-    logSim(`  ${label}  ${date}  $${entryStrike}C ${contract.expiry}  @$${entryPx.toFixed(2)}  DTE=${dte}  Δ=${delta.toFixed(3)}  ${otmPct.toFixed(1)}% OTM`, '');
+    logSim(`  ${label}  ${date}  $${entryStrike}C ${contract.expiry}  @$${entryPx.toFixed(2)}  DTE=${dte}  Δ=${delta.toFixed(3)}  ${otmPct.toFixed(1)}% OTM  TV=$${entryTimeValue.toFixed(2)}`, '');
   }
 
   // ── Helper: close position + open new ──────────────────────────────────
@@ -1846,7 +1849,7 @@ async function simulate(p) {
     logSim(`  CLOSE    $${coverStrike}C ${coverExpiry}  @$${exitPx.toFixed(2)}  P&L ${pnl>=0?'+':''}$${pnl.toFixed(0)}`, '');
 
     // Reset position state
-    isInitial = false; posOpen = false; entryDelta_ = 0; entryDTE_ = null;
+    isInitial = false; posOpen = false; entryDelta_ = 0; entryDTE_ = null; entryTimeValue = null;
     entryPrice = entryDate = entryStrike = entrySPY = null;
 
     if (rollResult) {
@@ -1953,22 +1956,31 @@ async function simulate(p) {
     let roll = false, reason = '';
     if (isExp) {
       roll = true; reason = 'expired';
-    } else if (daysHeldSoFar >= 3 && callPx !== null) { // require live price to trigger
-      const decay = ((entryPrice-callPx)/entryPrice)*100;
-      if (decay >= decayTrigger) { roll=true; reason=`${decay.toFixed(0)}% decay`; }
+    } else if (daysHeldSoFar >= 3 && callPx !== null) {
+      // Time-value decay: measures erosion of time premium only
+      // currentTimeValue = currentMid - intrinsic (max 0 for calls)
+      const intrinsic        = Math.max(0, spy - entryStrike);
+      const currentTimeValue = Math.max(0, callPx - intrinsic);
+      const tvDecay          = entryTimeValue > 0
+        ? ((entryTimeValue - currentTimeValue) / entryTimeValue) * 100
+        : 0;
+      if (tvDecay >= decayTrigger) { roll=true; reason=`${tvDecay.toFixed(0)}% tv decay`; }
       if (!roll && dte <= dteFloor) { roll=true; reason=`${dte}d DTE`; }
       if (delta < deltaThreshold) entryDelta_ = delta;
       if (!roll && delta >= deltaThreshold && entryDelta_ < deltaThreshold) { roll=true; reason=`delta ${delta.toFixed(2)}`; }
     } else if (daysHeldSoFar >= 3) {
-      // No price available — still update delta low-water mark
       if (delta < deltaThreshold) entryDelta_ = delta;
     }
 
     // ── Debug: daily trigger state ────────────────────────────────────
     if (_debugMode && _mode !== 'optimize' && daysHeldSoFar >= 1) {
-      const decay = (callPx !== null && entryPrice > 0) ? ((entryPrice-callPx)/entryPrice*100).toFixed(1) : '—';
+      const intrinsic_        = Math.max(0, spy - entryStrike);
+      const currentTV_        = callPx !== null ? Math.max(0, callPx - intrinsic_) : null;
+      const tvDecayStr        = (currentTV_ !== null && entryTimeValue > 0)
+        ? ((entryTimeValue - currentTV_) / entryTimeValue * 100).toFixed(1) + '%'
+        : '—';
       const trigStr = roll ? `→ ${reason}` : '[no trigger]';
-      logDbg(`    ${date}  SPY=$${spy.toFixed(2)}  decay=${decay}%  Δ=${delta.toFixed(3)}  DTE=${dte}  ${trigStr}`);
+      logDbg(`    ${date}  SPY=$${spy.toFixed(2)}  tv-decay=${tvDecayStr}  Δ=${delta.toFixed(3)}  DTE=${dte}  ${trigStr}`);
     }
 
     if (!roll) continue;
@@ -2135,7 +2147,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.9.10 · SPY Covered Call Backtest');
+  logMsg('v3.9.11 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
