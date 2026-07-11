@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.11</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.43</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -339,7 +339,7 @@ select.display-box { cursor:pointer; outline:none; }
     <!-- Heatmap tab -->
     <div id="tab-heatmap" style="display:none">
       <div class="chart-panel">
-        <div class="chart-header"><span class="chart-title" id="heatmap-title">Regime Optimization — Proj. Yield % by Decay × DTE Min</span></div>
+        <div class="chart-header"><span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span></div>
         <div id="heatmap-container"></div>
       </div>
     </div>
@@ -373,7 +373,6 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span class="chart-title" id="runlog-status">📄 Run Log</span>
           <button onclick="copyDebugLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="copy-log-btn2">Copy Log</button>
-          <button onclick="downloadLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="download-log-btn">Download Log</button>
         </div>
         <div class="progress-log" id="runlog-mirror" style="max-height:480px;overflow-y:auto;white-space:pre;"></div>
       </div>
@@ -429,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.9.11 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.43 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -497,13 +496,7 @@ async function loadRollParams() {
       netPremium:     data.netPremium != null ? data.netPremium : null,
       coverPrice:     data.coverPrice != null ? data.coverPrice : null,
       sellPrice:      data.sellPrice  != null ? data.sellPrice  : null,
-      optProjYield:    data.optProjYield ?? data.optAnnYield ?? null, // backward compat
-      avgCycleDays:   data.avgCycleDays || null,
-      holdPct:        data.holdPct || null,
     };
-    // Seed _avgCycleDays and _holdPct from JSON if available (before STD runs)
-    if (STD.avgCycleDays) _avgCycleDays = STD.avgCycleDays;
-    if (STD.holdPct)      _holdPct      = STD.holdPct;
     // Update var-card display values
     const updates = {
       'vval-decay':   STD.decayTrigger + '%',
@@ -539,8 +532,6 @@ async function loadRollParams() {
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
-let _avgCycleDays = null; // avg cycle duration from last STD run — proj.yield basis for scan
-let _holdPct = null;      // avg % of DTE held before rolling — proj.yield per-candidate basis
 let _martView = 'spy';   // active data mart tab
 let _gaps = [];          // gap contracts found during simulation
 let _pendingPublish = null;
@@ -553,43 +544,6 @@ const fmt = (n, d=2) => (n == null || isNaN(n)) ? '—' : n.toLocaleString('en-U
 const fmtD = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+$':'-$') + fmt(Math.abs(n), 0);
 const fmtP = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+':'') + fmt(n,1) + '%';
 
-function downloadLog() {
-  const el = document.getElementById('progress-log');
-  if (!el) return;
-  let text = el.textContent || '';
-
-  // Append stat cards
-  const statCards = document.querySelectorAll('#summary-grid .stat-card');
-  if (statCards.length) {
-    text += '\n── PERFORMANCE SUMMARY ──────────────────────────────────────────\n';
-    statCards.forEach(card => {
-      const label = card.querySelector('.stat-label')?.innerText?.trim() || '';
-      const value = card.querySelector('.stat-value')?.innerText?.trim() || '';
-      const sub   = card.querySelector('.stat-sub')?.innerText?.trim()   || '';
-      text += `${label}: ${value}  (${sub})\n`;
-    });
-  }
-
-  const now   = new Date();
-  const stamp = now.getFullYear() + '-' +
-    String(now.getMonth()+1).padStart(2,'0') + '-' +
-    String(now.getDate()).padStart(2,'0') + '_' +
-    String(now.getHours()).padStart(2,'0') +
-    String(now.getMinutes()).padStart(2,'0');
-  const filename = 'SPY_Log_' + stamp + '.txt';
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  const btn = document.getElementById('download-log-btn');
-  if (btn) { btn.textContent = '✓ Saved'; setTimeout(() => btn.textContent = 'Download Log', 2000); }
-}
-
 function copyDebugLog() {
   const el = document.getElementById('progress-log');
   if (!el) return;
@@ -599,7 +553,7 @@ function copyDebugLog() {
   const blotterRows = document.querySelectorAll('#roll-log-body tr');
   if (blotterRows.length) {
     text += '\n── ROLL LOG ─────────────────────────────────────────────────────\n';
-    text += ['Date','Cover (Close)','New Leg (Open)','Roll Credit','Days Held','Proj Yield','Trigger'].join('\t') + '\n';
+    text += ['Date','Cover (Close)','New Leg (Open)','Roll Credit','Ann Yield','Trigger'].join('\t') + '\n';
     blotterRows.forEach(row => {
       const cells = row.querySelectorAll('td');
       text += Array.from(cells).map(td => td.innerText.trim().replace(/\n/g,' ')).join('\t') + '\n';
@@ -753,11 +707,6 @@ function logDbg(msg) {
   // STD mode with _debugMode: log everything
   logMsg(msg, 'dbg');
 }
-function logSim(msg, cls='') {
-  // Suppress simulate() roll-by-roll detail during OPT — only show in STD
-  if (_mode === 'optimize') return;
-  logMsg(msg, cls);
-}
 function yield_() { return new Promise(r => setTimeout(r, 0)); }
 
 // ── Mode ───────────────────────────────────────────────────────────────────
@@ -772,10 +721,6 @@ function toggleDebug() {
     btn.style.borderColor  = _debugMode ? 'var(--yellow)' : 'var(--border)';
     btn.style.color        = _debugMode ? 'var(--yellow)' : 'var(--muted)';
     btn.style.background   = _debugMode ? 'rgba(234,179,8,.08)' : 'var(--surface2)';
-  }
-  // When turning debug ON — deactivate all active sweeps (OPT and debug are mutually exclusive)
-  if (_debugMode) {
-    Object.keys(_sweepVars).forEach(v => { if (_sweepVars[v]) toggleVar(v, true); });
   }
   // Hide scan tab when debug is on
   const scanTab = $('tab-btn-scan');
@@ -888,11 +833,6 @@ const _sweepRanges = {
   lookahead: { std: '180d', sweep: '90–270d',         debugSweep: '120–240d',  label: 'DTE Max' },
 };
 function toggleVar(v, forceOff) {
-  // If debug is ON and trying to activate a sweep — block and warn
-  if (_debugMode && !forceOff && !_sweepVars[v]) {
-    logMsg('Debug mode is ON — turn off Debug to run OPT sweep', '');
-    return;
-  }
   if (forceOff) { _sweepVars[v] = false; } else { _sweepVars[v] = !_sweepVars[v]; }
   const active = _sweepVars[v];
   // Auto-disable debug mode when any sweep is activated — OPT and debug are incompatible
@@ -1253,7 +1193,7 @@ function logOTMDistribution(result) {
   let maxOTM = 0;
 
   result.cycles.forEach(c => {
-    const pct = Math.abs(c.openedOTM || c.otmPct || 0); // openedOTM = OTM of new position at roll date
+    const pct = Math.abs((c.otmPct || 0) * 100);
     if (pct > maxOTM) maxOTM = pct;
     for (let i = 0; i < buckets.length; i++) {
       if (pct > buckets[i].min && pct <= buckets[i].max) {
@@ -1597,58 +1537,55 @@ function getMartExpiries() {
   return [...new Set(Object.values(DM.options).map(c => c.expiry))].sort();
 }
 
-// Find best contract to roll into on a given date.
-// Returns { contract, entryPx, entryDate, dte, delta, otmPct } or null.
-// Candidate logging is debug-only; caller logs the selected contract.
-function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFloor, deltaThreshold, buybackPx) {
+// Find best contract to roll into: yield-maximizing across all candidates
+// Yield = (entryPremium / SPY) * (365 / DTE) — highest annualized yield wins
+function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFloor, excludeKey, deltaThreshold, buybackPx) {
   const afterD  = new Date(afterDate + 'T00:00:00');
   const maxDate = new Date(afterDate + 'T00:00:00');
   maxDate.setDate(maxDate.getDate() + maxLookahead);
   const maxStr  = maxDate.toISOString().slice(0, 10);
 
+  // DTE Max is an optimizable hard gate — same pattern as VIX gate.
+  // maxLookahead is the true search window — no hidden multipliers.
+  // What the param shows (180d) is exactly what gets searched.
   const allExp = getMartExpiries().filter(e => {
     if (e <= afterDate || e > maxStr) return false;
     const dte = Math.round((new Date(e+'T00:00:00') - afterD) / 86400000);
     return dte >= dteFloor;
   });
 
-  let bestContract = null, bestEntryPx = null, bestEntryDate = null;
-  let bestYield = -Infinity, bestDTE = 0, bestDelta = 0, bestOTM = 0;
+  let bestContract = null, bestYield = -Infinity;
 
   for (const exp of allExp) {
     const expContracts = _dmExpiryIndex[exp] || [];
+
     if (!expContracts.length) {
       _gaps.push({ expiry: exp, otm: targetOTM, needed: afterDate, substituted: true });
-      logDbg('  Price Gap: ' + afterDate + ' — no contracts in mart for expiry ' + exp);
+      logDbg("  Gap " + exp + ": no contracts in mart");
       continue;
     }
 
-    let gapCount = 0, gapMinOTM = Infinity;
-    let deltaSkipCount = 0, deltaSkipMaxStrike = 0;
-    let debitCount = 0;
-
     for (const c of expContracts) {
-      if (c.strike <= currentSPY) continue;
-
+      if (c.strike <= currentSPY) continue; // must be OTM
+      // Skip the contract we just closed
+      if (excludeKey && (c.expiry + '_' + c.strike) === excludeKey) continue;
+      // Skip if entry delta already exceeds threshold — we'd be re-entering same risk
       if (deltaThreshold > 0) {
-        const candDTE   = Math.round((new Date(c.expiry+'T00:00:00') - afterD) / 86400000);
+        const candDTE   = Math.round((new Date(c.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
         const candDelta = callDelta(currentSPY, c.strike, candDTE, 18, 4.5);
         if (candDelta >= deltaThreshold) {
-          deltaSkipCount++;
-          if (c.strike > deltaSkipMaxStrike) deltaSkipMaxStrike = c.strike;
+          logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= threshold " + deltaThreshold);
           continue;
         }
       }
+      // Debit rolls allowed — negative yield will sort them below credit rolls naturally
+
 
       const dm = buildDayMap(c);
-      const afterKey = afterDate.trim().slice(0, 10);
-      const entryDay = dm[afterKey];
-      if (!entryDay) {
-        const otmPct = ((c.strike - currentSPY) / currentSPY * 100);
-        gapCount++;
-        if (otmPct < gapMinOTM) gapMinOTM = otmPct;
-        continue;
-      }
+      // Find entry day: trigger day price (spread trades on same day)
+      const afterKey = afterDate.trim().slice(0,10);
+      const entryDay = dm[afterKey] || c.days.find(d => d.date.trim().slice(0,10) >= afterKey);
+      if (!entryDay) continue;
 
       const entryPx = entryDay.vw || entryDay.c;
       if (!entryPx || entryPx <= 0) continue;
@@ -1656,43 +1593,25 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       const dte = Math.round((new Date(exp+'T00:00:00') - afterD) / 86400000);
       if (dte <= 0) continue;
 
+      // Roll yield = (new premium - buyback) / SPY × 365/DTE
       const netCredit  = entryPx - (buybackPx || 0);
-      // Score on expected realized yield over projected hold period (dte × holdPct)
-      // This makes DTE irrelevant to ranking — winner is highest net credit per SPY dollar
-      const holdPct_   = _holdPct || 0.20;
-      const projDays   = Math.max(7, Math.round(dte * holdPct_));
-      const adjYield   = (netCredit / currentSPY) * (365 / projDays) * 100;
+      const rawYield   = (netCredit / currentSPY) * (365 / dte) * 100;
+      const dtePenalty = Math.min(1, dte / 45);
+      const adjYield   = rawYield * dtePenalty;
       const candDelta_ = callDelta(currentSPY, c.strike, dte, 18, 4.5);
       const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
+      logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " net=$" + netCredit.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
 
-      if (netCredit < 0) {
-        // Debit — count only, summarize at end
-        debitCount++;
-      } else {
-        // Credit — log individually
-        logDbg('  Credit ' + exp + ' $' + c.strike + ' (' + candOTM_ + '% OTM): px=$' + entryPx.toFixed(2) + ' net=$' + netCredit.toFixed(2) + ' DTE=' + dte + ' proj=' + projDays + 'd Δ=' + candDelta_.toFixed(3) + ' projYld=' + adjYield.toFixed(1) + '%');
-      }
-
-      if (adjYield > bestYield) {
-        bestYield     = adjYield;
-        bestContract  = c;
-        bestEntryPx   = entryPx;
-        bestEntryDate = entryDay.date.trim().slice(0, 10);
-        bestDTE       = dte;
-        bestDelta     = candDelta_;
-        bestOTM       = parseFloat(candOTM_);
-      }
+      if (adjYield > bestYield) { bestYield = adjYield; bestContract = c; bestContract._entryPx = entryPx; bestContract._entryDate = entryDay.date.trim().slice(0,10); }
     }
-
-    // Summaries per expiry
-    if (deltaSkipCount > 0) logDbg('  Delta Skip: ' + afterDate + ' — ' + deltaSkipCount + ' strike' + (deltaSkipCount>1?'s':'') + ' excluded (Δ ≥ ' + deltaThreshold + ') up to $' + deltaSkipMaxStrike + ' for expiry ' + exp);
-    if (gapCount > 0)       logDbg('  Price Gap: '  + afterDate + ' — ' + gapCount + ' contract' + (gapCount>1?'s':'') + ' above ' + gapMinOTM.toFixed(0) + '% OTM skipped for expiry ' + exp);
-    if (debitCount > 0)     logDbg('  Debit Summary: ' + afterDate + ' — ' + debitCount + ' debit contract' + (debitCount>1?'s':'') + ' skipped for expiry ' + exp);
   }
 
   if (bestContract) {
-    logDbg('  → Best: ' + bestContract.expiry + ' $' + bestContract.strike + ' (' + bestOTM.toFixed(1) + '% OTM) Δ=' + bestDelta.toFixed(3) + ' adj.yld=' + bestYield.toFixed(1) + '%');
-    return { contract: bestContract, entryPx: bestEntryPx, entryDate: bestEntryDate, dte: bestDTE, delta: bestDelta, otmPct: bestOTM };
+    const bestDTE_   = Math.round((new Date(bestContract.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
+    const bestDelta_ = callDelta(currentSPY, bestContract.strike, bestDTE_, 18, 4.5);
+    const bestOTM_ = ((bestContract.strike - currentSPY) / currentSPY * 100).toFixed(1);
+    logDbg("  → Best: " + bestContract.expiry + " $" + bestContract.strike + " (" + bestOTM_ + "% OTM) Δ=" + bestDelta_.toFixed(3) + " adj.yld=" + bestYield.toFixed(1) + "%");
+    return bestContract;
   }
   return null;
 }
@@ -1753,145 +1672,57 @@ function updateInitPosition() {
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
   const { otmFixed, decayTrigger, dteFloor, deltaThreshold, vixGate = 0, maxLookahead, shares } = p;
+  // Clear stale _entryPx/_entryDate stamped onto DM contracts by prior simulate() calls.
+  // findNextContract() mutates shared DM.options objects; without this flush each optimizer
+  // sweep inherits cached entry prices from the previous sweep, diverging trigger dates.
+  Object.values(DM.options).forEach(c => { delete c._entryPx; delete c._entryDate; });
 
-  // Build maps and index
-  const contracts  = shares / 100;
+  // Auto-select initExpiry: first expiry >= 30d after mart start
+  const _martStart = DM.spy[0]?.date;
+  const _target = new Date(_martStart + 'T00:00:00');
+  _target.setDate(_target.getDate() + 30);
+  const _tStr = _target.toISOString().slice(0,10);
+  const initExpiry = getMartExpiries().find(e => e >= _tStr) || getMartExpiries()[0];
+
+  const contracts = shares / 100;
   const { spyMap, vixMap } = buildMaps();
-  const spyDates   = DM.spy.map(r => r.date).sort();
-  const startDate  = DM.spy[0].date;
-  const startSPY   = DM.spy[0].c;
-  const endDate    = DM.spy[DM.spy.length-1].date;
+  const spyDates = DM.spy.map(r => r.date).sort();
 
+  // Use mart first day as start
+  const startDate = DM.spy[0].date;
+  const startSPY  = DM.spy[0].c;
+
+  // Pre-build expiry index for O(1) lookups in findNextContract.
+  // Without this, every candidate search scans all DM contracts — O(n) per
+  // trigger × per expiry × per simulate() call = millions of iterations at scale.
   _dmExpiryIndex = {};
   Object.values(DM.options).forEach(c => {
     if (!_dmExpiryIndex[c.expiry]) _dmExpiryIndex[c.expiry] = [];
     _dmExpiryIndex[c.expiry].push(c);
   });
-
-  // ── Log header ──────────────────────────────────────────────────────────
-  const gateStr = vixGate > 0 ? ` · VIX≥${vixGate} gate` : '';
-  const dmDays  = DM.spy.length;
-  const dmContracts = Object.keys(DM.options).length;
-  logMsg(`Running — ${(otmFixed*100).toFixed(0)}% OTM · ${decayTrigger}% decay · ${dteFloor}d floor · Δ${deltaThreshold} · ${maxLookahead}d DTE max${gateStr}`, '');
-  logMsg(`DM range: ${startDate} → ${endDate} · ${dmDays} SPY days · ${dmContracts} contracts`, '');
-
-  // ── Helper: open a position from a findNextContract result ──────────────
-  const fmtD = s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; };
-
-  // ── State ───────────────────────────────────────────────────────────────
-  let premPnL    = 0;
-  let posOpen    = false;
-  let curContract= null;
-  let entryPrice = null, entryDate = null, entryStrike = null;
-  let entrySPY   = null, entryDelta_= 0,  entryDTE_   = null;
-  let entryTimeValue = null; // time value at entry = entryPrice - max(0, entrySPY - strike)
-  let isInitial  = true;
-  let waitingForVIX = false; // closed on trigger, waiting for VIX to recover before re-entry
-  let pendingContract = null;
-  const cycles   = [];
-  const equity   = [];
-  const blotterLines = [];
+  let premPnL = 0;
+  let curC = null;
+  let posOpen = false, entryPrice = null, entryDate = null;
+  let entryStrike = null, entrySPY = null, entryDelta_ = 0;
+  let isInitial = true, pendingContract = null;
+  const cycles = [];
+  const equity = [];
+  // If a VIX gate is set, start in waitingForVIX state so the initial entry
+  // is gated the same way as any re-entry after a delta close. If no gate,
+  // find the initial contract immediately so the log shows it upfront.
+  let waitingForVIX = vixGate > 0;
+  if (!waitingForVIX) {
+    curC = findNextContract(startDate, otmFixed, startSPY, maxLookahead, dteFloor, null, deltaThreshold, 0);
+    if (!curC) { logMsg('✗ No initial contract found', 'err'); return null; }
+    buildDayMap(curC);
+    const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
+    logDbg(`Intl: Short ${contracts*100} SPY ${_initExpFmt} ${curC.strike} C @ $${(curC._entryPx||0).toFixed(2)}`);
+  }
   let iter = 0;
   const TNX = 4.5;
 
-  // ── Helper: open position ───────────────────────────────────────────────
-  function openPosition(result, date, spy, vix, isInit) {
-    const { contract, entryPx, dte, delta, otmPct } = result;
-    curContract    = contract;
-    entryPrice     = entryPx;
-    entryDate      = date;
-    entryStrike    = contract.strike;
-    entrySPY       = spyMap[date]?.c || spy;
-    entryDTE_      = dte;
-    entryDelta_    = delta >= deltaThreshold ? 0 : delta;
-    // Time value at entry = price - intrinsic value (max 0 since we sell OTM calls)
-    entryTimeValue = entryPx - Math.max(0, entrySPY - contract.strike);
-    posOpen        = true;
-    buildDayMap(contract);
-    const label = isInit ? 'INITIAL ENTRY' : 'OPEN';
-    logSim(`  ${label}  ${date}  $${entryStrike}C ${contract.expiry}  @$${entryPx.toFixed(2)}  DTE=${dte}  Δ=${delta.toFixed(3)}  ${otmPct.toFixed(1)}% OTM  TV=$${entryTimeValue.toFixed(2)}`, '');
-  }
-
-  // ── Helper: close position + open new ──────────────────────────────────
-  function closeAndRoll(date, spy, vix, exitPx, reason, rollResult) {
-    const pnl    = (entryPrice - exitPx) * 100 * contracts;
-    premPnL     += pnl;
-    const days   = Math.max(1, Math.round((new Date(date+'T00:00:00') - new Date(entryDate+'T00:00:00')) / 86400000));
-    const netPx  = entryPrice - exitPx;
-    const annYld = (netPx / entrySPY) * (365 / days) * 100;
-    const eDelta = callDelta(entrySPY, entryStrike, entryDTE_, vixMap[entryDate]||vix, TNX);
-    const isExp  = date >= curContract.expiry;
-
-    const cycle = {
-      entryDate, exitDate:date, expiry:curContract.expiry,
-      strike:entryStrike, otmPct: ((entryStrike - entrySPY) / entrySPY * 100),
-      entryPx:entryPrice, exitPx,
-      entrySPY, exitSPY:spy,
-      pnl, daysHeld:days, annYld, reason,
-      contractDTE: entryDTE_,
-      holdPct: (entryDTE_ > 0) ? days / entryDTE_ : null,
-      isExp, isInitial,
-      entryVix: vixMap[entryDate]||vix,
-      entryDelta:eDelta, exitDelta:callDelta(spy, entryStrike, Math.round((new Date(curContract.expiry+'T00:00:00')-new Date(date+'T00:00:00'))/86400000), vix, TNX),
-      approx: _gaps.some(g=>g.substituted),
-      openedStrike: rollResult?.contract?.strike,
-      openedOTM: rollResult ? ((rollResult.contract.strike - spy) / spy * 100) : null,
-    };
-    cycles.push(cycle);
-
-    // Capture cover details before reset
-    const coverStrike  = entryStrike;
-    const coverExpiry  = curContract.expiry;
-
-    // Log close leg
-    logSim(`\n── Roll ${cycles.length} ─────────────────────────── ${date}`, '');
-    logSim(`  TRIGGER  ${reason}  SPY=$${spy.toFixed(2)}  DTE=${Math.round((new Date(curContract.expiry+'T00:00:00')-new Date(date+'T00:00:00'))/86400000)}  days held=${days}`, '');
-    logSim(`  CLOSE    $${coverStrike}C ${coverExpiry}  @$${exitPx.toFixed(2)}  P&L ${pnl>=0?'+':''}$${pnl.toFixed(0)}`, '');
-
-    // Reset position state
-    isInitial = false; posOpen = false; entryDelta_ = 0; entryDTE_ = null; entryTimeValue = null;
-    entryPrice = entryDate = entryStrike = entrySPY = null;
-
-    if (rollResult) {
-      const netCredit = (rollResult.entryPx - exitPx) * 100 * contracts;
-      const creditStr = (netCredit >= 0 ? '+$' : '-$') + Math.abs(netCredit).toFixed(0);
-      logSim(`  OPEN     $${rollResult.contract.strike}C ${rollResult.contract.expiry}  @$${rollResult.entryPx.toFixed(2)}  DTE=${rollResult.dte}  Δ=${rollResult.delta.toFixed(3)}  Net ${creditStr}`, '');
-
-      // Blotter line — use captured cover details
-      const bl = `  ${date}  Cover $${coverStrike}C@$${exitPx.toFixed(2)}  Sell $${rollResult.contract.strike}C ${rollResult.contract.expiry}@$${rollResult.entryPx.toFixed(2)}  ${creditStr}  ${days}d  ${reason}`;
-      blotterLines.push(bl);
-
-      openPosition(rollResult, date, spy, vix, false);
-    }
-    return cycle;
-  }
-
-  // ── Initial entry ───────────────────────────────────────────────────────
-  // Find first date where VIX gate passes (or no gate) and open initial position
-  let initialOpened = false;
   for (const date of spyDates) {
-    const spyRow = spyMap[date];
-    if (!spyRow) continue;
-    const spy = spyRow.c;
-    const vix = vixMap[date] || 18;
-    if (vixGate > 0 && parseFloat(vix.toFixed(1)) < vixGate) {
-      equity.push({ date, cc:(spy/startSPY-1)*100, bh:(spy/startSPY-1)*100, spy, vix });
-      continue;
-    }
-    logSim(`\n── Initial Entry ───────────────────────── ${date}`, '');
-    const initResult = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, deltaThreshold, 0);
-    if (!initResult) { logSim('✗ No initial contract found', 'err'); return null; }
-    openPosition(initResult, date, spy, vix, true);
-    blotterLines.push(`  ${date}  —  Sell $${initResult.contract.strike}C ${initResult.contract.expiry}@$${initResult.entryPx.toFixed(2)}  —  ${initResult.dte}d  initial`);
-    equity.push({ date, cc:(spy/startSPY-1)*100, bh:(spy/startSPY-1)*100, spy, vix });
-    initialOpened = true;
-    break;
-  }
-  if (!initialOpened) { logSim('✗ Could not open initial position', 'err'); return null; }
-
-  // ── Main loop: scan for triggers ────────────────────────────────────────
-  for (const date of spyDates) {
-    if (date <= entryDate) continue; // skip up to and including entry date
+    if (date < startDate) continue;
     const spyRow = spyMap[date];
     if (!spyRow) continue;
     const spy = spyRow.c;
@@ -1899,166 +1730,295 @@ async function simulate(p) {
 
     if (++iter % 50 === 0) {
       if (_mode !== 'optimize') setProgress(20 + Math.min(60, iter / 5));
+      logDbg(`  ${date} — ${cycles.length} cycles`);
       await yield_();
     }
-    if (iter > 6000) { logSim('⚠ Safety limit reached', 'err'); break; }
-
-    // ── VIX recovery re-entry ──────────────────────────────────────────
-    if (waitingForVIX && !posOpen) {
-      if (vixGate === 0 || parseFloat(vix.toFixed(1)) >= vixGate) {
-        logSim(`  VIX recovered to ${vix.toFixed(1)} on ${date} — re-entering`, '');
-        const reResult = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, deltaThreshold, 0);
-        if (reResult) {
-          openPosition(reResult, date, spy, vix, false);
-          blotterLines.push(`  ${date}  —  Sell $${reResult.contract.strike}C ${reResult.contract.expiry}@$${reResult.entryPx.toFixed(2)}  —  ${reResult.dte}d  VIX recovery`);
-          waitingForVIX = false;
-        }
-      } else {
-        // Still waiting — update equity as flat (no position)
-        const bhRet = (spy/startSPY-1)*100;
-        equity.push({ date, cc: equity[equity.length-1]?.cc || bhRet, bh: bhRet, spy, vix });
-        continue;
-      }
+    if (iter > 6000) { logMsg('⚠ Safety limit reached', 'err'); break; }
+    if (p.maxRolls && cycles.filter(c => !c.isInitial).length >= p.maxRolls) {
+      // checked after next contract found below
     }
 
-    if (!posOpen) continue;
+    // ── Open position (spread: open on same day as roll trigger) ──
+    if (!posOpen) {
+      // VIX recovery re-entry: if we closed a short on a delta trigger due to
+      // low VIX and are now naked long SPY, check if VIX has recovered above
+      // the gate. If so, find a new contract via INTL logic and re-short.
+      if (waitingForVIX) {
+        if (vixGate === 0 || vix >= vixGate) {
+          // VIX has recovered (or initial entry) — find new contract via INTL yield optimizer
+          const reentryC = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, null, deltaThreshold, 0);
+          if (reentryC) {
+            curC = reentryC;
+            waitingForVIX = false;
+            const entryType = isInitial ? 'INITIAL ENTRY' : 'VIX RECOVERY';
+            logDbg(`  → ${entryType}: VIX=${vix.toFixed(1)} ≥ ${vixGate} on ${date} — entering via INTL logic`);
+            const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
+            logDbg(`Intl: Short ${contracts*100} SPY ${_initExpFmt} ${curC.strike} C @ $${(curC._entryPx||0).toFixed(2)}`);
+          } else {
+            logDbg(`  → VIX=${vix.toFixed(1)} ≥ ${vixGate} on ${date} but no contract found — waiting`);
+            continue;
+          }
+        } else {
+          // Still waiting for VIX — update equity curve as naked long SPY
+          const bhRet_  = (spy/startSPY-1)*100;
+          equity.push({ date, cc:bhRet_, bh:bhRet_, spy, vix });
+          continue;
+        }
+      }
+      buildDayMap(curC);
+      const key = date.trim().slice(0,10);
+      // Use price found during candidate scoring (same day, same VWAP)
+      if (curC._entryPx) {
+        entryPrice = curC._entryPx;
+        entryDate  = curC._entryDate || date;
+      } else {
+        const day = curC._dm[key] || curC.days.find(d => d.date >= date);
+        if (!day) continue;
+        entryPrice = day.vw || day.c;
+        entryDate  = date;
+      }
+      entrySPY    = spyMap[entryDate.trim().slice(0,10)]?.c || spy;
+      entryStrike = curC.strike;
+      const expD_ = new Date(curC.expiry+'T00:00:00');
+      const todD_ = new Date(date+'T00:00:00');
+      entryDelta_ = callDelta(spy, curC.strike, Math.round((expD_-todD_)/86400000), vix, TNX);
+      // If already above threshold at entry, reset so low-water mark works from scratch
+      if (entryDelta_ >= deltaThreshold) entryDelta_ = 0;
+      posOpen = true;
+      const rollNum = 'Roll ' + (cycles.length + 1);
+      logDbg(`\n── ${rollNum} ${'─'.repeat(Math.max(0, 50 - rollNum.length))} ${entryDate}`);
+      // Friendly open line — format expiry as M/D/YY
+      const _expFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
+      const _openVerb = 'Short';
+      logDbg(`${_openVerb} ${contracts*100} SPY ${_expFmt} ${entryStrike} C @ $${entryPrice.toFixed(2)}`);
+    }
 
-    // ── Mark ──────────────────────────────────────────────────────────
-    const key      = date.trim().slice(0,10);
-    const callDay  = curContract._dm?.[key];
-    let callPx     = callDay ? (callDay.vw || callDay.c) : null;
+    // ── Mark ──
+    buildDayMap(curC);
+    const key = date.trim().slice(0,10);
+    const callDay = curC._dm[key];
+    let callPx  = callDay ? (callDay.vw || callDay.c) : null; // VWAP for realistic execution
 
-    // Walk back up to 3 days for missing price
+    // If no price today, walk back up to 3 prior trading days to find last known VWAP.
+    // This prevents null buyback prices from inflating roll credits when Polygon
+    // has no data for a specific date (e.g. expiry day, low-volume strike).
     if (callPx === null) {
-      const sortedDates = Object.keys(curContract._dm||{}).sort();
+      const sortedDates = Object.keys(curC._dm).sort();
       const priorDates  = sortedDates.filter(d => d < key);
-      for (let pb = priorDates.length-1; pb >= Math.max(0, priorDates.length-3); pb--) {
-        const pd = curContract._dm[priorDates[pb]];
+      for (let pb = priorDates.length - 1; pb >= Math.max(0, priorDates.length - 3); pb--) {
+        const pd = curC._dm[priorDates[pb]];
         const px = pd ? (pd.vw || pd.c) : null;
         if (px) { callPx = px; break; }
       }
     }
 
-    const expDate = new Date(curContract.expiry+'T00:00:00');
+    const expDate = new Date(curC.expiry+'T00:00:00');
     const todayD  = new Date(date+'T00:00:00');
     const dte     = Math.round((expDate-todayD)/86400000);
-    const isExp   = date >= curContract.expiry;
+    const isExp   = date >= curC.expiry;
     const delta   = callDelta(spy, entryStrike, dte, vix, TNX);
     const daysHeldSoFar = Math.round((todayD - new Date(entryDate+'T00:00:00'))/86400000);
 
-    // ── Equity curve ──────────────────────────────────────────────────
+    // ── Equity curve ──
     const bhRet  = (spy/startSPY-1)*100;
     const optPnL = (entryPrice-(callPx??0))*100*contracts;
     const ccRet  = bhRet+((premPnL+optPnL)/(startSPY*shares))*100;
     equity.push({ date, cc:ccRet, bh:bhRet, spy, vix });
 
-    // ── Roll triggers ─────────────────────────────────────────────────
+    // ── Roll triggers ──
     let roll = false, reason = '';
     if (isExp) {
       roll = true; reason = 'expired';
-    } else if (daysHeldSoFar >= 3 && callPx !== null) {
-      // Time-value decay: measures erosion of time premium only
-      // currentTimeValue = currentMid - intrinsic (max 0 for calls)
-      const intrinsic        = Math.max(0, spy - entryStrike);
-      const currentTimeValue = Math.max(0, callPx - intrinsic);
-      const tvDecay          = entryTimeValue > 0
-        ? ((entryTimeValue - currentTimeValue) / entryTimeValue) * 100
-        : 0;
-      if (tvDecay >= decayTrigger) { roll=true; reason=`${tvDecay.toFixed(0)}% tv decay`; }
-      if (!roll && dte <= dteFloor) { roll=true; reason=`${dte}d DTE`; }
-      if (delta < deltaThreshold) entryDelta_ = delta;
-      if (!roll && delta >= deltaThreshold && entryDelta_ < deltaThreshold) { roll=true; reason=`delta ${delta.toFixed(2)}`; }
     } else if (daysHeldSoFar >= 3) {
-      if (delta < deltaThreshold) entryDelta_ = delta;
+      if (callPx !== null) {
+        const decay = ((entryPrice-callPx)/entryPrice)*100;
+        if (date >= '2024-08-05' && date <= '2024-08-10')
+          logDbg(`  ${date}: px=$${callPx.toFixed(2)} entry=$${entryPrice.toFixed(2)} decay=${decay.toFixed(1)}%`);
+
+        if (decay >= decayTrigger) { roll=true; reason=`${decay.toFixed(0)}% decay`; }
+      }
+      if (!roll && dte <= dteFloor)                                           { roll=true; reason=`${dte}d DTE`; }
+      // Delta trigger: fire if delta rose above threshold
+      // If entry delta was already above threshold, allow trigger once delta
+      // has dipped below threshold and risen again (tracks actual movement)
+      if (delta < deltaThreshold) entryDelta_ = delta; // update low-water mark
+      if (!roll && delta >= deltaThreshold && entryDelta_ < deltaThreshold)   { roll=true; reason=`delta ${delta.toFixed(2)}`; }
     }
 
-    // ── Debug: daily trigger state ────────────────────────────────────
-    if (_debugMode && _mode !== 'optimize' && daysHeldSoFar >= 1) {
-      const intrinsic_        = Math.max(0, spy - entryStrike);
-      const currentTV_        = callPx !== null ? Math.max(0, callPx - intrinsic_) : null;
-      const tvDecayStr        = (currentTV_ !== null && entryTimeValue > 0)
-        ? ((entryTimeValue - currentTV_) / entryTimeValue * 100).toFixed(1) + '%'
+    // ── Daily trigger state log (STD debug mode only) ──────────────────────
+    if (_debugMode && _mode !== 'optimize' && posOpen && daysHeldSoFar >= 1) {
+      const decay = (callPx !== null && entryPrice > 0)
+        ? ((entryPrice - callPx) / entryPrice * 100).toFixed(1)
         : '—';
-      const trigStr = roll ? `→ ${reason}` : '[no trigger]';
-      logDbg(`    ${date}  SPY=$${spy.toFixed(2)}  tv-decay=${tvDecayStr}  Δ=${delta.toFixed(3)}  DTE=${dte}  ${trigStr}`);
+      const trigParts = [];
+      if (callPx !== null && entryPrice > 0) {
+        const d = (entryPrice - callPx) / entryPrice * 100;
+        if (d >= decayTrigger) trigParts.push('decay ' + d.toFixed(0) + '%≥' + decayTrigger + '%');
+      }
+      if (dte <= dteFloor) trigParts.push('DTE ' + dte + '≤' + dteFloor + 'd');
+      if (delta >= deltaThreshold && entryDelta_ < deltaThreshold) trigParts.push('Δ' + delta.toFixed(3) + '≥' + deltaThreshold);
+      const trigStr = trigParts.length > 0 ? '→ ' + trigParts.join(' · ') : '[no trigger]';
+      logDbg(`    ${date}  SPY=$${spy.toFixed(2)}  decay=${decay}%  Δ=${delta.toFixed(3)}  DTE=${dte}  ${trigStr}`);
     }
 
     if (!roll) continue;
+    logDbg(`  → TRIGGER: ${reason} on ${date} (SPY=$${spy.toFixed(2)} K=$${entryStrike} delta=${delta.toFixed(3)} dte=${dte} callPx=${callPx?.toFixed(2)||'null'})`);
 
-    // ── Trigger fired ─────────────────────────────────────────────────
-    const exitPx = isExp ? Math.max(0, spy-entryStrike) : (callPx??0);
-    logDbg(`  → TRIGGER: ${reason} on ${date} (SPY=$${spy.toFixed(2)} K=$${entryStrike} delta=${delta.toFixed(3)} dte=${dte})`);
-
-    // ── VIX Gate — controls re-entry, not trigger ─────────────────────
-    // Trigger always fires. If VIX below gate: close position, mark as
-    // waiting for VIX recovery. Main loop re-enters when VIX recovers.
-    if (vixGate > 0 && parseFloat(vix.toFixed(1)) < vixGate && !isExp) {
-      logDbg(`  → VIX GATE: VIX=${vix.toFixed(1)} < ${vixGate} — closing on ${reason}, waiting for VIX ≥ ${vixGate} before re-entry`);
-      closeAndRoll(date, spy, vix, exitPx, reason + ' [VIX: waiting]', null);
-      waitingForVIX = true;
-      continue;
+    // ── VIX Gate ──────────────────────────────────────────────────────────
+    // Gate only applies to ROLLS, not the initial sell. The initial position
+    // is always established regardless of VIX — you're already long SPY and
+    // just establishing the covered call leg. VIX gating only makes sense
+    // for roll decisions where premium quality matters.
+    if (vixGate > 0 && vix < vixGate && !isExp && !isInitial) {
+      const isDeltaTrigger = reason.startsWith('delta');
+      if (!isDeltaTrigger) {
+        // Decay or DTE trigger — skip, not worth rolling in low-VIX environment
+        logDbg(`  → VIX GATE: VIX=${vix.toFixed(1)} < ${vixGate} — skip ${reason} trigger, let position run`);
+        continue;
+      } else {
+        // Delta trigger — must close to manage risk, but don't re-short
+        logDbg(`  → VIX GATE: VIX=${vix.toFixed(1)} < ${vixGate} — close short on delta trigger, wait for VIX recovery`);
+        const exitPx_ = callPx ?? 0;
+        const pnl_    = (entryPrice - exitPx_) * 100 * contracts;
+        premPnL += pnl_;
+        const days_   = Math.max(1, Math.round((todayD - new Date(entryDate+'T00:00:00'))/86400000));
+        const netPx_  = entryPrice - exitPx_;
+        const annYld_ = (netPx_ / entrySPY) * (365 / days_) * 100;
+        const eDelta_ = callDelta(entrySPY, entryStrike,
+          Math.round((expDate - new Date(entryDate+'T00:00:00'))/86400000), vixMap[entryDate]||vix, TNX);
+        cycles.push({
+          entryDate, exitDate:date, expiry:curC.expiry,
+          strike:entryStrike, otmPct:curC.otm_pct,
+          entryPx:entryPrice, exitPx:exitPx_,
+          entrySPY, exitSPY:spy,
+          pnl:pnl_, daysHeld:days_, annYld:annYld_, reason: reason + ' [VIX gate: no re-short]',
+          isExp:false, isInitial,
+          entryVix: vixMap[entryDate]||vix,
+          entryDelta:eDelta_, exitDelta:delta,
+          approx: _gaps.some(g=>g.substituted),
+        });
+        isInitial = false; posOpen = false; entryDelta_ = 0;
+        entryPrice = entryDate = entryStrike = entrySPY = null;
+        if (curC._entryPx) { delete curC._entryPx; delete curC._entryDate; }
+        waitingForVIX = true;
+        continue;
+      }
     }
 
-    // ── Normal roll — find new contract and roll ───────────────────────
-    const rollResult = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, deltaThreshold, exitPx);
-    if (!rollResult) { logSim(`  No contract found within ${maxLookahead}d of ${date} — done`, 'err'); break; }
+    // ── VIX Recovery re-entry ─────────────────────────────────────────────
+    // If we were waiting for VIX to recover and it has, re-enter via INTL logic
+    if (waitingForVIX) {
+      // This case is handled in the !posOpen block above — waitingForVIX is
+      // checked there to find a new INTL contract when VIX recovers
+    }
 
-    closeAndRoll(date, spy, vix, exitPx, reason, rollResult);
+    // ── Close cycle ──
+    const exitPx = isExp ? Math.max(0, spy-entryStrike) : (callPx??0);
+    const pnl    = (entryPrice-exitPx)*100*contracts;
+    premPnL += pnl;
+    const days   = Math.max(1, Math.round((todayD-new Date(entryDate+'T00:00:00'))/86400000));
+    const netPx  = entryPrice-exitPx;
+    const annYld = (netPx/entrySPY)*(365/days)*100;
+    const eDelta = callDelta(entrySPY, entryStrike,
+      Math.round((expDate-new Date(entryDate+'T00:00:00'))/86400000), vixMap[entryDate]||vix, TNX);
 
+    cycles.push({
+      entryDate, exitDate:date, expiry:curC.expiry,
+      strike:entryStrike, otmPct:curC.otm_pct,
+      entryPx:entryPrice, exitPx,
+      entrySPY, exitSPY:spy,
+      pnl, daysHeld:days, annYld, reason,
+      isExp, isInitial,
+      entryVix: vixMap[entryDate]||vix,
+      entryDelta:eDelta, exitDelta:delta,
+      approx: _gaps.some(g=>g.substituted),
+    });
+
+    isInitial=false; posOpen=false; entryDelta_=0;
+    entryPrice=entryDate=entryStrike=entrySPY=null;
+    if (curC._entryPx) { delete curC._entryPx; delete curC._entryDate; }
+
+    // ── Find next contract ──
+    const next = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor,
+      curC.expiry+'_'+curC.strike, deltaThreshold, exitPx);
+    if (!next) { logMsg(`  No contract found within ${maxLookahead}d of ${date} — done`,'err'); break; }
+
+    // Accumulate roll credit
+    // rollCreditTotal calculated post-simulation from actual cycle entry/exit prices
+
+    curC = next;
+    // ── Friendly trade summary after Best ────────────────────────────────────
+    if (_debugMode && _mode !== 'optimize') {
+      const _fmtDate = s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; };
+      const _coverExpFmt = _fmtDate(cycles[cycles.length-1].expiry);
+      const _coverStrike = cycles[cycles.length-1].strike;
+      const _coverPx     = cycles[cycles.length-1].exitPx;
+      const _newExpFmt   = _fmtDate(curC.expiry);
+      const _newStrike   = curC.strike;
+      const _newPx       = curC._entryPx || 0;
+      const _netCredit   = (_newPx - _coverPx) * 100 * contracts;
+      const _isCredit    = _netCredit >= 0;
+      const _netLabel    = _isCredit ? 'Net Credit' : 'Net Debit';
+      const _netStr      = (_isCredit ? '+$' : '-$') + Math.abs(_netCredit).toFixed(0);
+      logDbg(`  Cover  ${contracts*100} SPY ${_coverExpFmt} ${_coverStrike} C @ $${_coverPx.toFixed(2)}`);
+      logDbg(`  Short  ${contracts*100} SPY ${_newExpFmt} ${_newStrike} C @ $${_newPx.toFixed(2)}`);
+      logDbg(`  ${_netLabel}: ${_netStr}`);
+    }
     if (p.maxRolls && cycles.filter(c=>!c.isInitial).length >= p.maxRolls) {
-      logSim(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok');
-      pendingContract = rollResult.contract;
+      logMsg(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok');
+      pendingContract = next;
       break;
     }
   }
 
-  // ── Capture open position at end ────────────────────────────────────────
-  if (posOpen && curContract) {
-    curContract.entryPx   = entryPrice;
-    curContract.entryDate = entryDate;
-    curContract.entrySPY  = entrySPY;
-    pendingContract = curContract;
-    logSim(`  Open position at end: ${curContract.expiry} $${entryStrike} @ $${entryPrice?.toFixed(2)||'?'}`, 'ok');
+  // If simulation ends with an open or freshly-selected position, capture as pendingContract.
+  if (curC && !pendingContract) {
+    if (posOpen) {
+      curC.entryPx   = entryPrice;
+      curC.entryDate = entryDate;
+      curC.entrySPY  = entrySPY;
+    } else if (curC._entryPx) {
+      curC.entryPx   = curC._entryPx;
+      curC.entryDate = curC._entryDate || entryDate;
+      curC.entrySPY  = entrySPY;
+    }
+    pendingContract = curC;
+    logMsg(`  Open position at end: ${curC.expiry} $${curC.strike} @ $${curC.entryPx?.toFixed(2)||'?'}`, 'ok');
   }
 
   if (!cycles.length) return null;
 
   const gapCount = _gaps.filter(g=>g.substituted).length;
-  if (gapCount) logSim(`⚠ ${gapCount} gap(s) — results approximate`, 'err');
+  if (gapCount) logMsg(`⚠ ${gapCount} gap(s) — results approximate`,'err');
 
-  // ── Compute metrics ─────────────────────────────────────────────────────
   const rolls = cycles.filter(c=>!c.isInitial);
   const totalPnl = rolls.reduce((s,c)=>s+c.pnl,0);
   const avgYld   = rolls.length ? rolls.reduce((s,c)=>s+c.annYld,0)/rolls.length : 0;
   const winRate  = rolls.length ? rolls.filter(c=>c.pnl>0).length/rolls.length*100 : 0;
+  // covRet computed below after rollCreditTotal and dayCount are available
+  const maxDD    = calcMaxDD(equity.map(e=>e.cc));
 
-  const completedRolls = rolls.filter(c => c.exitDate);
-  const firstExit = completedRolls.length ? completedRolls[0].exitDate : null;
-  const lastExit  = completedRolls.length ? completedRolls[completedRolls.length-1].exitDate : null;
-  const rangeDays = (firstExit && lastExit && completedRolls.length > 1)
-    ? Math.round((new Date(lastExit+'T00:00:00') - new Date(firstExit+'T00:00:00')) / 86400000)
-    : 0;
-  const avgCycleDays = (rangeDays > 0 && completedRolls.length > 1)
-    ? Math.round(rangeDays / (completedRolls.length - 1))
-    : 28;
-
-  const holdPctVals = completedRolls.map(c => c.holdPct).filter(v => v != null && v > 0);
-  const holdPct = holdPctVals.length
-    ? holdPctVals.reduce((s,v) => s+v, 0) / holdPctVals.length
-    : 0.39;
-
-  const maxDD = calcMaxDD(equity.map(e=>e.cc));
-
-  // Roll credit total
+  // Calculate roll credit from actual cycle prices:
+  // each roll's credit = new leg entry price - prior leg exit price
   let rollCreditTotal = 0;
-  if (cycles.length > 0) rollCreditTotal += cycles[0].entryPx * 100 * contracts;
+  // Roll credit: for each roll row, credit = new leg entry - cover price
+  // rolls[i] is the contract just closed (cover), cycles[i+1] is what opened next (new leg)
+  // Include initial sell credit
+  if (cycles.length > 0) {
+    const initCredit = cycles[0].entryPx * 100 * contracts;
+    rollCreditTotal += initCredit;
+    logDbg(`  Initial sell: $${cycles[0].entryPx.toFixed(2)} × ${contracts*100}ct = $${initCredit.toFixed(0)}`);
+  }
+  // Add each roll: new leg sell - buyback
   for (let i = 0; i < rolls.length; i++) {
-    const newLeg = rolls[i];
+    const newLeg      = rolls[i];
     const closedCycle = cycles[i];
     if (!closedCycle) continue;
     rollCreditTotal += (newLeg.entryPx - closedCycle.exitPx) * 100 * contracts;
+    logDbg(`  Roll ${i+1} credit: sell $${newLeg.entryPx.toFixed(2)} - cover $${closedCycle.exitPx.toFixed(2)} = $${((newLeg.entryPx-closedCycle.exitPx)*100*contracts).toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
   }
 
+  // Strategy yield: total roll credit annualized over full period / SPY basis
   const firstDate = DM.spy[0].date;
   const lastCycle = cycles[cycles.length-1];
   const lastDate  = lastCycle ? lastCycle.exitDate : DM.spy[DM.spy.length-1].date;
@@ -2066,59 +2026,17 @@ async function simulate(p) {
   const spyBasis  = DM.spy[0].c * shares;
   const stratYld  = spyBasis > 0 ? (rollCreditTotal / spyBasis) * (365 / dayCount) * 100 : 0;
 
-  const firstSPYc = DM.spy[0].c;
-  const lastSPYc  = DM.spy[DM.spy.length-1].c;
-  const rawSpyRet = (lastSPYc/firstSPYc-1)*100;
-  const spyGain   = (lastSPYc - firstSPYc) * shares;
-  const ccTotalRet= ((spyGain + rollCreditTotal) / (firstSPYc * shares)) * 100;
-  const spyRet    = (Math.pow(1 + rawSpyRet/100, 365/dayCount) - 1) * 100;
-  const covRet    = (Math.pow(1 + ccTotalRet/100, 365/dayCount) - 1) * 100;
+  // Covered call return: SPY appreciation + net premium (annualized)
+  // Shares never called away → full SPY gain captured plus all premium
+  const firstSPYc  = DM.spy[0].c;
+  const lastSPYc   = DM.spy[DM.spy.length-1].c;
+  const rawSpyRet  = (lastSPYc/firstSPYc-1)*100;
+  const spyGain    = (lastSPYc - firstSPYc) * shares;
+  const ccTotalRet = ((spyGain + rollCreditTotal) / (firstSPYc * shares)) * 100;
+  const spyRet     = (Math.pow(1 + rawSpyRet/100, 365/dayCount) - 1) * 100;
+  const covRet     = (Math.pow(1 + ccTotalRet/100, 365/dayCount) - 1) * 100;
 
-  // ── End-of-log blotter + summary ────────────────────────────────────────
-  const fmtMoney = n => (n>=0?'+$':'-$') + Math.abs(n).toLocaleString(undefined,{maximumFractionDigits:0});
-  logSim('\n── Trade Blotter ────────────────────────────────────────────', '');
-  logSim('  Date        Cover                Sell                         Credit    Days  Trigger', '');
-  blotterLines.forEach(l => logSim(l, ''));
-
-  const avgDTEOpen  = completedRolls.length ? completedRolls.reduce((s,c)=>s+(c.contractDTE||0),0)/completedRolls.length : 0;
-  const avgDaysHeld = completedRolls.length ? completedRolls.reduce((s,c)=>s+(c.daysHeld||0),0)/completedRolls.length : 0;
-  const avgDeltaOpen  = completedRolls.length ? completedRolls.reduce((s,c)=>s+(c.entryDelta||0),0)/completedRolls.length : 0;
-  const avgDeltaClose = completedRolls.length ? completedRolls.reduce((s,c)=>s+(c.exitDelta||0),0)/completedRolls.length : 0;
-  const avgOTM        = completedRolls.length ? completedRolls.reduce((s,c)=>s+(c.openedOTM||0),0)/completedRolls.length : 0;
-  const bestCycle  = [...completedRolls].sort((a,b)=>b.pnl-a.pnl)[0];
-  const worstCycle = [...completedRolls].sort((a,b)=>a.pnl-b.pnl)[0];
-
-  logSim('\n── Summary Metrics ──────────────────────────────────────────', '');
-  logSim(`DM days reviewed:   ${dmDays}`, '');
-  logSim(`Trigger dates:      ${rolls.length}`, '');
-  logSim(`Total cycles:       ${cycles.length}  (${rolls.length} rolls + 1 initial)`, '');
-  logSim(`Win rate:           ${winRate.toFixed(0)}%`, '');
-  logSim(`Avg DTE at open:    ${avgDTEOpen.toFixed(0)}d`, '');
-  logSim(`Avg days held:      ${avgDaysHeld.toFixed(0)}d`, '');
-  logSim(`Avg hold %:         ${(holdPct*100).toFixed(1)}%`, '');
-  logSim(`Avg delta at open:  ${avgDeltaOpen.toFixed(3)}`, '');
-  logSim(`Avg delta at close: ${avgDeltaClose.toFixed(3)}`, '');
-  logSim(`Avg OTM% at open:   ${avgOTM.toFixed(1)}%`, '');
-  logSim(`Avg net credit/roll:${fmtMoney(rollCreditTotal/Math.max(1,rolls.length))}`, '');
-  logSim(`Total roll credit:  ${fmtMoney(rollCreditTotal)}`, '');
-  logSim(`Strategy yield:     ${stratYld.toFixed(1)}%  (Ann. roll credit / SPY basis)`, '');
-  logSim(`Max drawdown:       ${maxDD.toFixed(1)}%`, '');
-  logSim(`Proj cycle:         ${avgCycleDays}d  (total range / completed rolls)`, '');
-  logSim(`Best cycle:         ${bestCycle ? fmtMoney(bestCycle.pnl) + ' on ' + bestCycle.exitDate : '—'}`, '');
-  logSim(`Worst cycle:        ${worstCycle ? fmtMoney(worstCycle.pnl) + ' on ' + worstCycle.exitDate : '—'}`, '');
-
-  // VIX regime split
-  const regimeCounts = { low:0, normal:0, elevated:0, high:0 };
-  completedRolls.forEach(c => {
-    const v = c.entryVix || 0;
-    if (v < 15) regimeCounts.low++;
-    else if (v < 20) regimeCounts.normal++;
-    else if (v < 25) regimeCounts.elevated++;
-    else regimeCounts.high++;
-  });
-  logSim(`VIX at open:        low(<15)=${regimeCounts.low} · normal(15-20)=${regimeCounts.normal} · elevated(20-25)=${regimeCounts.elevated} · high(≥25)=${regimeCounts.high}`, '');
-
-  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, avgCycleDays, holdPct };
+  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld };
 }
 
 // ── Run simulation ─────────────────────────────────────────────────────────
@@ -2147,28 +2065,42 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.9.11 · SPY Covered Call Backtest');
+  logMsg('v3.8.43 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
+  await yield_();
+
+  logMsg(`Running — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold}${gateStr} · ${params.maxLookahead}d DTE max`);
   await yield_();
 
   const result = await simulate(params);
   setProgress(95);
-  if (!result) { logMsg('✗ No cycles — check parameters','err'); setProgress(100); return; }
-  lastResult = result;
+  if (!result) { logMsg('✗ No cycles — check parameters','err'); setProgress(100);  return; }
+  lastResult = result; // cache for price chart roll markers
   buildRollSnapshots(result);
 
-  logMsg(`\n✓ ${result.rolls.length} roll cycles`,'ok');
-  _avgCycleDays = result.avgCycleDays;
-  _holdPct      = result.holdPct;
-  logMsg(`  Proj cycle: ${Math.round(_avgCycleDays)}d · Hold %: ${(_holdPct*100).toFixed(1)}% — proj.yield basis set`, 'ok');
-
+  logMsg(`✓ ${result.rolls.length} roll cycles`,'ok');
   if (_debugMode) {
     logVIXRegimeSplit(result);
-    logOTMDistribution(result);
-    logDMGapReport(_rollSnapshots);
   }
   setProgress(100);
+
+  // STD run complete — stay on Run (blue). Publish only appears after OPT sweep.
   setRunButtonState('idle');
+  if (_debugMode) {
+    logOTMDistribution(result);
+    logDMGapReport(_rollSnapshots);
+  } else {
+    // Non-debug: compact one-line STD summary before Scan takes over the log
+    const _otmMax = Math.max(...(result.cycles||[]).map(c => Math.abs((c.otmPct||0)*100)));
+    const _otm15  = (result.cycles||[]).filter(c => Math.abs((c.otmPct||0)*100) <= 5).length;
+    const _otmPct = result.cycles?.length ? Math.round(_otm15/result.cycles.length*100) : 0;
+    const _wr     = result.rolls?.length ? Math.round(result.rolls.filter(r=>r.netCredit>0).length/result.rolls.length*100) : 0;
+    logMsg(`  ${result.rolls.length} cycles · ${(result.stratYld||0).toFixed(1)}% yield · $${Math.round(result.totalCredit||0).toLocaleString()} credit · ${_wr}% win rate · OTM 1-5%=${_otmPct}% max=${_otmMax.toFixed(1)}%`, 'ok');
+  }
+  initAIAnalysis(result);
+  
+  
+  
 
   renderSummary(result);
   renderCycleTable(result);
@@ -2300,9 +2232,7 @@ async function publishRollParams(p) {
       deltaThreshold: p.deltaThreshold, otmTarget: p.otmTarget,
       vixGate: p.vixGate || 0,
       maxLookahead: p.maxLookahead || STD.maxLookahead,
-      lastOptimized: today, optProjYield: parseFloat((p.optProjYield || p.optAnnYield).toFixed(1)),
-      avgCycleDays: Math.round(_avgCycleDays || 38),
-      holdPct:      parseFloat((_holdPct || 0.39).toFixed(3)),
+      lastOptimized: today, optAnnYield: parseFloat(p.optAnnYield.toFixed(1)),
       // Preserve position fields from existing JSON
       shares:      _existingJson.shares      ?? STD.shares      ?? 600,
       shortStrike: _existingJson.shortStrike ?? STD.shortStrike ?? null,
@@ -2317,7 +2247,7 @@ async function publishRollParams(p) {
       method: 'PUT',
       headers: Object.assign({ 'Content-Type': 'application/json' }, gh),
       body: JSON.stringify({
-        message: 'Update roll_params.json — ' + payload.optProjYield + '% proj. yield (' + today + ')',
+        message: 'Update roll_params.json — ' + payload.optAnnYield + '% ann. yield (' + today + ')',
         content: btoa(JSON.stringify(payload, null, 2) + '\n'),
         sha: sha
       })
@@ -2340,7 +2270,7 @@ async function publishRollParams(p) {
     });
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
-    logMsg('\u2713 Published roll_params.json — ' + payload.optProjYield + '% proj. yield · ' + today, 'ok');
+    logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% ann. yield · ' + today, 'ok');
     setRunButtonState('published');
     updateParamDisplay();
   } catch(e) {
@@ -2402,19 +2332,7 @@ async function runOptimization() {
               const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed, vixGate:vixgate, shares, maxRolls:null, maxLookahead });
               let yld = null;
               if (r?.rolls?.length >= 2) {
-                // Proj yield: avg net credit / spyNow, annualized over projected hold (DTE × holdPct)
-                const spyNowEst  = DM?.spy?.[DM.spy.length-1]?.c || 1;
-                const holdPct_   = r.holdPct || 0.39;
-                const avgNetCreditPerSh = r.rolls.reduce((s,c) => s + (c.entryPx - c.exitPx), 0) / r.rolls.length;
-                // Use avg DTE of rolls as representative DTE
-                const avgDTE = r.rolls.reduce((s,c) => {
-                  const dte = c.expiry && c.entryDate
-                    ? Math.round((new Date(c.expiry+'T00:00:00') - new Date(c.entryDate+'T00:00:00')) / 86400000)
-                    : 60;
-                  return s + dte;
-                }, 0) / r.rolls.length;
-                const projDays = Math.max(7, Math.round(avgDTE * holdPct_));
-                yld = spyNowEst > 0 ? (avgNetCreditPerSh / spyNowEst) * (365 / projDays) * 100 : null;
+                yld = r.stratYld;
               }
               if (yld !== null && (allResults.grid[decay][floor] === null || yld > allResults.grid[decay][floor])) {
                 allResults.grid[decay][floor] = yld;
@@ -2451,7 +2369,7 @@ async function runOptimization() {
       logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, lookaheads);
 
       // Store winner for publish button
-      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, maxLookahead: b.lookahead, optAnnYield: allResults.bestYld, optProjYield: allResults.bestYld, decay: b.decay, floor: b.floor, delta: b.delta, vixgate: b.vixgate, lookahead: b.lookahead };
+      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, maxLookahead: b.lookahead, optAnnYield: allResults.bestYld, decay: b.decay, floor: b.floor, delta: b.delta, vixgate: b.vixgate, lookahead: b.lookahead };
       setRunButtonState('ready');
 
       // Re-run simulate() with the winning params so summary/blotter reflect
@@ -2526,57 +2444,45 @@ function renderSummary(r) {
     <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmt(r.covRet,1)}%</div><div class="stat-sub">Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
     <div class="stat-card"><div class="stat-label">Total Cycles</div><div class="stat-value accent">${r.cycles.length}</div><div class="stat-sub">${r.rolls.length} rolls + 1 initial</div></div>
-    <div class="stat-card"><div class="stat-label">Proj Cycle</div><div class="stat-value accent">${Math.round(r.avgCycleDays)}d</div><div class="stat-sub">Total range / completed rolls</div></div>
-    <div class="stat-card"><div class="stat-label">Hold %</div><div class="stat-value accent">${r.holdPct != null ? (r.holdPct*100).toFixed(1) : '—'}%</div><div class="stat-sub">Avg % of DTE held · proj.yield basis</div></div>
   `;
 }
 
 // ── Render: Roll Log (blotter) ─────────────────────────────────────────────
 function renderCycleTable(r) {
   const contracts = 6;
-  const fmtDate = s => {
-    if (!s) return '—';
-    const d = new Date(s + 'T00:00:00');
-    return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
-  };
 
-  // Initial row
+  // Initial row from first cycle
   const initCycle = r.cycles[0];
   const initRow = initCycle ? `<tr style="border-bottom:2px solid var(--border);">
-    <td class="muted" style="font-size:10px;">${fmtDate(initCycle.entryDate)}</td>
-    <td class="muted" style="font-size:10px;">Sell to Open</td>
+    <td class="muted" style="font-size:10px;">${initCycle.entryDate}</td>
     <td class="muted">—</td>
-    <td class="accent">${fmtDate(initCycle.expiry)} $${initCycle.strike} @ $${fmt(initCycle.entryPx)}</td>
+    <td class="accent">Sell $${initCycle.strike} ${initCycle.expiry} @ $${fmt(initCycle.entryPx)}</td>
     <td class="green" style="font-weight:600;">${fmtD(initCycle.entryPx*100*contracts)}</td>
     <td class="muted">—</td>
-    <td class="muted">—</td>
+    <td class="muted" style="font-size:10px;">initial · yield-selected</td>
   </tr>` : '';
 
   const rows = r.rolls.map((c, i) => {
     const closedCycle = r.cycles[i];
     const coverPx     = closedCycle ? closedCycle.exitPx : null;
     const coverStrike = closedCycle ? closedCycle.strike : null;
-    const coverExpiry = closedCycle ? closedCycle.expiry : null;
     const newPx       = c.entryPx || 0;
+    const newLegStr   = newPx > 0 ? `Sell $${c.strike} ${c.expiry} @ $${fmt(newPx)}` : '—';
     const rollCredit  = coverPx !== null ? (newPx - coverPx) * 100 * contracts : null;
     const cClass      = rollCredit===null?'muted':rollCredit>=0?'green':'red';
-    const projDays    = (_holdPct && c.contractDTE) ? Math.max(7, Math.round(c.contractDTE * _holdPct)) : (_avgCycleDays || 26);
-    const rollYld     = (rollCredit!==null && projDays>0 && c.entrySPY)
-      ? ((newPx-(coverPx||0))/c.entrySPY)*(365/projDays)*100 : null;
+    const newDTE      = Math.round((new Date(c.expiry+'T00:00:00') - new Date(c.entryDate+'T00:00:00')) / 86400000);
+    const rollYld     = (rollCredit!==null && newDTE>0 && c.entrySPY)
+      ? ((newPx-(coverPx||0))/c.entrySPY)*(365/newDTE)*100 : null;
     const yClass      = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
     const approx      = c.approx?'<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>':'';
     const rollDate    = closedCycle ? closedCycle.exitDate : c.entryDate;
-    const triggerStr  = closedCycle?.reason || '—';
-    const btcStr      = coverStrike ? `${fmtDate(coverExpiry)} $${coverStrike} @ $${fmt(coverPx)}` : '—';
-    const stoStr      = newPx > 0 ? `${fmtDate(c.expiry)} $${c.strike} @ $${fmt(newPx)}` : '—';
     return `<tr>
-      <td class="muted" style="font-size:10px;">${fmtDate(rollDate)}${approx}</td>
-      <td class="muted" style="font-size:10px;">${triggerStr}</td>
-      <td class="red" style="font-size:10px;">${btcStr}</td>
-      <td class="accent" style="font-size:10px;">${stoStr}</td>
+      <td class="muted" style="font-size:10px;">${rollDate}${approx}</td>
+      <td class="red">${coverStrike ? `Cover $${coverStrike} @ $${fmt(coverPx)}` : '—'}</td>
+      <td class="accent">${newLegStr}</td>
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
-      <td class="muted" style="font-size:10px;">${closedCycle?.daysHeld != null ? closedCycle.daysHeld + 'd' : '—'}</td>
       <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
+      <td class="muted" style="font-size:10px;">${c.reason}</td>
     </tr>`;
   }).join('');
 
@@ -2586,33 +2492,30 @@ function renderCycleTable(r) {
     const lastClosed  = r.cycles[r.rolls.length];
     const coverPx     = lastClosed ? lastClosed.exitPx : null;
     const coverStrike = lastClosed ? lastClosed.strike : null;
-    const coverExpiry = lastClosed ? lastClosed.expiry : null;
     const newPx       = pc.entryPx || 0;
+    const newLegStr   = newPx > 0 ? `Sell $${pc.strike} ${pc.expiry} @ $${fmt(newPx)}` : '—';
     const rollCredit  = coverPx !== null && newPx > 0 ? (newPx - coverPx) * 100 * contracts : null;
     const cClass      = rollCredit===null?'muted':rollCredit>=0?'green':'red';
-    const projDays    = _avgCycleDays || 26;
-    const rollYld     = (rollCredit!==null && projDays>0 && pc.entrySPY)
-      ? ((newPx-(coverPx||0))/pc.entrySPY)*(365/projDays)*100 : null;
+    const newDTE      = Math.round((new Date(pc.expiry+'T00:00:00') - new Date(pc.entryDate+'T00:00:00')) / 86400000);
+    const rollYld     = (rollCredit!==null && newDTE>0 && pc.entrySPY)
+      ? ((newPx-(coverPx||0))/pc.entrySPY)*(365/newDTE)*100 : null;
     const yClass      = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
     const rollDate    = lastClosed ? lastClosed.exitDate : pc.entryDate;
     const openBadge   = `<span style="background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">OPEN</span>`;
-    const btcStr      = coverStrike ? `${fmtDate(coverExpiry)} $${coverStrike} @ $${fmt(coverPx)}` : '—';
-    const stoStr      = newPx > 0 ? `${fmtDate(pc.expiry)} $${pc.strike} @ $${fmt(newPx)}` : '—';
     openRow = `<tr style="border-top:2px solid var(--accent);opacity:0.85;">
-      <td class="muted" style="font-size:10px;">${fmtDate(rollDate)}${openBadge}</td>
-      <td class="muted" style="font-size:10px;">—</td>
-      <td class="red" style="font-size:10px;">${btcStr}</td>
-      <td class="accent" style="font-size:10px;">${stoStr}</td>
+      <td class="muted" style="font-size:10px;">${rollDate}${openBadge}</td>
+      <td class="red">${coverStrike ? `Cover $${coverStrike} @ $${fmt(coverPx)}` : '—'}</td>
+      <td class="accent">${newLegStr}</td>
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
-      <td class="muted" style="font-size:10px;">—</td>
       <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
+      <td class="muted" style="font-size:10px;">${pc.reason || 'open position'}</td>
     </tr>`;
   }
 
   $('cycle-table').innerHTML = `<table class="tbl">
     <thead><tr>
-      <th>Date</th><th>Trigger</th><th>Buy to Close</th>
-      <th>Sell to Open</th><th>Roll Credit</th><th>Days Held</th><th>Proj Yield</th>
+      <th>Date</th><th>Cover (Close)</th><th>New Leg (Open)</th>
+      <th>Roll Credit</th><th>Ann Yield</th><th>Trigger</th>
     </tr></thead>
     <tbody>${initRow}${rows}${openRow}</tbody>
   </table>`;
@@ -3150,7 +3053,7 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
   if (_sweepVars.vixgate)   sweptDims.push('VIX Gate');
   if (_sweepVars.lookahead) sweptDims.push('DTE Max');
   const titleEl = $('heatmap-title');
-  if (titleEl) titleEl.textContent = 'Regime Optimization — Proj. Yield % by ' + (sweptDims.join(' × ') || 'Params');
+  if (titleEl) titleEl.textContent = 'Regime Optimization — Ann. Yield % by ' + (sweptDims.join(' × ') || 'Params');
 
   let html = `
     ${edgeWarning}
@@ -3166,7 +3069,7 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
       <thead><tr>
         <th>Params</th>
         <th>Rolls</th>
-        <th>Proj. Yield</th>
+        <th>Ann. Yield</th>
         <th>vs STD</th>
         <th>DM Edge %</th>
       </tr></thead><tbody>`;
@@ -3641,11 +3544,7 @@ async function runRollScan() {
   // Filter: net credit > 0 AND delta ≤ threshold — same gates as OPT
   const scored = results.map(r => {
     const netCredit    = currentCallMid > 0 ? r.mid - currentCallMid : r.mid;
-    // Proj yield: annualize net credit over projected hold period (DTE × holdPct)
-    // holdPct = avg fraction of DTE held before rolling (from STD history)
-    const holdPct_     = _holdPct || 0.39;
-    const projDays     = Math.max(7, Math.round(r.dte * holdPct_));
-    const rollAdjYield = spyNow > 0 ? (netCredit / spyNow) * (365 / projDays) * 100 : 0;
+    const rollAdjYield = spyNow > 0 ? (netCredit / spyNow) * (365 / r.dte) * 100 : 0;
     const otmPct       = ((r.strike - spyNow) / spyNow) * 100;
     const delta        = r.delta !== null ? Math.abs(r.delta) : 0.30;
     const deltaOk      = delta <= deltaThres;
@@ -3726,7 +3625,7 @@ async function runRollScan() {
       const adjYield = (netCredit / spyBasis * 600) * (365 / r.dte) * 100;
       const isBest = scored.length > 0 && r.exp === scored[0].exp && r.strike === scored[0].strike;
       logMsg('    $' + r.strike + 'C — PASS: net +$' + netCredit.toFixed(2) +
-        ' | ' + adjYield.toFixed(1) + '% proj.yield | Δ ' + delta.toFixed(3) +
+        ' | ' + adjYield.toFixed(1) + '% adj.yield | Δ ' + delta.toFixed(3) +
         ' | ' + otmPct + '% OTM' + strikeEdge + (isBest ? ' ★ best' : ''), 'ok');
     } else {
       // SKIP — determine reason (data filtering only, not delta threshold)
@@ -3842,7 +3741,7 @@ async function runRollScan() {
   if (best) {
     logMsg('  ★ Best: $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2) +
       ' | Net +$' + best.netCredit.toFixed(2) +
-      ' | ' + best.rollAdjYield.toFixed(1) + '% proj.yield | Δ ' + best.delta.toFixed(3), 'ok');
+      ' | ' + best.rollAdjYield.toFixed(1) + '% adj.yield | Δ ' + best.delta.toFixed(3), 'ok');
   }
 
   if (mainBtn && mainCard) {
@@ -3883,7 +3782,7 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     + (hasCoverPrice ? 'Cover $' + currentCallMid.toFixed(2) + ' | ' : '')
     + 'Sell $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2)
     + ' | +$' + best.netCredit.toFixed(2) + '/sh net credit'
-    + ' | ' + best.rollAdjYield.toFixed(1) + '% proj.yield'
+    + ' | ' + best.rollAdjYield.toFixed(1) + '% adj.yield'
     + ' | ' + best.otmPct.toFixed(1) + '% OTM | \u0394 ' + best.delta.toFixed(3)
     + (best.oi ? ' | OI ' + best.oi.toLocaleString() : '')
     + '</div>';
@@ -3913,7 +3812,7 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     + '<th>Cover</th>'
     + '<th>Sell</th>'
     + '<th>Net Credit</th>'
-    + '<th>Proj. Yield</th>'
+    + '<th>Ann. Yield</th>'
     + '<th>Trigger</th>'
     + '<th>Edge</th>'
     + '<th></th>'
@@ -4057,9 +3956,7 @@ async function confirmTrade() {
       vixGate:        existing.vixGate        ?? STD.vixGate ?? 0,
       maxLookahead:   existing.maxLookahead   ?? STD.maxLookahead,
       lastOptimized:  existing.lastOptimized  ?? today,
-      optProjYield:    existing.optProjYield    ?? existing.optAnnYield ?? null,
-      avgCycleDays:   existing.avgCycleDays   ?? Math.round(_avgCycleDays || 38),
-      holdPct:        existing.holdPct        ?? parseFloat((_holdPct || 0.39).toFixed(3)),
+      optAnnYield:    existing.optAnnYield    ?? null,
       shares:         existing.shares         ?? STD.shares ?? 600,
       shortStrike:    _tradeCandidate.strike,
       shortExpiry:    _tradeCandidate.exp,
