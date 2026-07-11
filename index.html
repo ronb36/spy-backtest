@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.9</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.9.10</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -429,7 +429,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.9.9 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.9.10 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1785,6 +1785,7 @@ async function simulate(p) {
   let entryPrice = null, entryDate = null, entryStrike = null;
   let entrySPY   = null, entryDelta_= 0,  entryDTE_   = null;
   let isInitial  = true;
+  let waitingForVIX = false; // closed on trigger, waiting for VIX to recover before re-entry
   let pendingContract = null;
   const cycles   = [];
   const equity   = [];
@@ -1899,6 +1900,24 @@ async function simulate(p) {
     }
     if (iter > 6000) { logSim('⚠ Safety limit reached', 'err'); break; }
 
+    // ── VIX recovery re-entry ──────────────────────────────────────────
+    if (waitingForVIX && !posOpen) {
+      if (vixGate === 0 || parseFloat(vix.toFixed(1)) >= vixGate) {
+        logSim(`  VIX recovered to ${vix.toFixed(1)} on ${date} — re-entering`, '');
+        const reResult = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, deltaThreshold, 0);
+        if (reResult) {
+          openPosition(reResult, date, spy, vix, false);
+          blotterLines.push(`  ${date}  —  Sell $${reResult.contract.strike}C ${reResult.contract.expiry}@$${reResult.entryPx.toFixed(2)}  —  ${reResult.dte}d  VIX recovery`);
+          waitingForVIX = false;
+        }
+      } else {
+        // Still waiting — update equity as flat (no position)
+        const bhRet = (spy/startSPY-1)*100;
+        equity.push({ date, cc: equity[equity.length-1]?.cc || bhRet, bh: bhRet, spy, vix });
+        continue;
+      }
+    }
+
     if (!posOpen) continue;
 
     // ── Mark ──────────────────────────────────────────────────────────
@@ -1954,16 +1973,21 @@ async function simulate(p) {
 
     if (!roll) continue;
 
-    // ── VIX Gate — skip roll if VIX below gate (expiry always executes) ───
-    if (vixGate > 0 && parseFloat(vix.toFixed(1)) < vixGate && !isExp) {
-      logDbg(`  → VIX GATE: VIX=${vix.toFixed(1)} < ${vixGate} — skip ${reason} trigger, position runs`);
-      continue;
-    }
-
-    // ── Trigger fired — find new contract and roll ─────────────────────
+    // ── Trigger fired ─────────────────────────────────────────────────
     const exitPx = isExp ? Math.max(0, spy-entryStrike) : (callPx??0);
     logDbg(`  → TRIGGER: ${reason} on ${date} (SPY=$${spy.toFixed(2)} K=$${entryStrike} delta=${delta.toFixed(3)} dte=${dte})`);
 
+    // ── VIX Gate — controls re-entry, not trigger ─────────────────────
+    // Trigger always fires. If VIX below gate: close position, mark as
+    // waiting for VIX recovery. Main loop re-enters when VIX recovers.
+    if (vixGate > 0 && parseFloat(vix.toFixed(1)) < vixGate && !isExp) {
+      logDbg(`  → VIX GATE: VIX=${vix.toFixed(1)} < ${vixGate} — closing on ${reason}, waiting for VIX ≥ ${vixGate} before re-entry`);
+      closeAndRoll(date, spy, vix, exitPx, reason + ' [VIX: waiting]', null);
+      waitingForVIX = true;
+      continue;
+    }
+
+    // ── Normal roll — find new contract and roll ───────────────────────
     const rollResult = findNextContract(date, otmFixed, spy, maxLookahead, dteFloor, deltaThreshold, exitPx);
     if (!rollResult) { logSim(`  No contract found within ${maxLookahead}d of ${date} — done`, 'err'); break; }
 
@@ -2111,7 +2135,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.9.9 · SPY Covered Call Backtest');
+  logMsg('v3.9.10 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
