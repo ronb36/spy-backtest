@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.43</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v3.8.44</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -428,7 +428,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v3.8.43 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v3.8.44 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1584,8 +1584,8 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       const dm = buildDayMap(c);
       // Find entry day: trigger day price (spread trades on same day)
       const afterKey = afterDate.trim().slice(0,10);
-      const entryDay = dm[afterKey] || c.days.find(d => d.date.trim().slice(0,10) >= afterKey);
-      if (!entryDay) continue;
+      const entryDay = dm[afterKey];
+      if (!entryDay) continue; // no price on trigger date — skip, don't use future prices
 
       const entryPx = entryDay.vw || entryDay.c;
       if (!entryPx || entryPx <= 0) continue;
@@ -1602,7 +1602,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, maxLookahead, dteFlo
       const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
       logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " net=$" + netCredit.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
 
-      if (adjYield > bestYield) { bestYield = adjYield; bestContract = c; bestContract._entryPx = entryPx; bestContract._entryDate = entryDay.date.trim().slice(0,10); }
+      if (adjYield > bestYield) { bestYield = adjYield; bestContract = c; }
     }
   }
 
@@ -1767,16 +1767,11 @@ async function simulate(p) {
       }
       buildDayMap(curC);
       const key = date.trim().slice(0,10);
-      // Use price found during candidate scoring (same day, same VWAP)
-      if (curC._entryPx) {
-        entryPrice = curC._entryPx;
-        entryDate  = curC._entryDate || date;
-      } else {
-        const day = curC._dm[key] || curC.days.find(d => d.date >= date);
-        if (!day) continue;
-        entryPrice = day.vw || day.c;
-        entryDate  = date;
-      }
+      // Always fetch price on exact trigger date — no pre-selection, no future date fallback
+      const day = curC._dm[key];
+      if (!day) continue; // no price on trigger date — skip
+      entryPrice = day.vw || day.c;
+      entryDate  = date;
       entrySPY    = spyMap[entryDate.trim().slice(0,10)]?.c || spy;
       entryStrike = curC.strike;
       const expD_ = new Date(curC.expiry+'T00:00:00');
@@ -2065,7 +2060,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v3.8.43 · SPY Covered Call Backtest');
+  logMsg('v3.8.44 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
