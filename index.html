@@ -153,19 +153,21 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v4.1.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v4.1.4</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none;padding:10px 16px;">
-    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;">
-      <span class="mono-label" style="margin:0;">Live Position</span>
-      <span class="init-badge" style="margin:0;">📈 Long SPY + Short Call</span>
-      <span style="color:var(--muted);"><span id="init-qty" style="color:var(--text);">—</span> contracts</span>
-      <span style="color:var(--muted);">Short <span id="init-strike-display" style="color:var(--text);">—</span></span>
-      <span style="color:var(--muted);">Exp <span id="init-expiry-display" style="color:var(--text);">—</span></span>
-      <span style="color:var(--muted);">Entry <span id="init-entry-date" style="color:var(--text);">—</span></span>
-      <span style="color:var(--muted);">Net Premium <span id="init-net-premium" style="color:var(--green);">—</span></span>
+    <div style="font-family:var(--mono);font-size:12px;display:flex;flex-direction:column;gap:5px;">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <span style="color:var(--muted);">Entry <span id="init-entry-date" style="color:var(--text);">—</span></span>
+        <span style="color:var(--muted);">|</span>
+        <span style="color:var(--muted);">Net <span id="init-net-premium" style="color:var(--green);">—</span></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span id="init-badge" class="init-badge" style="margin:0;">📈 Long SPY + Short Call</span>
+        <span id="init-position-line" style="color:var(--text);">—</span>
+      </div>
     </div>
     <select id="init-date" style="display:none;"></select>
     <div id="init-strike" style="display:none;"></div>
@@ -431,7 +433,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v4.1.3 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v4.1.4 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -1560,34 +1562,49 @@ function onSharesChange()   { updateInitPosition(); }
 function updateInitPosition() {
   if (!DM) return;
 
-  // Contracts is primary; derive from STD.contracts or fall back to shares/100
   const contracts = STD.contracts != null ? STD.contracts : Math.round((STD.shares || 600) / 100);
-  const el_qty = $('init-qty'); if (el_qty) el_qty.textContent = contracts;
+  const hasPosition = STD.shortStrike && STD.shortExpiry;
 
-  // Short call details from position JSON
-  const el_strike  = $('init-strike-display');
-  const el_expiry  = $('init-expiry-display');
+  // Format dates helper
+  const fmtD = iso => {
+    if (!iso) return '—';
+    const [y, m, d] = iso.slice(0,10).split('-');
+    return `${m}/${d}/${y.slice(2)}`;
+  };
+  const fmtExpiry = iso => {
+    if (!iso) return '—';
+    const [y, m, d] = iso.slice(0,10).split('-');
+    return `${m}/${d}/${y}`;
+  };
+
+  // Line 1: Entry date | Net premium
   const el_entry   = $('init-entry-date');
   const el_premium = $('init-net-premium');
-  if (el_strike)  el_strike.textContent  = STD.shortStrike  ? '$' + STD.shortStrike  : '—';
-  if (el_expiry)  el_expiry.textContent  = STD.shortExpiry  || '—';
-  if (el_entry) {
-    if (STD.entryDate) {
-      const [y, m, d] = STD.entryDate.split('-');
-      el_entry.textContent = m + '/' + d + '/' + y.slice(2);
-    } else {
-      el_entry.textContent = '—';
-    }
-  }
+  if (el_entry)   el_entry.textContent  = STD.entryDate ? fmtD(STD.entryDate) : '—';
   if (el_premium) {
-    if (STD.coverPrice != null && STD.sellPrice != null) {
-      const net = (STD.sellPrice - STD.coverPrice).toFixed(2);
-      el_premium.textContent = 'Cover $' + Number(STD.coverPrice).toFixed(2) + ' \u2192 Sell $' + Number(STD.sellPrice).toFixed(2) + ' | Net $' + net + '/sh';
+    if (STD.sellPrice != null) {
+      el_premium.textContent = '$' + Number(STD.sellPrice - (STD.coverPrice || 0)).toFixed(2) + '/sh';
     } else if (STD.netPremium != null) {
       el_premium.textContent = '$' + Number(STD.netPremium).toFixed(2) + '/sh';
     } else {
-      el_premium.textContent = '\u2014';
+      el_premium.textContent = '—';
     }
+  }
+
+  // Line 2: Badge + position line
+  const badge    = $('init-badge');
+  const posLine  = $('init-position-line');
+  if (hasPosition) {
+    if (badge) { badge.textContent = '📈 Long SPY + Short Call'; badge.style.opacity = '1'; }
+    if (posLine) {
+      const expStr  = fmtExpiry(STD.shortExpiry);
+      const sellPx  = STD.sellPrice != null ? '$' + Number(STD.sellPrice).toFixed(2) : '—';
+      posLine.textContent = `Short ${contracts}  ${expStr}  $${STD.shortStrike} Calls  @  ${sellPx}`;
+      posLine.style.color = 'var(--text)';
+    }
+  } else {
+    if (badge) { badge.textContent = '📈 Long SPY Only'; badge.style.opacity = '1'; }
+    if (posLine) { posLine.textContent = 'No covered call'; posLine.style.color = 'var(--muted)'; }
   }
 
   $('init-panel').style.display = 'block';
@@ -2001,7 +2018,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v4.1.3 · SPY Covered Call Backtest');
+  logMsg('v4.1.4 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2780,7 +2797,7 @@ function renderRollCandidates() {
   const headerDTE = validExpiries.map(exp => {
     const dte = Math.round((new Date(exp+'T00:00:00') - new Date(snap.triggerDate+'T00:00:00')) / 86400000);
     const isOpenedExp = exp === openingExpiry;
-    const outsideDTEMax = false; // DTE Max gate removed in v4.1.3 — penalty curve handles this
+    const outsideDTEMax = false; // DTE Max gate removed in v4.1.4 — penalty curve handles this
     const style = isOpenedExp ? 'color:var(--accent);' : outsideDTEMax ? 'opacity:0.45;' : '';
     const lookaheadMark = outsideDTEMax ? '<br><span style="font-size:7px;opacity:.5;">beyond window</span>' : '';
     return `<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-align:center;${style}">${fmtExp(exp)}<br><span style="font-size:8px;opacity:.7;">${dte}d</span>${lookaheadMark}</th>`;
