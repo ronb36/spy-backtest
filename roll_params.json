@@ -1,9 +1,9 @@
 {
-  "decayTrigger": 0.23,
+  "decayTrigger": 0.21,
   "dteFloor": 7,
-  "deltaThreshold": 0.500,
+  "deltaThreshold": 0.575,
   "otmTarget": 0.03,
-  "vixGate": 25,
+  "vixGate": 24,
   "maxLookahead": 150,
   "lastOptimized": "2026-07-11",
   "optAnnYield": 6.5,
