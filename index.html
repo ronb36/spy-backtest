@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v4.1.5</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v4.2.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -284,6 +284,7 @@ select.display-box { cursor:pointer; outline:none; }
       <button class="tab-btn" id="tab-btn-scan" onclick="showTab('scan')" style="display:none">🔍 Scan</button>
       <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
       <button class="tab-btn" id="tab-btn-ai" onclick="showTab('ai')" style="display:none">🤖 AI Analysis</button>
+      <button class="tab-btn" id="tab-btn-live" onclick="showTab('live')">📒 Live Trades</button>
     </div>
 
     <!-- Log tab -->
@@ -366,6 +367,24 @@ select.display-box { cursor:pointer; outline:none; }
       </div>
     </div>
 
+    <!-- Live Trades tab -->
+    <div id="tab-live" style="display:none">
+      <div class="chart-panel">
+        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="chart-title">📒 Live Trade Blotter</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span id="live-blotter-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
+            <button onclick="loadLiveBlotter()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⟳ Refresh</button>
+            <button onclick="openCoverOnlyModal()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--red);border-radius:3px;color:var(--red);padding:3px 10px;cursor:pointer;">✕ Cover Only</button>
+            <button onclick="openManualEntryModal()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:3px 10px;cursor:pointer;">+ Add Trade</button>
+          </div>
+        </div>
+        <!-- Live summary stats -->
+        <div id="live-summary" style="display:none;padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:24px;flex-wrap:wrap;"></div>
+        <div class="tbl-wrap"><div id="live-trade-table"></div></div>
+      </div>
+    </div>
+
     <!-- Logs tab -->
     <div id="tab-runlog" style="display:none">
       <div class="chart-panel">
@@ -430,7 +449,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v4.1.5 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v4.2.0 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -454,6 +473,7 @@ const DATA_URL    = 'https://raw.githubusercontent.com/ronb36/spy-backtest/main/
 // PAT stored in localStorage only — never in code
 const GITHUB_REPO = 'ronb36/spy-backtest';
 const PARAMS_FILE = 'roll_params.json';
+const LIVE_TRADES_FILE = 'live_trades.json';
 const DATA_FILE   = 'data/spy_data.json';
 const POLYGON_KEY = 'JsAPh2b2fCJ7oXlkS3oqwfuxINVeK0QL';
 
@@ -1256,7 +1276,7 @@ function updateParamDisplay() {
 
 // ── Tab management ─────────────────────────────────────────────────────────
 function showTab(tab) {
-  ['log','chart','heatmap','gaps','runlog','scan','mart','ai'].forEach(t => {
+  ['log','chart','heatmap','gaps','runlog','scan','mart','ai','live'].forEach(t => {
     const el = $('tab-' + t);
     const btn = $('tab-btn-' + t);
     if (el)  el.style.display  = t === tab ? 'block' : 'none';
@@ -1264,6 +1284,7 @@ function showTab(tab) {
   });
   if (tab === 'mart') renderMartCards();
   if (tab === 'chart') setChartView('price');
+  if (tab === 'live') loadLiveBlotter();
   if (tab === 'runlog') {
     // Sync mirror with live progress-log content
     const src = $('progress-log');
@@ -2015,7 +2036,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v4.1.5 · SPY Covered Call Backtest');
+  logMsg('v4.2.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2794,7 +2815,7 @@ function renderRollCandidates() {
   const headerDTE = validExpiries.map(exp => {
     const dte = Math.round((new Date(exp+'T00:00:00') - new Date(snap.triggerDate+'T00:00:00')) / 86400000);
     const isOpenedExp = exp === openingExpiry;
-    const outsideDTEMax = false; // DTE Max gate removed in v4.1.5 — penalty curve handles this
+    const outsideDTEMax = false; // DTE Max gate removed in v4.2.0 — penalty curve handles this
     const style = isOpenedExp ? 'color:var(--accent);' : outsideDTEMax ? 'opacity:0.45;' : '';
     const lookaheadMark = outsideDTEMax ? '<br><span style="font-size:7px;opacity:.5;">beyond window</span>' : '';
     return `<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-align:center;${style}">${fmtExp(exp)}<br><span style="font-size:8px;opacity:.7;">${dte}d</span>${lookaheadMark}</th>`;
@@ -3928,6 +3949,30 @@ async function confirmTrade() {
     statusEl.style.color = 'var(--green)';
     btn.textContent = '\u2713 Done';
 
+    // Also append to live_trades.json
+    try {
+      const contracts = STD.shares ? Math.floor(STD.shares / 100) : null;
+      const liveEntry = {
+        id:          makeLiveTradeId(),
+        date:        today,
+        type:        'roll',
+        status:      'open',
+        contracts:   contracts,
+        coverStrike: STD.shortStrike || null,
+        coverExpiry: STD.shortExpiry || null,
+        coverPrice:  parseFloat(cover.toFixed(2)),
+        newStrike:   _tradeCandidate.strike,
+        newExpiry:   _tradeCandidate.exp,
+        sellPrice:   parseFloat(sell.toFixed(2)),
+        rollCredit:  parseFloat(((sell - cover) * (contracts||1) * 100).toFixed(2)),
+        annYield:    null,
+        trigger:     'roll via scan'
+      };
+      await appendLiveTrade(liveEntry);
+    } catch(liveErr) {
+      console.warn('Live trade log failed:', liveErr.message);
+    }
+
     setTimeout(() => { closeTradeModal(); runScan(); }, 1200);
 
   } catch(e) {
@@ -3937,6 +3982,326 @@ async function confirmTrade() {
     btn.textContent = 'Confirm \u0026 Publish';
   }
 }
+
+// ── Live Trade Blotter ──────────────────────────────────────────────────────
+
+let _liveTradesCache = null; // cached array of cycle objects
+
+async function ghGetLiveTrades() {
+  const url = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + LIVE_TRADES_FILE;
+  const pat = localStorage.getItem('gh_pat');
+  const headers = pat
+    ? { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json' }
+    : { 'Accept': 'application/vnd.github.v3+json' };
+  const res = await fetch(url, { headers });
+  if (res.status === 404) return { trades: [], sha: null };
+  if (!res.ok) throw new Error('GitHub ' + res.status);
+  const json = await res.json();
+  const content = JSON.parse(atob(json.content.replace(/\n/g, '')));
+  return { trades: content.trades || [], sha: json.sha };
+}
+
+async function ghPutLiveTrades(trades, sha, commitMsg) {
+  let pat = localStorage.getItem('gh_pat');
+  if (!pat) {
+    pat = window.prompt('Enter your GitHub PAT (Contents read+write on spy-backtest):');
+    if (!pat) return false;
+    localStorage.setItem('gh_pat', pat.trim());
+  }
+  pat = pat.trim();
+  const url = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + LIVE_TRADES_FILE;
+  const gh  = { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
+  const body = { message: commitMsg, content: btoa(JSON.stringify({ trades }, null, 2) + '\n') };
+  if (sha) body.sha = sha;
+  const put = await fetch(url, { method: 'PUT', headers: gh, body: JSON.stringify(body) });
+  if (put.status === 401 || put.status === 403) { localStorage.removeItem('gh_pat'); throw new Error('Auth failed — PAT cleared'); }
+  if (!put.ok) throw new Error('GitHub API ' + put.status);
+  return true;
+}
+
+async function loadLiveBlotter() {
+  const statusEl = $('live-blotter-status');
+  const tableEl  = $('live-trade-table');
+  if (statusEl) statusEl.textContent = 'Loading...';
+  try {
+    const { trades } = await ghGetLiveTrades();
+    _liveTradesCache = trades;
+    renderLiveBlotter(trades);
+    if (statusEl) statusEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    if (statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.style.color = 'var(--red)'; }
+    if (tableEl) tableEl.innerHTML = '<div style="padding:16px;font-family:var(--mono);font-size:11px;color:var(--red);">Could not load live_trades.json — ' + e.message + '</div>';
+  }
+}
+
+function renderLiveBlotter(trades) {
+  const tableEl  = $('live-trade-table');
+  const summaryEl = $('live-summary');
+  if (!tableEl) return;
+
+  if (!trades || trades.length === 0) {
+    tableEl.innerHTML = '<div style="padding:20px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No live trades logged yet. Use "+ Add Trade" to import history or log a new roll.</div>';
+    if (summaryEl) summaryEl.style.display = 'none';
+    return;
+  }
+
+  // Summary stats
+  const credits = trades.filter(t => t.rollCredit != null);
+  const totalCredit = credits.reduce((s, t) => s + (t.rollCredit || 0), 0);
+  const wins = credits.filter(t => t.rollCredit > 0).length;
+  const winRate = credits.length ? Math.round(100 * wins / credits.length) : 0;
+  const openTrade = trades.find(t => t.status === 'open');
+
+  if (summaryEl) {
+    summaryEl.style.display = 'flex';
+    const fmt = v => (v >= 0 ? '+' : '') + '$' + Math.abs(v).toLocaleString();
+    summaryEl.innerHTML = [
+      ['Total Roll Credit', '<span class="' + (totalCredit>=0?'green':'red') + '" style="font-family:var(--mono);font-size:15px;font-weight:600;">' + fmt(totalCredit) + '</span>'],
+      ['Win Rate', '<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--green);">' + winRate + '%</span><div style="font-size:10px;color:var(--muted);">' + wins + ' / ' + credits.length + ' rolls</div>'],
+      ['Total Cycles', '<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--accent);">' + trades.length + '</span>'],
+      ['Open Position', openTrade ? '<span style="font-family:var(--mono);font-size:12px;color:var(--green);">$' + openTrade.newStrike + 'C ' + openTrade.newExpiry + '</span>' : '<span style="font-family:var(--mono);font-size:12px;color:var(--muted);">Flat</span>'],
+    ].map(([label, val]) =>
+      '<div style="display:flex;flex-direction:column;gap:4px;"><div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);">' + label + '</div>' + val + '</div>'
+    ).join('');
+  }
+
+  // Table
+  const sorted = [...trades].sort((a,b) => a.date < b.date ? -1 : 1);
+  let rows = '';
+  sorted.forEach(t => {
+    const isOpen = t.status === 'open';
+    const isCoverOnly = t.type === 'cover_only';
+
+    const coverCell = t.coverStrike
+      ? '<span style="color:var(--red);">Cover ' + (t.coverExpiry||'') + ' $' + t.coverStrike + ' @ $' + (t.coverPrice||'—') + '</span>'
+      : '<span style="color:var(--muted);">—</span>';
+
+    let newLegCell;
+    if (isCoverOnly) {
+      newLegCell = '<span style="background:rgba(245,101,101,.15);border:1px solid rgba(245,101,101,.3);border-radius:3px;padding:2px 8px;font-size:9px;color:var(--red);">Cover Only — No New Leg</span>';
+    } else if (t.newStrike) {
+      newLegCell = '<span style="color:var(--accent);">Sell ' + (t.newExpiry||'') + ' $' + t.newStrike + ' @ $' + (t.sellPrice||'—') + '</span>';
+    } else {
+      newLegCell = '<span style="color:var(--muted);">—</span>';
+    }
+
+    const creditVal = t.rollCredit;
+    const creditCell = creditVal != null
+      ? '<span style="color:' + (creditVal >= 0 ? 'var(--green)' : 'var(--red)') + ';font-weight:600;">' + (creditVal >= 0 ? '+' : '') + '$' + Math.abs(creditVal).toLocaleString() + '</span>'
+      : '<span style="color:var(--muted);">—</span>';
+
+    const yieldCell = t.annYield != null
+      ? '<span style="color:' + (t.annYield >= 0 ? 'var(--green)' : 'var(--red)') + ';">' + (t.annYield >= 0 ? '' : '') + t.annYield.toFixed(1) + '%</span>'
+      : '<span style="color:var(--muted);">—</span>';
+
+    const triggerCell = '<span style="color:var(--muted);font-size:10px;">' + (t.trigger || '—') + '</span>';
+
+    const contractsCell = t.contracts ? '<span style="color:var(--muted);">' + t.contracts + '</span>' : '<span style="color:var(--muted);">—</span>';
+
+    const openBadge = isOpen ? '<span style="background:var(--accent);color:#fff;border-radius:3px;padding:1px 6px;font-size:9px;letter-spacing:.06em;margin-left:6px;">OPEN</span>' : '';
+
+    rows += '<tr>'
+      + '<td>' + t.date + openBadge + '</td>'
+      + '<td>' + contractsCell + '</td>'
+      + '<td>' + coverCell + '</td>'
+      + '<td>' + newLegCell + '</td>'
+      + '<td>' + creditCell + '</td>'
+      + '<td>' + yieldCell + '</td>'
+      + '<td>' + triggerCell + '</td>'
+      + '<td><button onclick="deleteLiveTrade(\'' + t.id + '\')" style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">✕</button></td>'
+      + '</tr>';
+  });
+
+  tableEl.innerHTML = '<table class="tbl">'
+    + '<thead><tr>'
+    + '<th>Date</th><th>Contracts</th><th>Cover (Close)</th><th>New Leg (Open)</th><th>Roll Credit</th><th>Ann Yield</th><th>Trigger</th><th></th>'
+    + '</tr></thead>'
+    + '<tbody>' + rows + '</tbody>'
+    + '</table>';
+}
+
+async function deleteLiveTrade(id) {
+  if (!confirm('Delete this trade entry?')) return;
+  try {
+    const { trades, sha } = await ghGetLiveTrades();
+    const updated = trades.filter(t => t.id !== id);
+    await ghPutLiveTrades(updated, sha, 'Delete live trade ' + id);
+    _liveTradesCache = updated;
+    renderLiveBlotter(updated);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ── Append a completed roll to live_trades.json ─────────────────────────────
+async function appendLiveTrade(tradeObj) {
+  const { trades, sha } = await ghGetLiveTrades();
+  // If there was a previous open position, close it out
+  trades.forEach(t => { if (t.status === 'open') t.status = 'closed'; });
+  trades.push(tradeObj);
+  const commitMsg = tradeObj.type === 'cover_only'
+    ? 'Cover only — $' + tradeObj.coverStrike + 'C ' + tradeObj.coverExpiry + ' · ' + tradeObj.date
+    : 'Roll — $' + (tradeObj.newStrike||'') + 'C ' + (tradeObj.newExpiry||'') + ' · ' + tradeObj.date;
+  await ghPutLiveTrades(trades, sha, commitMsg);
+}
+
+function makeLiveTradeId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// ── Cover-Only Modal ────────────────────────────────────────────────────────
+function openCoverOnlyModal() {
+  // Pre-populate from STD if available
+  const strike = STD.shortStrike || '';
+  const expiry = STD.shortExpiry || '';
+  $('co-strike').value  = strike;
+  $('co-expiry').value  = expiry;
+  $('co-price').value   = '';
+  $('co-contracts').value = STD.shares ? Math.floor(STD.shares / 100) : '';
+  $('co-trigger').value = '';
+  $('co-status').textContent = '';
+  $('cover-only-overlay').style.display = 'flex';
+}
+function closeCoverOnlyModal() { $('cover-only-overlay').style.display = 'none'; }
+
+async function confirmCoverOnly() {
+  const strike    = parseFloat($('co-strike').value);
+  const expiry    = $('co-expiry').value.trim();
+  const price     = parseFloat($('co-price').value);
+  const contracts = parseInt($('co-contracts').value) || 0;
+  const trigger   = $('co-trigger').value.trim();
+  const statusEl  = $('co-status');
+
+  if (!strike || isNaN(strike)) { statusEl.textContent = 'Enter strike.'; statusEl.style.color='var(--red)'; return; }
+  if (!expiry)                  { statusEl.textContent = 'Enter expiry.'; statusEl.style.color='var(--red)'; return; }
+  if (!price || isNaN(price))   { statusEl.textContent = 'Enter cover price.'; statusEl.style.color='var(--red)'; return; }
+  if (!contracts)               { statusEl.textContent = 'Enter contract count.'; statusEl.style.color='var(--red)'; return; }
+
+  const btn = $('co-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Publishing...';
+  statusEl.textContent = '';
+
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const totalDebit = -(contracts * price * 100);
+    const trade = {
+      id:           makeLiveTradeId(),
+      date:         today,
+      type:         'cover_only',
+      status:       'flat',
+      contracts:    contracts,
+      coverStrike:  strike,
+      coverExpiry:  expiry,
+      coverPrice:   parseFloat(price.toFixed(2)),
+      newStrike:    null,
+      newExpiry:    null,
+      sellPrice:    null,
+      rollCredit:   parseFloat(totalDebit.toFixed(2)),
+      annYield:     null,
+      trigger:      trigger || 'cover only'
+    };
+    await appendLiveTrade(trade);
+    statusEl.textContent = '✓ Published';
+    statusEl.style.color = 'var(--green)';
+    btn.textContent = '✓ Done';
+    setTimeout(() => { closeCoverOnlyModal(); loadLiveBlotter(); showTab('live'); }, 900);
+  } catch(e) {
+    statusEl.textContent = '✗ ' + e.message;
+    statusEl.style.color = 'var(--red)';
+    btn.disabled = false; btn.textContent = 'Confirm & Publish';
+  }
+}
+
+// ── Manual Entry Modal (for importing history) ──────────────────────────────
+function openManualEntryModal() {
+  $('me-date').value      = new Date().toISOString().slice(0,10);
+  $('me-type').value      = 'roll';
+  $('me-contracts').value = STD.shares ? Math.floor(STD.shares / 100) : '';
+  $('me-cover-strike').value  = '';
+  $('me-cover-expiry').value  = '';
+  $('me-cover-price').value   = '';
+  $('me-sell-strike').value   = '';
+  $('me-sell-expiry').value   = '';
+  $('me-sell-price').value    = '';
+  $('me-trigger').value       = '';
+  $('me-status-field').value  = 'closed';
+  $('me-status').textContent  = '';
+  toggleManualEntryType();
+  $('manual-entry-overlay').style.display = 'flex';
+}
+function closeManualEntryModal() { $('manual-entry-overlay').style.display = 'none'; }
+
+function toggleManualEntryType() {
+  const t = $('me-type').value;
+  $('me-sell-section').style.display = t === 'roll' || t === 'open' ? '' : 'none';
+  $('me-cover-section').style.display = t === 'cover_only' || t === 'roll' ? '' : 'none';
+}
+
+async function confirmManualEntry() {
+  const date      = $('me-date').value.trim();
+  const type      = $('me-type').value;
+  const contracts = parseInt($('me-contracts').value) || 0;
+  const coverStrike = parseFloat($('me-cover-strike').value) || null;
+  const coverExpiry = $('me-cover-expiry').value.trim() || null;
+  const coverPrice  = parseFloat($('me-cover-price').value) || null;
+  const sellStrike  = parseFloat($('me-sell-strike').value) || null;
+  const sellExpiry  = $('me-sell-expiry').value.trim() || null;
+  const sellPrice   = parseFloat($('me-sell-price').value) || null;
+  const trigger     = $('me-trigger').value.trim();
+  const statusVal   = $('me-status-field').value;
+  const statusEl    = $('me-status');
+
+  if (!date)      { statusEl.textContent = 'Enter date.'; statusEl.style.color='var(--red)'; return; }
+  if (!contracts) { statusEl.textContent = 'Enter contract count.'; statusEl.style.color='var(--red)'; return; }
+
+  let rollCredit = null;
+  if (sellPrice != null && coverPrice != null) {
+    rollCredit = parseFloat(((sellPrice - coverPrice) * contracts * 100).toFixed(2));
+  } else if (type === 'cover_only' && coverPrice != null) {
+    rollCredit = parseFloat((-(coverPrice) * contracts * 100).toFixed(2));
+  } else if ((type === 'open') && sellPrice != null) {
+    rollCredit = parseFloat((sellPrice * contracts * 100).toFixed(2));
+  }
+
+  const btn = $('me-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Publishing...';
+  statusEl.textContent = '';
+
+  try {
+    const trade = {
+      id:          makeLiveTradeId(),
+      date,
+      type,
+      status:      statusVal,
+      contracts,
+      coverStrike,
+      coverExpiry,
+      coverPrice:  coverPrice != null ? parseFloat(coverPrice.toFixed(2)) : null,
+      newStrike:   sellStrike,
+      newExpiry:   sellExpiry,
+      sellPrice:   sellPrice != null ? parseFloat(sellPrice.toFixed(2)) : null,
+      rollCredit,
+      annYield:    null,
+      trigger:     trigger || null
+    };
+    const { trades, sha } = await ghGetLiveTrades();
+    if (statusVal === 'open') {
+      trades.forEach(t => { if (t.status === 'open') t.status = 'closed'; });
+    }
+    trades.push(trade);
+    await ghPutLiveTrades(trades, sha, 'Manual entry — ' + date + ' ' + type);
+    statusEl.textContent = '✓ Saved';
+    statusEl.style.color = 'var(--green)';
+    btn.textContent = '✓ Done';
+    setTimeout(() => { closeManualEntryModal(); loadLiveBlotter(); showTab('live'); }, 900);
+  } catch(e) {
+    statusEl.textContent = '✗ ' + e.message;
+    statusEl.style.color = 'var(--red)';
+    btn.disabled = false; btn.textContent = 'Save Entry';
+  }
+}
+
+// ── Extend confirmTrade to also log to live_trades.json ─────────────────────
+const _origConfirmTrade = confirmTrade;
+// We'll patch confirmTrade inline below by replacing the success block
 
 </script>
 <!-- ── Trade Modal ─────────────────────────────────────────────────────── -->
@@ -3981,6 +4346,152 @@ async function confirmTrade() {
     </div>
 
     <div id="trade-modal-status" style="margin-top:12px;font-size:10px;color:var(--muted);min-height:16px;"></div>
+  </div>
+</div>
+
+<!-- ── Cover-Only Modal ───────────────────────────────────────────────────── -->
+<div id="cover-only-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1001;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;width:min(380px,92vw);font-family:var(--mono);color:var(--text);">
+    <div style="font-size:13px;font-weight:600;letter-spacing:.08em;color:var(--red);margin-bottom:16px;">✕ COVER ONLY — NO NEW LEG</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">STRIKE</div>
+        <input id="co-strike" type="number" step="1" placeholder="e.g. 760"
+          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">EXPIRY</div>
+        <input id="co-expiry" type="text" placeholder="e.g. 10/16/2026"
+          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;">
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">COVER PRICE</div>
+        <input id="co-price" type="number" step="0.01" placeholder="Price paid"
+          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">CONTRACTS</div>
+        <input id="co-contracts" type="number" step="1" placeholder="e.g. 6"
+          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;">
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px;">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">TRIGGER (optional)</div>
+      <input id="co-trigger" type="text" placeholder="e.g. delta 0.62 · VIX gate"
+        style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;">
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="closeCoverOnlyModal()"
+        style="font-family:var(--mono);font-size:10px;padding:7px 16px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:.06em;">Cancel</button>
+      <button id="co-confirm-btn" onclick="confirmCoverOnly()"
+        style="font-family:var(--mono);font-size:10px;padding:7px 16px;border-radius:4px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;letter-spacing:.06em;">Confirm &amp; Publish</button>
+    </div>
+    <div id="co-status" style="margin-top:10px;font-size:10px;color:var(--muted);min-height:14px;"></div>
+  </div>
+</div>
+
+<!-- ── Manual Entry Modal ─────────────────────────────────────────────────── -->
+<div id="manual-entry-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1001;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;width:min(440px,92vw);font-family:var(--mono);color:var(--text);max-height:90vh;overflow-y:auto;">
+    <div style="font-size:13px;font-weight:600;letter-spacing:.08em;color:var(--accent);margin-bottom:16px;">+ ADD TRADE ENTRY</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">DATE</div>
+        <input id="me-date" type="date"
+          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">TYPE</div>
+        <select id="me-type" onchange="toggleManualEntryType()"
+          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;height:34px;">
+          <option value="roll">Roll (cover + sell)</option>
+          <option value="open">Open (sell only)</option>
+          <option value="cover_only">Cover Only</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">CONTRACTS</div>
+        <input id="me-contracts" type="number" step="1" placeholder="e.g. 6"
+          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;">
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">STATUS</div>
+        <select id="me-status-field"
+          style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;height:34px;">
+          <option value="closed">Closed</option>
+          <option value="open">Open (current)</option>
+          <option value="flat">Flat</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Cover section -->
+    <div id="me-cover-section" style="margin-bottom:12px;padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);">
+      <div style="font-size:9px;color:var(--red);letter-spacing:.08em;margin-bottom:8px;">COVER (BUY BACK)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:3px;">STRIKE</div>
+          <input id="me-cover-strike" type="number" step="1" placeholder="760"
+            style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:3px;">EXPIRY</div>
+          <input id="me-cover-expiry" type="text" placeholder="10/16/2026"
+            style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:3px;">PRICE</div>
+          <input id="me-cover-price" type="number" step="0.01" placeholder="23.32"
+            style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;">
+        </div>
+      </div>
+    </div>
+
+    <!-- Sell section -->
+    <div id="me-sell-section" style="margin-bottom:12px;padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);">
+      <div style="font-size:9px;color:var(--green);letter-spacing:.08em;margin-bottom:8px;">SELL (NEW CALL)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:3px;">STRIKE</div>
+          <input id="me-sell-strike" type="number" step="1" placeholder="775"
+            style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:3px;">EXPIRY</div>
+          <input id="me-sell-expiry" type="text" placeholder="12/18/2026"
+            style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:3px;">PRICE</div>
+          <input id="me-sell-price" type="number" step="0.01" placeholder="40.30"
+            style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;">
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px;">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:4px;">TRIGGER (optional)</div>
+      <input id="me-trigger" type="text" placeholder="e.g. delta 0.61 · VIX recovery"
+        style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;">
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="closeManualEntryModal()"
+        style="font-family:var(--mono);font-size:10px;padding:7px 16px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:.06em;">Cancel</button>
+      <button id="me-confirm-btn" onclick="confirmManualEntry()"
+        style="font-family:var(--mono);font-size:10px;padding:7px 16px;border-radius:4px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;letter-spacing:.06em;">Save Entry</button>
+    </div>
+    <div id="me-status" style="margin-top:10px;font-size:10px;color:var(--muted);min-height:14px;"></div>
   </div>
 </div>
 
