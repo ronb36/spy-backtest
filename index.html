@@ -161,7 +161,7 @@ select.display-box { cursor:pointer; outline:none; }
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;">
       <span class="mono-label" style="margin:0;">Live Position</span>
       <span class="init-badge" style="margin:0;">📈 Long SPY + Short Call</span>
-      <span style="color:var(--muted);">Qty <span id="init-qty" style="color:var(--text);">—</span> shares</span>
+      <span style="color:var(--muted);"><span id="init-qty" style="color:var(--text);">—</span> contracts</span>
       <span style="color:var(--muted);">Short <span id="init-strike-display" style="color:var(--text);">—</span></span>
       <span style="color:var(--muted);">Exp <span id="init-expiry-display" style="color:var(--text);">—</span></span>
       <span style="color:var(--muted);">Entry <span id="init-entry-date" style="color:var(--text);">—</span></span>
@@ -1630,9 +1630,9 @@ function onSharesChange()   { updateInitPosition(); }
 function updateInitPosition() {
   if (!DM) return;
 
-  // Qty from position JSON (STD.shares) — falls back to 600 if not set
-  const qty = STD.shares || 600;
-  const el_qty = $('init-qty'); if (el_qty) el_qty.textContent = qty.toLocaleString();
+  // Contracts is primary; derive from STD.contracts or fall back to shares/100
+  const contracts = STD.contracts != null ? STD.contracts : Math.round((STD.shares || 600) / 100);
+  const el_qty = $('init-qty'); if (el_qty) el_qty.textContent = contracts;
 
   // Short call details from position JSON
   const el_strike  = $('init-strike-display');
@@ -1641,7 +1641,14 @@ function updateInitPosition() {
   const el_premium = $('init-net-premium');
   if (el_strike)  el_strike.textContent  = STD.shortStrike  ? '$' + STD.shortStrike  : '—';
   if (el_expiry)  el_expiry.textContent  = STD.shortExpiry  || '—';
-  if (el_entry)   el_entry.textContent   = STD.entryDate    || '—';
+  if (el_entry) {
+    if (STD.entryDate) {
+      const [y, m, d] = STD.entryDate.split('-');
+      el_entry.textContent = m + '/' + d + '/' + y.slice(2);
+    } else {
+      el_entry.textContent = '—';
+    }
+  }
   if (el_premium) {
     if (STD.coverPrice != null && STD.sellPrice != null) {
       const net = (STD.sellPrice - STD.coverPrice).toFixed(2);
@@ -2369,7 +2376,6 @@ async function runOptimization() {
 
       // Store winner for publish button
       _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, maxLookahead: b.lookahead, optAnnYield: allResults.bestYld, decay: b.decay, floor: b.floor, delta: b.delta, vixgate: b.vixgate, lookahead: b.lookahead };
-      setRunButtonState('ready');
 
       // Re-run simulate() with the winning params so summary/blotter reflect
       // the optimizer's chosen configuration, not just the heatmap grid.
