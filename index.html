@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v4.1.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v4.1.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -431,7 +431,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v4.1.1 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v4.1.2 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -2001,7 +2001,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v4.1.1 · SPY Covered Call Backtest');
+  logMsg('v4.1.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2384,34 +2384,73 @@ function renderSummary(r) {
 function renderCycleTable(r) {
   const contracts = 6;
 
+  // Format ISO date string → MM/DD/YYYY
+  const fmtDate = iso => {
+    if (!iso) return '—';
+    const [y, m, d] = iso.slice(0, 10).split('-');
+    return `${m}/${d}/${y}`;
+  };
+
   // Initial row from first cycle
   const initCycle = r.cycles[0];
   const initRow = initCycle ? `<tr style="border-bottom:2px solid var(--border);">
-    <td class="muted" style="font-size:10px;">${initCycle.entryDate}</td>
+    <td class="muted" style="font-size:10px;">${fmtDate(initCycle.entryDate)}</td>
     <td class="muted">—</td>
-    <td class="accent">Sell $${initCycle.strike} ${initCycle.expiry} @ $${fmt(initCycle.entryPx)}</td>
+    <td class="accent">Sell $${initCycle.strike} ${fmtDate(initCycle.expiry)} @ $${fmt(initCycle.entryPx)}</td>
     <td class="green" style="font-weight:600;">${fmtD(initCycle.entryPx*100*contracts)}</td>
     <td class="muted">—</td>
     <td class="muted" style="font-size:10px;">initial · yield-selected</td>
   </tr>` : '';
 
+  // Build rows — detect naked gaps (close-only + delayed re-entry)
   const rows = r.rolls.map((c, i) => {
-    const closedCycle = r.cycles[i];
-    const coverPx     = closedCycle ? closedCycle.exitPx : null;
-    const coverStrike = closedCycle ? closedCycle.strike : null;
-    const newPx       = c.entryPx || 0;
-    const newLegStr   = newPx > 0 ? `Sell $${c.strike} ${c.expiry} @ $${fmt(newPx)}` : '—';
-    const rollCredit  = coverPx !== null ? (newPx - coverPx) * 100 * contracts : null;
-    const cClass      = rollCredit===null?'muted':rollCredit>=0?'green':'red';
-    const newDTE      = Math.round((new Date(c.expiry+'T00:00:00') - new Date(c.entryDate+'T00:00:00')) / 86400000);
-    const rollYld     = (rollCredit!==null && newDTE>0 && c.entrySPY)
+    const closedCycle  = r.cycles[i];
+    const coverPx      = closedCycle ? closedCycle.exitPx : null;
+    const coverStrike  = closedCycle ? closedCycle.strike : null;
+    const coverExpiry  = closedCycle ? closedCycle.expiry : null;
+    const closeDate    = closedCycle ? closedCycle.exitDate : null;
+    const newPx        = c.entryPx || 0;
+    const newLegStr    = newPx > 0 ? `Sell $${c.strike} ${fmtDate(c.expiry)} @ $${fmt(newPx)}` : '—';
+    const rollCredit   = coverPx !== null ? (newPx - coverPx) * 100 * contracts : null;
+    const cClass       = rollCredit===null?'muted':rollCredit>=0?'green':'red';
+    const newDTE       = Math.round((new Date(c.expiry+'T00:00:00') - new Date(c.entryDate+'T00:00:00')) / 86400000);
+    const rollYld      = (rollCredit!==null && newDTE>0 && c.entrySPY)
       ? ((newPx-(coverPx||0))/c.entrySPY)*(365/newDTE)*100 : null;
-    const yClass      = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
-    const approx      = c.approx?'<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>':'';
-    const rollDate    = closedCycle ? closedCycle.exitDate : c.entryDate;
+    const yClass       = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
+    const approx       = c.approx?'<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>':'';
+    const coverStr     = coverStrike ? `Cover $${coverStrike} ${fmtDate(coverExpiry)} @ $${fmt(coverPx)}` : '—';
+
+    // Detect naked gap: close date and re-entry date differ by more than 1 day
+    const gapDays = closeDate && c.entryDate
+      ? Math.round((new Date(c.entryDate+'T00:00:00') - new Date(closeDate+'T00:00:00')) / 86400000)
+      : 0;
+
+    if (gapDays > 1) {
+      // Split into two rows: close-only row + re-entry row
+      const nakedBadge = `<span style="background:var(--yellow);color:#000;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">NAKED ${gapDays}d</span>`;
+      const closeRow = `<tr style="opacity:0.85;">
+        <td class="muted" style="font-size:10px;">${fmtDate(closeDate)}${approx}</td>
+        <td class="red">${coverStr}</td>
+        <td class="muted">—${nakedBadge}</td>
+        <td class="muted">—</td>
+        <td class="muted">—</td>
+        <td class="muted" style="font-size:10px;">${closedCycle?.reason || ''} · VIX gate</td>
+      </tr>`;
+      const reentryRow = `<tr>
+        <td class="muted" style="font-size:10px;">${fmtDate(c.entryDate)}</td>
+        <td class="muted">—</td>
+        <td class="accent">${newLegStr}</td>
+        <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
+        <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
+        <td class="muted" style="font-size:10px;">VIX recovery · re-entry</td>
+      </tr>`;
+      return closeRow + reentryRow;
+    }
+
+    // Normal same-day roll — single row
     return `<tr>
-      <td class="muted" style="font-size:10px;">${rollDate}${approx}</td>
-      <td class="red">${coverStrike ? `Cover $${coverStrike} @ $${fmt(coverPx)}` : '—'}</td>
+      <td class="muted" style="font-size:10px;">${fmtDate(closeDate || c.entryDate)}${approx}</td>
+      <td class="red">${coverStr}</td>
       <td class="accent">${newLegStr}</td>
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
       <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
@@ -2425,8 +2464,9 @@ function renderCycleTable(r) {
     const lastClosed  = r.cycles[r.rolls.length];
     const coverPx     = lastClosed ? lastClosed.exitPx : null;
     const coverStrike = lastClosed ? lastClosed.strike : null;
+    const coverExpiry = lastClosed ? lastClosed.expiry : null;
     const newPx       = pc.entryPx || 0;
-    const newLegStr   = newPx > 0 ? `Sell $${pc.strike} ${pc.expiry} @ $${fmt(newPx)}` : '—';
+    const newLegStr   = newPx > 0 ? `Sell $${pc.strike} ${fmtDate(pc.expiry)} @ $${fmt(newPx)}` : '—';
     const rollCredit  = coverPx !== null && newPx > 0 ? (newPx - coverPx) * 100 * contracts : null;
     const cClass      = rollCredit===null?'muted':rollCredit>=0?'green':'red';
     const newDTE      = Math.round((new Date(pc.expiry+'T00:00:00') - new Date(pc.entryDate+'T00:00:00')) / 86400000);
@@ -2435,9 +2475,10 @@ function renderCycleTable(r) {
     const yClass      = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
     const rollDate    = lastClosed ? lastClosed.exitDate : pc.entryDate;
     const openBadge   = `<span style="background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">OPEN</span>`;
+    const coverStr    = coverStrike ? `Cover $${coverStrike} ${fmtDate(coverExpiry)} @ $${fmt(coverPx)}` : '—';
     openRow = `<tr style="border-top:2px solid var(--accent);opacity:0.85;">
-      <td class="muted" style="font-size:10px;">${rollDate}${openBadge}</td>
-      <td class="red">${coverStrike ? `Cover $${coverStrike} @ $${fmt(coverPx)}` : '—'}</td>
+      <td class="muted" style="font-size:10px;">${fmtDate(rollDate)}${openBadge}</td>
+      <td class="red">${coverStr}</td>
       <td class="accent">${newLegStr}</td>
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
       <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
@@ -2735,7 +2776,7 @@ function renderRollCandidates() {
   const headerDTE = validExpiries.map(exp => {
     const dte = Math.round((new Date(exp+'T00:00:00') - new Date(snap.triggerDate+'T00:00:00')) / 86400000);
     const isOpenedExp = exp === openingExpiry;
-    const outsideDTEMax = false; // DTE Max gate removed in v4.1.1 — penalty curve handles this
+    const outsideDTEMax = false; // DTE Max gate removed in v4.1.2 — penalty curve handles this
     const style = isOpenedExp ? 'color:var(--accent);' : outsideDTEMax ? 'opacity:0.45;' : '';
     const lookaheadMark = outsideDTEMax ? '<br><span style="font-size:7px;opacity:.5;">beyond window</span>' : '';
     return `<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-align:center;${style}">${fmtExp(exp)}<br><span style="font-size:8px;opacity:.7;">${dte}d</span>${lookaheadMark}</th>`;
