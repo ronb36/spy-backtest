@@ -5,6 +5,7 @@
   "otmTarget": 0.03,
   "vixGate": 24,
   "maxLookahead": 365,
+  "dtePenaltyAnchor": 45,
   "lastOptimized": "2026-07-12",
   "optAnnYield": 9,
   "shares": 600,
