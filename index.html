@@ -153,21 +153,18 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v4.1.4</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v4.1.5</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none;padding:10px 16px;">
-    <div style="font-family:var(--mono);font-size:12px;display:flex;flex-direction:column;gap:5px;">
-      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-        <span style="color:var(--muted);">Entry <span id="init-entry-date" style="color:var(--text);">—</span></span>
-        <span style="color:var(--muted);">|</span>
-        <span style="color:var(--muted);">Net <span id="init-net-premium" style="color:var(--green);">—</span></span>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <span id="init-badge" class="init-badge" style="margin:0;">📈 Long SPY + Short Call</span>
-        <span id="init-position-line" style="color:var(--text);">—</span>
-      </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;">
+      <span id="init-badge" class="init-badge" style="margin:0;">📈 Long SPY + Short Call</span>
+      <span style="color:var(--muted);">Entry <span id="init-entry-date" style="color:var(--text);">—</span></span>
+      <span style="color:var(--muted);">|</span>
+      <span style="color:var(--muted);">Net <span id="init-net-premium" style="color:var(--green);">—</span></span>
+      <span style="color:var(--muted);">|</span>
+      <span id="init-position-line" style="color:var(--text);">—</span>
     </div>
     <select id="init-date" style="display:none;"></select>
     <div id="init-strike" style="display:none;"></div>
@@ -433,7 +430,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v4.1.4 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v4.1.5 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -2018,7 +2015,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v4.1.4 · SPY Covered Call Backtest');
+  logMsg('v4.1.5 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2797,7 +2794,7 @@ function renderRollCandidates() {
   const headerDTE = validExpiries.map(exp => {
     const dte = Math.round((new Date(exp+'T00:00:00') - new Date(snap.triggerDate+'T00:00:00')) / 86400000);
     const isOpenedExp = exp === openingExpiry;
-    const outsideDTEMax = false; // DTE Max gate removed in v4.1.4 — penalty curve handles this
+    const outsideDTEMax = false; // DTE Max gate removed in v4.1.5 — penalty curve handles this
     const style = isOpenedExp ? 'color:var(--accent);' : outsideDTEMax ? 'opacity:0.45;' : '';
     const lookaheadMark = outsideDTEMax ? '<br><span style="font-size:7px;opacity:.5;">beyond window</span>' : '';
     return `<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-align:center;${style}">${fmtExp(exp)}<br><span style="font-size:8px;opacity:.7;">${dte}d</span>${lookaheadMark}</th>`;
