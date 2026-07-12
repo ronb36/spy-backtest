@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v4.1.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v4.1.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -372,7 +372,10 @@ select.display-box { cursor:pointer; outline:none; }
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span class="chart-title" id="runlog-status">📄 Run Log</span>
-          <button onclick="copyDebugLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="copy-log-btn2">Copy Log</button>
+          <div style="display:flex;gap:6px;">
+            <button onclick="downloadLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="download-log-btn">⬇ Download</button>
+            <button onclick="copyDebugLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="copy-log-btn2">Copy Log</button>
+          </div>
         </div>
         <div class="progress-log" id="runlog-mirror" style="max-height:480px;overflow-y:auto;white-space:pre;"></div>
       </div>
@@ -428,7 +431,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v4.1.0 · DM fetch directly from Supabase (no proxy)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v4.1.1 · DM fetch directly from Supabase (no proxy)</span>
   </div>
 </div>
 
@@ -543,6 +546,26 @@ const $ = id => document.getElementById(id);
 const fmt = (n, d=2) => (n == null || isNaN(n)) ? '—' : n.toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d});
 const fmtD = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+$':'-$') + fmt(Math.abs(n), 0);
 const fmtP = n => (n == null || isNaN(n)) ? '—' : (n>=0?'+':'') + fmt(n,1) + '%';
+
+function downloadLog() {
+  const el = document.getElementById('progress-log');
+  if (!el) return;
+  let text = el.textContent || '';
+  const now = new Date();
+  const ts = now.getFullYear() + '-'
+    + String(now.getMonth()+1).padStart(2,'0') + '-'
+    + String(now.getDate()).padStart(2,'0') + '_'
+    + String(now.getHours()).padStart(2,'0')
+    + String(now.getMinutes()).padStart(2,'0');
+  const filename = `SPY_Log_${ts}.txt`;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  const btn = document.getElementById('download-log-btn');
+  if (btn) { btn.textContent = '✓ Saved'; setTimeout(() => btn.textContent = '⬇ Download', 2000); }
+}
 
 function copyDebugLog() {
   const el = document.getElementById('progress-log');
@@ -915,96 +938,6 @@ function getDebugDisplayVal(v, storedVal) {
   if (v === 'delta') return storedVal.toFixed(3);
   if (v === 'decay') return storedVal + '%';
   return storedVal + 'd';
-}
-
-function showDebugOverrideInput(v) {
-  const meta  = _debugParamMeta[v];
-  if (!meta) return;
-  const card  = $('vcard-' + v);
-  const valEl = $('vval-'  + v);
-  const subEl = $('vsub-'  + v);
-  if (!card || !valEl) return;
-  if ($('vdebug-input-' + v)) return; // already open
-
-  const stdVal = STD[meta.key];
-  const curRaw = _debugOverrides[meta.key] !== undefined ? _debugOverrides[meta.key] : stdVal;
-  const displayVal = v === 'otm' ? (curRaw * 100).toFixed(0) : curRaw;
-
-  valEl.style.display = 'none';
-  if (subEl) subEl.style.display = 'none';
-
-  const inp = document.createElement('input');
-  inp.type = 'number';
-  inp.id   = 'vdebug-input-' + v;
-  inp.value = displayVal;
-  inp.min = meta.min; inp.max = meta.max; inp.step = meta.step;
-  inp.style.cssText = 'width:80%;background:var(--surface2);border:1px solid var(--yellow);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:13px;font-weight:600;padding:3px 6px;text-align:center;outline:none;margin-top:4px;';
-  inp.onkeydown = e => {
-    if (e.key === 'Enter')  { commitDebugOverride(v, inp.value); }
-    if (e.key === 'Escape') { cancelDebugOverrideInput(v); }
-  };
-  inp.onblur = () => { if ($('vdebug-input-' + v)) commitDebugOverride(v, inp.value); };
-
-  card.appendChild(inp);
-  card.style.borderColor = 'var(--yellow)';
-  setTimeout(() => { inp.focus(); inp.select(); }, 10);
-}
-
-function commitDebugOverride(v, rawVal) {
-  const meta  = _debugParamMeta[v];
-  const card  = $('vcard-' + v);
-  const valEl = $('vval-'  + v);
-  const subEl = $('vsub-'  + v);
-  const inp   = $('vdebug-input-' + v);
-  if (!meta || !inp) return;
-  inp.remove();
-
-  const parsed = meta.parse(rawVal);
-  const minVal = v === 'otm' ? meta.min / 100 : meta.min;
-  const maxVal = v === 'otm' ? meta.max / 100 : meta.max;
-  const isValid = !isNaN(parsed) && parsed >= minVal && parsed <= maxVal;
-
-  if (valEl) valEl.style.display = '';
-  if (subEl) subEl.style.display = '';
-
-  if (isValid) {
-    _debugOverrides[meta.key] = parsed;
-    const dispVal = getDebugDisplayVal(v, parsed);
-    const stdDisp = getDebugDisplayVal(v, STD[meta.key]);
-    if (valEl) { valEl.textContent = dispVal; valEl.style.color = 'var(--yellow)'; }
-    if (subEl) { subEl.textContent = 'debug override'; subEl.style.color = 'var(--yellow)'; }
-    if (card)  card.style.borderColor = 'var(--yellow)';
-    logMsg('  Debug override: ' + meta.label + ' = ' + dispVal + ' (STD=' + stdDisp + ')', '');
-  } else {
-    cancelDebugOverrideInput(v);
-  }
-  onConfigChanged();
-}
-
-function cancelDebugOverrideInput(v) {
-  const inp   = $('vdebug-input-' + v);
-  const valEl = $('vval-'  + v);
-  const subEl = $('vsub-'  + v);
-  const card  = $('vcard-' + v);
-  if (inp) inp.remove();
-  if (valEl) valEl.style.display = '';
-  if (subEl) subEl.style.display = '';
-  const meta = _debugParamMeta[v];
-  if (card) card.style.borderColor = (meta && _debugOverrides[meta.key] !== undefined) ? 'var(--yellow)' : '';
-}
-
-function clearAllDebugOverrides() {
-  _debugOverrides = {};
-  for (const v of ['decay','dte','delta','vixgate']) {
-    const valEl = $('vval-'  + v);
-    const subEl = $('vsub-'  + v);
-    const card  = $('vcard-' + v);
-    const inp   = $('vdebug-input-' + v);
-    if (inp) inp.remove();
-    if (valEl) { valEl.style.color = 'var(--accent)'; valEl.style.display = ''; }
-    if (subEl) { subEl.textContent = 'Click to override'; subEl.style.color = ''; subEl.style.display = ''; }
-    if (card)  card.style.borderColor = '';
-  }
 }
 
 
@@ -1987,7 +1920,7 @@ async function simulate(p) {
       curC.entrySPY  = entrySPY;
     }
     pendingContract = curC;
-    logMsg(`  Open position at end: ${curC.expiry} $${curC.strike} @ $${curC.entryPx?.toFixed(2)||'?'}`, 'ok');
+    if (_mode !== 'optimize') logMsg(`  Open position at end: ${curC.expiry} $${curC.strike} @ $${curC.entryPx?.toFixed(2)||'?'}`, 'ok');
   }
 
   if (!cycles.length) return null;
@@ -2068,7 +2001,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v4.1.0 · SPY Covered Call Backtest');
+  logMsg('v4.1.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2705,70 +2638,6 @@ function buildSnapshot(triggerDate, spyPx, buybackPx, params) {
 // Only the SCORING is filtered: credit from non-matching cycles is excluded
 // from the yield numerator, while the SPY basis and full period stay the
 // same denominator as stratYld so results are comparable to the baseline.
-function computeRegimeYield(r, regime) {
-  if (!r?.cycles?.length || !DM?.spy?.length) return null;
-  if (regime === 'all') return r.stratYld;
-
-  const spyBasis = DM.spy[0].c * 600;
-  const firstDate = DM.spy[0].date;
-  const lastDate  = DM.spy[DM.spy.length-1].date; // always full DM window — idle time counts against yield
-  const dayCount  = Math.max(1, Math.round(
-    (new Date(lastDate+'T00:00:00') - new Date(firstDate+'T00:00:00')) / 86400000));
-
-  let filteredCredit = 0;
-
-  // Initial sell: attribute to regime of cycle 0's entryVix
-  const initCycle = r.cycles[0];
-  if (initCycle) {
-    const vix = initCycle.entryVix;
-    const inRegime = regime === 'calm' ? (vix != null && vix < 20)
-                                       : (vix != null && vix >= 20);
-    if (inRegime) filteredCredit += initCycle.entryPx * 100 * 6;
-  }
-
-  // Each roll: attribute to the regime of the cycle being closed
-  r.rolls.forEach((roll, i) => {
-    const closedCycle = r.cycles[i];
-    if (!closedCycle) return;
-    const vix = closedCycle.entryVix;
-    const inRegime = regime === 'calm' ? (vix != null && vix < 20)
-                                       : (vix != null && vix >= 20);
-    if (inRegime) {
-      filteredCredit += (roll.entryPx - closedCycle.exitPx) * 100 * 6;
-    }
-  });
-
-  return spyBasis > 0 ? (filteredCredit / spyBasis) * (365 / dayCount) * 100 : null;
-}
-
-function computeEdgeRatio(result) {
-  // Same edge-detection logic as buildRollSnapshots' aggregate check, but
-  // side-effect free (no global _rollSnapshots mutation, no logging) so it
-  // can be safely called speculatively inside the optimizer's hot loop.
-  if (!result?.cycles || !DM) return 0;
-  const { cycles, params: p } = result;
-  const spyMap = {};
-  DM.spy.forEach(r => spyMap[r.date] = r.c);
-
-  let total = 0, edgeHits = 0;
-  cycles.forEach((c, i) => {
-    const triggerDate = c.entryDate?.slice(0,10);
-    if (!triggerDate) return;
-    const spyPx     = c.entrySPY || spyMap[triggerDate] || 0;
-    const buybackPx = c.isInitial ? 0 : (cycles[i-1]?.exitPx || 0);
-    const snap      = buildSnapshot(triggerDate, spyPx, buybackPx, p);
-    total++;
-    if (!snap.bestKey) return;
-    const bestCell = snap.cells[snap.bestKey];
-    const strikeIdx = snap.allStrikes.indexOf(bestCell.strike);
-    const expIdx    = snap.validExpiries.indexOf(bestCell.exp);
-    const atEdge = strikeIdx === 0 || strikeIdx === snap.allStrikes.length - 1
-                || expIdx === 0    || expIdx === snap.validExpiries.length - 1;
-    if (atEdge) edgeHits++;
-  });
-  return total ? edgeHits / total : 0;
-}
-
 function buildRollSnapshots(result) {
   _rollSnapshots = [];
   if (!result?.cycles || !DM) return;
@@ -2866,7 +2735,7 @@ function renderRollCandidates() {
   const headerDTE = validExpiries.map(exp => {
     const dte = Math.round((new Date(exp+'T00:00:00') - new Date(snap.triggerDate+'T00:00:00')) / 86400000);
     const isOpenedExp = exp === openingExpiry;
-    const outsideDTEMax = false; // DTE Max gate removed in v4.1.0 — penalty curve handles this
+    const outsideDTEMax = false; // DTE Max gate removed in v4.1.1 — penalty curve handles this
     const style = isOpenedExp ? 'color:var(--accent);' : outsideDTEMax ? 'opacity:0.45;' : '';
     const lookaheadMark = outsideDTEMax ? '<br><span style="font-size:7px;opacity:.5;">beyond window</span>' : '';
     return `<th style="padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;text-align:center;${style}">${fmtExp(exp)}<br><span style="font-size:8px;opacity:.7;">${dte}d</span>${lookaheadMark}</th>`;
@@ -2984,7 +2853,7 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
     ? `\u2605 Best: decay=${b.decay}% / dte=${b.floor}d`
       + (b.delta     && _sweepVars.delta     ? ` / \u0394${b.delta}` : '')
       + (b.vixgate   && _sweepVars.vixgate   ? ` / VIX\u2265${b.vixgate}` : '')
-      + (b.lookahead && _sweepVars.lookahead ? ` / dteMax=${b.lookahead}d` : '')
+      + (b.lookahead && _sweepVars.lookahead ? ` / anchor=${b.lookahead}d` : '')
       + ` \u2192 ${results.bestYld.toFixed(1)}% ann.yld`
     : '\u26a0 No qualifying results';
 
@@ -3319,12 +3188,19 @@ async function loadData() {
   }
 
   try {
+    // Load roll_params.json first — param cards show correct values before DM arrives
+    await loadRollParams();
+  } catch(e) {
+    console.warn('roll_params.json pre-load failed:', e.message);
+  }
+
+  try {
     status.textContent = 'Fetching data mart...';
     DM = await fetchDM();
     status.textContent=`✓ Data mart loaded — ${DM.spy.length} SPY days · ${Object.keys(DM.options).length} contracts · updated ${DM.metadata?.last_updated}`;
     status.style.color='var(--green)';
     setRunButtonState('idle', { dmReady: true });
-    await loadRollParams();
+    await loadRollParams(); // reload to ensure STD is fully synced after DM available
     // Restore sweep ranges from localStorage (persisted from last session)
     try {
       const saved = localStorage.getItem('sweepConfig');
