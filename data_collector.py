@@ -11,7 +11,7 @@ Tables (created via SQL Editor in Supabase dashboard):
   options       — ticker PK, strike, expiry, otm_pct, entry_spy
   option_days   — (ticker, date) PK, o, h, l, c, vw, v
   metadata      — key PK, value
-"force rebuild"
+
 Environment variables (Railway):
   POLYGON_KEY       — Polygon API key
   SUPABASE_URL      — https://pepdnkwytziegjvgkofq.supabase.co
@@ -28,7 +28,7 @@ from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 
-COLLECTOR_VERSION = "2.0.0"
+COLLECTOR_VERSION = "2.1.0"
 
 # ── Credentials ────────────────────────────────────────────────────────────
 POLYGON_KEY   = os.environ["POLYGON_KEY"]
@@ -249,7 +249,83 @@ def append_spy_vix(start, end):
         log(f"  ✓ VIX up to date")
 
 
-# ── Phase 3: Smart inspection — daily-anchored strike coverage ─────────────
+# ── Phase 1.5: ES futures daily OHLC ──────────────────────────────────────
+def fetch_es_aggs(ticker, start, end, limit=5000):
+    """Fetch ES futures daily OHLC from Massive API (same key as Polygon)."""
+    url = (f"https://api.massive.com/futures/v1/aggs/ticker/{ticker}/range/1/day/"
+           f"{start}/{end}?sort=asc&limit={limit}&apiKey={POLYGON_KEY}")
+    try:
+        r = requests.get(url, timeout=15)
+        data = r.json()
+        return data.get("results", [])
+    except Exception as e:
+        log(f"  ✗ fetch_es_aggs {ticker}: {e}")
+        return []
+
+def get_es_front_month_ticker(date_str):
+    """Return the ES front-month ticker for a given date (YYYY-MM-DD)."""
+    d = date.fromisoformat(date_str)
+    # Quarterly codes: H=Mar, M=Jun, U=Sep, Z=Dec
+    quarters = [(3,"H"),(6,"M"),(9,"U"),(12,"Z")]
+    year_digit = str(d.year)[-1]
+    for month, code in quarters:
+        exp = date(d.year, month, 15)
+        if d <= exp:
+            return f"ES{code}{year_digit}"
+    return f"ESH{str(d.year + 1)[-1]}"
+
+def append_es_daily(start, end):
+    """Fetch ES front-month OHLC and upsert missing dates to es_daily."""
+    existing = sb_get_dates("es_daily")
+    log(f"Phase 1.5: ES daily — {len(existing)} dates already in DM")
+
+    from datetime import date as ddate, timedelta
+    quarters = [
+        ("ESH", [1,2,3]),   # Mar contract covers Jan–Mar
+        ("ESM", [4,5,6]),   # Jun contract covers Apr–Jun
+        ("ESU", [7,8,9]),   # Sep contract covers Jul–Sep
+        ("ESZ", [10,11,12]),# Dec contract covers Oct–Dec
+    ]
+    start_d = date.fromisoformat(start)
+    end_d   = date.fromisoformat(end)
+
+    all_rows = []
+    for year in range(start_d.year, end_d.year + 1):
+        year_digit = str(year)[-1]
+        for code, months in quarters:
+            ticker = f"{code}{year_digit}"
+            q_start = date(year, months[0], 1).isoformat()
+            q_end   = date(year, months[-1], 28).isoformat()
+            # Clip to our overall range
+            q_start = max(q_start, start)
+            q_end   = min(q_end, end)
+            if q_start > q_end:
+                continue
+
+            raw = fetch_es_aggs(ticker, q_start, q_end)
+            for bar in raw:
+                t = bar.get("t")
+                if not t:
+                    continue
+                date_iso = datetime.utcfromtimestamp(t / 1000).strftime("%Y-%m-%d")
+                if date_iso not in existing:
+                    all_rows.append({
+                        "date":   date_iso,
+                        "ticker": ticker,
+                        "o":      bar.get("o"),
+                        "h":      bar.get("h"),
+                        "l":      bar.get("l"),
+                        "c":      bar.get("c"),
+                        "v":      bar.get("v"),
+                    })
+
+    new_rows = {r["date"]: r for r in all_rows}  # dedupe by date
+    if new_rows:
+        sb_upsert("es_daily", list(new_rows.values()))
+        log(f"  ✓ ES daily: {len(new_rows)} new dates added")
+    else:
+        log(f"  ✓ ES daily: up to date")
+    return len(new_rows)
 def inspect_and_fill(start, end):
     """
     For every SPY trading day × every expiry, compute expected strikes
@@ -392,6 +468,9 @@ if __name__ == "__main__":
 
     # Phase 1+2: SPY and VIX daily data
     append_spy_vix(start, end)
+
+    # Phase 1.5: ES futures daily OHLC
+    append_es_daily(start, end)
 
     # Get current SPY for Phase 3+4
     spy_rows = sb_select("spy_daily", select="date,c",
