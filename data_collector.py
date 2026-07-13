@@ -257,11 +257,13 @@ def fetch_es_aggs(ticker, start, end, limit=5000):
            f"&limit={limit}&apiKey={POLYGON_KEY}")
     try:
         r = requests.get(url, timeout=15)
-        r.raise_for_status()
+        if r.status_code != 200:
+            log(f"  ✗ fetch_es_aggs {ticker}: HTTP {r.status_code} — {r.text[:100]}")
+            return []
         data = r.json()
         return data.get("results", [])
     except Exception as e:
-        log(f"  ✗ fetch_es_aggs {ticker}: {e}")
+        log(f"  ✗ fetch_es_aggs {ticker}: {e} — raw: {r.text[:80] if 'r' in dir() else 'no response'}")
         return []
 
 def get_es_front_month_ticker(date_str):
@@ -306,22 +308,23 @@ def append_es_daily(start, end):
 
             raw = fetch_es_aggs(ticker, q_start, q_end)
             for bar in raw:
-                # Massive aggs uses window_start (nanoseconds) for timestamp
-                t = bar.get("window_start") or bar.get("t")
-                if not t:
-                    continue
-                # Convert nanoseconds to date
-                ts_sec = t / 1e9 if t > 1e12 else t / 1000
-                date_iso = datetime.utcfromtimestamp(ts_sec).strftime("%Y-%m-%d")
+                # Massive aggs uses session_end_date as the trading date
+                date_iso = bar.get("session_end_date")
+                if not date_iso:
+                    # Fallback: convert window_start nanoseconds
+                    t = bar.get("window_start")
+                    if not t:
+                        continue
+                    date_iso = datetime.utcfromtimestamp(t / 1e9).strftime("%Y-%m-%d")
                 if date_iso not in existing:
                     all_rows.append({
                         "date":   date_iso,
                         "ticker": ticker,
-                        "o":      bar.get("o") or bar.get("open"),
-                        "h":      bar.get("h") or bar.get("high"),
-                        "l":      bar.get("l") or bar.get("low"),
-                        "c":      bar.get("c") or bar.get("close"),
-                        "v":      bar.get("v") or bar.get("volume"),
+                        "o":      bar.get("open"),
+                        "h":      bar.get("high"),
+                        "l":      bar.get("low"),
+                        "c":      bar.get("close"),
+                        "v":      bar.get("volume"),
                     })
 
     new_rows = {r["date"]: r for r in all_rows}  # dedupe by date
