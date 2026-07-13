@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.0.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.0.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -450,7 +450,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v5.0.1 · Publish merge fix · contracts primary · dead _entryPx paths removed · AI tab key-gated</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.0.2 · Win rate fix in STD summary + AI context (dead netCredit field)</span>
   </div>
 </div>
 
@@ -1313,7 +1313,7 @@ function buildAIContext(result) {
   const summary = result ? [
     `Strategy Yield: ${(result.stratYld || 0).toFixed(1)}%`,
     `Total Roll Credit: $${Math.round(result.rollCreditTotal || 0).toLocaleString()}`,
-    `Win Rate: ${result.rolls?.length ? Math.round(result.rolls.filter(r=>r.netCredit>=0).length/result.rolls.length*100) : 0}%`,
+    `Win Rate: ${Math.round(result.winRate || 0)}%`,
     `Total Cycles: ${result.cycles?.length || 0}`,
     `Max Drawdown: ${(result.maxDD || 0).toFixed(1)}%`,
   ].join('\n') : '';
@@ -2059,7 +2059,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.0.1 · SPY Covered Call Backtest');
+  logMsg('v5.0.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2088,7 +2088,7 @@ async function runSimulation() {
     const _otmMax = Math.max(...(result.cycles||[]).map(c => Math.abs((c.otmPct||0)*100)));
     const _otm15  = (result.cycles||[]).filter(c => Math.abs((c.otmPct||0)*100) <= 5).length;
     const _otmPct = result.cycles?.length ? Math.round(_otm15/result.cycles.length*100) : 0;
-    const _wr     = result.rolls?.length ? Math.round(result.rolls.filter(r=>r.netCredit>0).length/result.rolls.length*100) : 0;
+    const _wr     = Math.round(result.winRate || 0);
     logMsg(`  ${result.rolls.length} cycles · ${(result.stratYld||0).toFixed(1)}% yield · $${Math.round(result.rollCreditTotal||0).toLocaleString()} credit · ${_wr}% win rate · OTM 1-5%=${_otmPct}% max=${_otmMax.toFixed(1)}%`, 'ok');
   }
   initAIAnalysis(result);
