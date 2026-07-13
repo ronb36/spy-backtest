@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.0.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.1.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -450,7 +450,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v5.0.2 · Win rate fix in STD summary + AI context (dead netCredit field)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.1.0 · Roll credit = full cash basis: final cover subtracted, open-position sell added · flat-end pendingContract fix</span>
   </div>
 </div>
 
@@ -1220,6 +1220,20 @@ function logVIXRegimeSplit(result) {
     if (credit >= 0) buckets[bkt].wins++;
   });
 
+  // v5.1.0 — final closed cycle's cover (cash out) and any open-position sell
+  // (cash in) now count in rollCreditTotal; attribute them here too so the
+  // two buckets still sum to the overall strategy yield.
+  if (result.cycles?.length > 0) {
+    const lastCycle = result.cycles[result.cycles.length - 1];
+    const bkt = (lastCycle.entryVix != null && lastCycle.entryVix >= 20) ? 'stressed' : 'calm';
+    buckets[bkt].credit -= lastCycle.exitPx * 100 * contracts;
+  }
+  if (result.pendingContract?.entryPx) {
+    const pendVixRow = DM.vix.find(v => v.date === result.pendingContract.entryDate);
+    const bkt = (pendVixRow && pendVixRow.c >= 20) ? 'stressed' : 'calm';
+    buckets[bkt].credit += result.pendingContract.entryPx * 100 * contracts;
+  }
+
   for (const [name, b] of Object.entries(buckets)) {
     const yld     = spyBasis > 0 ? (b.credit / spyBasis) * (365 / dayCount) * 100 : 0;
     const winRate = b.total > 0 ? Math.round(b.wins / b.total * 100) : 0;
@@ -1974,11 +1988,18 @@ async function simulate(p) {
       curC.entryPx   = entryPrice;
       curC.entryDate = entryDate;
       curC.entrySPY  = entrySPY;
+      pendingContract = curC;
+      if (_mode !== 'optimize') logMsg(`  Open position at end: ${curC.expiry} $${curC.strike} @ $${curC.entryPx?.toFixed(2)||'—'}`, 'ok');
+    } else if (!waitingForVIX) {
+      // Contract selected on the final trigger date but never opened — no
+      // entry price exists. Blotter OPEN row renders '—' when entryPx is absent.
+      pendingContract = curC;
+      if (_mode !== 'optimize') logMsg(`  Open position at end: ${curC.expiry} $${curC.strike} @ $— (selected, not yet opened)`, 'ok');
+    } else {
+      // Closed on VIX gate with no re-entry — curC is the stale just-closed
+      // contract, NOT a pending position. Sim ends flat (long SPY only).
+      if (_mode !== 'optimize') logMsg(`  No position at end — closed on VIX gate, awaiting VIX ≥ ${vixGate} re-entry`, 'ok');
     }
-    // else: contract selected on final trigger date but never opened — no
-    // entry price exists. Blotter OPEN row renders '—' when entryPx is absent.
-    pendingContract = curC;
-    if (_mode !== 'optimize') logMsg(`  Open position at end: ${curC.expiry} $${curC.strike} @ $${curC.entryPx?.toFixed(2)||'—'}${posOpen ? '' : ' (selected, not yet opened)'}`, 'ok');
   }
 
   if (!cycles.length) return null;
@@ -2011,6 +2032,25 @@ async function simulate(p) {
     if (!closedCycle) continue;
     rollCreditTotal += (newLeg.entryPx - closedCycle.exitPx) * 100 * contracts;
     logDbg(`  Roll ${i+1} credit: sell $${newLeg.entryPx.toFixed(2)} - cover $${closedCycle.exitPx.toFixed(2)} = $${((newLeg.entryPx-closedCycle.exitPx)*100*contracts).toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
+  }
+
+  // v5.1.0 — Final closed cycle's exit is real cash out. The roll loop above
+  // pairs each cover with the NEXT sell, so the last cycle's own buyback was
+  // never subtracted — configs ending in an expensive close (e.g. delta fire
+  // into a VIX-gate wait) got a free pass. Full cash basis:
+  //   rollCreditTotal = Σ all sells − Σ all covers (+ open position sell below)
+  if (cycles.length > 0) {
+    const lastCycle  = cycles[cycles.length - 1];
+    const finalCover = lastCycle.exitPx * 100 * contracts;
+    rollCreditTotal -= finalCover;
+    logDbg(`  Final cover: $${lastCycle.exitPx.toFixed(2)} × ${contracts*100}ct = -$${finalCover.toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
+  }
+  // If a position is genuinely open at end of window, its sell premium is
+  // collected cash (short liability is marked in the equity curve, not here).
+  if (pendingContract && pendingContract.entryPx) {
+    const pendCredit = pendingContract.entryPx * 100 * contracts;
+    rollCreditTotal += pendCredit;
+    logDbg(`  Open position sell: $${pendingContract.entryPx.toFixed(2)} × ${contracts*100}ct = +$${pendCredit.toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
   }
 
   // Strategy yield: total roll credit annualized over full period / SPY basis
@@ -2059,7 +2099,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.0.2 · SPY Covered Call Backtest');
+  logMsg('v5.1.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2433,7 +2473,7 @@ function renderSummary(r) {
   const ddClass = r.maxDD>20?'red':r.maxDD>10?'yellow':'green';
   $('summary-grid').innerHTML = `
     <div class="stat-card"><div class="stat-label">Strategy Yield</div><div class="stat-value ${r.stratYld>=0?'green':'red'}">${fmt(r.stratYld,1)}%</div><div class="stat-sub">Ann. roll credit / SPY basis</div></div>
-    <div class="stat-card"><div class="stat-label">Total Roll Credit</div><div class="stat-value ${r.rollCreditTotal>=0?'green':'red'}">${fmtD(r.rollCreditTotal)}</div><div class="stat-sub">Net premium across all rolls</div></div>
+    <div class="stat-card"><div class="stat-label">Total Roll Credit</div><div class="stat-value ${r.rollCreditTotal>=0?'green':'red'}">${fmtD(r.rollCreditTotal)}</div><div class="stat-sub">All sells − all covers (cash)</div></div>
     <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${r.winRate>=70?'green':'yellow'}">${fmt(r.winRate,0)}%</div><div class="stat-sub">Rolls with net credit</div></div>
     <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmt(r.covRet,1)}%</div><div class="stat-sub">Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
@@ -2548,6 +2588,20 @@ function renderCycleTable(r) {
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
       <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
       <td class="muted" style="font-size:10px;">${pc.reason || 'open position'}</td>
+    </tr>`;
+  } else if (r.cycles.length > r.rolls.length) {
+    // Sim ended flat (VIX-gate close, no re-entry) — the final cycle's cover
+    // has no following sell, so render it as a close-only row. Its cash is
+    // subtracted in rollCreditTotal (Final cover ledger line).
+    const lastClosed = r.cycles[r.cycles.length - 1];
+    const flatBadge  = `<span style="background:var(--yellow);color:#000;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">Long SPY Only</span>`;
+    openRow = `<tr style="border-top:2px solid var(--border);opacity:0.85;">
+      <td class="muted" style="font-size:10px;">${fmtDate(lastClosed.exitDate)}${flatBadge}</td>
+      <td class="red">${legStr('Cover', lastClosed.expiry, lastClosed.strike, lastClosed.exitPx)}</td>
+      <td class="muted">—</td>
+      <td class="red" style="font-weight:600;">${fmtD(-lastClosed.exitPx*100*contracts)}</td>
+      <td class="muted">—</td>
+      <td class="muted" style="font-size:10px;">${lastClosed.reason || ''} · no re-entry</td>
     </tr>`;
   }
 
