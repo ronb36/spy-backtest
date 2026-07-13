@@ -5,14 +5,13 @@
   "otmTarget": 0.03,
   "vixGate": 24,
   "dtePenaltyAnchor": 49,
-  "lastOptimized": "2026-07-12",
-  "optAnnYield": 4.6,
-  "shares": 600,
+  "lastOptimized": "2026-07-13",
   "shortStrike": 760,
   "shortExpiry": "2026-10-16",
   "entryDate": "2026-07-09",
   "netPremium": 3.64,
   "coverPrice": 17.55,
   "sellPrice": 21.19,
-  "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep."
+  "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.",
+  "optProjYield": 4.6
 }
