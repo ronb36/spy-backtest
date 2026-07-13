@@ -1,5 +1,5 @@
 """
-SPY Backtest Data Collector — v2.0.0 (Supabase)
+SPY Backtest Data Collector — v2.2.0 (Supabase)
 =================================================
 Replaces GitHub JSON storage with Supabase Postgres.
 No file size limits, no LFS, no build caching issues.
@@ -28,7 +28,7 @@ from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 
-COLLECTOR_VERSION = "2.1.0"
+COLLECTOR_VERSION = "2.2.0"
 
 # ── Credentials ────────────────────────────────────────────────────────────
 POLYGON_KEY   = os.environ["POLYGON_KEY"]
@@ -99,7 +99,7 @@ def sb_upsert(table, rows, chunk_size=500):
     return True
 
 def sb_select(table, select="*", filters=None, limit=None):
-    """Select rows from Supabase."""
+    """Select rows from Supabase (single page, max 1000)."""
     params = {"select": select}
     if filters:
         params.update(filters)
@@ -112,19 +112,40 @@ def sb_select(table, select="*", filters=None, limit=None):
         return []
     return r.json()
 
+def sb_select_all(table, select="*"):
+    """Paginated select — fetches all rows regardless of count."""
+    all_rows = []
+    offset = 0
+    page_size = 1000
+    while True:
+        headers = {**SB_HEADERS, "Prefer": "",
+                   "Range": f"{offset}-{offset + page_size - 1}",
+                   "Range-Unit": "items"}
+        r = requests.get(sb_url(table), headers=headers,
+                         params={"select": select}, timeout=30)
+        if r.status_code not in (200, 206):
+            log(f"  ✗ Supabase paginated select {table} failed: {r.status_code}")
+            break
+        batch = r.json()
+        all_rows.extend(batch)
+        if len(batch) < page_size:
+            break
+        offset += page_size
+    return all_rows
+
 def sb_get_dates(table, date_col="date"):
-    """Get all existing dates/keys from a table efficiently."""
-    rows = sb_select(table, select=date_col)
+    """Get all existing dates from a table — paginated."""
+    rows = sb_select_all(table, select=date_col)
     return {r[date_col] for r in rows}
 
 def sb_get_tickers():
-    """Get all existing option tickers."""
-    rows = sb_select("options", select="ticker")
+    """Get all existing option tickers — paginated."""
+    rows = sb_select_all("options", select="ticker")
     return {r["ticker"] for r in rows}
 
 def sb_get_option_day_keys():
-    """Get all existing (ticker, date) pairs from option_days."""
-    rows = sb_select("option_days", select="ticker,date")
+    """Get all existing (ticker, date) pairs from option_days — paginated."""
+    rows = sb_select_all("option_days", select="ticker,date")
     return {(r["ticker"], r["date"]) for r in rows}
 
 def sb_set_metadata(key, value):
@@ -499,7 +520,7 @@ if __name__ == "__main__":
 
     # Update metadata
     opt_count = len(sb_get_tickers())
-    spy_count = len(sb_select("spy_daily", select="date"))
+    spy_count = len(sb_get_dates("spy_daily"))
     sb_set_metadata("last_updated", today_str())
     sb_set_metadata("otm_targets", json.dumps(OTM_TARGETS))
     sb_set_metadata("options_count", opt_count)
