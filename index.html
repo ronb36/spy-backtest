@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.1.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.1.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -450,7 +450,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v5.1.0 · Roll credit = full cash basis: final cover subtracted, open-position sell added · flat-end pendingContract fix</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.1.1 · Publish messages use optProjYield · contracts guaranteed in publish payload</span>
   </div>
 </div>
 
@@ -2099,7 +2099,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.1.0 · SPY Covered Call Backtest');
+  logMsg('v5.1.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2273,6 +2273,7 @@ async function publishRollParams(p) {
       dtePenaltyAnchor: p.dtePenaltyAnchor || STD.dtePenaltyAnchor || 45,
       lastOptimized: today,
       optProjYield: parseFloat(p.optAnnYield.toFixed(1)),
+      contracts: _existingJson.contracts ?? STD.contracts ?? 6, // guarantee position-size field — agent has no fallbacks
       note: 'Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.'
     };
     delete payload.optAnnYield; // stale label — optProjYield is current (agent reads both)
@@ -2281,7 +2282,7 @@ async function publishRollParams(p) {
       method: 'PUT',
       headers: Object.assign({ 'Content-Type': 'application/json' }, gh),
       body: JSON.stringify({
-        message: 'Update roll_params.json — ' + payload.optAnnYield + '% ann. yield (' + today + ')',
+        message: 'Update roll_params.json — ' + payload.optProjYield + '% proj. yield (' + today + ')',
         content: btoa(JSON.stringify(payload, null, 2) + '\n'),
         sha: sha
       })
@@ -2307,7 +2308,7 @@ async function publishRollParams(p) {
     });
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
-    logMsg('\u2713 Published roll_params.json — ' + payload.optAnnYield + '% ann. yield · ' + today, 'ok');
+    logMsg('\u2713 Published roll_params.json — ' + payload.optProjYield + '% proj. yield · ' + today, 'ok');
     setRunButtonState('published');
     updateParamDisplay();
   } catch(e) {
@@ -3988,6 +3989,7 @@ async function confirmTrade() {
     // change on a trade.
     const payload = {
       ...existing,
+      contracts:      existing.contracts ?? STD.contracts ?? 6, // guarantee position-size field
       shortStrike:    _tradeCandidate.strike,
       shortExpiry:    _tradeCandidate.exp,
       entryDate:      today,
