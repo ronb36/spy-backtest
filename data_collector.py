@@ -251,11 +251,13 @@ def append_spy_vix(start, end):
 
 # ── Phase 1.5: ES futures daily OHLC ──────────────────────────────────────
 def fetch_es_aggs(ticker, start, end, limit=5000):
-    """Fetch ES futures daily OHLC from Massive API (same key as Polygon)."""
-    url = (f"https://api.massive.com/futures/v1/aggs/ticker/{ticker}/range/1/day/"
-           f"{start}/{end}?sort=asc&limit={limit}&apiKey={POLYGON_KEY}")
+    """Fetch ES futures daily OHLC from Massive API using correct aggs endpoint."""
+    url = (f"https://api.massive.com/futures/v1/aggs/{ticker}"
+           f"?resolution=1session&window_start.gte={start}&window_start.lte={end}"
+           f"&limit={limit}&apiKey={POLYGON_KEY}")
     try:
         r = requests.get(url, timeout=15)
+        r.raise_for_status()
         data = r.json()
         return data.get("results", [])
     except Exception as e:
@@ -304,19 +306,22 @@ def append_es_daily(start, end):
 
             raw = fetch_es_aggs(ticker, q_start, q_end)
             for bar in raw:
-                t = bar.get("t")
+                # Massive aggs uses window_start (nanoseconds) for timestamp
+                t = bar.get("window_start") or bar.get("t")
                 if not t:
                     continue
-                date_iso = datetime.utcfromtimestamp(t / 1000).strftime("%Y-%m-%d")
+                # Convert nanoseconds to date
+                ts_sec = t / 1e9 if t > 1e12 else t / 1000
+                date_iso = datetime.utcfromtimestamp(ts_sec).strftime("%Y-%m-%d")
                 if date_iso not in existing:
                     all_rows.append({
                         "date":   date_iso,
                         "ticker": ticker,
-                        "o":      bar.get("o"),
-                        "h":      bar.get("h"),
-                        "l":      bar.get("l"),
-                        "c":      bar.get("c"),
-                        "v":      bar.get("v"),
+                        "o":      bar.get("o") or bar.get("open"),
+                        "h":      bar.get("h") or bar.get("high"),
+                        "l":      bar.get("l") or bar.get("low"),
+                        "c":      bar.get("c") or bar.get("close"),
+                        "v":      bar.get("v") or bar.get("volume"),
                     })
 
     new_rows = {r["date"]: r for r in all_rows}  # dedupe by date
@@ -326,6 +331,8 @@ def append_es_daily(start, end):
     else:
         log(f"  ✓ ES daily: up to date")
     return len(new_rows)
+
+
 def inspect_and_fill(start, end):
     """
     For every SPY trading day × every expiry, compute expected strikes
