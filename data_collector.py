@@ -317,13 +317,17 @@ def append_es_daily(start, end):
                         continue
                     date_iso = datetime.utcfromtimestamp(t / 1e9).strftime("%Y-%m-%d")
                 if date_iso not in existing:
+                    # Use settlement_price when available (official daily settlement)
+                    # Fall back to close for open/incomplete sessions
+                    settle = bar.get("settlement_price") or 0
+                    close  = bar.get("close") or 0
                     all_rows.append({
                         "date":   date_iso,
                         "ticker": ticker,
                         "o":      bar.get("open"),
                         "h":      bar.get("high"),
                         "l":      bar.get("low"),
-                        "c":      bar.get("close"),
+                        "c":      settle if settle > 0 else close,
                         "v":      bar.get("volume"),
                     })
 
