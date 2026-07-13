@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.1.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.1.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -450,7 +450,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">v5.1.1 · Publish messages use optProjYield · contracts guaranteed in publish payload</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.1.2 · buildSnapshot O(1) contract lookup via expiry&#124;strike index — fixes post-run stall</span>
   </div>
 </div>
 
@@ -2099,7 +2099,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.1.1 · SPY Covered Call Backtest');
+  logMsg('v5.1.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2751,8 +2751,14 @@ function vsStatus(msg, type) {
 // Build one snapshot for a given date: all strikes × all valid expiries from DM
 function buildSnapshot(triggerDate, spyPx, buybackPx, params) {
   const p = params;
-  const allExpiries = [...new Set(Object.values(DM.options).map(o => o.expiry))].sort();
-  const allStrikes  = [...new Set(Object.values(DM.options).map(o => o.strike))].sort((a,b)=>a-b);
+  // v5.1.2 — one pass over DM.options builds expiry|strike → contract index
+  // (was Object.values().find() per cell: ~5,200 cells × 5,602 contracts
+  // × 21 snapshots per run — the post-run stall)
+  const allContracts = Object.values(DM.options);
+  const snapIndex = {};
+  for (const c of allContracts) snapIndex[c.expiry + '|' + c.strike] = c;
+  const allExpiries = [...new Set(allContracts.map(o => o.expiry))].sort();
+  const allStrikes  = [...new Set(allContracts.map(o => o.strike))].sort((a,b)=>a-b);
 
   // Which expiries pass DTE floor/lookahead (or for Intl: just floor)
   const validExpiries = allExpiries.filter(exp => {
@@ -2768,7 +2774,7 @@ function buildSnapshot(triggerDate, spyPx, buybackPx, params) {
     const dte = Math.round((new Date(exp+'T00:00:00') - new Date(triggerDate+'T00:00:00')) / 86400000);
     for (const strike of allStrikes) {
       const key = exp + '_' + strike;
-      const opt = Object.values(DM.options).find(o => o.expiry === exp && o.strike === strike);
+      const opt = snapIndex[exp + '|' + strike]; // v5.1.2 — O(1) lookup
       const dm  = {};
       if (opt) opt.days.forEach(d => dm[d.date.trim().slice(0,10)] = d);
       const dayData = opt ? (dm[triggerDate] || opt.days.find(d => d.date >= triggerDate)) : null;
