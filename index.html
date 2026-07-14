@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.2.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.2.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -452,6 +452,7 @@ select.display-box { cursor:pointer; outline:none; }
     SPY equity appreciation tracked separately. Not financial advice.
     <br><span style="color:var(--muted);opacity:.6;">v5.2.0 · Scan parity — DTE ceiling removed, dtePenalty in scan scoring, PASS log yield unified (spyNow basis)</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.2.1 · Cleanup batch — dead code removed (DATA_URL/FILE, setRollLimitState, hideProgressPanel, maxRolls plumbing, fetchDM IIFE), stale dteMax labels → anchor, contracts-driven ledger/blotter, vs STD column fixed, btoa hardened, CSS fixes</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.2.2 · Param coherence — _debugOverrides vestige removed; STD run + Scan always use published STD params; unpublished OPT winner is display-only until Publish</span>
   </div>
 </div>
 
@@ -496,9 +497,8 @@ let STD = {
   dtePenaltyAnchor: 45,
 };
 
-// Session-only param overrides set via the param cards in Debug mode.
-// Never written to roll_params.json. Cleared on every Debug toggle.
-let _debugOverrides = {};
+// (v5.2.2 — _debugOverrides removed: the card-edit input UI was deleted in
+// v4.1.1, leaving this state with no writer. Debug mode = verbose log only.)
 
 async function loadRollParams() {
   try {
@@ -1218,13 +1218,11 @@ function logVIXRegimeSplit(result) {
 }
 
 function getActiveParams() {
-  const base = _optParams ? { ...STD, ..._optParams } : { ...STD };
-  // In debug mode, session-only overrides take precedence over both STD
-  // and any OPT winner — never written to roll_params.json.
-  if (_debugMode && Object.keys(_debugOverrides).length) {
-    return { ...base, ..._debugOverrides };
-  }
-  return base;
+  // DISPLAY ONLY (v5.2.2): merges the unpublished OPT winner over STD so the
+  // param cards can show it after a sweep. Never feeds simulate() or scan —
+  // manual STD runs and scans always use published STD params. _optParams
+  // becomes live only via Publish (which writes it into STD).
+  return _optParams ? { ...STD, ..._optParams } : { ...STD };
 }
 
 function updateParamDisplay() {
@@ -2046,17 +2044,17 @@ async function runSimulation() {
   _mode = 'test';   // Always reset — OPT run may have left mode as 'optimize'
   _gaps = [];
 
-  const _anchor   = STD.dtePenaltyAnchor || 45;
-  const _dteFloor  = STD.dteFloor || 7;
-  // Use getActiveParams() so debug overrides take effect when Debug mode is on.
-  // In normal STD mode this returns plain STD; in debug mode it merges any
-  // session-only overrides set via the param cards.
+  // STD run = published STD params, always (v5.2.2). Debug mode changes log
+  // verbosity only. Unpublished OPT winners (_optParams) never leak in here —
+  // they go live only via Publish. Previously getActiveParams() merged a stale
+  // winner into manual runs (with dteFloor/anchor stomped back to STD — an
+  // incoherent hybrid matching neither the published params nor the winner).
   const params = {
-    ...getActiveParams(),
+    ...STD,
     otmFixed:         0.03, // OTM fixed at 3%
-    dteFloor:         _dteFloor,
+    dteFloor:         STD.dteFloor || 7,
     shares:           STD.shares || 600,
-    dtePenaltyAnchor: _anchor,
+    dtePenaltyAnchor: STD.dtePenaltyAnchor || 45,
   };
 
   const gateStr = params.vixGate > 0 ? ` · VIX≥${params.vixGate} gate` : '';
@@ -2064,7 +2062,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.2.1 · SPY Covered Call Backtest');
+  logMsg('v5.2.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3472,11 +3470,12 @@ async function runRollScan() {
     }
   }
 
-  const p          = getActiveParams();
-  const dteFloor   = p.dteFloor || 7;
+  // Scan mirrors the published system (v5.2.2) — same STD params the agent
+  // reads from roll_params.json. Unpublished OPT winners never leak in.
+  const dteFloor   = STD.dteFloor || 7;
   const anchor     = STD.dtePenaltyAnchor || 45; // v5.2.0 — scoring penalty only, NOT a ceiling
-  const otmTarget  = p.otmFixed || 0.03;
-  const deltaThres = p.deltaThreshold || 0.475;
+  const otmTarget  = STD.otmFixed || 0.03;
+  const deltaThres = STD.deltaThreshold || 0.475;
 
   // DM future contracts — same gate as findNextContract(): dteFloor only,
   // no DTE Max ceiling (v5.2.0 — anchor shapes scoring, doesn't exclude)
