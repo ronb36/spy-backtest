@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.2.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.2.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -381,7 +381,7 @@ select.display-box { cursor:pointer; outline:none; }
           </div>
         </div>
         <!-- Live summary stats -->
-        <div id="live-summary" style="display:none;padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:24px;flex-wrap:wrap;"></div>
+        <div id="live-summary" style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:24px;flex-wrap:wrap;"></div>
         <div class="tbl-wrap"><div id="live-trade-table"></div></div>
       </div>
     </div>
@@ -405,7 +405,7 @@ select.display-box { cursor:pointer; outline:none; }
       <!-- Summary cards -->
       <div class="summary-grid" id="mart-cards" style="margin-bottom:12px;"></div>
       <!-- Contract filter (options only) -->
-      <div id="mart-filter" style="display:none;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div id="mart-filter" style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <div class="ctrl">
           <div class="mono-label">Expiry</div>
           <select id="mart-expiry" onchange="onMartExpiryChange()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;min-width:130px;"></select>
@@ -451,6 +451,7 @@ select.display-box { cursor:pointer; outline:none; }
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
     <br><span style="color:var(--muted);opacity:.6;">v5.2.0 · Scan parity — DTE ceiling removed, dtePenalty in scan scoring, PASS log yield unified (spyNow basis)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.2.1 · Cleanup batch — dead code removed (DATA_URL/FILE, setRollLimitState, hideProgressPanel, maxRolls plumbing, fetchDM IIFE), stale dteMax labels → anchor, contracts-driven ledger/blotter, vs STD column fixed, btoa hardened, CSS fixes</span>
   </div>
 </div>
 
@@ -470,15 +471,19 @@ function showError(msg) {
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const DATA_URL    = 'https://raw.githubusercontent.com/ronb36/spy-backtest/main/data/spy_data.json';
 // PAT stored in localStorage only — never in code
 const GITHUB_REPO = 'ronb36/spy-backtest';
 const PARAMS_FILE = 'roll_params.json';
-// live_trades now in Supabase (live_trades table)
-const DATA_FILE   = 'data/spy_data.json';
+// live_trades in Supabase (live_trades table); DM in Supabase (v3.8.1+) —
+// legacy GitHub JSON consts (DATA_URL/DATA_FILE) removed v5.2.1
 // Polygon key lives in localStorage only ('polygon_key') — never in code
 const SB_URL      = 'https://pepdnkwytziegjvgkofq.supabase.co/rest/v1';
 const SB_ANON     = 'sb_publishable_k2TqNhnYKZYUBicrpsRflw_tlODD6Ma';
+
+// UTF-8-safe base64 for GitHub publish payloads. btoa() throws on any
+// non-Latin1 character (e.g. an em dash or emoji in a preserved JSON note
+// field) — encode to UTF-8 bytes first. (v5.2.1)
+const b64 = s => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
 
 // STD params — loaded from roll_params.json (single source of truth)
 // Fallback to last known good values if fetch fails
@@ -629,7 +634,7 @@ function copyDebugLog() {
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
     const box = document.createElement('div');
-    box.style.cssText = 'background:var(--surface1);border:1px solid var(--border);border-radius:8px;padding:16px;width:100%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;gap:10px;';
+    box.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;width:100%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;gap:10px;';
     const title = document.createElement('div');
     title.style.cssText = 'color:var(--text);font-family:var(--mono);font-size:12px;';
     title.textContent = 'Select all and copy:';
@@ -705,12 +710,6 @@ function onConfigChanged() {
   setProgress(0);
   setRunButtonState('idle');
 }
-function hideProgressPanel() {
-  setTimeout(() => {
-
-
-  }, 800);
-}
 // Buffered logging — appending one DOM node per line on a 1000+ eval sweep
 // causes layout/scroll thrashing on mobile Safari and can visibly stall or
 // drop frames, making it look like lines are missing from the log even
@@ -780,27 +779,6 @@ function toggleDebug() {
     if (counter) { counter.textContent = ''; counter.style.display = 'none'; }
   }
   logMsg(_debugMode ? '  Debug mode ON — Scan tab hidden' : '  Debug mode OFF — Scan tab enabled after next STD run', '');
-}
-
-function setRollLimitState(locked) {
-  const rollSel  = null; // Roll limit removed
-  const rollCard = null;
-  if (locked) {
-    if (rollSel) {
-      rollSel.value    = '0';
-      rollSel.disabled = true;
-      rollSel.style.opacity = '.4';
-      rollSel.style.cursor  = 'not-allowed';
-    }
-    if (rollCard) rollCard.style.borderColor = '';        // neutral panel border when locked
-  } else {
-    if (rollSel) {
-      rollSel.disabled = false;
-      rollSel.style.opacity = '1';
-      rollSel.style.cursor  = 'pointer';
-    }
-    if (rollCard) rollCard.style.borderColor = 'var(--accent)';  // accent panel border when free
-  }
 }
 
 function getSweepGrid() {
@@ -936,9 +914,6 @@ function toggleVar(v, forceOff) {
   }
   // legacy btn compat
   const btn = $('vbtn-' + v); if (btn) btn.classList.toggle('active', active);
-
-  // Lock roll limit only during sweep — STD-debug keeps it free
-  setRollLimitState(anySweepActive());
 
   updateParamDisplay();
   updateEvalCount();
@@ -1192,8 +1167,8 @@ function logVIXRegimeSplit(result) {
   // Credit contribution uses the same full-period SPY basis and dayCount as
   // stratYld so the two buckets sum to the overall yield — apples-to-apples.
   if (!DM?.spy?.length) return;
-  const contracts = 6; // 600 shares / 100
-  const spyBasis  = DM.spy[0].c * 600;
+  const contracts = STD.contracts != null ? STD.contracts : Math.round((STD.shares || 600) / 100); // v5.2.1 — contracts primary, no hardcode
+  const spyBasis  = DM.spy[0].c * contracts * 100;
   const firstDate = DM.spy[0].date;
   const lastDate  = DM.spy[DM.spy.length-1].date; // always full DM window — idle time counts against yield
   const dayCount  = Math.max(1, Math.round((new Date(lastDate+'T00:00:00') - new Date(firstDate+'T00:00:00')) / 86400000));
@@ -1743,9 +1718,6 @@ async function simulate(p) {
       await yield_();
     }
     if (iter > 6000) { logMsg('⚠ Safety limit reached', 'err'); break; }
-    if (p.maxRolls && cycles.filter(c => !c.isInitial).length >= p.maxRolls) {
-      // checked after next contract found below
-    }
 
     // ── Open position (spread: open on same day as roll trigger) ──
     if (!posOpen) {
@@ -1975,11 +1947,6 @@ async function simulate(p) {
       logDbg(`  Short  ${contracts*100} SPY ${_newExpFmt} ${_newStrike} C @ $${_newPx.toFixed(2)}`);
       logDbg(`  ${_netLabel}: ${_netStr}`);
     }
-    if (p.maxRolls && cycles.filter(c=>!c.isInitial).length >= p.maxRolls) {
-      logMsg(`⏹ Stopped after ${p.maxRolls} roll(s)`, 'ok');
-      pendingContract = next;
-      break;
-    }
   }
 
   // If simulation ends with an open or freshly-selected position, capture as pendingContract.
@@ -2080,7 +2047,6 @@ async function runSimulation() {
   _gaps = [];
 
   const _anchor   = STD.dtePenaltyAnchor || 45;
-  const _maxRolls  = null; // Roll limit removed — always run all rolls
   const _dteFloor  = STD.dteFloor || 7;
   // Use getActiveParams() so debug overrides take effect when Debug mode is on.
   // In normal STD mode this returns plain STD; in debug mode it merges any
@@ -2090,7 +2056,6 @@ async function runSimulation() {
     otmFixed:         0.03, // OTM fixed at 3%
     dteFloor:         _dteFloor,
     shares:           STD.shares || 600,
-    maxRolls:         _maxRolls,
     dtePenaltyAnchor: _anchor,
   };
 
@@ -2099,7 +2064,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.2.0 · SPY Covered Call Backtest');
+  logMsg('v5.2.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2283,7 +2248,7 @@ async function publishRollParams(p) {
       headers: Object.assign({ 'Content-Type': 'application/json' }, gh),
       body: JSON.stringify({
         message: 'Update roll_params.json — ' + payload.optProjYield + '% proj. yield (' + today + ')',
-        content: btoa(JSON.stringify(payload, null, 2) + '\n'),
+        content: b64(JSON.stringify(payload, null, 2) + '\n'),
         sha: sha
       })
     });
@@ -2366,7 +2331,7 @@ async function runOptimization() {
             const gateLabel = vixgate > 0 ? ` VIX≥${vixgate}` : '';
             try {
               _gaps = [];
-              const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed, vixGate:vixgate, shares, maxRolls:null, dtePenaltyAnchor:lookahead });
+              const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed, vixGate:vixgate, shares, dtePenaltyAnchor:lookahead });
               let yld = null;
               if (r?.rolls?.length >= 2) {
                 yld = r.stratYld;
@@ -2401,7 +2366,7 @@ async function runOptimization() {
 
     if (b) {
       const gateStr = b.vixgate > 0 ? ` / VIX\u2265${b.vixgate}` : '';
-      const laStr = b.lookahead ? ` / ${b.lookahead}d DTE max` : '';
+      const laStr = b.lookahead ? ` / anchor=${b.lookahead}d` : '';
       logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + gateStr + ' / otm=' + (b.otm*100).toFixed(0) + '%' + laStr + ' \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld', 'ok');
       logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, lookaheads);
 
@@ -2411,7 +2376,7 @@ async function runOptimization() {
       // Re-run simulate() with the winning params so summary/blotter reflect
       // the optimizer's chosen configuration, not just the heatmap grid.
       const winResult = await simulate({ ...STD, decayTrigger:b.decay, dteFloor:b.floor,
-        deltaThreshold:b.delta, otmFixed:b.otm, vixGate:b.vixgate, shares, maxRolls:null, dtePenaltyAnchor:b.lookahead || STD.dtePenaltyAnchor || 45 });
+        deltaThreshold:b.delta, otmFixed:b.otm, vixGate:b.vixgate, shares, dtePenaltyAnchor:b.lookahead || STD.dtePenaltyAnchor || 45 });
       if (winResult) {
         lastResult = winResult;
         buildRollSnapshots(winResult);
@@ -2484,7 +2449,7 @@ function renderSummary(r) {
 
 // ── Render: Roll Log (blotter) ─────────────────────────────────────────────
 function renderCycleTable(r) {
-  const contracts = 6;
+  const contracts = STD.contracts != null ? STD.contracts : Math.round((STD.shares || 600) / 100); // v5.2.1 — contracts primary, no hardcode
 
   // Format ISO date string → MM/DD/YYYY
   const fmtDate = iso => {
@@ -3012,7 +2977,15 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
     .sort((a, b) => b.yld - a.yld);
 
   const top    = rows.slice(0, TOP_N);
-  const stdRow = rows.find(r => r.decay === 75 && r.floor === 21) ?? null;
+  // vs STD baseline: find the sweep row matching the live published params.
+  // (v5.2.1 — was a legacy decay===75 check that never matched; column showed "—" always.)
+  const stdRow = rows.find(r =>
+    r.decay === STD.decayTrigger &&
+    r.floor === STD.dteFloor &&
+    (r.delta     ?? STD.deltaThreshold)   === STD.deltaThreshold &&
+    (r.vixgate   ?? STD.vixGate)          === STD.vixGate &&
+    (r.lookahead ?? STD.dtePenaltyAnchor) === STD.dtePenaltyAnchor
+  ) ?? null;
   const stdYld = stdRow?.yld ?? null;
 
   const b = results.best;
@@ -3039,7 +3012,7 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
     checkEdge(b.floor,    floors,    'dte',      v => v + 'd');
     checkEdge(b.delta,    deltas,    '\u0394',   v => v);
     checkEdge(b.vixgate,  vixgates,  'VIX gate', v => 'VIX\u2265' + v);
-    if (lookaheads) checkEdge(b.lookahead, lookaheads, 'dteMax', v => v + 'd');
+    if (lookaheads) checkEdge(b.lookahead, lookaheads, 'anchor', v => v + 'd');
     if (edgeDims.length) {
       edgeWarning = `
     <div style="font-family:var(--mono);font-size:10px;color:var(--yellow);margin-bottom:8px;padding:8px;background:rgba(234,179,8,0.08);border:1px solid var(--yellow);border-radius:4px;">
@@ -3308,10 +3281,7 @@ async function loadData() {
       sbFetch('metadata', 'select=key,value'),
     ]);
 
-    logMsg(`Fetching ${await (async () => {
-      const r = await sbFetch('options', 'select=ticker&limit=1&offset=0');
-      return '...';
-    })()} option contracts...`, '');
+    logMsg('Fetching option contracts...', '');
 
     const optRows = await sbFetchAll('options', 'select=ticker,strike,expiry,otm_pct,entry_spy');
     logMsg(`Fetched ${optRows.length} contracts — loading price history...`, '');
@@ -3387,7 +3357,6 @@ async function loadData() {
     } catch(e) {}
     populateInitDates();
     updateParamDisplay();
-    setRollLimitState(false);
     $('results-area').style.display='block';
     showTab('mart');
     renderMartCards();
@@ -4009,7 +3978,7 @@ async function confirmTrade() {
       headers: Object.assign({ 'Content-Type': 'application/json' }, gh),
       body: JSON.stringify({
         message: 'Roll executed \u2014 $' + _tradeCandidate.strike + 'C ' + _tradeCandidate.exp + ' \u00b7 ' + today,
-        content: btoa(JSON.stringify(payload, null, 2) + '\n'),
+        content: b64(JSON.stringify(payload, null, 2) + '\n'),
         sha: sha
       })
     });
