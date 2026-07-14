@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.2.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.3.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -454,6 +454,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.2.1 · Cleanup batch — dead code removed (DATA_URL/FILE, setRollLimitState, hideProgressPanel, maxRolls plumbing, fetchDM IIFE), stale dteMax labels → anchor, contracts-driven ledger/blotter, vs STD column fixed, btoa hardened, CSS fixes</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.2.2 · Param coherence — _debugOverrides vestige removed; STD run + Scan always use published STD params; unpublished OPT winner is display-only until Publish</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.2.3 · Parallel DM fetch — count-first pagination, 12 concurrent pages, offset-ordered reassembly; deterministic order added to options query; serial fallback if count unavailable</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.3.0 · Same-day spread execution (SIM CHANGE) — roll's sell-to-open executes on the trigger date at the scored price, matching live spread trades; was next trading day's price (1-day scoring/execution slippage); shared openPosition helper; stale "selected, not yet opened" end-state removed</span>
   </div>
 </div>
 
@@ -1699,10 +1700,41 @@ async function simulate(p) {
     if (!curC) { logMsg('✗ No initial contract found', 'err'); return null; }
     buildDayMap(curC);
     const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
-    logDbg(`Intl: selected ${_initExpFmt} $${curC.strike} C — opens at next trading day's price`);
+    logDbg(`Intl: selected ${_initExpFmt} $${curC.strike} C — opens same day (spread execution)`);
   }
   let iter = 0;
   const TNX = 4.5;
+
+  // v5.3.0 — spread execution: open the new leg on the SAME day the trigger
+  // fires, at the same trigger-date price the candidate was scored on. A roll
+  // is one spread ticket (buy-to-close + sell-to-open together), not two
+  // trades a day apart. Shared by initial entry, VIX-recovery re-entry, and
+  // the roll path. Returns false only if the contract has no price on `date`
+  // — impossible for findNextContract winners (exact-date price is required).
+  const openPosition = (date, spy, vix) => {
+    buildDayMap(curC);
+    const key = date.trim().slice(0,10);
+    const day = curC._dm[key];
+    if (!day) return false;
+    entryPrice      = day.vw || day.c;
+    entryDate       = date;
+    entrySPY        = spyMap[key]?.c || spy;
+    entryStrike     = curC.strike;
+    // Time value at entry = price - intrinsic (for OTM calls, intrinsic = 0)
+    entryTimeValue  = entryPrice - Math.max(0, entrySPY - entryStrike);
+    const expD_ = new Date(curC.expiry+'T00:00:00');
+    const todD_ = new Date(date+'T00:00:00');
+    entryDelta_ = callDelta(spy, curC.strike, Math.round((expD_-todD_)/86400000), vix, TNX);
+    // If already above threshold at entry, reset so low-water mark works from scratch
+    if (entryDelta_ >= deltaThreshold) entryDelta_ = 0;
+    posOpen = true;
+    const rollNum = 'Roll ' + (cycles.length + 1);
+    logDbg(`\n── ${rollNum} ${'─'.repeat(Math.max(0, 50 - rollNum.length))} ${entryDate}`);
+    // Friendly open line — format expiry as M/D/YY
+    const _expFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
+    logDbg(`Short ${contracts*100} SPY ${_expFmt} ${entryStrike} C @ $${entryPrice.toFixed(2)}`);
+    return true;
+  };
 
   for (const date of spyDates) {
     if (date < startDate) continue;
@@ -1733,7 +1765,7 @@ async function simulate(p) {
             const entryType = isInitial ? 'INITIAL ENTRY' : 'VIX RECOVERY';
             logDbg(`  → ${entryType}: VIX=${vix.toFixed(1)} ≥ ${vixGate} on ${date} — entering via INTL logic`);
             const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
-            logDbg(`Intl: selected ${_initExpFmt} $${curC.strike} C — opens at next trading day's price`);
+            logDbg(`Intl: selected ${_initExpFmt} $${curC.strike} C — opens same day (spread execution)`);
           } else {
             logDbg(`  → VIX=${vix.toFixed(1)} ≥ ${vixGate} on ${date} but no contract found — waiting`);
             continue;
@@ -1745,29 +1777,9 @@ async function simulate(p) {
           continue;
         }
       }
-      buildDayMap(curC);
-      const key = date.trim().slice(0,10);
-      // Always fetch price on exact trigger date — no pre-selection, no future date fallback
-      const day = curC._dm[key];
-      if (!day) continue; // no price on trigger date — skip
-      entryPrice      = day.vw || day.c;
-      entryDate       = date;
-      entrySPY        = spyMap[entryDate.trim().slice(0,10)]?.c || spy;
-      entryStrike     = curC.strike;
-      // Time value at entry = price - intrinsic (for OTM calls, intrinsic = 0)
-      entryTimeValue  = entryPrice - Math.max(0, entrySPY - entryStrike);
-      const expD_ = new Date(curC.expiry+'T00:00:00');
-      const todD_ = new Date(date+'T00:00:00');
-      entryDelta_ = callDelta(spy, curC.strike, Math.round((expD_-todD_)/86400000), vix, TNX);
-      // If already above threshold at entry, reset so low-water mark works from scratch
-      if (entryDelta_ >= deltaThreshold) entryDelta_ = 0;
-      posOpen = true;
-      const rollNum = 'Roll ' + (cycles.length + 1);
-      logDbg(`\n── ${rollNum} ${'─'.repeat(Math.max(0, 50 - rollNum.length))} ${entryDate}`);
-      // Friendly open line — format expiry as M/D/YY
-      const _expFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
-      const _openVerb = 'Short';
-      logDbg(`${_openVerb} ${contracts*100} SPY ${_expFmt} ${entryStrike} C @ $${entryPrice.toFixed(2)}`);
+      // v5.3.0 — open via shared helper: same day, exact-date price, no
+      // pre-selection, no future date fallback
+      if (!openPosition(date, spy, vix)) continue; // no price on this date — skip
     }
 
     // ── Mark ──
@@ -1925,25 +1937,25 @@ async function simulate(p) {
     // rollCreditTotal calculated post-simulation from actual cycle entry/exit prices
 
     curC = next;
-    // ── Friendly trade summary after Best ────────────────────────────────────
+    // ── v5.3.0: SAME-DAY SPREAD EXECUTION ─────────────────────────────────
+    // A roll is one spread ticket: buy-to-close + sell-to-open execute
+    // together on the trigger date, at the same price the candidate was
+    // scored on. (Previously the new leg opened at the NEXT trading day's
+    // price — a 1-day slippage between scoring and execution, so the ledger
+    // booked a sell price the ranking never saw.)
+    const _fmtDate2 = s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; };
+    const _coverPx = cycles[cycles.length-1].exitPx;
     if (_debugMode && _mode !== 'optimize') {
-      const _fmtDate = s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; };
-      const _coverExpFmt = _fmtDate(cycles[cycles.length-1].expiry);
-      const _coverStrike = cycles[cycles.length-1].strike;
-      const _coverPx     = cycles[cycles.length-1].exitPx;
-      const _newExpFmt   = _fmtDate(curC.expiry);
-      const _newStrike   = curC.strike;
-      // Trigger-date scoring price (guaranteed present — findNextContract requires it).
-      // Actual entry executes at next trading day's price.
-      const _dmN         = buildDayMap(curC);
-      const _newDay      = _dmN[date.trim().slice(0,10)];
-      const _newPx       = _newDay ? (_newDay.vw || _newDay.c || 0) : 0;
-      const _netCredit   = (_newPx - _coverPx) * 100 * contracts;
-      const _isCredit    = _netCredit >= 0;
-      const _netLabel    = _isCredit ? 'Net Credit' : 'Net Debit';
-      const _netStr      = (_isCredit ? '+$' : '-$') + Math.abs(_netCredit).toFixed(0);
-      logDbg(`  Cover  ${contracts*100} SPY ${_coverExpFmt} ${_coverStrike} C @ $${_coverPx.toFixed(2)}`);
-      logDbg(`  Short  ${contracts*100} SPY ${_newExpFmt} ${_newStrike} C @ $${_newPx.toFixed(2)}`);
+      logDbg(`  Cover  ${contracts*100} SPY ${_fmtDate2(cycles[cycles.length-1].expiry)} ${cycles[cycles.length-1].strike} C @ $${_coverPx.toFixed(2)}`);
+    }
+    if (!openPosition(date, spy, vix)) {
+      // Cannot happen — findNextContract required an exact trigger-date price.
+      // If it does, the DM violated that guarantee; surface it loudly.
+      logMsg(`⚠ ${curC.expiry} $${curC.strike} selected but has no price on trigger date ${date} — DM integrity violation`, 'err');
+    } else if (_debugMode && _mode !== 'optimize') {
+      const _netCredit = (entryPrice - _coverPx) * 100 * contracts;
+      const _netLabel  = _netCredit >= 0 ? 'Net Credit' : 'Net Debit';
+      const _netStr    = (_netCredit >= 0 ? '+$' : '-$') + Math.abs(_netCredit).toFixed(0);
       logDbg(`  ${_netLabel}: ${_netStr}`);
     }
   }
@@ -1957,10 +1969,11 @@ async function simulate(p) {
       pendingContract = curC;
       if (_mode !== 'optimize') logMsg(`  Open position at end: ${curC.expiry} $${curC.strike} @ $${curC.entryPx?.toFixed(2)||'—'}`, 'ok');
     } else if (!waitingForVIX) {
-      // Contract selected on the final trigger date but never opened — no
-      // entry price exists. Blotter OPEN row renders '—' when entryPx is absent.
-      pendingContract = curC;
-      if (_mode !== 'optimize') logMsg(`  Open position at end: ${curC.expiry} $${curC.strike} @ $— (selected, not yet opened)`, 'ok');
+      // v5.3.0 — with same-day spread execution, a selected contract always
+      // opens in the same iteration. Reaching here means the final cycle
+      // closed and findNextContract found no candidate (loop broke) — curC is
+      // the stale just-closed contract, NOT a pending position. Sim ends flat.
+      if (_mode !== 'optimize') logMsg(`  No position at end — final close with no re-entry candidate found`, 'ok');
     } else {
       // Closed on VIX gate with no re-entry — curC is the stale just-closed
       // contract, NOT a pending position. Sim ends flat (long SPY only).
@@ -2063,7 +2076,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.2.3 · SPY Covered Call Backtest');
+  logMsg('v5.3.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
