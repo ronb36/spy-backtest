@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.4.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.5.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -459,6 +459,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.4.1 · Expiry re-entry semantics (SIM CHANGE) — expiry always closes at settlement intrinsic, but re-entry is VIX-gated (removed !isExp bypass); post-expiry short scores as fresh sell (buyback 0), not a spread against settlement</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.4.2 · Net-credit filter (SIM CHANGE) — findNextContract enforces netCredit > 0 (Model Rules §3.3); no candidate → hold long SPY and re-scan daily instead of executing least-bad debit or ending the sim; debit skips summarized per expiry</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.4.3 · Sweep range persistence — ranges no longer reset to defaults on toggle-off; last-edited range retained across toggles, OPT runs, and page reloads</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.5.0 · Mark open position to market at window end (SIM CHANGE) — closes the chain: every sell now offset by a real or synthetic cover; openMark = max(last DM price in window, intrinsic at final SPY close); explicit MTM ledger line; VIX bucket attribution carries the mark so buckets still sum to strategy yield</span>
   </div>
 </div>
 
@@ -1203,6 +1204,9 @@ function logVIXRegimeSplit(result) {
     const pendVixRow = DM.vix.find(v => v.date === result.pendingContract.entryDate);
     const bkt = (pendVixRow && pendVixRow.c >= 20) ? 'stressed' : 'calm';
     buckets[bkt].credit += result.pendingContract.entryPx * 100 * contracts;
+    // v5.5.0 — MTM synthetic cover attributed to the same bucket as its sell
+    // so the two buckets still sum to the overall strategy yield.
+    if (result.openMark != null) buckets[bkt].credit -= result.openMark * 100 * contracts;
   }
 
   for (const [name, b] of Object.entries(buckets)) {
@@ -2053,7 +2057,9 @@ async function simulate(p) {
   // pairs each cover with the NEXT sell, so the last cycle's own buyback was
   // never subtracted — configs ending in an expensive close (e.g. delta fire
   // into a VIX-gate wait) got a free pass. Full cash basis:
-  //   rollCreditTotal = Σ all sells − Σ all covers (+ open position sell below)
+  //   rollCreditTotal = Σ all sells − Σ all covers
+  //   (v5.5.0: an end-of-window open sell is offset by an MTM synthetic cover
+  //    below — the chain is fully closed; no unpaired leg remains)
   if (cycles.length > 0) {
     const lastCycle  = cycles[cycles.length - 1];
     const finalCover = lastCycle.exitPx * 100 * contracts;
@@ -2061,11 +2067,40 @@ async function simulate(p) {
     logDbg(`  Final cover: $${lastCycle.exitPx.toFixed(2)} × ${contracts*100}ct = -$${finalCover.toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
   }
   // If a position is genuinely open at end of window, its sell premium is
-  // collected cash (short liability is marked in the equity curve, not here).
+  // collected cash — and v5.5.0 marks the open short to market so that cash
+  // carries its offsetting liability in the SAME ledger.
+  let openMark = null, openMarkSrc = null;
   if (pendingContract && pendingContract.entryPx) {
     const pendCredit = pendingContract.entryPx * 100 * contracts;
     rollCreditTotal += pendCredit;
     logDbg(`  Open position sell: $${pendingContract.entryPx.toFixed(2)} × ${contracts*100}ct = +$${pendCredit.toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
+
+    // v5.5.0 — MTM synthetic cover (SIM CHANGE). The sell above was counted
+    // as collected cash with no offsetting liability; every roll's sell is
+    // closed by the next roll's cover (the chain telescopes), and the final
+    // open sell was the only genuinely unpaired leg. Close the chain:
+    //   rollCreditTotal += openSell − openMark
+    // openMark = max(last available DM price in window, intrinsic at final
+    // SPY close). The intrinsic floor guards against stale quotes on
+    // deep-ITM contracts understating the liability — the exact failure
+    // mode this fix targets.
+    const lastSPYrow  = DM.spy[DM.spy.length - 1];
+    const intrinsicM  = Math.max(0, lastSPYrow.c - pendingContract.strike);
+    const inWinRows   = (pendingContract.days || []).filter(d => d.date <= lastSPYrow.date);
+    const lastMidRow  = inWinRows.length ? inWinRows[inWinRows.length - 1] : null;
+    const midM        = lastMidRow ? (lastMidRow.vw || lastMidRow.c) : null;
+    if (midM !== null && midM >= intrinsicM) {
+      openMark = midM;        openMarkSrc = `mid ${lastMidRow.date}`;
+    } else {
+      openMark = intrinsicM;
+      openMarkSrc = lastMidRow
+        ? `intrinsic floor — mid ${lastMidRow.date} $${midM.toFixed(2)} below intrinsic`
+        : `intrinsic floor — no DM price in window`;
+    }
+    const mtmCover = openMark * 100 * contracts;
+    const openNet  = (pendingContract.entryPx - openMark) * 100 * contracts;
+    rollCreditTotal -= mtmCover;
+    logDbg(`  MTM synthetic cover: sell $${pendingContract.entryPx.toFixed(2)} − mark $${openMark.toFixed(2)} (${openMarkSrc}) × ${contracts*100}ct = -$${mtmCover.toFixed(0)} · open position net: ${openNet>=0?'+':'-'}$${Math.abs(openNet).toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
   }
 
   // Strategy yield: total roll credit annualized over full period / SPY basis
@@ -2085,7 +2120,7 @@ async function simulate(p) {
   const spyRet     = (Math.pow(1 + rawSpyRet/100, 365/dayCount) - 1) * 100;
   const covRet     = (Math.pow(1 + ccTotalRet/100, 365/dayCount) - 1) * 100;
 
-  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld };
+  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, openMark, openMarkSrc };
 }
 
 // ── Run simulation ─────────────────────────────────────────────────────────
@@ -2112,7 +2147,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.4.3 · SPY Covered Call Backtest');
+  logMsg('v5.5.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2487,7 +2522,7 @@ function renderSummary(r) {
   const ddClass = r.maxDD>20?'red':r.maxDD>10?'yellow':'green';
   $('summary-grid').innerHTML = `
     <div class="stat-card"><div class="stat-label">Strategy Yield</div><div class="stat-value ${r.stratYld>=0?'green':'red'}">${fmt(r.stratYld,1)}%</div><div class="stat-sub">Ann. roll credit / SPY basis</div></div>
-    <div class="stat-card"><div class="stat-label">Total Roll Credit</div><div class="stat-value ${r.rollCreditTotal>=0?'green':'red'}">${fmtD(r.rollCreditTotal)}</div><div class="stat-sub">All sells − all covers (cash)</div></div>
+    <div class="stat-card"><div class="stat-label">Total Roll Credit</div><div class="stat-value ${r.rollCreditTotal>=0?'green':'red'}">${fmtD(r.rollCreditTotal)}</div><div class="stat-sub">All sells − all covers (open marked to market)</div></div>
     <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${r.winRate>=70?'green':'yellow'}">${fmt(r.winRate,0)}%</div><div class="stat-sub">Rolls with net credit</div></div>
     <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmt(r.covRet,1)}%</div><div class="stat-sub">Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
