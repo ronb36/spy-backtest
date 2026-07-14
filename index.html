@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.4.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.4.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -456,6 +456,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.2.3 · Parallel DM fetch — count-first pagination, 12 concurrent pages, offset-ordered reassembly; deterministic order added to options query; serial fallback if count unavailable</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.3.0 · Same-day spread execution (SIM CHANGE) — roll's sell-to-open executes on the trigger date at the scored price, matching live spread trades; was next trading day's price (1-day scoring/execution slippage); shared openPosition helper; stale "selected, not yet opened" end-state removed</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.4.0 · Independent trigger evaluation (SIM CHANGE) — decay no longer masks delta via short-circuit; VIX gate keys on deltaFired boolean; delta co-fire under closed gate now correctly closes-and-waits instead of riding deep ITM; composite reason string (delta first)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.4.1 · Expiry re-entry semantics (SIM CHANGE) — expiry always closes at settlement intrinsic, but re-entry is VIX-gated (removed !isExp bypass); post-expiry short scores as fresh sell (buyback 0), not a spread against settlement</span>
   </div>
 </div>
 
@@ -1944,9 +1945,22 @@ async function simulate(p) {
     isInitial=false; posOpen=false; entryDelta_=0; entryTimeValue=null;
     entryPrice=entryDate=entryStrike=entrySPY=null;
 
+    // ── v5.4.1: Expiry re-entry semantics (Model Rules §3.2) ──────────────
+    // Expiry always closes (settlement at intrinsic — no cover order exists),
+    // but RE-ENTRY is VIX-gated like any other re-entry. Previously `!isExp`
+    // in the gate condition re-shorted same day at any VIX. And a post-expiry
+    // short is a FRESH sell, not a spread leg: candidates score with buyback
+    // 0 — netting the settlement intrinsic into scoring manufactured
+    // least-bad debit rolls after deep-ITM expiries.
+    if (isExp && vixGate > 0 && vix < vixGate) {
+      logDbg(`  → VIX GATE: VIX=${vix.toFixed(1)} < ${vixGate} — expired, waiting for VIX recovery before re-entry`);
+      waitingForVIX = true;
+      continue;
+    }
+
     // ── Find next contract ──
     const next = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor,
-      curC.expiry+'_'+curC.strike, deltaThreshold, exitPx);
+      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx);
     if (!next) { logMsg(`  No contract found after ${date} — done`,'err'); break; }
 
     // Accumulate roll credit
@@ -2092,7 +2106,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.4.0 · SPY Covered Call Backtest');
+  logMsg('v5.4.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
