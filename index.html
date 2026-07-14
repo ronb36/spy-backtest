@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.4.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.4.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -458,6 +458,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.4.0 · Independent trigger evaluation (SIM CHANGE) — decay no longer masks delta via short-circuit; VIX gate keys on deltaFired boolean; delta co-fire under closed gate now correctly closes-and-waits instead of riding deep ITM; composite reason string (delta first)</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.4.1 · Expiry re-entry semantics (SIM CHANGE) — expiry always closes at settlement intrinsic, but re-entry is VIX-gated (removed !isExp bypass); post-expiry short scores as fresh sell (buyback 0), not a spread against settlement</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.4.2 · Net-credit filter (SIM CHANGE) — findNextContract enforces netCredit > 0 (Model Rules §3.3); no candidate → hold long SPY and re-scan daily instead of executing least-bad debit or ending the sim; debit skips summarized per expiry</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.4.3 · Sweep range persistence — ranges no longer reset to defaults on toggle-off; last-edited range retained across toggles, OPT runs, and page reloads</span>
   </div>
 </div>
 
@@ -823,7 +824,7 @@ let _sweepConfig = {
 // Frozen copy of the original defaults — used to reset a card's range
 // inputs back to baseline whenever it's toggled off, so manual edits don't
 // silently persist into a later, unrelated sweep.
-const _sweepConfigDefaults = JSON.parse(JSON.stringify(_sweepConfig));
+// (_sweepConfigDefaults removed v5.4.3 — its only user was the toggle-off range reset)
 
 function buildRange(min, max, step) {
   const out = [];
@@ -901,22 +902,12 @@ function toggleVar(v, forceOff) {
   const rangeRow = $('vrange-' + v);
   if (rangeRow) rangeRow.style.display = active ? 'flex' : 'none';
 
-  // Reset this dimension's range back to its original default whenever it's
-  // toggled off, so a manual edit from an earlier sweep doesn't silently
-  // carry over into a later, unrelated run.
-  if (!active) {
-    const def = _sweepConfigDefaults[v];
-    _sweepConfig[v] = { ...def };
-    const minEl = $('vmin-' + v), maxEl = $('vmax-' + v), stepEl = $('vstep-' + v);
-    const isPct = (v === 'otm');
-    if (minEl)  minEl.value  = isPct ? (def.min  * 100).toFixed(0) : def.min;
-    if (maxEl)  maxEl.value  = isPct ? (def.max  * 100).toFixed(0) : def.max;
-    if (stepEl) stepEl.value = isPct ? (def.step * 100).toFixed(0) : def.step;
-    const arr = buildRange(def.min, def.max, def.step);
-    const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(2)) : (x => (x*100).toFixed(0)+'%');
-    _sweepRanges[v].sweep = fmt(arr[0]) + '–' + fmt(arr[arr.length-1]);
-    try { localStorage.setItem('sweepConfig', JSON.stringify(_sweepConfig)); } catch(e) {}
-  }
+  // v5.4.3 — ranges PERSIST across toggle-off. (Previously toggling a card
+  // off reset its range to hardcoded defaults and clobbered the saved custom
+  // range in localStorage — a v3.6.x-era guard against stale auto-recentered
+  // ranges. Carry-over isn't silent: the active card displays its range and
+  // the min/max/step inputs are visible whenever the dimension is swept.)
+
   // legacy btn compat
   const btn = $('vbtn-' + v); if (btn) btn.classList.toggle('active', active);
 
@@ -2121,7 +2112,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.4.2 · SPY Covered Call Backtest');
+  logMsg('v5.4.3 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
