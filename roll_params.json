@@ -1,7 +1,7 @@
 {
-  "decayTrigger": 0.2,
+  "decayTrigger": 0.21,
   "dteFloor": 7,
-  "deltaThreshold": 0.67,
+  "deltaThreshold": 0.675,
   "otmTarget": 0.03,
   "vixGate": 0,
   "dtePenaltyAnchor": 49,
@@ -14,5 +14,5 @@
   "coverPrice": 17.55,
   "sellPrice": 21.19,
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.",
-  "optProjYield": 6.4
+  "optProjYield": 6.5
 }
