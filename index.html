@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.5.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.5.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -460,6 +460,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.4.2 · Net-credit filter (SIM CHANGE) — findNextContract enforces netCredit > 0 (Model Rules §3.3); no candidate → hold long SPY and re-scan daily instead of executing least-bad debit or ending the sim; debit skips summarized per expiry</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.4.3 · Sweep range persistence — ranges no longer reset to defaults on toggle-off; last-edited range retained across toggles, OPT runs, and page reloads</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.5.0 · Mark open position to market at window end (SIM CHANGE) — closes the chain: every sell now offset by a real or synthetic cover; openMark = max(last DM price in window, intrinsic at final SPY close); explicit MTM ledger line; VIX bucket attribution carries the mark so buckets still sum to strategy yield</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.5.1 · Position-level P&L diagnostics (DISPLAY ONLY) — per-position P&L line at each cycle close; end-of-run attribution table by closing trigger (n · total · avg · win% · hold · entry Δ/DTE) with identity check vs headline credit; roll event cash-flow ledger retitled to clarify each line pairs the closed leg's cover with the NEXT leg's sell (telescopes to total; not per-position P&L)</span>
   </div>
 </div>
 
@@ -1908,6 +1909,7 @@ async function simulate(p) {
           entryDelta:eDelta_, exitDelta:delta,
           approx: _gaps.some(g=>g.substituted),
         });
+        logDbg(`  Position P&L: (sell $${entryPrice.toFixed(2)} − cover $${exitPx_.toFixed(2)}) × ${contracts*100}ct = ${pnl_>=0?'+':'-'}$${Math.abs(pnl_).toFixed(0)}`);  // v5.5.1
         isInitial = false; posOpen = false; entryDelta_ = 0; entryTimeValue = null;
         entryPrice = entryDate = entryStrike = entrySPY = null;
         waitingForVIX = true;
@@ -1943,6 +1945,7 @@ async function simulate(p) {
       entryDelta:eDelta, exitDelta:delta,
       approx: _gaps.some(g=>g.substituted),
     });
+    logDbg(`  Position P&L: (sell $${entryPrice.toFixed(2)} − cover $${exitPx.toFixed(2)}) × ${contracts*100}ct = ${pnl>=0?'+':'-'}$${Math.abs(pnl).toFixed(0)}`);  // v5.5.1
 
     isInitial=false; posOpen=false; entryDelta_=0; entryTimeValue=null;
     entryPrice=entryDate=entryStrike=entrySPY=null;
@@ -2040,6 +2043,7 @@ async function simulate(p) {
   // rolls[i] is the contract just closed (cover), cycles[i+1] is what opened next (new leg)
   // Include initial sell credit
   if (cycles.length > 0) {
+    logDbg(`  ── Roll event cash flows — each "Roll N credit" pairs the closed leg's cover with the NEXT leg's sell; telescopes to total, NOT per-position P&L (see attribution below) ──`);  // v5.5.1
     const initCredit = cycles[0].entryPx * 100 * contracts;
     rollCreditTotal += initCredit;
     logDbg(`  Initial sell: $${cycles[0].entryPx.toFixed(2)} × ${contracts*100}ct = $${initCredit.toFixed(0)}`);
@@ -2101,6 +2105,45 @@ async function simulate(p) {
     const openNet  = (pendingContract.entryPx - openMark) * 100 * contracts;
     rollCreditTotal -= mtmCover;
     logDbg(`  MTM synthetic cover: sell $${pendingContract.entryPx.toFixed(2)} − mark $${openMark.toFixed(2)} (${openMarkSrc}) × ${contracts*100}ct = -$${mtmCover.toFixed(0)} · open position net: ${openNet>=0?'+':'-'}$${Math.abs(openNet).toFixed(0)} cumulative: $${rollCreditTotal.toFixed(0)}`);
+  }
+
+  // ── v5.5.1 — Position-level P&L attribution (DISPLAY ONLY) ──────────────
+  // True position outcome = its own sell − its own cover (cycle.pnl).
+  // Attributed to the trigger that closed each position. Closed positions
+  // + open position net must equal the headline credit (identity check).
+  {
+    const classify = c => {
+      if (c.isExp) return 'expiry';
+      const r = (c.reason || '').toLowerCase();
+      const hasD = r.includes('delta'), hasV = r.includes('tv decay');
+      if (hasD && hasV) return 'both';
+      if (hasD) return 'delta';
+      if (hasV) return 'decay';
+      if (r.includes('dte')) return 'dte';
+      return 'other';
+    };
+    const agg = {};
+    let posTotal = 0;
+    for (const c of cycles) {
+      const t = classify(c);
+      const a = agg[t] || (agg[t] = { n:0, sum:0, wins:0, hold:0, eDelta:0, eDTE:0 });
+      a.n++; a.sum += c.pnl; if (c.pnl > 0) a.wins++;
+      a.hold   += c.daysHeld;
+      a.eDelta += (c.entryDelta || 0);
+      a.eDTE   += Math.round((new Date(c.expiry + 'T00:00:00') - new Date(c.entryDate + 'T00:00:00')) / 86400000);
+      posTotal += c.pnl;
+    }
+    const money = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
+    logDbg(`  ── Position P&L attribution (by closing trigger) ──`);
+    logDbg(`  trigger     n      total$      avg$   win%  avgHold  entryΔ  entryDTE`);
+    for (const t of Object.keys(agg).sort((x, y) => agg[y].sum - agg[x].sum)) {
+      const a = agg[t];
+      logDbg(`  ${t.padEnd(8)}${String(a.n).padStart(5)}${money(a.sum).padStart(12)}${money(a.sum/a.n).padStart(10)}${(Math.round(100*a.wins/a.n)+'%').padStart(7)}${((a.hold/a.n).toFixed(1)+'d').padStart(9)}${(a.eDelta/a.n).toFixed(3).padStart(8)}${(Math.round(a.eDTE/a.n)+'d').padStart(10)}`);
+    }
+    const openNetT = (pendingContract && pendingContract.entryPx && openMark != null)
+      ? (pendingContract.entryPx - openMark) * 100 * contracts : 0;
+    const identityOk = Math.abs((posTotal + openNetT) - rollCreditTotal) < 1;
+    logDbg(`  Closed positions ${money(posTotal)} + open position net ${money(openNetT)} ${identityOk ? '= headline credit' : '≠ headline credit ⚠ IDENTITY BROKEN'} ${money(rollCreditTotal)}`);
   }
 
   // Strategy yield: total roll credit annualized over full period / SPY basis
