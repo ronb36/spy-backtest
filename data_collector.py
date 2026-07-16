@@ -1,6 +1,16 @@
 """
-SPY Backtest Data Collector — v2.3.0 (Supabase)
+SPY Backtest Data Collector — v2.3.1 (Supabase)
 =================================================
+v2.3.1 — Two collector-only fixes:
+(1) Watermark snapshot: main computes the option_days watermark BEFORE
+Phase 3 runs and passes it into extend_option_days. Previously the
+watermark was queried after Phase 3's ticker fills, which polluted it
+with same-run fresh history (first v2.3.0 run reported "0 new bars"
+while actually healing 1,405 bars).
+(2) Enriched Pushover message: per-product day counts with end dates,
+plus an options detail block (contracts, expiries, bars, active count,
+farthest expiry, today's additions).
+
 v2.3.0 — Phase 3.5: extend option day bars for active contracts.
 Phase 3 fills missing *tickers* only (full history at add time) and never
 revisits them, so option_days freshness was frozen at each ticker's add
@@ -35,7 +45,7 @@ from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 
-COLLECTOR_VERSION = "2.3.0"
+COLLECTOR_VERSION = "2.3.1"
 
 # ── Credentials ────────────────────────────────────────────────────────────
 POLYGON_KEY   = os.environ["POLYGON_KEY"]
@@ -149,6 +159,19 @@ def sb_get_tickers():
     """Get all existing option tickers — paginated."""
     rows = sb_select_all("options", select="ticker")
     return {r["ticker"] for r in rows}
+
+def sb_count(table):
+    """Exact row count via Content-Range header — one cheap request."""
+    headers = {**SB_HEADERS, "Prefer": "count=exact",
+               "Range": "0-0", "Range-Unit": "items"}
+    try:
+        r = requests.get(sb_url(table), headers=headers,
+                         params={"select": "date"}, timeout=30)
+        if r.status_code in (200, 206):
+            return int(r.headers.get("Content-Range", "/0").split("/")[-1])
+    except Exception as e:
+        log(f"  ✗ sb_count {table}: {e}")
+    return 0
 
 def sb_get_option_day_keys():
     """Get all existing (ticker, date) pairs from option_days — paginated."""
@@ -451,14 +474,18 @@ def inspect_and_fill(start, end):
 
 
 # ── Phase 3.5: Extend option day bars (v2.3.0) ─────────────────────────────
-def extend_option_days(end):
+def extend_option_days(watermark, end):
     """
     Append new daily bars to existing, still-active contracts.
 
-    Watermark = max(date) in option_days. Eligible tickers are those with
-    expiry >= watermark — this includes contracts that expired during a
-    coverage gap, so their final bars aren't lost — and excludes the bulk
-    of long-expired contracts whose history can never grow.
+    watermark: max(date) in option_days, computed by main BEFORE Phase 3
+    runs (v2.3.1) — Phase 3's ticker fills carry fresh history that would
+    otherwise pollute the watermark and mask genuinely new bars.
+
+    Eligible tickers are those with expiry >= watermark — this includes
+    contracts that expired during a coverage gap, so their final bars
+    aren't lost — and excludes the bulk of long-expired contracts whose
+    history can never grow.
 
     Fetch window starts 3 days before the watermark and every fetched bar
     is upserted (the (ticker, date) PK + merge-duplicates makes overlap
@@ -467,12 +494,9 @@ def extend_option_days(end):
     """
     log("Phase 3.5: Extending option day bars for active contracts...")
 
-    wm_rows = sb_select("option_days", select="date",
-                        filters={"order": "date.desc"}, limit=1)
-    if not wm_rows:
+    if not watermark:
         log("  ⚠ option_days is empty — nothing to extend, skipping")
         return 0
-    watermark = wm_rows[0]["date"]
 
     fetch_start = (datetime.strptime(watermark, "%Y-%m-%d")
                    - timedelta(days=3)).strftime("%Y-%m-%d")
@@ -583,22 +607,59 @@ if __name__ == "__main__":
                          filters={"order": "date.desc", "limit": "1"})
     current_spy = spy_rows[0]["c"] if spy_rows else 550.0
 
+    # v2.3.1: snapshot option_days watermark BEFORE Phase 3 fills tickers
+    wm_rows = sb_select("option_days", select="date",
+                        filters={"order": "date.desc"}, limit=1)
+    watermark = wm_rows[0]["date"] if wm_rows else None
+
     # Phase 3: Fill missing daily-anchored contracts
     filled = inspect_and_fill(start, end)
 
     # Phase 3.5: Extend option day bars for active contracts (v2.3.0)
-    extend_option_days(end)
+    new_bars = extend_option_days(watermark, end)
 
     # Phase 4: Future expiry strikes
     sync_future_strikes(current_spy)
 
-    # Update metadata
-    opt_count = len(sb_get_tickers())
-    spy_count = len(sb_get_dates("spy_daily"))
-    sb_set_metadata("last_updated", today_str())
+    # Gather stats for metadata + push (v2.3.1)
+    all_opts   = sb_select_all("options", select="ticker,expiry")
+    opt_count  = len(all_opts)
+    spy_dates  = sb_get_dates("spy_daily")
+    vix_dates  = sb_get_dates("vix_daily")
+    es_dates   = sb_get_dates("es_daily")
+
+    opt_bars   = sb_count("option_days")
+    first_rows = sb_select("option_days", select="date",
+                           filters={"order": "date.asc"}, limit=1)
+    last_rows  = sb_select("option_days", select="date",
+                           filters={"order": "date.desc"}, limit=1)
+    opt_first  = first_rows[0]["date"] if first_rows else None
+    opt_last   = last_rows[0]["date"] if last_rows else None
+    opt_days   = (len([d for d in spy_dates if opt_first <= d <= opt_last])
+                  if opt_first and opt_last else 0)
+
+    today      = today_str()
+    expiries   = sorted({o["expiry"] for o in all_opts})
+    active     = sum(1 for o in all_opts if o["expiry"] >= today)
+    farthest   = expiries[-1] if expiries else "—"
+
+    sb_set_metadata("last_updated", today)
     sb_set_metadata("otm_targets", json.dumps(OTM_TARGETS))
     sb_set_metadata("options_count", opt_count)
 
+    spy_count = len(spy_dates)
     log(f"Done — {spy_count} SPY days, {opt_count} contracts")
 
-    send_push("📊 SPY Data Mart", f"Daily update complete\n{opt_count} contracts | SPY ${current_spy:.2f}")
+    push_body = (
+        f"SPY {spy_count} days → {max(spy_dates) if spy_dates else '—'}\n"
+        f"VIX {len(vix_dates)} days → {max(vix_dates) if vix_dates else '—'}\n"
+        f"ES  {len(es_dates)} days → {max(es_dates) if es_dates else '—'}\n"
+        f"OPT {opt_days} days → {opt_last or '—'}\n"
+        f"\n"
+        f"Options:\n"
+        f"{opt_count:,} contracts · {len(expiries)} expiries · {opt_bars:,} bars\n"
+        f"Active (unexpired): {active}\n"
+        f"Farthest expiry: {farthest}\n"
+        f"Today: +{filled} tickers · +{new_bars} bars"
+    )
+    send_push("📊 SPY Data Mart: Daily update complete", push_body)
