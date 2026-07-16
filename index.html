@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.8.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.6.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -225,19 +225,19 @@ select.display-box { cursor:pointer; outline:none; }
 
 
     <!-- Row 2: DTE Min + DTE Penalty Anchor + Run -->
-    <div id="controls-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;grid-auto-rows:104px;">
-      <div class="stat-card var-card" id="vcard-gap" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
-        <div onclick="toggleVar('gap')" style="cursor:inherit;">
-          <div class="stat-label">Entry Δ Gap <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">floor</span></div>
-          <div class="stat-value accent" id="vval-gap" style="font-size:14px;">0.00</div>
-          <div class="stat-sub" id="vsub-gap">Click to optimize</div>
+    <div id="controls-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;grid-auto-rows:104px;">
+      <div class="stat-card var-card" id="vcard-dte" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
+        <div onclick="toggleVar('dte')" style="cursor:inherit;">
+          <div class="stat-label">DTE Min <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">gate</span></div>
+          <div class="stat-value accent" id="vval-dte" style="font-size:14px;">7d</div>
+          <div class="stat-sub" id="vsub-dte">Click to optimize</div>
         </div>
-        <div id="vrange-gap" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
-          <input type="number" id="vmin-gap" value="0" min="0" max="0.30" step="0.02" onchange="updateSweepRange('gap')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+        <div id="vrange-dte" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
+          <input type="number" id="vmin-dte" value="1" min="1" max="60" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">–</span>
-          <input type="number" id="vmax-gap" value="0.14" min="0" max="0.30" step="0.02" onchange="updateSweepRange('gap')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vmax-dte" value="30" min="1" max="60" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
           <span style="color:var(--muted);">step</span>
-          <input type="number" id="vstep-gap" value="0.02" min="0.01" max="0.10" step="0.01" onchange="updateSweepRange('gap')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <input type="number" id="vstep-dte" value="7" min="1" max="30" step="1" onchange="updateSweepRange('dte')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
       <div class="stat-card var-card" id="vcard-lookahead" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
@@ -254,6 +254,20 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-lookahead" value="7" min="1" max="60" step="1" onchange="updateSweepRange('lookahead')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
+      <div class="stat-card var-card" id="vcard-hurdle" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
+        <div onclick="toggleVar('hurdle')" style="cursor:inherit;">
+          <div class="stat-label">Re-entry Hurdle <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">%/yr</span></div>
+          <div class="stat-value accent" id="vval-hurdle" style="font-size:14px;">0%</div>
+          <div class="stat-sub" id="vsub-hurdle">Click to optimize</div>
+        </div>
+        <div id="vrange-hurdle" style="display:none;position:absolute;bottom:8px;left:12px;right:12px;gap:4px;align-items:center;font-family:var(--mono);font-size:9px;background:var(--surface);z-index:1;">
+          <input type="number" id="vmin-hurdle" value="0" min="0" max="20" step="1" onchange="updateSweepRange('hurdle')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">–</span>
+          <input type="number" id="vmax-hurdle" value="8" min="0" max="20" step="1" onchange="updateSweepRange('hurdle')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:38px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+          <span style="color:var(--muted);">step</span>
+          <input type="number" id="vstep-hurdle" value="1" min="1" max="5" step="1" onchange="updateSweepRange('hurdle')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
+        </div>
+      </div>
       <div id="run-publish-card" style="height:104px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
         <button class="btn" id="run-btn" onclick="handleRunOrPublish()" disabled
           style="font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.04em;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;padding:0;line-height:1.3;text-align:center;">
@@ -263,9 +277,6 @@ select.display-box { cursor:pointer; outline:none; }
       </div>
     </div>
   </div>
-
-  <!-- v5.8.0 — DTE Min retired from grid; fixed at published value -->
-  <div id="dte-fixed-note" style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.05em;margin-top:6px;opacity:.7;">DTE MIN gate fixed · 7d</div>
 
   <!-- Progress bar — sits between param grid and results -->
   <div class="progress-bar-bg" style="margin:8px 0;"><div class="progress-bar-fill" id="progress-bar"></div></div>
@@ -463,8 +474,8 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.4.2 · Net-credit filter (SIM CHANGE) — findNextContract enforces netCredit > 0 (Model Rules §3.3); no candidate → hold long SPY and re-scan daily instead of executing least-bad debit or ending the sim; debit skips summarized per expiry</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.4.3 · Sweep range persistence — ranges no longer reset to defaults on toggle-off; last-edited range retained across toggles, OPT runs, and page reloads</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.5.0 · Mark open position to market at window end (SIM CHANGE) — closes the chain: every sell now offset by a real or synthetic cover; openMark = max(last DM price in window, intrinsic at final SPY close); explicit MTM ledger line; VIX bucket attribution carries the mark so buckets still sum to strategy yield</span>
-    <br><span style="color:var(--muted);opacity:.6;">v5.8.0 · Entry Δ Gap floor (SIM CHANGE) — new sweepable gapFloor: candidates must enter at least gapFloor below the delta trigger (entry cap = deltaThreshold − gapFloor); gapFloor=0 is the embedded null (byte-identical to v5.5.1). Motivated by S27 attribution: entries with Δ gap<0.04 (46 cycles) earned 0.2%/yr at ~70% stop rate vs 10.8%/yr at gap 0.08–0.12. UI: DTE Min card retired from the 3×3 grid (dteFloor fixed at published value, shown below grid); Entry Δ Gap card takes its slot. v5.6.0 (hurdle) and v5.7.0 (EV scorer) remain shelved inventory.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.5.1 · Position-level P&L diagnostics (DISPLAY ONLY) — per-position P&L line at each cycle close; end-of-run attribution table by closing trigger (n · total · avg · win% · hold · entry Δ/DTE) with identity check vs headline credit; roll event cash-flow ledger retitled to clarify each line pairs the closed leg's cover with the NEXT leg's sell (telescopes to total; not per-position P&L)</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.6.0 · Re-entry yield hurdle (SIM CHANGE) — new sweepable param hurdleYield (%/yr): after any close (and at initial entry), enter only if the best candidate's adj. yield ≥ hurdle; otherwise hold long SPY and re-scan daily. The honest implementation of premium-richness gating — gates on realized premium on offer, not the VIX proxy. hurdle=0 reproduces prior behavior exactly (embedded null). Idle days still count against the yield denominator.</span>
   </div>
 </div>
 
@@ -507,7 +518,7 @@ let STD = {
   deltaThreshold: 0.40,
   vixGate:        0,    // 0 = off (no VIX gate)
   dtePenaltyAnchor: 45,
-  gapFloor:       0,    // v5.8.0 — min entry Δ cushion below trigger (0 = off, pre-5.8 behavior)
+  hurdleYield: 0,        // v5.6.0 — re-entry yield hurdle (%/yr); 0 = off (prior behavior)
 };
 
 // (v5.2.2 — _debugOverrides removed: the card-edit input UI was deleted in
@@ -531,7 +542,7 @@ async function loadRollParams() {
       deltaThreshold: data.deltaThreshold,
       vixGate:        data.vixGate || 0,
       dtePenaltyAnchor: data.dtePenaltyAnchor || 45,
-      gapFloor:       data.gapFloor || 0, // v5.8.0 — absent until first gap publish
+      hurdleYield: data.hurdleYield || 0,
       // Live position fields — contracts is primary, shares always derived
       contracts:      data.contracts ?? (data.shares ? Math.round(data.shares / 100) : 6),
       shares:         (data.contracts ?? (data.shares ? Math.round(data.shares / 100) : 6)) * 100,
@@ -549,7 +560,7 @@ async function loadRollParams() {
       'vval-delta':   STD.deltaThreshold.toFixed(3),
       'vval-vixgate': STD.vixGate > 0 ? 'VIX≥' + STD.vixGate : 'Off',
       'vval-lookahead': STD.dtePenaltyAnchor + 'd',
-      'vval-gap':     (STD.gapFloor || 0).toFixed(2),
+      'vval-hurdle': (STD.hurdleYield || 0) + '%',
     };
     Object.entries(updates).forEach(([id, val]) => {
       const el = document.getElementById(id); if (el && !_sweepVars[id.replace('vval-','')]) el.textContent = val;
@@ -561,9 +572,7 @@ async function loadRollParams() {
     _sweepRanges.delta.std   = STD.deltaThreshold.toFixed(3);
     _sweepRanges.vixgate.std = STD.vixGate > 0 ? 'VIX≥' + STD.vixGate : 'Off';
     _sweepRanges.lookahead.std = STD.dtePenaltyAnchor + 'd';
-    _sweepRanges.gap.std = (STD.gapFloor || 0).toFixed(2);
-    const dteNote = document.getElementById('dte-fixed-note');
-    if (dteNote) dteNote.textContent = 'DTE MIN gate fixed \u00b7 ' + STD.dteFloor + 'd';
+    _sweepRanges.hurdle.std = (STD.hurdleYield || 0) + '%';
     // Sync OTM dropdown to published value
     const otmSel = $('otm-select');
     if (otmSel) otmSel.value = String(STD.otmFixed);
@@ -813,10 +822,10 @@ function getSweepGrid() {
     delta:     _sweepVars.delta     ? build('delta')      : [STD.deltaThreshold],
     vixgate:   _sweepVars.vixgate   ? build('vixgate')    : [STD.vixGate],
     lookahead: _sweepVars.lookahead ? build('lookahead')  : [STD.dtePenaltyAnchor],
-    gap:       _sweepVars.gap       ? build('gap')        : [STD.gapFloor || 0], // v5.8.0
+    hurdle:    _sweepVars.hurdle    ? build('hurdle')     : [STD.hurdleYield || 0],
   };
 }
-const _sweepVars = { decay: false, dte: false, delta: false, vixgate: false, lookahead: false, gap: false }; // v5.8.0 — dte stays in machinery (card retired, never toggles)
+const _sweepVars = { decay: false, dte: false, delta: false, vixgate: false, lookahead: false, hurdle: false };
 
 // User-editable sweep boundaries — read from the min/max/step inputs on each
 // OPT card. Defaults are narrowed around the known-good region (decay=25%,
@@ -833,7 +842,7 @@ let _sweepConfig = {
   delta:   { min: 0.25, max: 0.35, step: 0.025 },
   vixgate: { min: 15,  max: 25,  step: 1     },
   lookahead: { min: 21,  max: 90,  step: 7     },
-  gap:     { min: 0,   max: 0.14, step: 0.02  }, // v5.8.0
+  hurdle:  { min: 0,   max: 8,   step: 1     },
 };
 // Frozen copy of the original defaults — used to reset a card's range
 // inputs back to baseline whenever it's toggled off, so manual edits don't
@@ -860,7 +869,7 @@ function updateSweepRange(v) {
   try { localStorage.setItem('sweepConfig', JSON.stringify(_sweepConfig)); } catch(e) {}
   // Refresh sweep range label + eval count
   const arr = buildRange(min, max, step);
-  const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(3)) : v === 'lookahead' ? (x => x+'d') : v === 'gap' ? (x => x.toFixed(2)) : (x => 'VIX≥'+x);
+  const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(3)) : v === 'lookahead' ? (x => x+'d') : (x => 'VIX≥'+x);
   _sweepRanges[v].sweep = fmt(arr[0]) + '–' + fmt(arr[arr.length-1]);
   const sub = $('vsub-' + v);
   if (sub && _sweepVars[v]) sub.textContent = 'sweeping ' + _sweepRanges[v].sweep + ` (${arr.length})`;
@@ -875,7 +884,7 @@ const _sweepRanges = {
   delta:   { std: '0.40',  sweep: '0.25–0.35',     debugSweep: '0.30–0.35', label: 'Delta Δ' },
   vixgate: { std: 'Off',   sweep: 'VIX≥15–VIX≥25', debugSweep: 'VIX≥18–20', label: 'VIX Gate' },
   lookahead: { std: '45d',  sweep: '21–90d',          debugSweep: '30–60d',    label: 'DTE Penalty Anchor' },
-  gap:     { std: '0.00',  sweep: '0.00–0.14',     debugSweep: '0.00–0.06', label: 'Entry Δ Gap' }, // v5.8.0
+  hurdle:  { std: '0%',   sweep: '0–8%',           debugSweep: '0–4%',     label: 'Re-entry Hurdle' },
 };
 function toggleVar(v, forceOff) {
   if (forceOff) { _sweepVars[v] = false; } else { _sweepVars[v] = !_sweepVars[v]; }
@@ -898,7 +907,7 @@ function toggleVar(v, forceOff) {
     : v === 'dte'       ? STD.dteFloor + 'd'
     : v === 'delta'     ? STD.deltaThreshold.toFixed(3)
     : v === 'lookahead' ? STD.dtePenaltyAnchor + 'd'
-    : v === 'gap'       ? (STD.gapFloor || 0).toFixed(2)
+    : v === 'hurdle'    ? (STD.hurdleYield || 0) + '%'
     : info.std;
   if (val)  { val.textContent = restoreVal;
                val.style.color = active ? 'var(--green)' : 'var(--accent)';
@@ -907,7 +916,7 @@ function toggleVar(v, forceOff) {
   if (sub) {
     if (active) {
       const minV = $('vmin-' + v)?.value, maxV = $('vmax-' + v)?.value;
-      const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => parseFloat(x).toFixed(3)) : v === 'lookahead' ? (x => x+'d') : v === 'gap' ? (x => parseFloat(x).toFixed(2)) : (x => 'VIX\u2265'+x);
+      const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => parseFloat(x).toFixed(3)) : v === 'lookahead' ? (x => x+'d') : v === 'hurdle' ? (x => x+'%') : (x => 'VIX\u2265'+x);
       sub.textContent = minV && maxV ? 'sweeping ' + fmt(minV) + '\u2013' + fmt(maxV) : 'sweeping ' + info.sweep;
     } else {
       sub.textContent = 'Click to optimize';
@@ -970,7 +979,7 @@ function updateEvalCount(done, total) {
     return;
   }
   const g = getSweepGrid();
-  const evals = g.decay.length * g.dte.length * g.delta.length * g.vixgate.length * g.lookahead.length * g.gap.length;
+  const evals = g.decay.length * g.dte.length * g.delta.length * g.vixgate.length * g.lookahead.length * g.hurdle.length;
   counter.textContent = evals.toLocaleString() + ' evals';
   counter.style.display = 'block';
 }
@@ -1254,6 +1263,7 @@ function updateParamDisplay() {
   set('p-dte',   p.dteFloor + 'd');
   const dteVal = $('vval-dte'); if (dteVal && !_sweepVars.dte) { dteVal.textContent = (p.dteFloor || STD.dteFloor || 7) + 'd'; }
   const laVal = $('vval-lookahead'); if (laVal && !_sweepVars.lookahead) { laVal.textContent = (p.dtePenaltyAnchor || STD.dtePenaltyAnchor || 45) + 'd'; }
+  const huVal = $('vval-hurdle'); if (huVal && !_sweepVars.hurdle) { huVal.textContent = (p.hurdleYield ?? STD.hurdleYield ?? 0) + '%'; }
   set('p-delta', p.deltaThreshold.toFixed(3));
   set('p-vixgate', p.vixGate > 0 ? 'VIX≥' + p.vixGate : 'Off');
   // Update vixgate card display
@@ -1516,7 +1526,7 @@ function getMartExpiries() {
 
 // Find best contract to roll into: yield-maximizing across all candidates
 // Yield = (entryPremium / SPY) * (365 / DTE) — highest annualized yield wins
-function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx, gapFloor) {
+function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx) {
   const afterD  = new Date(afterDate + 'T00:00:00');
 
   // No DTE Max hard gate — dtePenaltyAnchor shapes the scoring curve instead.
@@ -1549,17 +1559,8 @@ function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dt
       if (deltaThreshold > 0) {
         const candDTE   = Math.round((new Date(c.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
         const candDelta = callDelta(currentSPY, c.strike, candDTE, 18, 4.5);
-        // v5.8.0 — entry cap = trigger − gapFloor: candidates must carry a Δ
-        // cushion below the stop. gapFloor=0 reproduces pre-5.8 behavior and
-        // the pre-5.8 log line exactly (embedded null).
-        const _gf = gapFloor || 0;
-        const entryCap = deltaThreshold - _gf;
-        if (candDelta >= entryCap) {
-          if (_gf > 0) {
-            logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= entry cap " + entryCap.toFixed(3) + " (thr " + deltaThreshold + " − gap " + _gf.toFixed(2) + ")");
-          } else {
-            logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= threshold " + deltaThreshold);
-          }
+        if (candDelta >= deltaThreshold) {
+          logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= threshold " + deltaThreshold);
           continue;
         }
       }
@@ -1596,6 +1597,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dt
   }
 
   if (bestContract) {
+    bestContract._adjYield = bestYield; // v5.6.0 — expose winner's adj. yield for the re-entry hurdle
     const bestDTE_   = Math.round((new Date(bestContract.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
     const bestDelta_ = callDelta(currentSPY, bestContract.strike, bestDTE_, 18, 4.5);
     const bestOTM_ = ((bestContract.strike - currentSPY) / currentSPY * 100).toFixed(1);
@@ -1682,7 +1684,7 @@ function updateInitPosition() {
 
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
-  const { otmFixed, decayTrigger, dteFloor, deltaThreshold, vixGate = 0, dtePenaltyAnchor = 45, gapFloor = 0, shares } = p;
+  const { otmFixed, decayTrigger, dteFloor, deltaThreshold, vixGate = 0, dtePenaltyAnchor = 45, hurdleYield = 0, shares } = p;
   // Clear stale entryPx/entryDate/entrySPY stamped onto shared DM contract objects
   // by the pendingContract capture of a prior simulate() call — without this flush
   // a later run's OPEN row could inherit a previous run's entry price.
@@ -1722,9 +1724,11 @@ async function simulate(p) {
   // If a VIX gate is set, start in waitingForVIX state so the initial entry
   // is gated the same way as any re-entry after a delta close. If no gate,
   // find the initial contract immediately so the log shows it upfront.
-  let waitingForVIX = vixGate > 0;
+  // v5.6.0 — a positive hurdle routes the initial entry through the same
+  // waiting machinery as re-entries, so the hurdle gates it identically.
+  let waitingForVIX = vixGate > 0 || hurdleYield > 0;
   if (!waitingForVIX) {
-    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, gapFloor);
+    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0);
     if (!curC) { logMsg('✗ No initial contract found', 'err'); return null; }
     buildDayMap(curC);
     const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
@@ -1786,7 +1790,12 @@ async function simulate(p) {
       if (waitingForVIX) {
         if (vixGate === 0 || vix >= vixGate) {
           // VIX has recovered (or initial entry) — find new contract via INTL yield optimizer
-          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, gapFloor);
+          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0);
+          if (reentryC && hurdleYield > 0 && (reentryC._adjYield ?? 0) < hurdleYield) {
+            // v5.6.0 — best candidate exists but premium is too lean: wait
+            logDbg(`  → HURDLE: best candidate ${(reentryC._adjYield ?? 0).toFixed(1)}% < ${hurdleYield}% on ${date} — waiting for richer premium`);
+            continue;
+          }
           if (reentryC) {
             curC = reentryC;
             waitingForVIX = false;
@@ -1988,7 +1997,15 @@ async function simulate(p) {
 
     // ── Find next contract ──
     const next = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor,
-      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx, gapFloor);
+      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx);
+    // v5.6.0 — re-entry yield hurdle: a candidate exists but its adj. yield is
+    // below the hurdle → do not re-short; hold long SPY and re-scan daily via
+    // the same waiting machinery as the no-candidate case.
+    if (next && hurdleYield > 0 && (next._adjYield ?? 0) < hurdleYield) {
+      logDbg(`  → HURDLE: best candidate ${(next._adjYield ?? 0).toFixed(1)}% < ${hurdleYield}% on ${date} — holding long SPY, re-scanning daily`);
+      waitingForVIX = true;
+      continue;
+    }
     if (!next) {
       // v5.4.2 — no net-credit candidate exists at current SPY level: hold
       // long SPY and re-scan daily via the recovery path (still VIX-gated).
@@ -2206,19 +2223,19 @@ async function runSimulation() {
     dteFloor:         STD.dteFloor || 7,
     shares:           STD.shares || 600,
     dtePenaltyAnchor: STD.dtePenaltyAnchor || 45,
+    hurdleYield: STD.hurdleYield || 0,
   };
 
   const gateStr = params.vixGate > 0 ? ` · VIX≥${params.vixGate} gate` : '';
-  const hdrGapStr = (params.gapFloor || 0) > 0 ? ` · Δgap≥${params.gapFloor.toFixed(2)}` : ''; // v5.8.0 — absent at null for byte-diff cert
   $('progress-log').textContent = ''; $('runlog-mirror').textContent = '';
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.8.0 · SPY Covered Call Backtest');
+  logMsg('v5.6.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
-  logMsg(`Running — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold}${hdrGapStr}${gateStr} · ${params.dtePenaltyAnchor}d penalty anchor`);
+  logMsg(`Running — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold}${gateStr} · ${params.dtePenaltyAnchor}d penalty anchor${params.hurdleYield > 0 ? ` · ${params.hurdleYield}% hurdle` : ''}`);
   await yield_();
 
   const result = await simulate(params);
@@ -2272,7 +2289,7 @@ async function runSimulation() {
   }
 }
 
-function logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, lookaheads, gaps) {
+function logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, lookaheads, hurdles) {
   const b = allResults.best;
   if (!b || !allResults.grid) return;
   const winYld = allResults.bestYld;
@@ -2303,7 +2320,7 @@ function logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, 
   };
 
   logMsg('── Sweep Boundary Analysis ──────────────────────────────', '');
-  logMsg(`  Winner: decay=${b.decay}% / dte=${b.floor}d / Δ${b.delta}${b.gap > 0 ? ' / gap '+b.gap.toFixed(2) : ''}${b.vixgate > 0 ? ' / VIX≥'+b.vixgate : ''} → ${winYld.toFixed(1)}%`, '');
+  logMsg(`  Winner: decay=${b.decay}% / dte=${b.floor}d / Δ${b.delta}${b.vixgate > 0 ? ' / VIX≥'+b.vixgate : ''} → ${winYld.toFixed(1)}%`, '');
 
   if (_sweepVars.decay && decays.length >= 2) {
     const lo = yldForDecay(decays[0]), hi = yldForDecay(decays[decays.length-1]);
@@ -2335,12 +2352,12 @@ function logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, 
     const hi = rowsHi.length ? Math.max(...rowsHi.map(r => r.yld)) : null;
     logMsg(`  Anchor  floor(${lookaheads[0]}d): ${classify(lo)}  ·  ceiling(${lookaheads[lookaheads.length-1]}d): ${classify(hi)}`, '');
   }
-  if (_sweepVars.gap && gaps && gaps.length >= 2) { // v5.8.0
-    const rowsLo = allResults.rows.filter(r => r.gap === gaps[0] && r.yld !== null);
-    const rowsHi = allResults.rows.filter(r => r.gap === gaps[gaps.length-1] && r.yld !== null);
+  if (_sweepVars.hurdle && hurdles && hurdles.length >= 2) {
+    const rowsLo = allResults.rows.filter(r => r.hurdle === hurdles[0] && r.yld !== null);
+    const rowsHi = allResults.rows.filter(r => r.hurdle === hurdles[hurdles.length-1] && r.yld !== null);
     const lo = rowsLo.length ? Math.max(...rowsLo.map(r => r.yld)) : null;
     const hi = rowsHi.length ? Math.max(...rowsHi.map(r => r.yld)) : null;
-    logMsg(`  ΔGap    floor(${gaps[0].toFixed(2)}): ${classify(lo)}  ·  ceiling(${gaps[gaps.length-1].toFixed(2)}): ${classify(hi)}`, '');
+    logMsg(`  Hurdle  floor(${hurdles[0]}%): ${classify(lo)}  ·  ceiling(${hurdles[hurdles.length-1]}%): ${classify(hi)}`, '');
   }
 }
 function updatePublishBtn() {
@@ -2393,7 +2410,7 @@ async function publishRollParams(p) {
       deltaThreshold: p.deltaThreshold, otmTarget: p.otmTarget,
       vixGate: p.vixGate || 0,
       dtePenaltyAnchor: p.dtePenaltyAnchor || STD.dtePenaltyAnchor || 45,
-      gapFloor: p.gapFloor || 0, // v5.8.0
+      hurdleYield: p.hurdleYield ?? STD.hurdleYield ?? 0,
       lastOptimized: today,
       optProjYield: parseFloat(p.optAnnYield.toFixed(1)),
       contracts: _existingJson.contracts ?? STD.contracts ?? 6, // guarantee position-size field — agent has no fallbacks
@@ -2416,8 +2433,7 @@ async function publishRollParams(p) {
     STD = { ...STD,
             otmFixed: payload.otmTarget, decayTrigger: payload.decayTrigger * 100,
             dteFloor: payload.dteFloor, deltaThreshold: payload.deltaThreshold,
-            vixGate: payload.vixGate || 0, dtePenaltyAnchor: payload.dtePenaltyAnchor || 45,
-            gapFloor: payload.gapFloor || 0 };
+            vixGate: payload.vixGate || 0, dtePenaltyAnchor: payload.dtePenaltyAnchor || 45, hurdleYield: payload.hurdleYield || 0 };
     // Refresh all var-cards with newly published values
     const pubUpdates = {
       'vval-decay':    STD.decayTrigger + '%',
@@ -2425,7 +2441,7 @@ async function publishRollParams(p) {
       'vval-delta':    STD.deltaThreshold.toFixed(3),
       'vval-vixgate':  STD.vixGate > 0 ? 'VIX\u2265' + STD.vixGate : 'Off',
       'vval-lookahead': STD.dtePenaltyAnchor + 'd',
-      'vval-gap':      (STD.gapFloor || 0).toFixed(2),
+      'vval-hurdle': (STD.hurdleYield || 0) + '%',
     };
     Object.entries(pubUpdates).forEach(([id, val]) => {
       const el = document.getElementById(id);
@@ -2467,14 +2483,14 @@ async function runOptimization() {
   const deltas     = g.delta;
   const vixgates   = g.vixgate;
   const lookaheads = g.lookahead;
-  const gaps       = g.gap; // v5.8.0
+  const hurdles    = g.hurdle;
   const otmFixed = parseFloat($('otm-select')?.value || '0.03');
 
-  const sweepDesc = ['decay','dte','delta','vixgate','lookahead','gap'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
+  const sweepDesc = ['decay','dte','delta','vixgate','lookahead','hurdle'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
   logMsg(`Running optimization — sweeping: ${sweepDesc}...`);
 
   const shares = STD.shares || 600;
-  const total  = decays.length * floors.length * deltas.length * vixgates.length * lookaheads.length * gaps.length;
+  const total  = decays.length * floors.length * deltas.length * vixgates.length * lookaheads.length * hurdles.length;
   let done = 0;
 
   // Flat results — no regime dimension
@@ -2489,11 +2505,11 @@ async function runOptimization() {
         for (const delta of deltas) {
           for (const vixgate of vixgates) {
             for (const lookahead of lookaheads) {
-            for (const gap of gaps) { // v5.8.0
+            for (const hurdle of hurdles) {
             const gateLabel = vixgate > 0 ? ` VIX≥${vixgate}` : '';
             try {
               _gaps = [];
-              const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed, vixGate:vixgate, shares, dtePenaltyAnchor:lookahead, gapFloor:gap });
+              const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed, vixGate:vixgate, shares, dtePenaltyAnchor:lookahead, hurdleYield:hurdle });
               let yld = null;
               if (r?.rolls?.length >= 2) {
                 yld = r.stratYld;
@@ -2503,11 +2519,11 @@ async function runOptimization() {
               }
               if (yld !== null && yld > allResults.bestYld) {
                 allResults.bestYld = yld;
-                allResults.best = { decay, floor, delta, vixgate, otm: otmFixed, lookahead, gap };
+                allResults.best = { decay, floor, delta, vixgate, otm: otmFixed, lookahead, hurdle };
               }
-              allResults.rows.push({ decay, floor, delta, vixgate, otm: otmFixed, lookahead, gap, yld, rolls: r?.rolls?.length ?? 0, edgeRatio: null });
+              allResults.rows.push({ decay, floor, delta, vixgate, otm: otmFixed, lookahead, hurdle, yld, rolls: r?.rolls?.length ?? 0, edgeRatio: null });
             } catch(innerErr) {
-              const msg = `✗ Error decay=${decay} floor=${floor} lookahead=${lookahead}: ${innerErr.message}`;
+              const msg = `✗ Error decay=${decay} floor=${floor} lookahead=${lookahead} hurdle=${hurdle}: ${innerErr.message}`;
               logMsg(msg,'err');
               console.error(msg, innerErr);
             }
@@ -2515,7 +2531,7 @@ async function runOptimization() {
             setProgress(5+Math.round((done/total)*90));
             updateEvalCount(done, total);
             await yield_();
-            } // end gap loop (v5.8.0)
+            } // end hurdle loop
             } // end lookahead loop
           }
         }
@@ -2525,22 +2541,22 @@ async function runOptimization() {
     // (debug-toggle restore no longer needed — logDbg gates on _debugMode)
 
     const b = allResults.best;
-    _optParams = b ? { decayTrigger:b.decay, dteFloor:b.floor, deltaThreshold:b.delta, otmFixed:b.otm, vixGate:b.vixgate, dtePenaltyAnchor:b.lookahead, gapFloor:b.gap || 0 } : { ...STD };
+    _optParams = b ? { decayTrigger:b.decay, dteFloor:b.floor, deltaThreshold:b.delta, otmFixed:b.otm, vixGate:b.vixgate, dtePenaltyAnchor:b.lookahead, hurdleYield:b.hurdle ?? 0 } : { ...STD };
 
     if (b) {
       const gateStr = b.vixgate > 0 ? ` / VIX\u2265${b.vixgate}` : '';
       const laStr = b.lookahead ? ` / anchor=${b.lookahead}d` : '';
-      const gapStr = b.gap > 0 ? ` / gap=${b.gap.toFixed(2)}` : ''; // v5.8.0
-      logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + gapStr + gateStr + ' / otm=' + (b.otm*100).toFixed(0) + '%' + laStr + ' \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld', 'ok');
-      logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, lookaheads, gaps);
+      const huStr = (b.hurdle ?? 0) > 0 ? ` / hurdle=${b.hurdle}%` : '';
+      logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + gateStr + ' / otm=' + (b.otm*100).toFixed(0) + '%' + laStr + huStr + ' \u2192 ' + allResults.bestYld.toFixed(1) + '% ann.yld', 'ok');
+      logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, lookaheads, hurdles);
 
       // Store winner for publish button
-      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, dtePenaltyAnchor: b.lookahead, gapFloor: b.gap || 0, optAnnYield: allResults.bestYld, decay: b.decay, floor: b.floor, delta: b.delta, vixgate: b.vixgate, lookahead: b.lookahead, gap: b.gap || 0 };
+      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, dtePenaltyAnchor: b.lookahead, hurdleYield: b.hurdle ?? 0, optAnnYield: allResults.bestYld, decay: b.decay, floor: b.floor, delta: b.delta, vixgate: b.vixgate, lookahead: b.lookahead, hurdle: b.hurdle ?? 0 };
 
       // Re-run simulate() with the winning params so summary/blotter reflect
       // the optimizer's chosen configuration, not just the heatmap grid.
       const winResult = await simulate({ ...STD, decayTrigger:b.decay, dteFloor:b.floor,
-        deltaThreshold:b.delta, otmFixed:b.otm, vixGate:b.vixgate, shares, dtePenaltyAnchor:b.lookahead || STD.dtePenaltyAnchor || 45, gapFloor:b.gap || 0 });
+        deltaThreshold:b.delta, otmFixed:b.otm, vixGate:b.vixgate, shares, dtePenaltyAnchor:b.lookahead || STD.dtePenaltyAnchor || 45, hurdleYield:b.hurdle ?? 0 });
       if (winResult) {
         lastResult = winResult;
         buildRollSnapshots(winResult);
@@ -2560,7 +2576,7 @@ async function runOptimization() {
     
     
     
-    renderOptResults(allResults, decays, floors, deltas, vixgates, lookaheads, gaps);
+    renderOptResults(allResults, decays, floors, deltas, vixgates, lookaheads);
     updateParamDisplay();
 
     // Update var cards with winning values
@@ -2571,7 +2587,6 @@ async function runOptimization() {
         delta:     b.delta?.toFixed(3),
         vixgate:   b.vixgate > 0 ? 'VIX\u2265' + b.vixgate : 'Off',
         lookahead: b.lookahead ? b.lookahead + 'd' : null,
-        gap:       b.gap != null ? b.gap.toFixed(2) : null, // v5.8.0
       };
       for (const [v, winVal] of Object.entries(cardUpdates)) {
         if (!_sweepVars[v] || !winVal) continue;
@@ -3133,7 +3148,7 @@ function renderRollCandidates() {
   </div>`;
 }
 
-function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads, gaps) {
+function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads) {
   const TOP_N = 8;
 
   // results.rows has every combo; sort by yield descending
@@ -3150,7 +3165,7 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads,
     (r.delta     ?? STD.deltaThreshold)   === STD.deltaThreshold &&
     (r.vixgate   ?? STD.vixGate)          === STD.vixGate &&
     (r.lookahead ?? STD.dtePenaltyAnchor) === STD.dtePenaltyAnchor &&
-    (r.gap ?? (STD.gapFloor || 0)) === (STD.gapFloor || 0)
+    (r.hurdle    ?? (STD.hurdleYield || 0)) === (STD.hurdleYield || 0)
   ) ?? null;
   const stdYld = stdRow?.yld ?? null;
 
@@ -3158,9 +3173,9 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads,
   const bestStr = b
     ? `\u2605 Best: decay=${b.decay}% / dte=${b.floor}d`
       + (b.delta     && _sweepVars.delta     ? ` / \u0394${b.delta}` : '')
-      + (b.gap       && _sweepVars.gap       ? ` / \u0394gap ${b.gap.toFixed(2)}` : '')
       + (b.vixgate   && _sweepVars.vixgate   ? ` / VIX\u2265${b.vixgate}` : '')
       + (b.lookahead && _sweepVars.lookahead ? ` / anchor=${b.lookahead}d` : '')
+      + ((b.hurdle ?? 0) > 0 && _sweepVars.hurdle ? ` / hurdle=${b.hurdle}%` : '')
       + ` \u2192 ${results.bestYld.toFixed(1)}% ann.yld`
     : '\u26a0 No qualifying results';
 
@@ -3180,7 +3195,6 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads,
     checkEdge(b.delta,    deltas,    '\u0394',   v => v);
     checkEdge(b.vixgate,  vixgates,  'VIX gate', v => 'VIX\u2265' + v);
     if (lookaheads) checkEdge(b.lookahead, lookaheads, 'anchor', v => v + 'd');
-    if (gaps) checkEdge(b.gap, gaps, '\u0394gap', v => v.toFixed(2)); // v5.8.0
     if (edgeDims.length) {
       edgeWarning = `
     <div style="font-family:var(--mono);font-size:10px;color:var(--yellow);margin-bottom:8px;padding:8px;background:rgba(234,179,8,0.08);border:1px solid var(--yellow);border-radius:4px;">
@@ -3251,7 +3265,7 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads,
       </tr></thead><tbody>`;
 
     for (const row of top) {
-      const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.vixgate === b.vixgate && row.lookahead === b.lookahead;
+      const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.vixgate === b.vixgate && row.lookahead === b.lookahead && (row.hurdle ?? 0) === (b.hurdle ?? 0);
       const vsDelta  = stdYld !== null ? row.yld - stdYld : null;
       const vsStr    = vsDelta !== null ? (vsDelta >= 0 ? '+' : '') + vsDelta.toFixed(1) + '%' : '\u2014';
       const vsClass  = vsDelta === null ? 'muted' : vsDelta >= 0 ? 'green' : 'red';
@@ -3259,7 +3273,8 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads,
       const paramStr = `decay=${row.decay}% / dte=${row.floor}d`
         + ` / \u0394${row.delta ?? STD.deltaThreshold}`
         + ` / VIX\u2265${row.vixgate ?? STD.vixGate}`
-        + ` / anchor=${row.lookahead ?? STD.dtePenaltyAnchor}d`;
+        + ` / anchor=${row.lookahead ?? STD.dtePenaltyAnchor}d`
+        + ((row.hurdle ?? 0) > 0 ? ` / hurdle=${row.hurdle}%` : '');
       const winFlag  = isBest ? ' <span style="color:var(--green);font-size:9px;">\u2605</span>' : '';
       const edgeStr  = row.edgeRatio !== null && row.edgeRatio !== undefined
         ? (row.edgeRatio*100).toFixed(0) + '%'
