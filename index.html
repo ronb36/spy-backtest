@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.7.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.5.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -254,7 +254,6 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-lookahead" value="7" min="1" max="60" step="1" onchange="updateSweepRange('lookahead')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-<!-- v5.7.0 scorer toggle is inserted after this grid — see scorer-row below -->
       <div id="run-publish-card" style="height:104px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
         <button class="btn" id="run-btn" onclick="handleRunOrPublish()" disabled
           style="font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.04em;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;padding:0;line-height:1.3;text-align:center;">
@@ -262,16 +261,6 @@ select.display-box { cursor:pointer; outline:none; }
         </button>
         <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;color:rgba(255,255,255,.8);"></div>
       </div>
-    </div>
-
-    <!-- v5.7.0 — scorer toggle row (sim change is gated here; legacy = pre-5.7 behavior) -->
-    <div id="scorer-row" style="display:flex;align-items:center;gap:8px;margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);">
-      <span style="letter-spacing:.05em;">SCORER</span>
-      <select id="scorer-select" onchange="onScorerChange(this.value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:10px;padding:3px 6px;">
-        <option value="legacy" selected>Legacy — adjYield × dtePenalty</option>
-        <option value="ev">EV race — realized-cycle economics (β)</option>
-      </select>
-      <span id="scorer-consts" style="opacity:.55;display:none;">H=0.25 · L=$4.50/sh · τ0=3d</span>
     </div>
   </div>
 
@@ -471,7 +460,6 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.4.2 · Net-credit filter (SIM CHANGE) — findNextContract enforces netCredit > 0 (Model Rules §3.3); no candidate → hold long SPY and re-scan daily instead of executing least-bad debit or ending the sim; debit skips summarized per expiry</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.4.3 · Sweep range persistence — ranges no longer reset to defaults on toggle-off; last-edited range retained across toggles, OPT runs, and page reloads</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.5.0 · Mark open position to market at window end (SIM CHANGE) — closes the chain: every sell now offset by a real or synthetic cover; openMark = max(last DM price in window, intrinsic at final SPY close); explicit MTM ledger line; VIX bucket attribution carries the mark so buckets still sum to strategy yield</span>
-    <br><span style="color:var(--muted);opacity:.6;">v5.7.0 · EV race scorer (SIM CHANGE, gated) — new scorerMode toggle: 'legacy' (default; adjYield × dtePenalty, byte-identical to v5.5.1) or 'ev' (two-barrier race model: P(decay first)=u/(u+d) with u=(Δthr−Δ)/γ up-barrier and d=H·TV/Δ down-barrier; harvest H·TV (H=0.25), stop loss L=$4.5/sh FLAT (realized loss is barrier-distance-independent — S27 u-bin finding), E[hold]=u·d/σ²+3d; score = EV/E[hold] annualized over SPY). Replaces hold-to-expiry fiction with realized-cycle economics (S26 §5 workstream, S27 design session). Sim-only: live Scan tab parity + constant sweepability deferred until sweep certifies the scorer. v5.6.0 (hurdle) remains shelved inventory.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.5.1 · Position-level P&L diagnostics (DISPLAY ONLY) — per-position P&L line at each cycle close; end-of-run attribution table by closing trigger (n · total · avg · win% · hold · entry Δ/DTE) with identity check vs headline credit; roll event cash-flow ledger retitled to clarify each line pairs the closed leg's cover with the NEXT leg's sell (telescopes to total; not per-position P&L)</span>
   </div>
 </div>
@@ -515,11 +503,6 @@ let STD = {
   deltaThreshold: 0.40,
   vixGate:        0,    // 0 = off (no VIX gate)
   dtePenaltyAnchor: 45,
-  // v5.7.0 — EV race scorer (gated; 'legacy' = pre-5.7 behavior, byte-identical)
-  scorerMode:     'legacy',
-  harvestFrac:    0.25, // H — realized TV fraction harvested on decay path (S27 calibration)
-  stopLossPS:     4.5,  // L — flat realized stop loss $/share (S27 u-bin finding)
-  holdOffset:     3.0,  // τ0 — discrete-monitoring hold offset, days (S27 calibration)
 };
 
 // (v5.2.2 — _debugOverrides removed: the card-edit input UI was deleted in
@@ -552,15 +535,7 @@ async function loadRollParams() {
       netPremium:     data.netPremium != null ? data.netPremium : null,
       coverPrice:     data.coverPrice != null ? data.coverPrice : null,
       sellPrice:      data.sellPrice  != null ? data.sellPrice  : null,
-      // v5.7.0 — optional scorer fields (absent until explicitly published; default legacy)
-      scorerMode:     data.scorerMode || 'legacy',
-      harvestFrac:    data.harvestFrac != null ? data.harvestFrac : 0.25,
-      stopLossPS:     data.stopLossPS  != null ? data.stopLossPS  : 4.5,
-      holdOffset:     data.holdOffset  != null ? data.holdOffset  : 3.0,
     };
-    // v5.7.0 — sync scorer toggle to loaded mode
-    const scorerSel = $('scorer-select');
-    if (scorerSel) { scorerSel.value = STD.scorerMode; onScorerChange(STD.scorerMode, true); }
     // Update var-card display values
     const updates = {
       'vval-decay':   STD.decayTrigger + '%',
@@ -1485,58 +1460,6 @@ function callDelta(S, K, dte, vix, tnx) {
   const d1 = (Math.log(S/K) + (r + .5*sig*sig)*T) / (sig*Math.sqrt(T));
   return normalCDF(d1);
 }
-// v5.7.0 — BS gamma, same conventions as callDelta (fixed-vol candidate space)
-function callGamma(S, K, dte, vix, tnx) {
-  const T   = Math.max(dte, 1) / 365;
-  const sig = Math.max((vix || 15), 5) / 100;
-  const r   = (tnx || 4.5) / 100;
-  if (T <= 0 || sig <= 0 || S <= 0 || K <= 0) return 0;
-  const d1 = (Math.log(S/K) + (r + .5*sig*sig)*T) / (sig*Math.sqrt(T));
-  return Math.exp(-d1*d1/2) / Math.sqrt(2*Math.PI) / (S * sig * Math.sqrt(T));
-}
-// v5.7.0 — EV race scorer (SIM CHANGE, active only when scorerMode='ev').
-// Each candidate is modeled as a two-barrier race in the sim's fixed-vol
-// (18/4.5) delta space — the same space the candidate-side filter uses:
-//   up-barrier   u = (Δthreshold − Δ)/γ    SPY rise that fires the delta stop
-//   down-barrier d = H·TV/Δ                SPY fall that completes the decay harvest
-//   P(decay first) = u/(u+d)               driftless — drift is negligible at
-//                                          the 1–9 day race horizon (S27 calib.)
-//   harvest = H·TV        H = 0.25 realized (overshoot past 20% trigger included)
-//   loss    = L flat $/sh realized stop loss is ~constant REGARDLESS of barrier
-//                         distance: overshoot dominates near barriers, theta
-//                         rebate dominates distant ones (S27 u-bin table)
-//   E[hold] = u·d/σ_d² + τ0 (discrete-monitoring offset), capped at DTE
-//   score   = [p·H·TV − (1−p)·L] / SPY / (E[hold]/365) × 100   (%/yr)
-// Forward-looking by design: buyback cost is sunk at trigger time and identical
-// across candidates, so it is excluded from EV (netCredit>0 gate still applies).
-// Known approximations: barrier space is candidate-side 18-vol while the live
-// trigger measures Δ at actual VIX (pre-existing two-space quirk, not new here);
-// σ_d fixed at 18 to stay in one vol space; H/L/τ0 are 2024–26 window constants.
-// v5.7.0 — scorer toggle handler: updates STD and shows constants when EV active
-function onScorerChange(v, silent) {
-  STD.scorerMode = (v === 'ev') ? 'ev' : 'legacy';
-  const c = document.getElementById('scorer-consts');
-  if (c) {
-    c.style.display = STD.scorerMode === 'ev' ? 'inline' : 'none';
-    c.textContent = 'H=' + (STD.harvestFrac != null ? STD.harvestFrac : 0.25) +
-                    ' · L=$' + (STD.stopLossPS != null ? STD.stopLossPS : 4.5).toFixed(2) + '/sh' +
-                    ' · τ0=' + (STD.holdOffset != null ? STD.holdOffset : 3) + 'd';
-  }
-  if (!silent) console.log('Scorer mode:', STD.scorerMode);
-}
-function evScore(tv, S, K, dte, delta, deltaThreshold, sp) {
-  if (tv <= 0.05 || delta >= deltaThreshold) return null;
-  const gam = callGamma(S, K, dte, 18, 4.5);
-  if (gam <= 0) return null;
-  const H = sp.harvestFrac, L = sp.stopLossPS, tau0 = sp.holdOffset;
-  const u    = (deltaThreshold - delta) / gam;
-  const d    = H * tv / Math.max(delta, 0.05);
-  const sigD = S * 0.18 / Math.sqrt(252);
-  const pDec = u / (u + d);
-  const hold = Math.min(Math.max(u * d / (sigD * sigD) + tau0, 1.5), dte);
-  const ev   = pDec * H * tv - (1 - pDec) * L;
-  return { score: ev / S / (hold / 365) * 100, pDec: pDec, hold: hold, ev: ev };
-}
 function calcMaxDD(vals) {
   let peak = -Infinity, dd = 0;
   for (const v of vals) { if (v > peak) peak = v; if (peak-v > dd) dd = peak-v; }
@@ -1579,8 +1502,7 @@ function getMartExpiries() {
 
 // Find best contract to roll into: yield-maximizing across all candidates
 // Yield = (entryPremium / SPY) * (365 / DTE) — highest annualized yield wins
-function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx, sp) {
-  const _ev = sp && sp.mode === 'ev'; // v5.7.0 — EV race scorer branch (legacy path byte-identical when off)
+function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx) {
   const afterD  = new Date(afterDate + 'T00:00:00');
 
   // No DTE Max hard gate — dtePenaltyAnchor shapes the scoring curve instead.
@@ -1638,25 +1560,14 @@ function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dt
       // "debit rolls allowed, negative yield sorts them below credit rolls" —
       // which meant forced situations executed the least-bad debit.)
       if (netCredit <= 0) { debitSkips++; continue; }
+      const rawYield   = (netCredit / currentSPY) * (365 / dte) * 100;
+      const dtePenalty = Math.min(1, dte / dtePenaltyAnchor);
+      const adjYield   = rawYield * dtePenalty;
       const candDelta_ = callDelta(currentSPY, c.strike, dte, 18, 4.5);
       const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
-      let candScore;
-      if (_ev) {
-        // v5.7.0 — EV race scorer. Candidates are strictly OTM here (strike >
-        // currentSPY gate above), so entryPx is pure time value.
-        const r = evScore(entryPx, currentSPY, c.strike, dte, candDelta_, deltaThreshold, sp);
-        if (!r) continue;
-        candScore = r.score;
-        logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " net=$" + netCredit.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " EV=" + r.score.toFixed(1) + "% Pdec=" + r.pDec.toFixed(2) + " hold=" + r.hold.toFixed(1) + "d");
-      } else {
-        const rawYield   = (netCredit / currentSPY) * (365 / dte) * 100;
-        const dtePenalty = Math.min(1, dte / dtePenaltyAnchor);
-        const adjYield   = rawYield * dtePenalty;
-        candScore = adjYield;
-        logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " net=$" + netCredit.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
-      }
+      logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " net=$" + netCredit.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
 
-      if (candScore > bestYield) { bestYield = candScore; bestContract = c; }
+      if (adjYield > bestYield) { bestYield = adjYield; bestContract = c; }
     }
     if (debitSkips) logDbg("  ✗ " + exp + ": " + debitSkips + " debit candidate(s) skipped (net ≤ 0)"); // v5.4.2
   }
@@ -1665,7 +1576,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dt
     const bestDTE_   = Math.round((new Date(bestContract.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
     const bestDelta_ = callDelta(currentSPY, bestContract.strike, bestDTE_, 18, 4.5);
     const bestOTM_ = ((bestContract.strike - currentSPY) / currentSPY * 100).toFixed(1);
-    logDbg("  → Best: " + bestContract.expiry + " $" + bestContract.strike + " (" + bestOTM_ + "% OTM) Δ=" + bestDelta_.toFixed(3) + (_ev ? " EV.yld=" : " adj.yld=") + bestYield.toFixed(1) + "%");
+    logDbg("  → Best: " + bestContract.expiry + " $" + bestContract.strike + " (" + bestOTM_ + "% OTM) Δ=" + bestDelta_.toFixed(3) + " adj.yld=" + bestYield.toFixed(1) + "%");
     return bestContract;
   }
   return null;
@@ -1749,18 +1660,6 @@ function updateInitPosition() {
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
   const { otmFixed, decayTrigger, dteFloor, deltaThreshold, vixGate = 0, dtePenaltyAnchor = 45, shares } = p;
-  // v5.7.0 — scorer params bundle for findNextContract. EV mode requires a
-  // delta threshold (the stop barrier defines the race); without one, fall
-  // back to legacy loudly rather than silently returning zero candidates.
-  let _scorerMode = p.scorerMode || 'legacy';
-  if (_scorerMode === 'ev' && !(deltaThreshold > 0)) {
-    logMsg('⚠ EV scorer requires deltaThreshold > 0 — falling back to legacy scorer', 'err');
-    _scorerMode = 'legacy';
-  }
-  const sp = { mode: _scorerMode,
-               harvestFrac: p.harvestFrac != null ? p.harvestFrac : 0.25,
-               stopLossPS:  p.stopLossPS  != null ? p.stopLossPS  : 4.5,
-               holdOffset:  p.holdOffset  != null ? p.holdOffset  : 3.0 };
   // Clear stale entryPx/entryDate/entrySPY stamped onto shared DM contract objects
   // by the pendingContract capture of a prior simulate() call — without this flush
   // a later run's OPEN row could inherit a previous run's entry price.
@@ -1802,7 +1701,7 @@ async function simulate(p) {
   // find the initial contract immediately so the log shows it upfront.
   let waitingForVIX = vixGate > 0;
   if (!waitingForVIX) {
-    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, sp);
+    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0);
     if (!curC) { logMsg('✗ No initial contract found', 'err'); return null; }
     buildDayMap(curC);
     const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
@@ -1864,7 +1763,7 @@ async function simulate(p) {
       if (waitingForVIX) {
         if (vixGate === 0 || vix >= vixGate) {
           // VIX has recovered (or initial entry) — find new contract via INTL yield optimizer
-          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, sp);
+          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0);
           if (reentryC) {
             curC = reentryC;
             waitingForVIX = false;
@@ -2066,7 +1965,7 @@ async function simulate(p) {
 
     // ── Find next contract ──
     const next = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor,
-      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx, sp);
+      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx);
     if (!next) {
       // v5.4.2 — no net-credit candidate exists at current SPY level: hold
       // long SPY and re-scan daily via the recovery path (still VIX-gated).
@@ -2291,14 +2190,11 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.7.0 · SPY Covered Call Backtest');
+  logMsg('v5.5.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
-  const scorerStr = params.scorerMode === 'ev'
-    ? ` · EV scorer (H=${params.harvestFrac != null ? params.harvestFrac : 0.25}, L=$${params.stopLossPS != null ? params.stopLossPS : 4.5}, τ0=${params.holdOffset != null ? params.holdOffset : 3}d)`
-    : ''; // v5.7.0 — legacy header unchanged for byte-diff certification
-  logMsg(`Running — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold}${gateStr} · ${params.dtePenaltyAnchor}d penalty anchor${scorerStr}`);
+  logMsg(`Running — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold}${gateStr} · ${params.dtePenaltyAnchor}d penalty anchor`);
   await yield_();
 
   const result = await simulate(params);
