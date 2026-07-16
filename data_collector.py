@@ -1,6 +1,13 @@
 """
-SPY Backtest Data Collector — v2.2.0 (Supabase)
+SPY Backtest Data Collector — v2.3.0 (Supabase)
 =================================================
+v2.3.0 — Phase 3.5: extend option day bars for active contracts.
+Phase 3 fills missing *tickers* only (full history at add time) and never
+revisits them, so option_days freshness was frozen at each ticker's add
+date (root cause of the 2026-07-10 staleness found in Session 28).
+Phase 3.5 appends new daily bars nightly, watermark-anchored and
+idempotent — any outage self-heals on the next run.
+
 Replaces GitHub JSON storage with Supabase Postgres.
 No file size limits, no LFS, no build caching issues.
 Browser fetches directly from Supabase — no proxy needed.
@@ -28,7 +35,7 @@ from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 
-COLLECTOR_VERSION = "2.2.0"
+COLLECTOR_VERSION = "2.3.0"
 
 # ── Credentials ────────────────────────────────────────────────────────────
 POLYGON_KEY   = os.environ["POLYGON_KEY"]
@@ -443,6 +450,70 @@ def inspect_and_fill(start, end):
     return filled
 
 
+# ── Phase 3.5: Extend option day bars (v2.3.0) ─────────────────────────────
+def extend_option_days(end):
+    """
+    Append new daily bars to existing, still-active contracts.
+
+    Watermark = max(date) in option_days. Eligible tickers are those with
+    expiry >= watermark — this includes contracts that expired during a
+    coverage gap, so their final bars aren't lost — and excludes the bulk
+    of long-expired contracts whose history can never grow.
+
+    Fetch window starts 3 days before the watermark and every fetched bar
+    is upserted (the (ticker, date) PK + merge-duplicates makes overlap
+    idempotent), so partial bars get corrected and outages of any length
+    self-heal on the next run.
+    """
+    log("Phase 3.5: Extending option day bars for active contracts...")
+
+    wm_rows = sb_select("option_days", select="date",
+                        filters={"order": "date.desc"}, limit=1)
+    if not wm_rows:
+        log("  ⚠ option_days is empty — nothing to extend, skipping")
+        return 0
+    watermark = wm_rows[0]["date"]
+
+    fetch_start = (datetime.strptime(watermark, "%Y-%m-%d")
+                   - timedelta(days=3)).strftime("%Y-%m-%d")
+
+    all_opts = sb_select_all("options", select="ticker,expiry")
+    eligible = sorted((o for o in all_opts if o["expiry"] >= watermark),
+                      key=lambda o: (o["expiry"], o["ticker"]))
+    log(f"  Watermark: {watermark} · fetching from {fetch_start} · "
+        f"eligible: {len(eligible)} of {len(all_opts)} contracts")
+
+    new_bars  = 0
+    upserted  = 0
+    touched   = 0
+    max_seen  = watermark
+
+    for idx, o in enumerate(eligible):
+        ticker   = o["ticker"]
+        hist_end = min(o["expiry"], end)
+        if hist_end < fetch_start:
+            continue
+        days_data = fetch_option_history(ticker, fetch_start, hist_end)
+        if days_data:
+            day_rows = [{"ticker": ticker, **d} for d in days_data]
+            if sb_upsert("option_days", day_rows):
+                upserted += len(day_rows)
+                fresh = [d for d in days_data if d["date"] > watermark]
+                if fresh:
+                    new_bars += len(fresh)
+                    touched  += 1
+                    if fresh[-1]["date"] > max_seen:
+                        max_seen = fresh[-1]["date"]
+        if (idx + 1) % 50 == 0:
+            log(f"  Progress: {idx+1}/{len(eligible)} contracts, "
+                f"{new_bars} new bars so far")
+
+    log(f"  ✓ Done — {touched} contracts extended, {new_bars} new bars "
+        f"({upserted} rows upserted incl. overlap), "
+        f"option_days now through {max_seen}")
+    return new_bars
+
+
 # ── Phase 4: Future expiry strikes ─────────────────────────────────────────
 def sync_future_strikes(current_spy):
     """Add strikes for future expiries anchored to current SPY price."""
@@ -514,6 +585,9 @@ if __name__ == "__main__":
 
     # Phase 3: Fill missing daily-anchored contracts
     filled = inspect_and_fill(start, end)
+
+    # Phase 3.5: Extend option day bars for active contracts (v2.3.0)
+    extend_option_days(end)
 
     # Phase 4: Future expiry strikes
     sync_future_strikes(current_spy)
