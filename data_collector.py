@@ -1,6 +1,17 @@
 """
-SPY Backtest Data Collector — v2.3.1 (Supabase)
+SPY Backtest Data Collector — v2.3.2 (Supabase)
 =================================================
+v2.3.2 — SPY/VIX/ES overlap re-fetch + full-window audit:
+(1) Overlap re-fetch: Phase 1 (SPY/VIX) and Phase 1.5 (ES) now always
+re-upsert the last OVERLAP_DAYS calendar days instead of a pure
+date-membership check. Intraday deploy-run partial bars (root cause of
+the stale 7/16 SPY close: DM $751.61 vs official $750.72) now self-heal
+at the next cron, mirroring the Phase 3.5 option-bar overlap pattern.
+(2) One-time audit mode (AUDIT_FULL=1 env var): re-fetches the entire
+window of official SPY/VIX aggregates, logs every DM mismatch with
+before→after values, auto-fixes by upsert, flags DM-only phantom dates
+(report-only). ES excluded — display-only, not a sim input.
+
 v2.3.1 — Two collector-only fixes:
 (1) Watermark snapshot: main computes the option_days watermark BEFORE
 Phase 3 runs and passes it into extend_option_days. Previously the
@@ -45,7 +56,7 @@ from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 
-COLLECTOR_VERSION = "2.3.1"
+COLLECTOR_VERSION = "2.3.2"
 
 # ── Credentials ────────────────────────────────────────────────────────────
 POLYGON_KEY   = os.environ["POLYGON_KEY"]
@@ -74,6 +85,7 @@ OTM_TARGETS   = _cfg.get("otm_targets", [
     0.18, 0.20, 0.22, 0.25, 0.28, 0.30,
 ])
 CALL_DELAY    = _cfg.get("call_delay", 0.25)
+OVERLAP_DAYS  = 3   # v2.3.2 — always re-upsert bars in the trailing window (partial-bar self-heal)
 USE_MONTHLY   = _cfg.get("monthly", True)
 USE_WEEKLY    = _cfg.get("weekly", False)
 START_DATE    = _cfg.get("start_date", "2024-07-01")
@@ -266,38 +278,111 @@ def get_weekly_expiries(start_date, end_date):
 
 # ── Phase 1+2: SPY/VIX daily append ───────────────────────────────────────
 def append_spy_vix(start, end):
-    """Fetch SPY and VIX and upsert any missing dates."""
+    """Fetch SPY and VIX; upsert missing dates AND re-upsert the trailing
+    OVERLAP_DAYS window so intraday partial bars self-heal (v2.3.2)."""
     existing_spy = sb_get_dates("spy_daily")
     existing_vix = sb_get_dates("vix_daily")
+    overlap_start = (date.today() - timedelta(days=OVERLAP_DAYS)).isoformat()
 
     log(f"Fetching SPY {start} → {end}...")
     spy_raw = fetch_aggs("SPY", start, end)
     time.sleep(CALL_DELAY)
-    new_spy = []
+    new_spy, refresh_spy = [], []
     for r in spy_raw:
         dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        row = {"date": dt, "o": r["o"], "h": r["h"],
+               "l": r["l"], "c": r["c"], "v": r.get("v", 0)}
         if dt not in existing_spy:
-            new_spy.append({"date": dt, "o": r["o"], "h": r["h"],
-                            "l": r["l"], "c": r["c"], "v": r.get("v", 0)})
-    if new_spy:
-        sb_upsert("spy_daily", new_spy)
-        log(f"  ✓ Added {len(new_spy)} SPY days")
-    else:
-        log(f"  ✓ SPY up to date")
+            new_spy.append(row)
+        elif dt >= overlap_start:
+            refresh_spy.append(row)
+    if new_spy or refresh_spy:
+        sb_upsert("spy_daily", new_spy + refresh_spy)
+    log(f"  ✓ SPY: {len(new_spy)} new · {len(refresh_spy)} overlap-refreshed")
 
     log(f"Fetching VIX {start} → {end}...")
     vix_raw = fetch_aggs("I:VIX", start, end)
     time.sleep(CALL_DELAY)
-    new_vix = []
+    new_vix, refresh_vix = [], []
     for r in vix_raw:
         dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        row = {"date": dt, "c": round(r["c"], 2)}
         if dt not in existing_vix:
-            new_vix.append({"date": dt, "c": round(r["c"], 2)})
-    if new_vix:
-        sb_upsert("vix_daily", new_vix)
-        log(f"  ✓ Added {len(new_vix)} VIX days")
-    else:
-        log(f"  ✓ VIX up to date")
+            new_vix.append(row)
+        elif dt >= overlap_start:
+            refresh_vix.append(row)
+    if new_vix or refresh_vix:
+        sb_upsert("vix_daily", new_vix + refresh_vix)
+    log(f"  ✓ VIX: {len(new_vix)} new · {len(refresh_vix)} overlap-refreshed")
+
+
+# ── One-time full-window audit (v2.3.2, AUDIT_FULL=1) ─────────────────────
+def audit_spy_vix(start, end):
+    """Compare every DM spy_daily/vix_daily row against official Polygon
+    aggregates for the full window. Mismatches are logged before→after and
+    auto-fixed by upsert. DM-only phantom dates are flagged, not deleted.
+    Returns a one-line summary string for the push."""
+    log("AUDIT: full-window SPY/VIX integrity check...")
+
+    def _num_ne(a, b, tol=1e-6):
+        try:
+            return abs(float(a) - float(b)) > tol
+        except (TypeError, ValueError):
+            return a != b
+
+    # SPY
+    dm_spy = {r["date"]: r for r in sb_select_all("spy_daily", select="date,o,h,l,c,v")}
+    official = fetch_aggs("SPY", start, end)
+    time.sleep(CALL_DELAY)
+    spy_fix, spy_add, spy_official_dates = [], [], set()
+    for r in official:
+        dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        spy_official_dates.add(dt)
+        row = {"date": dt, "o": r["o"], "h": r["h"],
+               "l": r["l"], "c": r["c"], "v": r.get("v", 0)}
+        dm = dm_spy.get(dt)
+        if dm is None:
+            spy_add.append(row)
+            log(f"  AUDIT SPY {dt}: MISSING in DM — adding (c={r['c']})")
+        else:
+            diffs = [f"{k} {dm.get(k)}→{row[k]}" for k in ("o", "h", "l", "c", "v")
+                     if _num_ne(dm.get(k), row[k])]
+            if diffs:
+                spy_fix.append(row)
+                log(f"  AUDIT SPY {dt}: MISMATCH — " + " · ".join(diffs))
+    spy_phantom = sorted(d for d in dm_spy if d not in spy_official_dates)
+    for d in spy_phantom:
+        log(f"  AUDIT SPY {d}: PHANTOM — in DM but not in official aggs (not deleted)")
+    if spy_fix or spy_add:
+        sb_upsert("spy_daily", spy_fix + spy_add)
+
+    # VIX (close only; DM stores round(c, 2))
+    dm_vix = {r["date"]: r for r in sb_select_all("vix_daily", select="date,c")}
+    official = fetch_aggs("I:VIX", start, end)
+    time.sleep(CALL_DELAY)
+    vix_fix, vix_add, vix_official_dates = [], [], set()
+    for r in official:
+        dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        vix_official_dates.add(dt)
+        row = {"date": dt, "c": round(r["c"], 2)}
+        dm = dm_vix.get(dt)
+        if dm is None:
+            vix_add.append(row)
+            log(f"  AUDIT VIX {dt}: MISSING in DM — adding (c={row['c']})")
+        elif _num_ne(dm.get("c"), row["c"], tol=0.005):
+            vix_fix.append(row)
+            log(f"  AUDIT VIX {dt}: MISMATCH — c {dm.get('c')}→{row['c']}")
+    vix_phantom = sorted(d for d in dm_vix if d not in vix_official_dates)
+    for d in vix_phantom:
+        log(f"  AUDIT VIX {d}: PHANTOM — in DM but not in official aggs (not deleted)")
+    if vix_fix or vix_add:
+        sb_upsert("vix_daily", vix_fix + vix_add)
+
+    summary = (f"AUDIT: SPY {len(spy_fix)} fixed · {len(spy_add)} added · "
+               f"{len(spy_phantom)} phantom | VIX {len(vix_fix)} fixed · "
+               f"{len(vix_add)} added · {len(vix_phantom)} phantom")
+    log(f"  ✓ {summary}")
+    return summary
 
 
 # ── Phase 1.5: ES futures daily OHLC ──────────────────────────────────────
@@ -335,6 +420,7 @@ def append_es_daily(start, end):
     log(f"Phase 1.5: ES daily — {len(existing)} dates already in DM")
 
     from datetime import date as ddate, timedelta
+    overlap_start = (ddate.today() - timedelta(days=OVERLAP_DAYS)).isoformat()  # v2.3.2
     quarters = [
         ("ESH", [1,2,3]),   # Mar contract covers Jan–Mar
         ("ESM", [4,5,6]),   # Jun contract covers Apr–Jun
@@ -367,7 +453,7 @@ def append_es_daily(start, end):
                     if not t:
                         continue
                     date_iso = datetime.utcfromtimestamp(t / 1e9).strftime("%Y-%m-%d")
-                if date_iso not in existing:
+                if date_iso not in existing or date_iso >= overlap_start:
                     # Use settlement_price when available (official daily settlement)
                     # Fall back to close for open/incomplete sessions
                     settle = bar.get("settlement_price") or 0
@@ -383,12 +469,12 @@ def append_es_daily(start, end):
                     })
 
     new_rows = {r["date"]: r for r in all_rows}  # dedupe by date
+    n_new     = sum(1 for d in new_rows if d not in existing)
+    n_refresh = len(new_rows) - n_new
     if new_rows:
         sb_upsert("es_daily", list(new_rows.values()))
-        log(f"  ✓ ES daily: {len(new_rows)} new dates added")
-    else:
-        log(f"  ✓ ES daily: up to date")
-    return len(new_rows)
+    log(f"  ✓ ES daily: {n_new} new · {n_refresh} overlap-refreshed")
+    return n_new
 
 
 def inspect_and_fill(start, end):
@@ -599,6 +685,11 @@ if __name__ == "__main__":
     # Phase 1+2: SPY and VIX daily data
     append_spy_vix(start, end)
 
+    # v2.3.2 — one-time full-window audit, gated by AUDIT_FULL=1 env var
+    audit_summary = None
+    if os.environ.get("AUDIT_FULL", "0") == "1":
+        audit_summary = audit_spy_vix(start, end)
+
     # Phase 1.5: ES futures daily OHLC
     append_es_daily(start, end)
 
@@ -661,5 +752,6 @@ if __name__ == "__main__":
         f"Active (unexpired): {active}\n"
         f"Farthest expiry: {farthest}\n"
         f"Today: +{filled} tickers · +{new_bars} bars"
+        + (f"\n\n{audit_summary}" if audit_summary else "")
     )
     send_push("📊 SPY Data Mart: Daily update complete", push_body)
