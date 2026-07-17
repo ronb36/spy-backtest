@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.11.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.11.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -457,6 +457,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.10.1 · Core-roll decomposition (DISPLAY ONLY) — headline credit split into initial cycle + core rolls (all closed cycles after the first) + open-position MTM; the three buckets sum to the headline by construction (identity logged). Core yield annualizes core-roll dollars over the core window only (first roll date → last closed cycle’s close, basis = shares × SPY at first roll), excluding the regime-correlated endpoint transients — the honest metric of roll logic. Ranking and publish untouched; n/a under 3 closed core cycles.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.5.1 · Position-level P&L diagnostics (DISPLAY ONLY) — per-position P&L line at each cycle close; end-of-run attribution table by closing trigger (n · total · avg · win% · hold · entry Δ/DTE) with identity check vs headline credit; roll event cash-flow ledger retitled to clarify each line pairs the closed leg's cover with the NEXT leg's sell (telescopes to total; not per-position P&L)</span>
   </div>
 </div>
@@ -2221,7 +2222,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.11.1 · SPY Covered Call Backtest');
+  logMsg('v5.11.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2530,6 +2531,24 @@ async function runOptimization() {
       const laStr = b.lookahead ? ` / anchor=${b.lookahead}d` : '';
       logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + gateStr + ' / otm=' + (b.otm*100).toFixed(0) + '%' + laStr + ' \u2192 ' + allResults.bestYld.toFixed(1) + '% core yld' + (allResults.bestHead != null ? ' (headline ' + allResults.bestHead.toFixed(1) + '%)' : ''), 'ok');
       logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, lookaheads);
+
+      // v5.11.2 — full ranked results table in log (core only; headline stays in STD_debug)
+      const _ranked = allResults.rows.slice().sort((x, y) => {
+        if (x.yld === null && y.yld === null) return 0;
+        if (x.yld === null) return 1;
+        if (y.yld === null) return -1;
+        return y.yld - x.yld;
+      });
+      logMsg('── OPT Results (' + _ranked.length + ' evals, ranked by core yld) ──────────', '');
+      _ranked.forEach((r, i) => {
+        const isW = r.decay === b.decay && r.floor === b.floor && r.delta === b.delta && r.vixgate === b.vixgate && r.lookahead === b.lookahead;
+        const pStr = 'decay=' + r.decay + '% / dte=' + r.floor + 'd'
+          + ' / \u0394' + (r.delta ?? STD.deltaThreshold)
+          + ' / VIX\u2265' + (r.vixgate ?? STD.vixGate)
+          + ' / anchor=' + (r.lookahead ?? STD.dtePenaltyAnchor) + 'd';
+        const cStr = r.yld === null ? 'core \u2014' : 'core ' + r.yld.toFixed(1) + '%';
+        logMsg('  #' + (i + 1) + '  ' + pStr + ' \u00b7 ' + r.rolls + ' rolls \u00b7 ' + cStr + (isW ? '  \u2605' : ''), '');
+      });
 
       // Store winner for publish button
       _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, dtePenaltyAnchor: b.lookahead, optAnnYield: allResults.bestYld, decay: b.decay, floor: b.floor, delta: b.delta, vixgate: b.vixgate, lookahead: b.lookahead };
