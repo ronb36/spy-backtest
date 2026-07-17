@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.11.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.11.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -456,6 +456,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.10.0 · Falsified-machinery strip (SIM-ADJACENT, behavior-null) — gapFloor (v5.8.0, falsified S27) and hurdleYield (v5.9.0, falsified S29) removed entirely from sim, OPT, publish, and UI; both were inert at 0. VIX gate machinery KEPT in off mode by explicit user decision. DTE Min card restored as DISPLAY-ONLY (shows published dteFloor, not sweepable). Re-test inventory lives in shelf snapshots: v5.9.0 (83b744c8) carries both features.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.10.1 · Core-roll decomposition (DISPLAY ONLY) — headline credit split into initial cycle + core rolls (all closed cycles after the first) + open-position MTM; the three buckets sum to the headline by construction (identity logged). Core yield annualizes core-roll dollars over the core window only (first roll date → last closed cycle’s close, basis = shares × SPY at first roll), excluding the regime-correlated endpoint transients — the honest metric of roll logic. Ranking and publish untouched; n/a under 3 closed core cycles.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.5.1 · Position-level P&L diagnostics (DISPLAY ONLY) — per-position P&L line at each cycle close; end-of-run attribution table by closing trigger (n · total · avg · win% · hold · entry Δ/DTE) with identity check vs headline credit; roll event cash-flow ledger retitled to clarify each line pairs the closed leg's cover with the NEXT leg's sell (telescopes to total; not per-position P&L)</span>
   </div>
 </div>
@@ -1295,8 +1296,8 @@ function buildAIContext(result) {
 
   // Build summary block
   const summary = result ? [
-    `Strategy Yield: ${(result.stratYld || 0).toFixed(1)}%`,
-    `Total Roll Credit: $${Math.round(result.rollCreditTotal || 0).toLocaleString()}`,
+    `Core Roll Yield: ${result.coreYld != null ? result.coreYld.toFixed(1) + '%' : 'n/a'}`,
+    `Core Roll Credit: ${result.coreSum != null ? '$' + Math.round(result.coreSum).toLocaleString() : 'n/a'}`,
     `Win Rate: ${Math.round(result.winRate || 0)}%`,
     `Total Cycles: ${result.cycles?.length || 0}`,
     `Max Drawdown: ${(result.maxDD || 0).toFixed(1)}%`,
@@ -2220,7 +2221,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.11.0 · SPY Covered Call Backtest');
+  logMsg('v5.11.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2250,12 +2251,7 @@ async function runSimulation() {
     const _otm15  = (result.cycles||[]).filter(c => Math.abs((c.otmPct||0)*100) <= 5).length;
     const _otmPct = result.cycles?.length ? Math.round(_otm15/result.cycles.length*100) : 0;
     const _wr     = Math.round(result.winRate || 0);
-    logMsg(`  ${result.rolls.length} cycles · ${(result.stratYld||0).toFixed(1)}% yield · $${Math.round(result.rollCreditTotal||0).toLocaleString()} credit · ${_wr}% win rate · OTM 1-5%=${_otmPct}% max=${_otmMax.toFixed(1)}%`, 'ok');
-    if (result.coreYld != null) {
-      logMsg(`  Core: ${result.coreCycleCount} rolls · ${result.coreYld.toFixed(1)}%/yr (${result.coreStart} → ${result.coreEnd}) · $${Math.round(result.coreSum).toLocaleString()} · initial ${result.initPnl < 0 ? '-' : ''}$${Math.abs(Math.round(result.initPnl)).toLocaleString()} · open MTM ${result.openNetD < 0 ? '-' : ''}$${Math.abs(Math.round(result.openNetD)).toLocaleString()}`, 'ok');
-    } else {
-      logMsg(`  Core: n/a (<3 closed core cycles)`, 'ok');
-    }
+    logMsg(`  ${result.rolls.length} cycles · ${result.coreYld != null ? result.coreYld.toFixed(1) + '% core yield' : 'core yield n/a'} · ${result.coreSum != null ? '$' + Math.round(result.coreSum).toLocaleString() + ' core credit' : ''} · ${_wr}% win rate · OTM 1-5%=${_otmPct}% max=${_otmMax.toFixed(1)}%`, 'ok');
   }
   initAIAnalysis(result);
   
@@ -2603,8 +2599,8 @@ function renderSummary(r) {
   const yClass = r.avgYld>=5?'green':r.avgYld>=0?'yellow':'red';
   const ddClass = r.maxDD>20?'red':r.maxDD>10?'yellow':'green';
   $('summary-grid').innerHTML = `
-    <div class="stat-card"><div class="stat-label">Strategy Yield</div><div class="stat-value ${r.stratYld>=0?'green':'red'}">${fmt(r.stratYld,1)}%</div><div class="stat-sub">Ann. roll credit / SPY basis</div></div>
-    <div class="stat-card"><div class="stat-label">Total Roll Credit</div><div class="stat-value ${r.rollCreditTotal>=0?'green':'red'}">${fmtD(r.rollCreditTotal)}</div><div class="stat-sub">All sells − all covers (open marked to market)</div></div>
+    <div class="stat-card"><div class="stat-label">Core Roll Yield</div><div class="stat-value ${(r.coreYld??0)>=0?'green':'red'}">${r.coreYld!=null?fmt(r.coreYld,1)+'%':'n/a'}</div><div class="stat-sub">Ann. core rolls · excl. initial + open MTM</div></div>
+    <div class="stat-card"><div class="stat-label">Core Roll Credit</div><div class="stat-value ${(r.coreSum??0)>=0?'green':'red'}">${r.coreSum!=null?fmtD(r.coreSum):'n/a'}</div><div class="stat-sub">Closed core rolls only</div></div>
     <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${r.winRate>=70?'green':'yellow'}">${fmt(r.winRate,0)}%</div><div class="stat-sub">Rolls with net credit</div></div>
     <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmt(r.covRet,1)}%</div><div class="stat-sub">Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
