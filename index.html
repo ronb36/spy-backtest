@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.10.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.10.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -454,6 +454,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.8.0 · Entry Δ Gap floor (SIM CHANGE) — new sweepable gapFloor: candidates must enter at least gapFloor below the delta trigger (entry cap = deltaThreshold − gapFloor); gapFloor=0 is the embedded null (byte-identical to v5.5.1). Motivated by S27 attribution: entries with Δ gap<0.04 (46 cycles) earned 0.2%/yr at ~70% stop rate vs 10.8%/yr at gap 0.08–0.12. UI: DTE Min card retired from the 3×3 grid (dteFloor fixed at published value, shown below grid); Entry Δ Gap card takes its slot. v5.6.0 (hurdle) and v5.7.0 (EV scorer) remain shelved inventory.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.9.0 · Re-entry yield hurdle PORT (SIM CHANGE) — v5.6.0 hurdle patch re-applied onto the v5.8.0 base: new sweepable hurdleYield (%/yr). After any close (and at initial entry), enter only if the best candidate’s adj. yield ≥ hurdle; otherwise hold long SPY and re-scan daily. The honest implementation of premium-richness gating — gates on realized premium on offer, not the VIX proxy. hurdle=0 reproduces v5.8.0 exactly (embedded null). Idle days still count against the yield denominator.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.10.0 · Falsified-machinery strip (SIM-ADJACENT, behavior-null) — gapFloor (v5.8.0, falsified S27) and hurdleYield (v5.9.0, falsified S29) removed entirely from sim, OPT, publish, and UI; both were inert at 0. VIX gate machinery KEPT in off mode by explicit user decision. DTE Min card restored as DISPLAY-ONLY (shows published dteFloor, not sweepable). Re-test inventory lives in shelf snapshots: v5.9.0 (83b744c8) carries both features.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.10.1 · Core-roll decomposition (DISPLAY ONLY) — headline credit split into initial cycle + core rolls (all closed cycles after the first) + open-position MTM; the three buckets sum to the headline by construction (identity logged). Core yield annualizes core-roll dollars over the core window only (first roll date → last closed cycle’s close, basis = shares × SPY at first roll), excluding the regime-correlated endpoint transients — the honest metric of roll logic. Ranking and publish untouched; n/a under 3 closed core cycles.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.5.1 · Position-level P&L diagnostics (DISPLAY ONLY) — per-position P&L line at each cycle close; end-of-run attribution table by closing trigger (n · total · avg · win% · hold · entry Δ/DTE) with identity check vs headline credit; roll event cash-flow ledger retitled to clarify each line pairs the closed leg's cover with the NEXT leg's sell (telescopes to total; not per-position P&L)</span>
   </div>
 </div>
@@ -2140,6 +2141,40 @@ async function simulate(p) {
     logDbg(`  Closed positions ${money(posTotal)} + open position net ${money(openNetT)} ${identityOk ? '= headline credit' : '≠ headline credit ⚠ IDENTITY BROKEN'} ${money(rollCreditTotal)}`);
   }
 
+  // ── v5.10.1 — Core-roll decomposition (DISPLAY ONLY) ────────────────────
+  // Buckets: initial = first closed cycle · core = all subsequent closed
+  // cycles · open = MTM net of the unclosed end-of-window position. The
+  // three sum to the headline credit by construction (identity logged).
+  // Core yield annualizes core dollars over the core window only (first
+  // roll date → last closed cycle's close; basis = shares × SPY at first
+  // roll), excluding the regime-correlated endpoint transients: in an
+  // uptrend the initial sell prices off window-start SPY while the open
+  // mark prices off window-end SPY — endpoint regime, not roll logic.
+  let coreYld = null, coreSum = null, coreDays = null, coreStart = null, coreEnd = null, coreBasisSPY = null;
+  const coreCycleCount = Math.max(0, cycles.length - 1);
+  const initPnl  = cycles.length > 0 ? cycles[0].pnl : 0;
+  const openNetD = (pendingContract && pendingContract.entryPx && openMark != null)
+    ? (pendingContract.entryPx - openMark) * 100 * contracts : 0;
+  {
+    const money = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
+    coreSum = cycles.slice(1).reduce((s, c) => s + c.pnl, 0);
+    logDbg(`  ── Core-roll decomposition (v5.10.1) ──`);
+    logDbg(`  Initial cycle ${money(initPnl)} + core rolls ${money(coreSum)} (${coreCycleCount} cycles) + open MTM ${money(openNetD)} = ${money(initPnl + coreSum + openNetD)} (headline ${money(rollCreditTotal)})`);
+    if (coreCycleCount >= 3 && cycles[0].exitDate) {
+      coreStart    = cycles[0].exitDate;
+      coreEnd      = cycles[cycles.length - 1].exitDate;
+      coreBasisSPY = cycles[0].exitSPY;
+      coreDays     = Math.max(1, Math.round((new Date(coreEnd + 'T00:00:00') - new Date(coreStart + 'T00:00:00')) / 86400000));
+      const coreBasis = (coreBasisSPY || 0) * shares;
+      if (coreBasis > 0) {
+        coreYld = (coreSum / coreBasis) * (365 / coreDays) * 100;
+        logDbg(`  Core yield: ${coreYld.toFixed(1)}%/yr over ${coreStart} → ${coreEnd} (${coreDays}d · basis SPY $${coreBasisSPY.toFixed(2)} × ${shares})`);
+      }
+    } else {
+      logDbg(`  Core yield: n/a (<3 closed core cycles)`);
+    }
+  }
+
   // Strategy yield: total roll credit annualized over full period / SPY basis
   const firstDate = DM.spy[0].date;
   const lastDate  = DM.spy[DM.spy.length-1].date; // always full DM window — idle time counts against yield
@@ -2157,7 +2192,7 @@ async function simulate(p) {
   const spyRet     = (Math.pow(1 + rawSpyRet/100, 365/dayCount) - 1) * 100;
   const covRet     = (Math.pow(1 + ccTotalRet/100, 365/dayCount) - 1) * 100;
 
-  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, openMark, openMarkSrc };
+  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, openMark, openMarkSrc, coreYld, coreSum, coreDays, coreStart, coreEnd, coreBasisSPY, coreCycleCount, initPnl, openNetD };
 }
 
 // ── Run simulation ─────────────────────────────────────────────────────────
@@ -2184,7 +2219,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.10.0 · SPY Covered Call Backtest');
+  logMsg('v5.10.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2215,6 +2250,11 @@ async function runSimulation() {
     const _otmPct = result.cycles?.length ? Math.round(_otm15/result.cycles.length*100) : 0;
     const _wr     = Math.round(result.winRate || 0);
     logMsg(`  ${result.rolls.length} cycles · ${(result.stratYld||0).toFixed(1)}% yield · $${Math.round(result.rollCreditTotal||0).toLocaleString()} credit · ${_wr}% win rate · OTM 1-5%=${_otmPct}% max=${_otmMax.toFixed(1)}%`, 'ok');
+    if (result.coreYld != null) {
+      logMsg(`  Core: ${result.coreCycleCount} rolls · ${result.coreYld.toFixed(1)}%/yr (${result.coreStart} → ${result.coreEnd}) · $${Math.round(result.coreSum).toLocaleString()} · initial ${result.initPnl < 0 ? '-' : ''}$${Math.abs(Math.round(result.initPnl)).toLocaleString()} · open MTM ${result.openNetD < 0 ? '-' : ''}$${Math.abs(Math.round(result.openNetD)).toLocaleString()}`, 'ok');
+    } else {
+      logMsg(`  Core: n/a (<3 closed core cycles)`, 'ok');
+    }
   }
   initAIAnalysis(result);
   
