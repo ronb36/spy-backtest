@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.14.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.14.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -458,6 +458,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.14.1 · Blotter win-rate reconciliation (DISPLAY ONLY, sim untouched) — the S31 three-definition audit: headline Win Rate counts cycles with positive P&L, the sim blotter colored rows by roll spread credit (positive by construction except no-credit re-entries), and the live blotter counts Fidelity roll credits — one label, three metrics. Fixes: (1) stat-card sub-label now says what the number is (&ldquo;Cycles with positive P&L&rdquo;); (2) new Cycle P&L column in the roll cycle log — the closed cycle&rsquo;s realized leg P&L on every row type, making the headline win rate directly countable in the table; (3) gap-hold labels are honest: &ldquo;VIX gate&rdquo; only when a gate is set, otherwise &ldquo;no credit candidate — held long&rdquo; (with gate 0 those holds were mislabeled); (4) Ann Yield suppressed (&mdash;) on re-entry rows — annualizing a one-time give-back over the new leg&rsquo;s DTE produced meaningless −25/−47% figures (same horizon fiction as the S29 scorer finding). Renderer-only: runs after simulate() returns; log identical to v5.14.0 except the version header.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.14.0 · Real-VIX candidate filter (SIM CHANGE) — findNextContract&rsquo;s delta filter now computes the candidate delta at real trigger-date VIX instead of fixed VIX 18, matching the trigger&rsquo;s frame (erf-convention CDF and TNX 4.5 unchanged — the √2 frame migration remains Option B). Closes Parity Ledger P3 (sim internal filter-vs-trigger VIX inconsistency, S30). Candidate and Best log-line deltas display the same real-VIX frame the filter uses. The v5.13.3 shadow diagnostic is removed — its measured prediction for this change: 208 roll evaluations, 52 with flips (loosen 24 / tighten 43 — tighten dominates at LOW VIX because borderline candidates are long-DTE forward-ITM via the r·T drift, inverting spot-OTM vega intuition), 29 single-step Best-pick changes, first divergence 2024-07-16 (roll 2) — a RE-BASELINE event, not a tweak. NEW CERTIFIED BASELINE set by this release&rsquo;s STD run at published params.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.13.3 · P3 diagnostic (MEASUREMENT ONLY, filtering unchanged) — findNextContract shadow-evaluates every roll&rsquo;s candidate set with the filter delta at real trigger-date VIX (the trigger&rsquo;s frame; Model Rules §3.3 known internal inconsistency) alongside the live fixed-VIX-18 filter. STD log gains per-event flip lines (P3◇ — only when a candidate pass/fail flips or the Best pick would change) and an end-of-run summary: roll evaluations, flips each direction, Best-pick changes, flips by real-VIX bucket. Selection, scoring, and all sim behavior identical to v5.13.2 (cert: sim lines md5-identical; diff = diagnostic lines only). The summary is the pre-registered predictor for the v5.14.0 real-VIX filter change; shadow removed when that ships. OPT unaffected (logDbg suppression + STD-only summary).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.13.2 · Scan-parity patch (SCAN ONLY, sim untouched) — from the S30 cross-component parity audit: (1) strike band −3%/+12% → ATM/+40%, matching the sim’s candidate universe — the sim has picked strikes to 22.9% OTM that the old band could not display, and sub-SPY strikes were quota burned on skip-only rows since the v5.13.0 ITM filter; (2) stale fallbacks Δ0.475/anchor 45 (v4-era) → certified baseline Δ0.670/anchor 54, with a loud ⚠ SCAN FALLBACK log line whenever any default engages (defect class matches agent v1.6.2’s params validation). Remaining known cross-frame items live in the Model Rules parity ledger (S30): candidate-filter delta frames (scan mkt vs sim BS-erf@18), sim’s own filter-vs-trigger VIX inconsistency, agent upward-cross — all documented, none silent.</span>
@@ -2248,7 +2249,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.14.0 · SPY Covered Call Backtest');
+  logMsg('v5.14.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2730,7 +2731,7 @@ function renderSummary(r) {
   $('summary-grid').innerHTML = `
     <div class="stat-card"><div class="stat-label">Core Roll Yield</div><div class="stat-value ${(r.coreYld??0)>=0?'green':'red'}">${r.coreYld!=null?fmt(r.coreYld,1)+'%':'n/a'}</div><div class="stat-sub">Ann. core rolls · excl. initial + open MTM</div></div>
     <div class="stat-card"><div class="stat-label">Core Roll Credit</div><div class="stat-value ${(r.coreSum??0)>=0?'green':'red'}">${r.coreSum!=null?fmtD(r.coreSum):'n/a'}</div><div class="stat-sub">Closed core rolls only</div></div>
-    <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${r.winRate>=70?'green':'yellow'}">${fmt(r.winRate,0)}%</div><div class="stat-sub">Rolls with net credit</div></div>
+    <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${r.winRate>=70?'green':'yellow'}">${fmt(r.winRate,0)}%</div><div class="stat-sub">Cycles with positive P&L</div></div>
     <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmt(r.covRet,1)}%</div><div class="stat-sub">Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
     <div class="stat-card"><div class="stat-label">Total Cycles</div><div class="stat-value accent">${r.cycles.length}</div><div class="stat-sub">${r.rolls.length} rolls + 1 initial</div></div>
@@ -2760,6 +2761,7 @@ function renderCycleTable(r) {
     <td class="accent">${legStr('Sell', initCycle.expiry, initCycle.strike, initCycle.entryPx)}</td>
     <td class="green" style="font-weight:600;">${fmtD(initCycle.entryPx*100*contracts)}</td>
     <td class="muted">—</td>
+    <td class="muted">—</td>
     <td class="muted" style="font-size:10px;">initial · yield-selected</td>
   </tr>` : '';
 
@@ -2779,6 +2781,16 @@ function renderCycleTable(r) {
       ? ((newPx-(coverPx||0))/c.entrySPY)*(365/newDTE)*100 : null;
     const yClass       = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
     const approx       = c.approx?'<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>':'';
+    // v5.14.1 — Cycle P&L column: the closed cycle's realized leg P&L (the
+    // metric the headline Win Rate counts). Roll Credit is cash-flow view;
+    // this is the economic-outcome view — both now visible per row.
+    const cyclePnl     = closedCycle && closedCycle.pnl != null ? closedCycle.pnl : null;
+    const pClass       = cyclePnl===null?'muted':cyclePnl>0?'green':'red';
+    const pnlCell      = `<td class="${pClass}" style="font-weight:600;">${cyclePnl!==null?fmtD(cyclePnl):'—'}</td>`;
+    // v5.14.1 — gate label honesty: gap holds are 'VIX gate' only when a
+    // gate is actually set; with gate 0 they are no-credit-candidate holds.
+    const _gateOn      = (r.params && r.params.vixGate > 0);
+    const holdLabel    = _gateOn ? 'VIX gate' : 'no credit candidate — held long';
     const coverStr     = coverStrike ? legStr('Cover', coverExpiry, coverStrike, coverPx) : '—';
 
     // Detect gap: close date and re-entry date differ by more than 1 day
@@ -2794,16 +2806,18 @@ function renderCycleTable(r) {
         <td class="red">${coverStr}</td>
         <td class="muted">—${nakedBadge}</td>
         <td class="muted">—</td>
+        ${pnlCell}
         <td class="muted">—</td>
-        <td class="muted" style="font-size:10px;">${closedCycle?.reason || ''} · VIX gate</td>
+        <td class="muted" style="font-size:10px;">${closedCycle?.reason || ''} · ${holdLabel}</td>
       </tr>`;
       const reentryRow = `<tr>
         <td class="muted" style="font-size:10px;">${fmtDate(c.entryDate)}</td>
         <td class="muted">—</td>
         <td class="accent">${newLegStr}</td>
         <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
-        <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
-        <td class="muted" style="font-size:10px;">VIX recovery · re-entry</td>
+        <td class="muted">—</td>
+        <td class="muted">—</td>
+        <td class="muted" style="font-size:10px;">${_gateOn?'VIX recovery · ':''}re-entry after ${gapDays}d hold</td>
       </tr>`;
       return closeRow + reentryRow;
     }
@@ -2814,8 +2828,9 @@ function renderCycleTable(r) {
       <td class="red">${coverStr}</td>
       <td class="accent">${newLegStr}</td>
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
-      <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
-      <td class="muted" style="font-size:10px;">${c.reason}</td>
+      ${pnlCell}
+      <td class="${gapDays>=1?'muted':yClass}">${gapDays>=1?'—':(rollYld!==null?fmt(rollYld,1)+'%':'—')}</td>
+      <td class="muted" style="font-size:10px;">${c.reason}${gapDays>=1?' · re-entry after '+gapDays+'d hold':''}</td>
     </tr>`;
   }).join('');
 
@@ -2842,6 +2857,7 @@ function renderCycleTable(r) {
       <td class="red">${coverStr}</td>
       <td class="accent">${newLegStr}</td>
       <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
+      <td class="${lastClosed && lastClosed.pnl!=null ? (lastClosed.pnl>0?'green':'red') : 'muted'}" style="font-weight:600;">${lastClosed && lastClosed.pnl!=null ? fmtD(lastClosed.pnl) : '—'}</td>
       <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
       <td class="muted" style="font-size:10px;">${pc.reason || 'open position'}</td>
     </tr>`;
@@ -2856,6 +2872,7 @@ function renderCycleTable(r) {
       <td class="red">${legStr('Cover', lastClosed.expiry, lastClosed.strike, lastClosed.exitPx)}</td>
       <td class="muted">—</td>
       <td class="red" style="font-weight:600;">${fmtD(-lastClosed.exitPx*100*contracts)}</td>
+      <td class="${lastClosed.pnl!=null ? (lastClosed.pnl>0?'green':'red') : 'muted'}" style="font-weight:600;">${lastClosed.pnl!=null ? fmtD(lastClosed.pnl) : '—'}</td>
       <td class="muted">—</td>
       <td class="muted" style="font-size:10px;">${lastClosed.reason || ''} · no re-entry</td>
     </tr>`;
@@ -2864,7 +2881,7 @@ function renderCycleTable(r) {
   $('cycle-table').innerHTML = `<table class="tbl">
     <thead><tr>
       <th>Date</th><th>Cover (Close)</th><th>New Leg (Open)</th>
-      <th>Roll Credit</th><th>Ann Yield</th><th>Trigger</th>
+      <th>Roll Credit</th><th>Cycle P&L</th><th>Ann Yield</th><th>Trigger</th>
     </tr></thead>
     <tbody>${initRow}${rows}${openRow}</tbody>
   </table>`;
