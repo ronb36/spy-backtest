@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.13.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.14.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -458,6 +458,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.14.0 · Real-VIX candidate filter (SIM CHANGE) — findNextContract&rsquo;s delta filter now computes the candidate delta at real trigger-date VIX instead of fixed VIX 18, matching the trigger&rsquo;s frame (erf-convention CDF and TNX 4.5 unchanged — the √2 frame migration remains Option B). Closes Parity Ledger P3 (sim internal filter-vs-trigger VIX inconsistency, S30). Candidate and Best log-line deltas display the same real-VIX frame the filter uses. The v5.13.3 shadow diagnostic is removed — its measured prediction for this change: 208 roll evaluations, 52 with flips (loosen 24 / tighten 43 — tighten dominates at LOW VIX because borderline candidates are long-DTE forward-ITM via the r·T drift, inverting spot-OTM vega intuition), 29 single-step Best-pick changes, first divergence 2024-07-16 (roll 2) — a RE-BASELINE event, not a tweak. NEW CERTIFIED BASELINE set by this release&rsquo;s STD run at published params.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.13.3 · P3 diagnostic (MEASUREMENT ONLY, filtering unchanged) — findNextContract shadow-evaluates every roll&rsquo;s candidate set with the filter delta at real trigger-date VIX (the trigger&rsquo;s frame; Model Rules §3.3 known internal inconsistency) alongside the live fixed-VIX-18 filter. STD log gains per-event flip lines (P3◇ — only when a candidate pass/fail flips or the Best pick would change) and an end-of-run summary: roll evaluations, flips each direction, Best-pick changes, flips by real-VIX bucket. Selection, scoring, and all sim behavior identical to v5.13.2 (cert: sim lines md5-identical; diff = diagnostic lines only). The summary is the pre-registered predictor for the v5.14.0 real-VIX filter change; shadow removed when that ships. OPT unaffected (logDbg suppression + STD-only summary).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.13.2 · Scan-parity patch (SCAN ONLY, sim untouched) — from the S30 cross-component parity audit: (1) strike band −3%/+12% → ATM/+40%, matching the sim’s candidate universe — the sim has picked strikes to 22.9% OTM that the old band could not display, and sub-SPY strikes were quota burned on skip-only rows since the v5.13.0 ITM filter; (2) stale fallbacks Δ0.475/anchor 45 (v4-era) → certified baseline Δ0.670/anchor 54, with a loud ⚠ SCAN FALLBACK log line whenever any default engages (defect class matches agent v1.6.2’s params validation). Remaining known cross-frame items live in the Model Rules parity ledger (S30): candidate-filter delta frames (scan mkt vs sim BS-erf@18), sim’s own filter-vs-trigger VIX inconsistency, agent upward-cross — all documented, none silent.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.13.1 · Dual-delta scan display (DISPLAY ONLY) — every scan candidate now shows the sim-frame delta (backtester callDelta convention: erf-CDF, DM-latest VIX, TNX 4.5) beside the live Polygon delta — “Δ 0.541 (sim 0.489)” — in PASS lines and Best summaries. Step 1 of the delta-calibration plan: measure the market↔sim transform across moneyness from live pairs before any frame decision. All filters unchanged (market delta). Companion release: agent v1.6.3 triggers in the sim frame with “· mkt” reference. Option B (true-delta migration: fix normalCDF /√2 + re-optimize all delta-denominated params) remains a queued design session.</span>
@@ -1525,11 +1526,6 @@ function getMartExpiries() {
 
 // Find best contract to roll into: yield-maximizing across all candidates
 // Yield = (entryPremium / SPY) * (365 / DTE) — highest annualized yield wins
-// v5.13.3 — P3 diagnostic accumulator (candidate-filter delta @ fixed VIX 18
-// vs real trigger-date VIX — Model Rules §3.3 / Parity Ledger P3). Reset per
-// simulate(); summary printed by logP3DiagSummary() in STD paths only.
-let _p3diag = { rolls:0, rollsWithFlips:0, loosen:0, tighten:0, bestChanged:0, byBucket:{} };
-
 function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx, realVix = 18) {
   const afterD  = new Date(afterDate + 'T00:00:00');
 
@@ -1562,7 +1558,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dt
       // Skip if entry delta already exceeds threshold — we'd be re-entering same risk
       if (deltaThreshold > 0) {
         const candDTE   = Math.round((new Date(c.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
-        const candDelta = callDelta(currentSPY, c.strike, candDTE, 18, 4.5);
+        const candDelta = callDelta(currentSPY, c.strike, candDTE, realVix, 4.5); // v5.14.0 — real trigger-date VIX (was fixed 18); closes Parity Ledger P3
         if (candDelta >= deltaThreshold) {
           logDbg("  ✗ Skip " + c.expiry + " $" + c.strike + ": Δ=" + candDelta.toFixed(3) + " >= threshold " + deltaThreshold);
           continue;
@@ -1591,7 +1587,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dt
       const rawYield   = (netCredit / currentSPY) * (365 / dte) * 100;
       const dtePenalty = Math.min(1, dte / dtePenaltyAnchor);
       const adjYield   = rawYield * dtePenalty;
-      const candDelta_ = callDelta(currentSPY, c.strike, dte, 18, 4.5);
+      const candDelta_ = callDelta(currentSPY, c.strike, dte, realVix, 4.5); // v5.14.0 — display matches filter frame
       const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
       logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " net=$" + netCredit.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
 
@@ -1600,61 +1596,9 @@ function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dt
     if (debitSkips) logDbg("  ✗ " + exp + ": " + debitSkips + " debit candidate(s) skipped (net ≤ 0)"); // v5.4.2
   }
 
-  // v5.13.3 — P3 DIAGNOSTIC (measurement only, filtering UNCHANGED): shadow-
-  // evaluate the same candidate set with the filter delta at REAL trigger-date
-  // VIX (the trigger's frame) instead of fixed 18. Counts pass/fail flips among
-  // otherwise-viable candidates (OTM, not excluded, exact-date price, net>0)
-  // and whether the Best pick would change. Selection above is untouched.
-  // Per-event line via logDbg (auto-suppressed in OPT). Removed at v5.14.0
-  // when the real-VIX filter goes live.
-  _p3diag.rolls++;
-  if (deltaThreshold > 0) {
-    let flipLoosen = 0, flipTighten = 0;         // fail@18→pass@real / pass@18→fail@real
-    let bestRealC = null, bestRealYield = -Infinity;
-    for (const exp of allExp) {
-      for (const c of (_dmExpiryIndex[exp] || [])) {
-        if (c.strike <= currentSPY) continue;
-        if (excludeKey && (c.expiry + '_' + c.strike) === excludeKey) continue;
-        const dm2 = buildDayMap(c);
-        const entryDay2 = dm2[afterDate.trim().slice(0,10)];
-        if (!entryDay2) continue;
-        const px2 = entryDay2.vw || entryDay2.c;
-        if (!px2 || px2 <= 0) continue;
-        const dte2 = Math.round((new Date(exp+'T00:00:00') - afterD) / 86400000);
-        if (dte2 <= 0) continue;
-        const net2 = px2 - (buybackPx || 0);
-        if (net2 <= 0) continue;
-        // viable candidate — classify under both filter frames
-        const d18   = callDelta(currentSPY, c.strike, dte2, 18, 4.5);
-        const dReal = callDelta(currentSPY, c.strike, dte2, realVix, 4.5);
-        const pass18 = d18 < deltaThreshold, passReal = dReal < deltaThreshold;
-        if (!pass18 &&  passReal) flipLoosen++;
-        if ( pass18 && !passReal) flipTighten++;
-        if (passReal) {
-          const adj2 = (net2 / currentSPY) * (365 / dte2) * 100 * Math.min(1, dte2 / dtePenaltyAnchor);
-          if (adj2 > bestRealYield) { bestRealYield = adj2; bestRealC = c; }
-        }
-      }
-    }
-    const bestKey  = bestContract ? bestContract.expiry + '_' + bestContract.strike : null;
-    const bestRKey = bestRealC    ? bestRealC.expiry    + '_' + bestRealC.strike    : null;
-    const changed  = bestKey !== bestRKey;
-    _p3diag.loosen  += flipLoosen;
-    _p3diag.tighten += flipTighten;
-    if (changed) _p3diag.bestChanged++;
-    if (flipLoosen || flipTighten) {
-      _p3diag.rollsWithFlips++;
-      const vb = realVix < 14 ? '<14' : realVix < 18 ? '14-18' : realVix < 22 ? '18-22' : '>22';
-      _p3diag.byBucket[vb] = (_p3diag.byBucket[vb] || 0) + flipLoosen + flipTighten;
-      logDbg('  P3◇ ' + afterDate + ' VIX=' + realVix.toFixed(1)
-        + ' flips: fail@18→pass@real=' + flipLoosen + ' pass@18→fail@real=' + flipTighten
-        + (changed ? '  BEST CHANGED: ' + (bestKey || '—') + ' → ' + (bestRKey || '—') : ''));
-    }
-  }
-
   if (bestContract) {
     const bestDTE_   = Math.round((new Date(bestContract.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
-    const bestDelta_ = callDelta(currentSPY, bestContract.strike, bestDTE_, 18, 4.5);
+    const bestDelta_ = callDelta(currentSPY, bestContract.strike, bestDTE_, realVix, 4.5); // v5.14.0 — display matches filter frame
     const bestOTM_ = ((bestContract.strike - currentSPY) / currentSPY * 100).toFixed(1);
     logDbg("  → Best: " + bestContract.expiry + " $" + bestContract.strike + " (" + bestOTM_ + "% OTM) Δ=" + bestDelta_.toFixed(3) + " adj.yld=" + bestYield.toFixed(1) + "%");
     return bestContract;
@@ -1744,7 +1688,6 @@ async function simulate(p) {
   // by the pendingContract capture of a prior simulate() call — without this flush
   // a later run's OPEN row could inherit a previous run's entry price.
   Object.values(DM.options).forEach(c => { delete c.entryPx; delete c.entryDate; delete c.entrySPY; });
-  _p3diag = { rolls:0, rollsWithFlips:0, loosen:0, tighten:0, bestChanged:0, byBucket:{} }; // v5.13.3 — reset per run
 
   // Auto-select initExpiry: first expiry >= 30d after mart start
   const _martStart = DM.spy[0]?.date;
@@ -1782,7 +1725,7 @@ async function simulate(p) {
   // find the initial contract immediately so the log shows it upfront.
   let waitingForVIX = vixGate > 0;
   if (!waitingForVIX) {
-    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vixMap[startDate] || 18); // v5.13.3 — real VIX for P3 diag
+    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vixMap[startDate] || 18); // v5.14.0 — real trigger-date VIX feeds the candidate filter
     if (!curC) { logMsg('✗ No initial contract found', 'err'); return null; }
     buildDayMap(curC);
     const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
@@ -1844,7 +1787,7 @@ async function simulate(p) {
       if (waitingForVIX) {
         if (vixGate === 0 || vix >= vixGate) {
           // VIX has recovered (or initial entry) — find new contract via INTL yield optimizer
-          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vix); // v5.13.3 — real VIX for P3 diag
+          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vix); // v5.14.0 — real trigger-date VIX feeds the candidate filter
           if (reentryC) {
             curC = reentryC;
             waitingForVIX = false;
@@ -2046,7 +1989,7 @@ async function simulate(p) {
 
     // ── Find next contract ──
     const next = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor,
-      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx, vix); // v5.13.3 — real VIX for P3 diag
+      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx, vix); // v5.14.0 — real trigger-date VIX feeds the candidate filter
     if (!next) {
       // v5.4.2 — no net-credit candidate exists at current SPY level: hold
       // long SPY and re-scan daily via the recovery path (still VIX-gated).
@@ -2305,7 +2248,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.13.3 · SPY Covered Call Backtest');
+  logMsg('v5.14.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2340,7 +2283,6 @@ async function runSimulation() {
     logMsg(`  ${result.rolls.length} cycles · ${result.coreYld != null ? result.coreYld.toFixed(1) + '% core yield' : 'core yield n/a'} · ${result.coreSum != null ? '$' + Math.round(result.coreSum).toLocaleString() + ' core credit' : ''} · ${_wr}% win rate · ${_hStr} · OTM 1-5%=${_otmPct}% max=${_otmMax.toFixed(1)}%`, 'ok');
   }
   logHeadroomTable(result);  // v5.11.4 — headroom look, both STD paths
-  logP3DiagSummary();        // v5.13.3 — P3 diagnostic summary, both STD paths
   initAIAnalysis(result);
   
   
@@ -2426,18 +2368,6 @@ function headroomStats(cycles, deltaThreshold) {
   });
   if (!used) return null;
   return { buckets, used, total: (cycles || []).length };
-}
-
-// v5.13.3 — P3 diagnostic summary (STD only): what would the candidate filter
-// do at real trigger-date VIX instead of fixed 18? The pre-registered predictor
-// for the v5.14.0 real-VIX filter change. Removed with the shadow when it ships.
-function logP3DiagSummary() {
-  const d = _p3diag;
-  const bk = ['<14','14-18','18-22','>22'].map(b => b + ': ' + (d.byBucket[b] || 0)).join(' · ');
-  logMsg(`── P3 Diagnostic (candidate filter Δ @ VIX 18 vs real VIX — measurement only, filtering unchanged) ──`, '');
-  logMsg(`  roll evaluations: ${d.rolls} · with flips: ${d.rollsWithFlips} · candidate flips: fail@18→pass@real ${d.loosen} · pass@18→fail@real ${d.tighten}`, '');
-  logMsg(`  Best-pick changes under real-VIX filter: ${d.bestChanged}`, '');
-  logMsg(`  flips by real-VIX bucket — ${bk}`, '');
 }
 
 function logHeadroomTable(result) {
