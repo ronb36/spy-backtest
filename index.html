@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.11.4</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.12.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -458,6 +458,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.12.0 · SCORER REPLACEMENT (SIM CHANGE) — adjYield (annualized net credit × anchor penalty) replaced by expected kept credit per cycle: score = (1−P_stop)·D − P_stop·C, with D = TV × BS-decay ratio over an 8-calendar-day horizon (S29-measured global hold), P_stop = running-max probability of the SPY move reaching the delta stop within the horizon, C = premium give-back to the stop net of decay en route. Headroom cadence GATE: candidates require ≥1.0σ (H-horizon vol units) of delta headroom — near-certain-stop picks cycle every 1–2 days (rejected cadence, unpriced spread friction). dtePenaltyAnchor RETIRED from scoring (param accepted, inert). Scan parity fixes: OTM-only filter added (sim always had it; the scan’s −3% band advised ITM “Best” picks the sim never makes — S30 finding), gamma added to snapshots, scan ranks by the same score (live Polygon greeks frame), table “Ann. Yield” → “Score $/sh (· Hσ)”. Legacy Δ-threshold prefilter keeps its vix=18 convention (candidate-set parity; only ranking changed). Two-cell paper test passed on live 7/18 quotes (old ★ ITM → rank #7; new #1 $770C 11/20). Pre-registered: rolls &lt;80 (vs 157), entry Δ 0.38–0.50, hold ×3 off the 4d floor, win rate &gt;55%, core yield honestly unknown.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.4 · Headroom look (DISPLAY ONLY) — per-cycle entry Δ-headroom in weekly-σ units ((Δthres − entryΔ)/Γ ÷ entrySPY·VIX/√52), bucketed outcome table (n, Δstop%, win%, hold, meanΔin, meanP&L) in every STD log. Pre-build falsification test for the P_stop scorer theory: headroomσ must predict delta-stop frequency and win rate, and add information beyond raw entry delta (meanΔin confound column). BS gamma added (callGamma) — display path only. Pure post-hoc aggregation of existing cycle records; no sim change.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.3 · Hold-time look (DISPLAY ONLY) — mean hold ratio (daysHeld / DTE-at-entry, closed cycles) and mean hold days added per cell to the OPT results log table and to the non-debug STD summary line. Measurement-first step for the candidate-scorer horizon question (S27 realized-yield-scorer item, reopened by the decay=5 regime finding): look at actual hold horizons before any scorer redesign. No sim change; aggregation of existing cycle records.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.5.1 · Position-level P&L diagnostics (DISPLAY ONLY) — per-position P&L line at each cycle close; end-of-run attribution table by closing trigger (n · total · avg · win% · hold · entry Δ/DTE) with identity check vs headline credit; roll event cash-flow ledger retitled to clarify each line pairs the closed leg's cover with the NEXT leg's sell (telescopes to total; not per-position P&L)</span>
@@ -1479,6 +1480,51 @@ function callGamma(S, K, dte, vix, tnx) {
   const pdfUsed = Math.exp(-d1*d1) / Math.sqrt(Math.PI);
   return pdfUsed / (S * sig * Math.sqrt(T));
 }
+
+// ── v5.12.0 SCORER — expected kept credit per cycle ($/sh) ─────────────────
+// Replaces adjYield (annualized-credit horse race over a horizon the position
+// never held — S29 measured hold ≈ 4-7% of DTE in every regime). Derivation
+// and paper test: Session 30. score = (1−P_stop)·D − P_stop·C where
+//   D  = TV × (1 − TVbs(dte−H)/TVbs(dte))   decay captured over H if unstopped
+//   Hd = (Δthres − Δ)/Γ                      $ of SPY move to the delta stop
+//   P  = min(1, 2·(1−Φ(Hd/σ_H)))             running-max prob of hitting stop
+//   C  = max(0, Δ̄·Hd − D/2)                  premium give-back to the stop
+// Cadence gate (constraint, not objective): candidates need Hσ ≥ HEADROOM_MIN
+// weekly-vol-scaled sigmas of breathing room — near-certain-stop picks cycle
+// every 1-2 days regardless of per-cycle EV (rejected cadence + unpriced
+// spread friction). dtePenaltyAnchor is RETIRED from scoring (param inert).
+const SCORER_H_CAL  = 8;    // scoring horizon, calendar days (~6 trading)
+const HEADROOM_MIN  = 1.0;  // cadence gate, in σ_H units
+
+function phiTrue(x) { return normalCDF(x / Math.SQRT2); } // true normal CDF
+function bsCallTrue(S, K, dteDays, vix, tnx) {
+  const T = Math.max(dteDays, 0.5) / 365;
+  const sig = Math.max((vix || 15), 5) / 100;
+  const r = (tnx || 4.5) / 100;
+  const d1 = (Math.log(S/K) + (r + .5*sig*sig)*T) / (sig*Math.sqrt(T));
+  const d2 = d1 - sig*Math.sqrt(T);
+  return S * phiTrue(d1) - K * Math.exp(-r*T) * phiTrue(d2);
+}
+// Pure scorer: caller supplies delta+gamma in the SAME frame the delta stop
+// will fire in (sim: erf-frame BS at trigger-date VIX; scan: Polygon market).
+// tv = candidate time value ($; callers enforce OTM so price = tv).
+function scoreCandidate(K, tv, dteDays, delta, gamma, S, vix, deltaThreshold) {
+  if (!(tv > 0) || !(gamma > 0) || dteDays <= SCORER_H_CAL || !(S > 0)) return null;
+  // Decay shape from true-BS TV ratio, anchored to the MARKET tv
+  const tv0 = bsCallTrue(S, K, dteDays, vix, 4.5);
+  const tv1 = bsCallTrue(S, K, dteDays - SCORER_H_CAL, vix, 4.5);
+  if (!(tv0 > 0)) return null;
+  const D = tv * (1 - tv1 / tv0);
+  // Headroom to the delta stop, in $ and in H-horizon sigmas
+  const Hd = (deltaThreshold - delta) / gamma;
+  if (!(Hd > 0)) return null; // at/over threshold — caller's prefilter should catch
+  const sigH = S * (Math.max(vix || 15, 5) / 100) * Math.sqrt(SCORER_H_CAL / 365);
+  const Hsig = Hd / sigH;
+  const P = Math.min(1, 2 * (1 - phiTrue(Hd / sigH)));
+  const C = Math.max(0, ((delta + deltaThreshold) / 2) * Hd - D / 2);
+  const score = (1 - P) * D - P * C;
+  return { D, Hd, Hsig, P, C, score };
+}
 function calcMaxDD(vals) {
   let peak = -Infinity, dd = 0;
   for (const v of vals) { if (v > peak) peak = v; if (peak-v > dd) dd = peak-v; }
@@ -1521,7 +1567,7 @@ function getMartExpiries() {
 
 // Find best contract to roll into: yield-maximizing across all candidates
 // Yield = (entryPremium / SPY) * (365 / DTE) — highest annualized yield wins
-function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx) {
+function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx, vixNow) {
   const afterD  = new Date(afterDate + 'T00:00:00');
 
   // No DTE Max hard gate — dtePenaltyAnchor shapes the scoring curve instead.
@@ -1545,6 +1591,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dt
     }
 
     let debitSkips = 0; // v5.4.2 — debit candidates counted, summarized per expiry
+    let gateSkips  = 0; // v5.12.0 — headroom-gate skips, summarized per expiry
 
     for (const c of expContracts) {
       if (c.strike <= currentSPY) continue; // must be OTM
@@ -1571,31 +1618,43 @@ function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dt
       const dte = Math.round((new Date(exp+'T00:00:00') - afterD) / 86400000);
       if (dte <= 0) continue;
 
-      // Roll yield = (new premium - buyback) / SPY × 365/DTE
-      const netCredit  = entryPx - (buybackPx || 0);
       // v5.4.2 — net-credit filter (Model Rules §3.3): debit rolls are never
-      // executed. "Sell into strength, never weakness" — if no credit exists
-      // anywhere, the caller holds long SPY and re-scans daily. (Previously:
-      // "debit rolls allowed, negative yield sorts them below credit rolls" —
-      // which meant forced situations executed the least-bad debit.)
+      // executed. "Sell into strength, never weakness."
+      const netCredit  = entryPx - (buybackPx || 0);
       if (netCredit <= 0) { debitSkips++; continue; }
-      const rawYield   = (netCredit / currentSPY) * (365 / dte) * 100;
-      const dtePenalty = Math.min(1, dte / dtePenaltyAnchor);
-      const adjYield   = rawYield * dtePenalty;
-      const candDelta_ = callDelta(currentSPY, c.strike, dte, 18, 4.5);
-      const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
-      logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " net=$" + netCredit.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
 
-      if (adjYield > bestYield) { bestYield = adjYield; bestContract = c; }
+      // ── v5.12.0 scorer: expected kept credit per cycle ──────────────────
+      // Candidate delta/gamma in the TRIGGER's frame: erf-convention BS at
+      // trigger-date VIX (the stop at line ~1875 fires on callDelta(spy,K,
+      // dte,vix,TNX)). The legacy Δ-threshold prefilter above deliberately
+      // keeps its historical vix=18 convention — candidate-set parity with
+      // v5.11.x; only the RANKING changes in this release.
+      const _T   = Math.max(dte, 1) / 365;
+      const _sig = Math.max((vixNow || 15), 5) / 100;
+      const _d1  = (Math.log(currentSPY / c.strike) + (0.045 + .5*_sig*_sig)*_T) / (_sig*Math.sqrt(_T));
+      const scDelta = normalCDF(_d1);
+      const scGamma = Math.exp(-_d1*_d1) / Math.sqrt(Math.PI) / (currentSPY * _sig * Math.sqrt(_T));
+      const sc = scoreCandidate(c.strike, entryPx, dte, scDelta, scGamma, currentSPY, vixNow, deltaThreshold);
+      if (!sc) { gateSkips++; continue; }
+      if (sc.Hsig < HEADROOM_MIN) {
+        gateSkips++;
+        logDbg("  ✗ Skip " + exp + " $" + c.strike + ": headroom " + sc.Hsig.toFixed(2) + "σ < " + HEADROOM_MIN.toFixed(1) + "σ gate");
+        continue;
+      }
+      const candOTM_ = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
+      logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " net=$" + netCredit.toFixed(2) + " DTE=" + dte + " Δ=" + scDelta.toFixed(3) + " D=$" + sc.D.toFixed(2) + " Hσ=" + sc.Hsig.toFixed(2) + " P=" + (sc.P*100).toFixed(0) + "% score=$" + sc.score.toFixed(2));
+
+      if (sc.score > bestYield) { bestYield = sc.score; bestContract = c; }
     }
     if (debitSkips) logDbg("  ✗ " + exp + ": " + debitSkips + " debit candidate(s) skipped (net ≤ 0)"); // v5.4.2
+    if (gateSkips)  logDbg("  ✗ " + exp + ": " + gateSkips + " candidate(s) below " + HEADROOM_MIN.toFixed(1) + "σ headroom gate"); // v5.12.0
   }
 
   if (bestContract) {
     const bestDTE_   = Math.round((new Date(bestContract.expiry+'T00:00:00') - new Date(afterDate+'T00:00:00')) / 86400000);
     const bestDelta_ = callDelta(currentSPY, bestContract.strike, bestDTE_, 18, 4.5);
     const bestOTM_ = ((bestContract.strike - currentSPY) / currentSPY * 100).toFixed(1);
-    logDbg("  → Best: " + bestContract.expiry + " $" + bestContract.strike + " (" + bestOTM_ + "% OTM) Δ=" + bestDelta_.toFixed(3) + " adj.yld=" + bestYield.toFixed(1) + "%");
+    logDbg("  → Best: " + bestContract.expiry + " $" + bestContract.strike + " (" + bestOTM_ + "% OTM) Δ=" + bestDelta_.toFixed(3) + " score=$" + bestYield.toFixed(2) + "/sh kept");
     return bestContract;
   }
   return null;
@@ -1720,7 +1779,7 @@ async function simulate(p) {
   // find the initial contract immediately so the log shows it upfront.
   let waitingForVIX = vixGate > 0;
   if (!waitingForVIX) {
-    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0);
+    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vixMap[startDate] || 18);
     if (!curC) { logMsg('✗ No initial contract found', 'err'); return null; }
     buildDayMap(curC);
     const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
@@ -1782,7 +1841,7 @@ async function simulate(p) {
       if (waitingForVIX) {
         if (vixGate === 0 || vix >= vixGate) {
           // VIX has recovered (or initial entry) — find new contract via INTL yield optimizer
-          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0);
+          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vix);
           if (reentryC) {
             curC = reentryC;
             waitingForVIX = false;
@@ -1984,7 +2043,7 @@ async function simulate(p) {
 
     // ── Find next contract ──
     const next = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor,
-      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx);
+      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx, vix);
     if (!next) {
       // v5.4.2 — no net-credit candidate exists at current SPY level: hold
       // long SPY and re-scan daily via the recovery path (still VIX-gated).
@@ -2243,7 +2302,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.11.4 · SPY Covered Call Backtest');
+  logMsg('v5.12.0 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3724,6 +3783,7 @@ async function fetchContractSnapshot(expiryISO, strike, polygonKey) {
     if (mid <= 0) return null;
     return { strike, expiryISO, mid,
       delta: r.greeks && r.greeks.delta || null,
+      gamma: r.greeks && r.greeks.gamma || null,
       theta: r.greeks && r.greeks.theta || null,
       iv:    r.implied_volatility || null,
       oi:    r.open_interest || 0 };
@@ -3871,8 +3931,15 @@ async function runRollScan() {
     return;
   }
 
-  // Filter: net credit > 0 AND delta ≤ threshold — same gates as OPT
-  // v5.2.0 — dtePenalty added: identical scoring to findNextContract
+  // v5.12.0 — Filter: net credit > 0 AND delta ≤ threshold AND OTM (strike >
+  // SPY — restores parity with findNextContract, which has always excluded
+  // ITM; the scan's -3% band lacked the filter and advised ITM "Best" picks
+  // the sim never makes) AND headroom ≥ HEADROOM_MIN σ (cadence gate).
+  // Ranking: expected kept credit per cycle (scoreCandidate), replacing
+  // adjYield. Delta/gamma: live Polygon greeks (the honest market frame);
+  // gamma falls back to erf-frame BS from live inputs when absent.
+  const _vixRow  = (DM && DM.vix && DM.vix.length) ? DM.vix[DM.vix.length - 1] : null;
+  const scanVix  = _vixRow ? _vixRow.c : 16;
   const scored = results.map(r => {
     const netCredit    = currentCallMid > 0 ? r.mid - currentCallMid : r.mid;
     const dtePenalty   = Math.min(1, r.dte / anchor);
@@ -3880,10 +3947,19 @@ async function runRollScan() {
     const otmPct       = ((r.strike - spyNow) / spyNow) * 100;
     const delta        = r.delta !== null ? Math.abs(r.delta) : 0.30;
     const deltaOk      = delta <= deltaThres;
-    return Object.assign({}, r, { netCredit, rollAdjYield, otmPct, delta, deltaOk });
+    const isOTM        = r.strike > spyNow;
+    let gamma = r.gamma !== null && r.gamma > 0 ? r.gamma : null;
+    if (!gamma) {
+      const _T = Math.max(r.dte, 1)/365, _s = Math.max(scanVix, 5)/100;
+      const _d1 = (Math.log(spyNow/r.strike) + (0.045 + .5*_s*_s)*_T)/(_s*Math.sqrt(_T));
+      gamma = Math.exp(-_d1*_d1)/Math.sqrt(Math.PI)/(spyNow*_s*Math.sqrt(_T));
+    }
+    const sc = isOTM ? scoreCandidate(r.strike, r.mid, r.dte, delta, gamma, spyNow, scanVix, deltaThres) : null;
+    return Object.assign({}, r, { netCredit, rollAdjYield, otmPct, delta, deltaOk, isOTM,
+      score: sc ? sc.score : null, hSig: sc ? sc.Hsig : null, pStop: sc ? sc.P : null, dCap: sc ? sc.D : null });
   })
-  .filter(r => r.netCredit > 0 && r.deltaOk)
-  .sort((a,b) => b.rollAdjYield - a.rollAdjYield);
+  .filter(r => r.netCredit > 0 && r.deltaOk && r.isOTM && r.score !== null && r.hSig >= HEADROOM_MIN)
+  .sort((a,b) => b.score - a.score);
 
   // ── Data edge check on best candidate ────────────────────────────────
   const edgeWarnings = [];
@@ -3954,21 +4030,27 @@ async function runRollScan() {
     const strikeEdge = sIdx === 0 ? ' ⚠ strike-floor' : sIdx === allStrikesExp.length - 1 ? ' ⚠ strike-ceil' : '';
 
     if (scoredKeys.has(key)) {
-      // PASS — qualifying candidate (v5.2.0 — same formula as table: spyNow + dtePenalty)
-      const adjYield = (netCredit / spyNow) * (365 / r.dte) * 100 * Math.min(1, r.dte / anchor);
+      // PASS — v5.12.0: expected kept credit per cycle + gate diagnostics
+      const sr = scored.find(x => x.exp === r.exp && x.strike === r.strike);
       const isBest = scored.length > 0 && r.exp === scored[0].exp && r.strike === scored[0].strike;
       logMsg('    $' + r.strike + 'C — PASS: net +$' + netCredit.toFixed(2) +
-        ' | ' + adjYield.toFixed(1) + '% adj.yield | Δ ' + delta.toFixed(3) +
-        ' | ' + otmPct + '% OTM' + strikeEdge + (isBest ? ' ★ best' : ''), 'ok');
+        ' | score $' + sr.score.toFixed(2) + '/sh | H ' + sr.hSig.toFixed(2) + 'σ | Pstop ' + (sr.pStop*100).toFixed(0) + '%' +
+        ' | Δ ' + delta.toFixed(3) + ' | ' + otmPct + '% OTM' + strikeEdge + (isBest ? ' ★ best' : ''), 'ok');
     } else {
-      // SKIP — determine reason (data filtering only, not delta threshold)
+      // SKIP — v5.12.0 reasons: ITM parity filter and headroom gate added
       let skipReason = '';
-      if (delta > deltaThres) {
+      if (r.strike <= spyNow) {
+        skipReason = 'ITM (' + otmPct + '% OTM) — sim never sells ITM (parity, v5.12.0)';
+      } else if (delta > deltaThres) {
         skipReason = 'Δ ' + delta.toFixed(3) + ' > ' + deltaThres.toFixed(3);
       } else if (netCredit <= 0) {
         skipReason = 'net debit $' + netCredit.toFixed(2);
       } else {
-        skipReason = 'score=0';
+        const _g = (typeof r.gamma === 'number' && r.gamma > 0) ? r.gamma : null;
+        const _sc = _g ? scoreCandidate(r.strike, r.mid, r.dte, delta, _g, spyNow, scanVix, deltaThres) : null;
+        skipReason = _sc && _sc.Hsig < HEADROOM_MIN
+          ? 'headroom ' + _sc.Hsig.toFixed(2) + 'σ < ' + HEADROOM_MIN.toFixed(1) + 'σ gate'
+          : 'headroom gate / dte ≤ ' + SCORER_H_CAL + 'd';
       }
       logMsg('    $' + r.strike + 'C — SKIP: ' + skipReason + strikeEdge, 'dbg');
     }
@@ -4072,7 +4154,7 @@ async function runRollScan() {
   if (best) {
     logMsg('  ★ Best: $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2) +
       ' | Net +$' + best.netCredit.toFixed(2) +
-      ' | ' + best.rollAdjYield.toFixed(1) + '% adj.yield | Δ ' + best.delta.toFixed(3), 'ok');
+      ' | score $' + best.score.toFixed(2) + '/sh kept | H ' + best.hSig.toFixed(2) + 'σ | Δ ' + best.delta.toFixed(3), 'ok');
   }
 
   if (mainBtn && mainCard) {
@@ -4113,7 +4195,7 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     + (hasCoverPrice ? 'Cover $' + currentCallMid.toFixed(2) + ' | ' : '')
     + 'Sell $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2)
     + ' | +$' + best.netCredit.toFixed(2) + '/sh net credit'
-    + ' | ' + best.rollAdjYield.toFixed(1) + '% adj.yield'
+    + ' | score $' + best.score.toFixed(2) + '/sh kept'
     + ' | ' + best.otmPct.toFixed(1) + '% OTM | \u0394 ' + best.delta.toFixed(3)
     + (best.oi ? ' | OI ' + best.oi.toLocaleString() : '')
     + '</div>';
@@ -4143,7 +4225,7 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     + '<th>Cover</th>'
     + '<th>Sell</th>'
     + '<th>Net Credit</th>'
-    + '<th>Ann. Yield</th>'
+    + '<th>Score $/sh</th>'
     + '<th>Trigger</th>'
     + '<th>Edge</th>'
     + '<th></th>'
@@ -4153,9 +4235,9 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     const isTop    = i === 0;
     const rowClass = isTop ? 'best-row' : '';
     const badge    = isTop ? '<span class="best-badge">BEST</span>' : '';
-    const yldClass = r.rollAdjYield >= 3 ? 'green' : r.rollAdjYield >= 1 ? 'yellow' : 'muted';
+    const yldClass = r.score >= 0.5 ? 'green' : r.score >= 0 ? 'yellow' : 'muted';  // v5.12.0 — expected kept credit
     const creditDisp = hasCoverPrice ? '+$' + r.netCredit.toFixed(2) : '\u2014';
-    const yldDisp    = r.rollAdjYield.toFixed(1) + '%';
+    const yldDisp    = (r.score >= 0 ? '+' : '') + '$' + r.score.toFixed(2) + ' · ' + r.hSig.toFixed(1) + '\u03c3';
 
     // Contextual trigger — show all triggers with spelled-out labels
     const triggers = [];
