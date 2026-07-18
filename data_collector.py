@@ -1,6 +1,22 @@
 """
-SPY Backtest Data Collector — v2.3.2 (Supabase)
+SPY Backtest Data Collector — v2.3.3 (Supabase)
 =================================================
+v2.3.3 — Audit/report correctness (no data-path changes):
+(1) Phantom filter: audit phantom check restricted to the fetch window
+(date >= start). Pre-window archival rows (2024-07-08→16, permanently
+unauditable under the 2-yr Polygon license) no longer flag as phantoms
+every night — the 7+7 "phantoms" in v2.3.2 runs were these false
+positives.
+(2) Materiality split: SPY mismatch fixes classified vol-only vs price
+(o/h/l/c); audit summary now reads e.g. "SPY 6 fixed (6 vol-only)".
+Price fixes are the sim-relevant signal; vol-only is restatement noise.
+(3) Push integrity line: explicit nightly health verdict — ✓ when
+option_days watermark equals the latest SPY day, ⚠ OPT STALE otherwise
+(the S28 staleness class, now self-announcing).
+(4) Expiry-universe count fix: log line printed overlapping lists
+("130 = 30 monthly + 130 weekly"); now deduped ("30 monthly + 100
+weekly-only").
+
 v2.3.2 — SPY/VIX/ES overlap re-fetch + full-window audit:
 (1) Overlap re-fetch: Phase 1 (SPY/VIX) and Phase 1.5 (ES) now always
 re-upsert the last OVERLAP_DAYS calendar days instead of a pure
@@ -56,7 +72,7 @@ from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 
-COLLECTOR_VERSION = "2.3.2"
+COLLECTOR_VERSION = "2.3.3"
 
 # ── Credentials ────────────────────────────────────────────────────────────
 POLYGON_KEY   = os.environ["POLYGON_KEY"]
@@ -335,6 +351,7 @@ def audit_spy_vix(start, end):
     official = fetch_aggs("SPY", start, end)
     time.sleep(CALL_DELAY)
     spy_fix, spy_add, spy_official_dates = [], [], set()
+    spy_vol_only, spy_price_fix = 0, 0  # v2.3.3 materiality split
     for r in official:
         dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
         spy_official_dates.add(dt)
@@ -345,12 +362,18 @@ def audit_spy_vix(start, end):
             spy_add.append(row)
             log(f"  AUDIT SPY {dt}: MISSING in DM — adding (c={r['c']})")
         else:
-            diffs = [f"{k} {dm.get(k)}→{row[k]}" for k in ("o", "h", "l", "c", "v")
-                     if _num_ne(dm.get(k), row[k])]
-            if diffs:
+            diff_keys = [k for k in ("o", "h", "l", "c", "v")
+                         if _num_ne(dm.get(k), row[k])]
+            if diff_keys:
+                diffs = [f"{k} {dm.get(k)}→{row[k]}" for k in diff_keys]
                 spy_fix.append(row)
+                # v2.3.3 materiality: vol-only restatements vs price fixes
+                if diff_keys == ["v"]:
+                    spy_vol_only += 1
+                else:
+                    spy_price_fix += 1
                 log(f"  AUDIT SPY {dt}: MISMATCH — " + " · ".join(diffs))
-    spy_phantom = sorted(d for d in dm_spy if d not in spy_official_dates)
+    spy_phantom = sorted(d for d in dm_spy if d not in spy_official_dates and d >= start)
     for d in spy_phantom:
         log(f"  AUDIT SPY {d}: PHANTOM — in DM but not in official aggs (not deleted)")
     if spy_fix or spy_add:
@@ -372,13 +395,15 @@ def audit_spy_vix(start, end):
         elif _num_ne(dm.get("c"), row["c"], tol=0.005):
             vix_fix.append(row)
             log(f"  AUDIT VIX {dt}: MISMATCH — c {dm.get('c')}→{row['c']}")
-    vix_phantom = sorted(d for d in dm_vix if d not in vix_official_dates)
+    vix_phantom = sorted(d for d in dm_vix if d not in vix_official_dates and d >= start)
     for d in vix_phantom:
         log(f"  AUDIT VIX {d}: PHANTOM — in DM but not in official aggs (not deleted)")
     if vix_fix or vix_add:
         sb_upsert("vix_daily", vix_fix + vix_add)
 
-    summary = (f"AUDIT: SPY {len(spy_fix)} fixed · {len(spy_add)} added · "
+    spy_split = (f" ({spy_vol_only} vol-only, {spy_price_fix} price)"
+                 if spy_fix else "")
+    summary = (f"AUDIT: SPY {len(spy_fix)} fixed{spy_split} · {len(spy_add)} added · "
                f"{len(spy_phantom)} phantom | VIX {len(vix_fix)} fixed · "
                f"{len(vix_add)} added · {len(vix_phantom)} phantom")
     log(f"  ✓ {summary}")
@@ -500,7 +525,7 @@ def inspect_and_fill(start, end):
     all_expiries     = sorted(set(monthly_expiries + weekly_expiries))
     monthly_set      = set(monthly_expiries)
 
-    log(f"  Expiry universe: {len(all_expiries)} ({len(monthly_expiries)} monthly + {len(weekly_expiries)} weekly)")
+    log(f"  Expiry universe: {len(all_expiries)} ({len(monthly_set)} monthly + {len(all_expiries) - len(monthly_set & set(all_expiries))} weekly-only)")
     log(f"  Existing tickers: {len(existing_tickers)}")
 
     filled    = 0
@@ -741,11 +766,19 @@ if __name__ == "__main__":
     spy_count = len(spy_dates)
     log(f"Done — {spy_count} SPY days, {opt_count} contracts")
 
+    # v2.3.3 — explicit nightly health verdict: option bars current with SPY?
+    spy_latest = max(spy_dates) if spy_dates else None
+    if spy_latest and opt_last == spy_latest:
+        integrity_line = f"✓ Integrity: OPT current through {opt_last}"
+    else:
+        integrity_line = f"⚠ OPT STALE: {opt_last or '—'} < SPY {spy_latest or '—'}"
+
     push_body = (
-        f"SPY {spy_count} days → {max(spy_dates) if spy_dates else '—'}\n"
+        f"SPY {spy_count} days → {spy_latest or '—'}\n"
         f"VIX {len(vix_dates)} days → {max(vix_dates) if vix_dates else '—'}\n"
         f"ES  {len(es_dates)} days → {max(es_dates) if es_dates else '—'}\n"
         f"OPT {opt_days} days → {opt_last or '—'}\n"
+        f"{integrity_line}\n"
         f"\n"
         f"Options:\n"
         f"{opt_count:,} contracts · {len(expiries)} expiries · {opt_bars:,} bars\n"
