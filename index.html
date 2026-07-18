@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.14.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.14.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -458,6 +458,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.14.2 · Scan sim-frame delta filter (SCAN ONLY, sim untouched) — closes Parity Ledger P2: the scan&rsquo;s candidate delta filter now tests the sim-frame delta (erf-convention CDF, DM-latest real VIX, TNX 4.5 — the identical frame findNextContract filters in since v5.14.0) instead of the Polygon market delta, with strict &lt; matching the sim&rsquo;s &ge;-threshold skip. Candidate policy is now frame-identical between sim and scan; market delta remains on every PASS line as display reference. SKIP reasons report the sim-frame delta actually tested, with market delta in parentheses. Near-ATM effect: sim delta reads higher than market, so borderline near-ATM candidates that previously passed on market delta are now excluded — consistent with what the sim would do.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.14.1 · Blotter win-rate reconciliation (DISPLAY ONLY, sim untouched) — the S31 three-definition audit: headline Win Rate counts cycles with positive P&L, the sim blotter colored rows by roll spread credit (positive by construction except no-credit re-entries), and the live blotter counts Fidelity roll credits — one label, three metrics. Fixes: (1) stat-card sub-label now says what the number is (&ldquo;Cycles with positive P&L&rdquo;); (2) new Cycle P&L column in the roll cycle log — the closed cycle&rsquo;s realized leg P&L on every row type, making the headline win rate directly countable in the table; (3) gap-hold labels are honest: &ldquo;VIX gate&rdquo; only when a gate is set, otherwise &ldquo;no credit candidate — held long&rdquo; (with gate 0 those holds were mislabeled); (4) Ann Yield suppressed (&mdash;) on re-entry rows — annualizing a one-time give-back over the new leg&rsquo;s DTE produced meaningless −25/−47% figures (same horizon fiction as the S29 scorer finding). Renderer-only: runs after simulate() returns; log identical to v5.14.0 except the version header.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.14.0 · Real-VIX candidate filter (SIM CHANGE) — findNextContract&rsquo;s delta filter now computes the candidate delta at real trigger-date VIX instead of fixed VIX 18, matching the trigger&rsquo;s frame (erf-convention CDF and TNX 4.5 unchanged — the √2 frame migration remains Option B). Closes Parity Ledger P3 (sim internal filter-vs-trigger VIX inconsistency, S30). Candidate and Best log-line deltas display the same real-VIX frame the filter uses. The v5.13.3 shadow diagnostic is removed — its measured prediction for this change: 208 roll evaluations, 52 with flips (loosen 24 / tighten 43 — tighten dominates at LOW VIX because borderline candidates are long-DTE forward-ITM via the r·T drift, inverting spot-OTM vega intuition), 29 single-step Best-pick changes, first divergence 2024-07-16 (roll 2) — a RE-BASELINE event, not a tweak. NEW CERTIFIED BASELINE set by this release&rsquo;s STD run at published params.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.13.3 · P3 diagnostic (MEASUREMENT ONLY, filtering unchanged) — findNextContract shadow-evaluates every roll&rsquo;s candidate set with the filter delta at real trigger-date VIX (the trigger&rsquo;s frame; Model Rules §3.3 known internal inconsistency) alongside the live fixed-VIX-18 filter. STD log gains per-event flip lines (P3◇ — only when a candidate pass/fail flips or the Best pick would change) and an end-of-run summary: roll evaluations, flips each direction, Best-pick changes, flips by real-VIX bucket. Selection, scoring, and all sim behavior identical to v5.13.2 (cert: sim lines md5-identical; diff = diagnostic lines only). The summary is the pre-registered predictor for the v5.14.0 real-VIX filter change; shadow removed when that ships. OPT unaffected (logDbg suppression + STD-only summary).</span>
@@ -2249,7 +2250,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.14.1 · SPY Covered Call Backtest');
+  logMsg('v5.14.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3921,6 +3922,9 @@ async function runRollScan() {
   // callDelta convention, real DM-latest VIX, TNX 4.5) beside the live
   // Polygon delta. Display-only measurement of the frame transform (Step 1
   // of the delta-calibration plan); ALL filters still use market delta.
+  // v5.14.2 — P2 CLOSED: the delta filter below now uses deltaSim (sim
+  // frame), completing candidate-policy parity with findNextContract.
+  // The v5.13.1 sentence above is superseded; market delta is display-only.
   const _vixRows = (DM && DM.vix && DM.vix.length) ? DM.vix : null;
   const scanVix  = _vixRows ? _vixRows[_vixRows.length - 1].c : 16;
   const scored = results.map(r => {
@@ -3930,7 +3934,11 @@ async function runRollScan() {
     const otmPct       = ((r.strike - spyNow) / spyNow) * 100;
     const delta        = r.delta !== null ? Math.abs(r.delta) : 0.30;
     const deltaSim     = callDelta(spyNow, r.strike, r.dte, scanVix, 4.5);
-    const deltaOk      = delta <= deltaThres;
+    // v5.14.2 — P2 parity: filter on the SIM-FRAME delta (erf CDF, DM-latest
+    // real VIX, TNX 4.5) — the same frame findNextContract filters in since
+    // v5.14.0. Strict < matches the sim's `>= threshold → skip`. Market delta
+    // remains display reference only.
+    const deltaOk      = deltaSim < deltaThres;
     const isOTM        = r.strike > spyNow;
     return Object.assign({}, r, { netCredit, rollAdjYield, otmPct, delta, deltaSim, deltaOk, isOTM });
   })
@@ -4004,12 +4012,12 @@ async function runRollScan() {
     const allStrikesExp = dmStrikesPerExpiry[r.exp] || [];
     const sIdx = allStrikesExp.indexOf(r.strike);
     const strikeEdge = sIdx === 0 ? ' ⚠ strike-floor' : sIdx === allStrikesExp.length - 1 ? ' ⚠ strike-ceil' : '';
+    const _dSim = callDelta(spyNow, r.strike, r.dte, scanVix, 4.5); // v5.14.2 — needed in PASS and SKIP branches
 
     if (scoredKeys.has(key)) {
       // PASS — qualifying candidate (v5.2.0 — same formula as table: spyNow + dtePenalty)
       const adjYield = (netCredit / spyNow) * (365 / r.dte) * 100 * Math.min(1, r.dte / anchor);
       const isBest = scored.length > 0 && r.exp === scored[0].exp && r.strike === scored[0].strike;
-      const _dSim = callDelta(spyNow, r.strike, r.dte, scanVix, 4.5);
       logMsg('    $' + r.strike + 'C — PASS: net +$' + netCredit.toFixed(2) +
         ' | ' + adjYield.toFixed(1) + '% adj.yield | Δ ' + delta.toFixed(3) +
         ' (sim ' + _dSim.toFixed(3) + ') | ' + otmPct + '% OTM' + strikeEdge + (isBest ? ' ★ best' : ''), 'ok');
@@ -4018,8 +4026,8 @@ async function runRollScan() {
       let skipReason = '';
       if (r.strike <= spyNow) {
         skipReason = 'ITM (' + otmPct + '% OTM) — sim never sells ITM (parity, v5.13.0)';
-      } else if (delta > deltaThres) {
-        skipReason = 'Δ ' + delta.toFixed(3) + ' > ' + deltaThres.toFixed(3);
+      } else if (_dSim >= deltaThres) {
+        skipReason = 'Δsim ' + _dSim.toFixed(3) + ' ≥ ' + deltaThres.toFixed(3) + ' (mkt ' + delta.toFixed(3) + ') — sim-frame filter, v5.14.2';
       } else if (netCredit <= 0) {
         skipReason = 'net debit $' + netCredit.toFixed(2);
       } else {
