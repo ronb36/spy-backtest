@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.12.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.12.1</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);" title="v5.12.1 — headroom cadence gate (weekly-vol σ). Candidates need at least this much delta-headroom. Lower = closer strikes, faster cycles.">H≥<input id="headroom-min" type="number" step="0.25" min="0" max="3" value="1.0" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:1px 3px;">σ</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -458,6 +458,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.12.1 · Headroom gate as a parameter + boundary fix (DISPLAY/PARAM ONLY — default behavior identical to v5.12.0) — (1) HEADROOM_MIN exposed as the H≥σ header input (default 1.0), threaded through STD params, OPT grid, and the winner re-run; recorded per-row and printed in the OPT results table. The gate is the cadence dial: lower → closer strikes, more theta/VRP, faster cycles — never swept before S30. (2) Sweep-boundary analysis silently skipped whenever the winning cell was ≤ 0 (ratio-based classify); now difference-based (hot ≤ 0.4pt gap, warm ≤ 1.2pt) so negative-surface sweeps get edge verdicts — the v5.12.0 147-cell run had its decay=35 ceiling winner go unflagged. (3) Anchor labeled (inert) in the run banner.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.12.0 · SCORER REPLACEMENT (SIM CHANGE) — adjYield (annualized net credit × anchor penalty) replaced by expected kept credit per cycle: score = (1−P_stop)·D − P_stop·C, with D = TV × BS-decay ratio over an 8-calendar-day horizon (S29-measured global hold), P_stop = running-max probability of the SPY move reaching the delta stop within the horizon, C = premium give-back to the stop net of decay en route. Headroom cadence GATE: candidates require ≥1.0σ (H-horizon vol units) of delta headroom — near-certain-stop picks cycle every 1–2 days (rejected cadence, unpriced spread friction). dtePenaltyAnchor RETIRED from scoring (param accepted, inert). Scan parity fixes: OTM-only filter added (sim always had it; the scan’s −3% band advised ITM “Best” picks the sim never makes — S30 finding), gamma added to snapshots, scan ranks by the same score (live Polygon greeks frame), table “Ann. Yield” → “Score $/sh (· Hσ)”. Legacy Δ-threshold prefilter keeps its vix=18 convention (candidate-set parity; only ranking changed). Two-cell paper test passed on live 7/18 quotes (old ★ ITM → rank #7; new #1 $770C 11/20). Pre-registered: rolls &lt;80 (vs 157), entry Δ 0.38–0.50, hold ×3 off the 4d floor, win rate &gt;55%, core yield honestly unknown.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.4 · Headroom look (DISPLAY ONLY) — per-cycle entry Δ-headroom in weekly-σ units ((Δthres − entryΔ)/Γ ÷ entrySPY·VIX/√52), bucketed outcome table (n, Δstop%, win%, hold, meanΔin, meanP&L) in every STD log. Pre-build falsification test for the P_stop scorer theory: headroomσ must predict delta-stop frequency and win rate, and add information beyond raw entry delta (meanΔin confound column). BS gamma added (callGamma) — display path only. Pure post-hoc aggregation of existing cycle records; no sim change.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.3 · Hold-time look (DISPLAY ONLY) — mean hold ratio (daysHeld / DTE-at-entry, closed cycles) and mean hold days added per cell to the OPT results log table and to the non-debug STD summary line. Measurement-first step for the candidate-scorer horizon question (S27 realized-yield-scorer item, reopened by the decay=5 regime finding): look at actual hold horizons before any scorer redesign. No sim change; aggregation of existing cycle records.</span>
@@ -1567,7 +1568,7 @@ function getMartExpiries() {
 
 // Find best contract to roll into: yield-maximizing across all candidates
 // Yield = (entryPremium / SPY) * (365 / DTE) — highest annualized yield wins
-function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx, vixNow) {
+function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx, vixNow, headroomMin) {
   const afterD  = new Date(afterDate + 'T00:00:00');
 
   // No DTE Max hard gate — dtePenaltyAnchor shapes the scoring curve instead.
@@ -1636,9 +1637,10 @@ function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dt
       const scGamma = Math.exp(-_d1*_d1) / Math.sqrt(Math.PI) / (currentSPY * _sig * Math.sqrt(_T));
       const sc = scoreCandidate(c.strike, entryPx, dte, scDelta, scGamma, currentSPY, vixNow, deltaThreshold);
       if (!sc) { gateSkips++; continue; }
-      if (sc.Hsig < HEADROOM_MIN) {
+      const _hm = (headroomMin != null) ? headroomMin : HEADROOM_MIN;  // v5.12.1 — param
+      if (sc.Hsig < _hm) {
         gateSkips++;
-        logDbg("  ✗ Skip " + exp + " $" + c.strike + ": headroom " + sc.Hsig.toFixed(2) + "σ < " + HEADROOM_MIN.toFixed(1) + "σ gate");
+        logDbg("  ✗ Skip " + exp + " $" + c.strike + ": headroom " + sc.Hsig.toFixed(2) + "σ < " + _hm.toFixed(2) + "σ gate");
         continue;
       }
       const candOTM_ = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
@@ -1647,7 +1649,7 @@ function findNextContract(afterDate, targetOTM, currentSPY, dtePenaltyAnchor, dt
       if (sc.score > bestYield) { bestYield = sc.score; bestContract = c; }
     }
     if (debitSkips) logDbg("  ✗ " + exp + ": " + debitSkips + " debit candidate(s) skipped (net ≤ 0)"); // v5.4.2
-    if (gateSkips)  logDbg("  ✗ " + exp + ": " + gateSkips + " candidate(s) below " + HEADROOM_MIN.toFixed(1) + "σ headroom gate"); // v5.12.0
+    if (gateSkips)  logDbg("  ✗ " + exp + ": " + gateSkips + " candidate(s) below " + ((headroomMin != null) ? headroomMin : HEADROOM_MIN).toFixed(2) + "σ headroom gate"); // v5.12.0/1
   }
 
   if (bestContract) {
@@ -1737,7 +1739,7 @@ function updateInitPosition() {
 
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
-  const { otmFixed, decayTrigger, dteFloor, deltaThreshold, vixGate = 0, dtePenaltyAnchor = 45, shares } = p;
+  const { otmFixed, decayTrigger, dteFloor, deltaThreshold, vixGate = 0, dtePenaltyAnchor = 45, shares, headroomMin = 1.0 } = p;
   // Clear stale entryPx/entryDate/entrySPY stamped onto shared DM contract objects
   // by the pendingContract capture of a prior simulate() call — without this flush
   // a later run's OPEN row could inherit a previous run's entry price.
@@ -1779,7 +1781,7 @@ async function simulate(p) {
   // find the initial contract immediately so the log shows it upfront.
   let waitingForVIX = vixGate > 0;
   if (!waitingForVIX) {
-    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vixMap[startDate] || 18);
+    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vixMap[startDate] || 18, headroomMin);
     if (!curC) { logMsg('✗ No initial contract found', 'err'); return null; }
     buildDayMap(curC);
     const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
@@ -1841,7 +1843,7 @@ async function simulate(p) {
       if (waitingForVIX) {
         if (vixGate === 0 || vix >= vixGate) {
           // VIX has recovered (or initial entry) — find new contract via INTL yield optimizer
-          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vix);
+          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vix, headroomMin);
           if (reentryC) {
             curC = reentryC;
             waitingForVIX = false;
@@ -2043,7 +2045,7 @@ async function simulate(p) {
 
     // ── Find next contract ──
     const next = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor,
-      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx, vix);
+      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx, vix, headroomMin);
     if (!next) {
       // v5.4.2 — no net-credit candidate exists at current SPY level: hold
       // long SPY and re-scan daily via the recovery path (still VIX-gated).
@@ -2292,6 +2294,7 @@ async function runSimulation() {
   const params = {
     ...STD,
     otmFixed:         0.03, // OTM fixed at 3%
+    headroomMin:      parseFloat($('headroom-min')?.value || '1.0'), // v5.12.1 — cadence gate σ
     dteFloor:         STD.dteFloor || 7,
     shares:           STD.shares || 600,
     dtePenaltyAnchor: STD.dtePenaltyAnchor || 45,
@@ -2302,11 +2305,11 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.12.0 · SPY Covered Call Backtest');
+  logMsg('v5.12.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
-  logMsg(`Running — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold}${gateStr} · ${params.dtePenaltyAnchor}d penalty anchor`);
+  logMsg(`Running — ${(params.otmFixed*100).toFixed(0)}% OTM · ${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold}${gateStr} · H≥${params.headroomMin}σ gate · ${params.dtePenaltyAnchor}d penalty anchor (inert)`);
   await yield_();
 
   const result = await simulate(params);
@@ -2446,17 +2449,17 @@ function logSweepBoundaryAnalysis(allResults, decays, floors, deltas, vixgates, 
   const b = allResults.best;
   if (!b || !allResults.grid) return;
   const winYld = allResults.bestYld;
-  if (!winYld || winYld <= 0) return;
+  if (winYld === null || winYld === undefined || winYld === -Infinity) return;
 
-  // For each swept dimension, read the yield at each edge and compare to winner
-  // Edge yield >= 90% of winner → 🔴 hot, something better likely outside
-  // Edge yield 70-89% → 🟡 warm, worth checking
-  // Edge yield < 70%  → 🟢 safe, surface dropping at boundary
+  // v5.12.1 — difference-based edge classification (works for NEGATIVE
+  // winners; the old ratio test silently skipped boundary analysis whenever
+  // the best cell was ≤ 0, which under the honest scorer is common):
+  // edge within 0.4pt of winner → 🔴 hot; within 1.2pt → 🟡 warm; else 🟢.
   const classify = (edgeYld) => {
     if (edgeYld === null || edgeYld === undefined) return '—';
-    const ratio = edgeYld / winYld;
-    if (ratio >= 0.90) return `🔴 ${edgeYld.toFixed(1)}% (hot — widen)`;
-    if (ratio >= 0.70) return `🟡 ${edgeYld.toFixed(1)}% (warm)`;
+    const gap = winYld - edgeYld;
+    if (gap <= 0.4) return `🔴 ${edgeYld.toFixed(1)}% (hot — widen)`;
+    if (gap <= 1.2) return `🟡 ${edgeYld.toFixed(1)}% (warm)`;
     return `🟢 ${edgeYld.toFixed(1)}% (safe)`;
   };
 
@@ -2628,9 +2631,10 @@ async function runOptimization() {
   const vixgates   = g.vixgate;
   const lookaheads = g.lookahead;
   const otmFixed = parseFloat($('otm-select')?.value || '0.03');
+  const headroomMin = parseFloat($('headroom-min')?.value || '1.0'); // v5.12.1
 
   const sweepDesc = ['decay','dte','delta','vixgate','lookahead'].filter(v=>_sweepVars[v]).join(' + ') || 'none';
-  logMsg(`Running optimization — sweeping: ${sweepDesc}...`);
+  logMsg(`Running optimization — sweeping: ${sweepDesc}... · H≥${headroomMin}σ gate`);
 
   const shares = STD.shares || 600;
   const total  = decays.length * floors.length * deltas.length * vixgates.length * lookaheads.length;
@@ -2651,7 +2655,7 @@ async function runOptimization() {
             const gateLabel = vixgate > 0 ? ` VIX≥${vixgate}` : '';
             try {
               _gaps = [];
-              const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed, vixGate:vixgate, shares, dtePenaltyAnchor:lookahead });
+              const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, otmFixed, vixGate:vixgate, shares, dtePenaltyAnchor:lookahead, headroomMin });
               // v5.11.0 — rank on CORE yield; headline kept for reference.
               // Null core (<3 closed core cycles) → unrankable, cannot win.
               let yld = null, head = null;
@@ -2667,7 +2671,7 @@ async function runOptimization() {
                 allResults.bestHead = head;                     // headline of winner, reference
                 allResults.best = { decay, floor, delta, vixgate, otm: otmFixed, lookahead };
               }
-              allResults.rows.push({ decay, floor, delta, vixgate, otm: otmFixed, lookahead, yld, head, coreN: r?.coreCycleCount ?? null, rolls: r?.rolls?.length ?? 0, hold: holdStats(r?.cycles), edgeRatio: null });
+              allResults.rows.push({ decay, floor, delta, vixgate, otm: otmFixed, lookahead, hm: headroomMin, yld, head, coreN: r?.coreCycleCount ?? null, rolls: r?.rolls?.length ?? 0, hold: holdStats(r?.cycles), edgeRatio: null });
             } catch(innerErr) {
               const msg = `✗ Error decay=${decay} floor=${floor} lookahead=${lookahead}: ${innerErr.message}`;
               logMsg(msg,'err');
@@ -2719,7 +2723,7 @@ async function runOptimization() {
       // Re-run simulate() with the winning params so summary/blotter reflect
       // the optimizer's chosen configuration, not just the heatmap grid.
       const winResult = await simulate({ ...STD, decayTrigger:b.decay, dteFloor:b.floor,
-        deltaThreshold:b.delta, otmFixed:b.otm, vixGate:b.vixgate, shares, dtePenaltyAnchor:b.lookahead || STD.dtePenaltyAnchor || 45 });
+        deltaThreshold:b.delta, otmFixed:b.otm, vixGate:b.vixgate, shares, headroomMin, dtePenaltyAnchor:b.lookahead || STD.dtePenaltyAnchor || 45 });
       if (winResult) {
         lastResult = winResult;
         buildRollSnapshots(winResult);
@@ -3433,6 +3437,7 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
       const yldClass = row.yld >= 3 ? 'green' : row.yld >= 0 ? 'yellow' : 'red';
       const paramStr = `decay=${row.decay}% / dte=${row.floor}d`
         + ` / \u0394${row.delta ?? STD.deltaThreshold}`
+        + ` / H\u2265${row.hm ?? 1.0}\u03c3`
         + ` / VIX\u2265${row.vixgate ?? STD.vixGate}`
         + ` / anchor=${row.lookahead ?? STD.dtePenaltyAnchor}d`;
       const winFlag  = isBest ? ' <span style="color:var(--green);font-size:9px;">\u2605</span>' : '';
