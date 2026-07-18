@@ -1,7 +1,7 @@
 {
-  "decayTrigger": 0.05,
+  "decayTrigger": 0.10,
   "dteFloor": 7,
-  "deltaThreshold": 0.65,
+  "deltaThreshold": 0.775,
   "otmTarget": 0.03,
   "vixGate": 0,
   "dtePenaltyAnchor": 54,
