@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.13.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.13.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -458,6 +458,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.13.2 · Scan-parity patch (SCAN ONLY, sim untouched) — from the S30 cross-component parity audit: (1) strike band −3%/+12% → ATM/+40%, matching the sim’s candidate universe — the sim has picked strikes to 22.9% OTM that the old band could not display, and sub-SPY strikes were quota burned on skip-only rows since the v5.13.0 ITM filter; (2) stale fallbacks Δ0.475/anchor 45 (v4-era) → certified baseline Δ0.670/anchor 54, with a loud ⚠ SCAN FALLBACK log line whenever any default engages (defect class matches agent v1.6.2’s params validation). Remaining known cross-frame items live in the Model Rules parity ledger (S30): candidate-filter delta frames (scan mkt vs sim BS-erf@18), sim’s own filter-vs-trigger VIX inconsistency, agent upward-cross — all documented, none silent.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.13.1 · Dual-delta scan display (DISPLAY ONLY) — every scan candidate now shows the sim-frame delta (backtester callDelta convention: erf-CDF, DM-latest VIX, TNX 4.5) beside the live Polygon delta — “Δ 0.541 (sim 0.489)” — in PASS lines and Best summaries. Step 1 of the delta-calibration plan: measure the market↔sim transform across moneyness from live pairs before any frame decision. All filters unchanged (market delta). Companion release: agent v1.6.3 triggers in the sim frame with “· mkt” reference. Option B (true-delta migration: fix normalCDF /√2 + re-optimize all delta-denominated params) remains a queued design session.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.13.0 · Revert to the v5.11.4 scorer + two S30 bug fixes (v5.12.x SHELVED) — the v5.12.x kept-credit scorer line is retired as real-but-rejected: its survival math was validated (headroom predicts stop rate and hold length) but its profit ranking was falsified — it scored the empirically profitable tight-headroom region worst on the board (driftless, VRP-blind, no en-route-decay credit), every cell of a 147-eval sweep was negative, and a 4-point headroom-gate sweep moved nothing (the objective, not the gate, was binding). Structural-model residue per the empirical directive; shelved beside v5.7.0. Retained from the 5.12.x work: (1) scan OTM parity filter — sim has always required strike &gt; SPY; the scan’s −3% band advised ITM “Best” picks (intrinsic booked as credit) the sim never makes; (2) sweep-boundary analysis now difference-based so negative-winner sweeps get edge verdicts. Ranking, triggers, and all sim behavior identical to v5.11.4.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.4 · Headroom look (DISPLAY ONLY) — per-cycle entry Δ-headroom in weekly-σ units ((Δthres − entryΔ)/Γ ÷ entrySPY·VIX/√52), bucketed outcome table (n, Δstop%, win%, hold, meanΔin, meanP&L) in every STD log. Pre-build falsification test for the P_stop scorer theory: headroomσ must predict delta-stop frequency and win rate, and add information beyond raw entry delta (meanΔin confound column). BS gamma added (callGamma) — display path only. Pure post-hoc aggregation of existing cycle records; no sim change.</span>
@@ -2245,7 +2246,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.13.1 · SPY Covered Call Backtest');
+  logMsg('v5.13.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3796,10 +3797,20 @@ async function runRollScan() {
 
   // Scan mirrors the published system (v5.2.2) — same STD params the agent
   // reads from roll_params.json. Unpublished OPT winners never leak in.
+  // v5.13.2 — stale-fallback parity: the old defaults (Δ0.475, anchor 45)
+  // were v4-era constants that silently drove the scan on a partial params
+  // load — the same defect class agent v1.6.2's required-field validation
+  // closed. Defaults now = certified baseline, and any fallback is logged
+  // loudly instead of passing silently.
+  const _fb = [];
+  if (!STD.dteFloor)         _fb.push('dteFloor→7');
+  if (!STD.dtePenaltyAnchor) _fb.push('anchor→54');
+  if (!STD.deltaThreshold)   _fb.push('deltaThreshold→0.670');
   const dteFloor   = STD.dteFloor || 7;
-  const anchor     = STD.dtePenaltyAnchor || 45; // v5.2.0 — scoring penalty only, NOT a ceiling
+  const anchor     = STD.dtePenaltyAnchor || 54;
   const otmTarget  = STD.otmFixed || 0.03;
-  const deltaThres = STD.deltaThreshold || 0.475;
+  const deltaThres = STD.deltaThreshold || 0.670;
+  if (_fb.length) logMsg('  ⚠ SCAN FALLBACK — params missing, using certified baseline: ' + _fb.join(' · '), 'err');
 
   // DM future contracts — same gate as findNextContract(): dteFloor only,
   // no DTE Max ceiling (v5.2.0 — anchor shapes scoring, doesn't exclude)
@@ -3823,8 +3834,15 @@ async function runRollScan() {
 
   // Build strike map per expiry for edge detection later
   const dmStrikesPerExpiry = {};
-  const strikeMin = spyNow * 0.97;
-  const strikeMax = spyNow * 1.12;
+  // v5.13.2 — scan band matches the sim's candidate universe. findNextContract
+  // requires strike > SPY and its DM universe (OTM_TARGETS) reaches 35% OTM —
+  // historical sim picks reached 22.9%. The old −3%/+12% band (a) burned live
+  // quota on sub-SPY strikes that are skip-only since the v5.13.0 ITM parity
+  // filter, and (b) could not SHOW far-OTM candidates the sim policy selects
+  // in high-VIX states. Floor at SPY (ITM strikes not fetched; the ITM SKIP
+  // reason survives for any that arrive via data edges), ceiling +40%.
+  const strikeMin = spyNow;
+  const strikeMax = spyNow * 1.40;
   const combos = [];
   const seenKeys = new Set();
   if (DM && DM.options) {
@@ -3949,7 +3967,7 @@ async function runRollScan() {
   logMsg('── Scan Results ─────────────────────────────────────────────────────────', '');
   logMsg('  SPY $' + spyNow.toFixed(2) + (currentCallMid > 0 ? ' | Cover $' + currentCallMid.toFixed(2) : '') +
     ' | ' + results.length + ' quotes across ' + expList.length + ' expiries' +
-    ' | strike band $' + strikeMin.toFixed(0) + '–$' + strikeMax.toFixed(0) + ' (−3%/+12%)', ''); // v5.2.0 — band visible
+    ' | strike band $' + strikeMin.toFixed(0) + '–$' + strikeMax.toFixed(0) + ' (ATM/+40% — sim-universe parity, v5.13.2)', '');
 
   // Per-candidate lines
   let lastExp = null;
