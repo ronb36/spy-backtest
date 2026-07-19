@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.15.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.15.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -333,7 +333,7 @@ select.display-box { cursor:pointer; outline:none; }
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span>
-          <button id="robust-grid-btn" onclick="toggleRobustGrid()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Robust Grid</button>
+          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><button id="robust-grid-btn" onclick="toggleRobustGrid()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button>
         </div>
         <div id="robust-grid-wrap" style="display:none;overflow:auto;margin-bottom:10px;"></div>
         <div id="heatmap-container"></div>
@@ -463,6 +463,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.15.3 · Grid UX polish + coded grid read (DISPLAY ONLY, sim untouched) — grid toggle now reads Open Grid / Close Grid; tapping a result row shows a &#10227; simulating-selection indicator while the ~1s re-sim runs; and the robust grid gains a computed "grid read": a deterministic, no-AI structural evaluation of the actual sweep surface — chaos zone (adjacent sign-flip rate), largest coherent &ge;3% region with its bounds and any adjacent cliff, longest photocopy plateau with its pure-&Delta;stop status, and both winners — plus a plain-language legend (green-on-green shelf = publishable, green-on-red = cliff, checkerboard = chaos, constant stripe = plateau, robust = median of the surrounding boxes). Cert: STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.15.2 · Opt Results tap-select merge + robust grid + Scan reset (DISPLAY/UX ONLY, sim untouched) — (1) The separate ranking table is gone: the Opt Results table itself now lists ALL rankable cells (scrollable, sticky header) with the robust metric columns merged in (R#, robust, n, spr, axMin, &Delta;stop total(pure), flags); tap any row to select it — raw winner selected by default, summary panels/blotter/gaps re-simulate to the selection, and Publish publishes it through the confirmation card (now docked at the top of the tab, always visible). (2) New &#8862; Robust Grid toggle (2-axis sweeps): the full sweep surface as a color grid — plateaus read as constant-color runs, cliffs as abrupt breaks; &#9888; marks cells with zero pure &Delta;-stops, &#9733;/&#9733;R mark raw/robust winners, and tapping a cell selects it just like a table row. (3) Running an OPT now resets and hides the Scan tab (stale STD-scan content no longer lingers). Cert: STD byte-identical except banner; OPT sim lines and log tables identical to v5.15.1.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.15.1 · Ranking UX merge + pure-stop pivotality (DISPLAY/UX ONLY, sim untouched) — (1) Rankings tab removed; the dual-ranked table now lives inside Opt Results below the heatmap. (2) The original Publish button drives selected-row publishing: raw winner pre-selected by default (legacy behavior preserved), any selection routes through the confirmation card; the separate Publish Selected button is gone. (3) Summary panels, blotter, and gaps follow the selected row via re-simulation (same machinery as the winner re-sim). (4) &Delta;stop now displays total(pure) where pure = delta was the SOLE close reason — the S32 co-fire finding: byte-identical &Delta;-photocopy runs carried nonzero total counts, proving those fires co-fire with decay/DTE and are non-pivotal; eligibility switches to pure&ge;1, and a new &#9888;co-fire-only flag marks cells whose stop fires but never pivotally. Cert: STD byte-identical except banner; OPT sim lines and raw order identical, &Delta;stop column gains (pure).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.15.0 · Robustness-aware OPT ranking + select-and-publish (RANKING LAYER ONLY — sim untouched) — every OPT eval now records its &Delta;-stop fire count; after the raw core-yield table the optimizer emits a robust ranking: per-cell median over the DISTINCT-PATH neighborhood (&plusmn;1 grid step per swept axis; photocopy cells with identical rolls/yield/hold collapse to one observation), with n_distinct, fragility spread (max&minus;min), worst single-axis neighbor (directional-cliff detector), &Delta;-stop count, and flags (&#9888;stop-off = stop never fired &middot; n&lt;4 low support &middot; &#8862; grid-edge). Robust-winner eligibility: &Delta;stop&ge;1 AND n&ge;4 (S32 paper-test amendments — proxy exclusion retired, real counts). Raw winner unchanged and still drives heatmap + existing publish button. New &#9745; Rankings tab: dual-ranked table with per-row selection and Publish Selected — confirmation card shows the cell&rsquo;s evidence, warnings (WARN, never block, per Ron S32), and a field diff vs live roll_params.json before any GitHub write; payload reuses merge-safe publishRollParams. CAVEAT: robust scores are resolution-dependent — comparable only across equal-step sweeps (steps logged with the table). Cert: STD byte-identical except banner; OPT sim lines identical, tables gain columns.</span>
@@ -2262,7 +2263,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.15.2 · SPY Covered Call Backtest');
+  logMsg('v5.15.3 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2311,7 +2312,7 @@ async function runSimulation() {
 
   $('results-area').style.display = 'block';
   $('tab-btn-heatmap').style.display = 'none';
-  { const _rgb = $('robust-grid-btn'); if (_rgb) _rgb.style.display = 'none'; const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; } } // v5.15.2
+  { const _rgb = $('robust-grid-btn'); if (_rgb) { _rgb.style.display = 'none'; _rgb.textContent = '\u229e Open Grid'; } const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; } } // v5.15.3
   // AI tab visibility owned by initAIAnalysis (shown only when key present)
   // Show Scan tab only in non-debug STD mode
   const scanBtn = $('tab-btn-scan');
@@ -2753,6 +2754,8 @@ async function optSelectRow(i) {
   const ce = $('opt-row-' + i); if (ce) ce.style.background = 'rgba(96,165,250,0.14)';
   _renderRobustGridCells(); // refresh grid selection outline if grid open
   _rankPickBusy = true;
+  const _st = $('opt-sel-status');
+  if (_st) _st.textContent = '\u27f3 simulating selection\u2026';
   try {
     _gaps = [];
     const selResult = await simulate({ ...STD, decayTrigger: r.decay, dteFloor: r.floor,
@@ -2769,6 +2772,7 @@ async function optSelectRow(i) {
     logMsg('\u2717 Selection re-sim failed: ' + err.message, 'err');
   } finally {
     _rankPickBusy = false;
+    if (_st) _st.textContent = '';
   }
 }
 
@@ -2778,9 +2782,15 @@ async function optSelectRow(i) {
 // Plateaus read as constant-color runs; cliffs as abrupt color breaks.
 function toggleRobustGrid() {
   const w = $('robust-grid-wrap');
+  const btn = $('robust-grid-btn');
   if (!w) return;
-  if (w.style.display === 'none') { w.style.display = 'block'; _renderRobustGridCells(); }
-  else { w.style.display = 'none'; }
+  if (w.style.display === 'none') {
+    w.style.display = 'block'; _renderRobustGridCells();
+    if (btn) btn.textContent = '\u229e Close Grid';
+  } else {
+    w.style.display = 'none';
+    if (btn) btn.textContent = '\u229e Open Grid';
+  }
 }
 
 function _renderRobustGridCells() {
@@ -2824,7 +2834,129 @@ function _renderRobustGridCells() {
     h += '</tr>';
   });
   h += '</table>';
+  h += _evalRobustGrid(v1, v2, a1, a2, byCell, lbl);
   w.innerHTML = h;
+}
+
+// v5.15.3 — coded grid read: deterministic structural evaluation of the sweep
+// surface, generated from the actual cells (no AI, no network). Facts only.
+function _evalRobustGrid(v1, v2, a1, a2, byCell, lbl) {
+  const get = (r1, r2) => byCell.get(r1 + '|' + r2) || null;
+  const nm = { decay: 'decay', delta: '\u0394', floor: 'dte', vixgate: 'VIX\u2265', lookahead: 'anchor' };
+  const word = n => nm[n] || n;
+  const fmtP = (n, v) => (n === 'decay' ? v + '%' : n === 'floor' || n === 'lookahead' ? v + 'd' : String(v));
+  const rng = (n, lo, hi) => word(n) + (n === 'delta' ? '' : ' ') + fmtP(n, lo) + '\u2013' + fmtP(n, hi);
+  const pt = (n, v) => word(n) + (n === 'delta' ? '' : ' ') + fmtP(n, v);
+  const lines = [];
+
+  // 2. Largest coherent strong region (4-connected, yld >= 3.0)
+  const TH = 3.0, seen = new Set();
+  let best = null, _regCols = null, _regRows = null;
+  v1.forEach((r1, i) => v2.forEach((r2, j) => {
+    const k = i + ',' + j;
+    const c = get(r1, r2);
+    if (!c || c.yld < TH || seen.has(k)) return;
+    const comp = []; const q = [[i, j]]; seen.add(k);
+    while (q.length) {
+      const [x, y] = q.pop();
+      comp.push([x, y]);
+      [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].forEach(([nx, ny]) => {
+        if (nx < 0 || ny < 0 || nx >= v1.length || ny >= v2.length) return;
+        const nk = nx + ',' + ny;
+        if (seen.has(nk)) return;
+        const nc = get(v1[nx], v2[ny]);
+        if (nc && nc.yld >= TH) { seen.add(nk); q.push([nx, ny]); }
+      });
+    }
+    if (!best || comp.length > best.length) best = comp;
+  }));
+  if (best && best.length >= 2) {
+    const is1 = best.map(c => c[0]), is2 = best.map(c => c[1]);
+    _regCols = [Math.min(...is2), Math.max(...is2)]; _regRows = [Math.min(...is1), Math.max(...is1)];
+    const ys = best.map(([x, y]) => get(v1[x], v2[y]).yld);
+    // cliff check: worst cell adjacent to (outside) the region
+    const inSet = new Set(best.map(c => c.join(',')));
+    let cliff = null;
+    best.forEach(([x, y]) => [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].forEach(([nx, ny]) => {
+      if (nx < 0 || ny < 0 || nx >= v1.length || ny >= v2.length || inSet.has(nx + ',' + ny)) return;
+      const nc = get(v1[nx], v2[ny]);
+      if (nc && (cliff === null || nc.yld < cliff.y)) cliff = { y: nc.yld, p1: v1[nx], p2: v2[ny] };
+    }));
+    const pure0 = best.filter(([x, y]) => (get(v1[x], v2[y]).pureN ?? 0) === 0).length;
+    lines.push('COHERENT REGION: ' + best.length + ' cells \u2265' + TH.toFixed(0) + '% at ' +
+      rng(a1, Math.min(...is1.map(i => v1[i])), Math.max(...is1.map(i => v1[i]))) + ' \u00d7 ' +
+      rng(a2, Math.min(...is2.map(i => v2[i])), Math.max(...is2.map(i => v2[i]))) +
+      ' (range ' + Math.min(...ys).toFixed(1) + '\u2013' + Math.max(...ys).toFixed(1) + '%). The only structure worth considering.' +
+      (pure0 ? ' CAUTION: ' + pure0 + ' of ' + best.length + ' cells have zero pure \u0394-stops \u2014 much of this region is photocopied path with a decorative stop.' : '') +
+      (cliff && cliff.y < 1.0 ? ' CLIFF: steepest adjacent drop is ' + cliff.y.toFixed(1) + '% at ' + pt(a1, cliff.p1) + ' / ' + pt(a2, cliff.p2) + ' \u2014 one step off the region.' : ''));
+  } else {
+    lines.push('NO COHERENT REGION \u2265 3% found \u2014 the surface offers no publishable structure at this threshold.');
+  }
+
+  // 1. Chaos zone: contiguous a2-columns whose adjacent-cell sign-flip rate is high
+  const JUMP = 2.0; // pp — an adjacent move this big is chaos, not structure
+  const colFlip = v2.map((r2, j) => {
+    let flips = 0, pairs = 0;
+    for (let i = 0; i < v1.length; i++) {
+      const c = get(v1[i], r2);
+      if (!c) continue;
+      const up = i > 0 ? get(v1[i - 1], r2) : null;
+      const lf = j > 0 ? get(v1[i], v2[j - 1]) : null;
+      if (up) { pairs++; if (Math.abs(c.yld - up.yld) >= JUMP) flips++; }
+      if (lf) { pairs++; if (Math.abs(c.yld - lf.yld) >= JUMP) flips++; }
+    }
+    return pairs ? flips / pairs : 0;
+  });
+  let cz0 = -1, cz1 = -1, run0 = -1;
+  for (let i = 0; i <= v2.length; i++) {
+    const hot = i < v2.length && colFlip[i] >= 0.3;
+    if (hot && run0 < 0) run0 = i;
+    if (!hot && run0 >= 0) { if (cz0 < 0 || i - run0 > cz1 - cz0) { cz0 = run0; cz1 = i; } run0 = -1; }
+  }
+  if (cz0 >= 0 && cz1 - cz0 >= 3) {
+    lines.push('CHAOS: ' + rng(a2, v2[cz0], v2[cz1 - 1]) + ' is checkerboard \u2014 ' +
+      Math.round(100 * colFlip.slice(cz0, cz1).reduce((x, y) => x + y, 0) / (cz1 - cz0)) + '% of adjacent cells jump \u2265' + JUMP.toFixed(0) + 'pp.' +
+      (_regCols && !(cz1 - 1 < _regCols[0] || cz0 > _regCols[1])
+        ? ' The coherent region sits INSIDE these columns \u2014 its stability is confined to ' + rng(a1, v1[_regRows[0]], v1[_regRows[1]]) + '; everything around it here is violent.'
+        : ' Nothing in this zone is trustworthy regardless of its individual value.'));
+  }
+
+  // 3. Longest photocopy plateau along a2
+  let plat = null;
+  v1.forEach(r1 => {
+    let run = [], key0 = null;
+    const kf = c => c.rolls + '|' + c.yld.toFixed(1) + '|' + (c.hold ? c.hold.days.toFixed(1) : '-');
+    v2.forEach(r2 => {
+      const c = get(r1, r2);
+      const k = c ? kf(c) : null;
+      if (k && k === key0) run.push(r2);
+      else { if (run.length > (plat ? plat.run.length : 0)) plat = { r1, run: run.slice() }; run = k ? [r2] : []; key0 = k; }
+    });
+    if (run.length > (plat ? plat.run.length : 0)) plat = { r1, run: run.slice() };
+  });
+  if (plat && plat.run.length >= 5) {
+    const pc = get(plat.r1, plat.run[0]);
+    lines.push('PLATEAU: ' + pt(a1, plat.r1) + ' is one identical path across ' + rng(a2, plat.run[0], plat.run[plat.run.length - 1]) +
+      ' (' + plat.run.length + ' photocopy cells' + ((pc.pureN ?? 0) === 0 ? ', zero pure \u0394-stops \u2014 the threshold is decoration there' : '') + ').');
+  }
+
+  // 4. Winners
+  if (_optDisplayRows && _optDisplayRows[0]) {
+    const rw0 = _optDisplayRows[0];
+    let wl = 'WINNERS: raw \u2605 ' + pt(a1, rw0[a1]) + ' / ' + pt(a2, rw0[a2]) + ' (' + rw0.yld.toFixed(1) + '%, \u0394stop ' + (rw0.stopN ?? 0) + '(' + (rw0.pureN ?? 0) + '))';
+    if (_rankingRR && _rankingRR.winner) {
+      const rwr = _rankingRR.winner.row;
+      wl += ' \u00b7 robust \u2605R ' + pt(a1, rwr[a1]) + ' / ' + pt(a2, rwr[a2]) + ' (robust ' + _rankingRR.winner.robust.toFixed(2) + '%, median of its surrounding boxes, pure \u0394stop ' + (rwr.pureN ?? 0) + ')';
+    } else {
+      wl += ' \u00b7 NO eligible robust winner';
+    }
+    lines.push(wl);
+  }
+
+  return '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:8px;line-height:1.6;max-width:900px;">' +
+    '<div style="color:var(--text);margin-bottom:2px;">Grid read (computed from this sweep \u2014 no AI):</div>' +
+    lines.map(l => '<div style="padding:1px 0;">\u00b7 ' + l + '</div>').join('') +
+    '<div style="margin-top:4px;color:var(--muted);opacity:.7;">Legend: green-on-green shelf = publishable \u00b7 green-on-red = cliff/spike \u00b7 checkerboard = chaos \u00b7 constant stripe = plateau \u00b7 \u26a0 = no pure \u0394stop \u00b7 robust score = median of the 8 surrounding boxes (photocopies collapsed).</div></div>';
 }
 
 // ── Optimization ───────────────────────────────────────────────────────────
@@ -3004,6 +3136,7 @@ async function runOptimization() {
     const _rgb = $('robust-grid-btn');
     if (_rgb) _rgb.style.display = (_rrAxesG && Object.keys(_rrAxesG).length === 2) ? 'block' : 'none';
     const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; }
+    if (_rgb) _rgb.textContent = '\u229e Open Grid';
     const _scb = $('tab-btn-scan'); if (_scb) _scb.style.display = 'none';
     ['scan-status', 'roll-best-summary-wrap', 'roll-table-container'].forEach(id => { const el = $(id); if (el) el.innerHTML = ''; });
     showTab('heatmap');
