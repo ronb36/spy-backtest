@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.15.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.15.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -329,15 +329,14 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Heatmap tab -->
     <div id="tab-heatmap" style="display:none">
+      <div id="publish-confirm-card" style="display:none;border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;background:var(--surface);"></div>
       <div class="chart-panel">
-        <div class="chart-header"><span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span></div>
+        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span>
+          <button id="robust-grid-btn" onclick="toggleRobustGrid()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Robust Grid</button>
+        </div>
+        <div id="robust-grid-wrap" style="display:none;overflow:auto;margin-bottom:10px;"></div>
         <div id="heatmap-container"></div>
-      </div>
-      <!-- v5.15.1 — dual ranking merged into Opt Results (separate tab removed) -->
-      <div id="ranking-section" style="display:none;margin-top:12px;">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Dual ranking: robust = distinct-path neighborhood median (resolution-dependent — this sweep's steps only). Δstop shown as total(pure); pure = delta was the sole close reason. Select a row — summary panels follow the selection, and the Publish button publishes it (ineligible cells warn, never block).</div>
-        <div id="publish-confirm-card" style="display:none;border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;background:var(--surface);"></div>
-        <div id="ranking-table-wrap" style="max-height:440px;overflow:auto;border:1px solid var(--border);border-radius:6px;"></div>
       </div>
     </div>
 
@@ -464,6 +463,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.15.2 · Opt Results tap-select merge + robust grid + Scan reset (DISPLAY/UX ONLY, sim untouched) — (1) The separate ranking table is gone: the Opt Results table itself now lists ALL rankable cells (scrollable, sticky header) with the robust metric columns merged in (R#, robust, n, spr, axMin, &Delta;stop total(pure), flags); tap any row to select it — raw winner selected by default, summary panels/blotter/gaps re-simulate to the selection, and Publish publishes it through the confirmation card (now docked at the top of the tab, always visible). (2) New &#8862; Robust Grid toggle (2-axis sweeps): the full sweep surface as a color grid — plateaus read as constant-color runs, cliffs as abrupt breaks; &#9888; marks cells with zero pure &Delta;-stops, &#9733;/&#9733;R mark raw/robust winners, and tapping a cell selects it just like a table row. (3) Running an OPT now resets and hides the Scan tab (stale STD-scan content no longer lingers). Cert: STD byte-identical except banner; OPT sim lines and log tables identical to v5.15.1.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.15.1 · Ranking UX merge + pure-stop pivotality (DISPLAY/UX ONLY, sim untouched) — (1) Rankings tab removed; the dual-ranked table now lives inside Opt Results below the heatmap. (2) The original Publish button drives selected-row publishing: raw winner pre-selected by default (legacy behavior preserved), any selection routes through the confirmation card; the separate Publish Selected button is gone. (3) Summary panels, blotter, and gaps follow the selected row via re-simulation (same machinery as the winner re-sim). (4) &Delta;stop now displays total(pure) where pure = delta was the SOLE close reason — the S32 co-fire finding: byte-identical &Delta;-photocopy runs carried nonzero total counts, proving those fires co-fire with decay/DTE and are non-pivotal; eligibility switches to pure&ge;1, and a new &#9888;co-fire-only flag marks cells whose stop fires but never pivotally. Cert: STD byte-identical except banner; OPT sim lines and raw order identical, &Delta;stop column gains (pure).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.15.0 · Robustness-aware OPT ranking + select-and-publish (RANKING LAYER ONLY — sim untouched) — every OPT eval now records its &Delta;-stop fire count; after the raw core-yield table the optimizer emits a robust ranking: per-cell median over the DISTINCT-PATH neighborhood (&plusmn;1 grid step per swept axis; photocopy cells with identical rolls/yield/hold collapse to one observation), with n_distinct, fragility spread (max&minus;min), worst single-axis neighbor (directional-cliff detector), &Delta;-stop count, and flags (&#9888;stop-off = stop never fired &middot; n&lt;4 low support &middot; &#8862; grid-edge). Robust-winner eligibility: &Delta;stop&ge;1 AND n&ge;4 (S32 paper-test amendments — proxy exclusion retired, real counts). Raw winner unchanged and still drives heatmap + existing publish button. New &#9745; Rankings tab: dual-ranked table with per-row selection and Publish Selected — confirmation card shows the cell&rsquo;s evidence, warnings (WARN, never block, per Ron S32), and a field diff vs live roll_params.json before any GitHub write; payload reuses merge-safe publishRollParams. CAVEAT: robust scores are resolution-dependent — comparable only across equal-step sweeps (steps logged with the table). Cert: STD byte-identical except banner; OPT sim lines identical, tables gain columns.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.14.2 · Scan sim-frame delta filter (SCAN ONLY, sim untouched) — closes Parity Ledger P2: the scan&rsquo;s candidate delta filter now tests the sim-frame delta (erf-convention CDF, DM-latest real VIX, TNX 4.5 — the identical frame findNextContract filters in since v5.14.0) instead of the Polygon market delta, with strict &lt; matching the sim&rsquo;s &ge;-threshold skip. Candidate policy is now frame-identical between sim and scan; market delta remains on every PASS line as display reference. SKIP reasons report the sim-frame delta actually tested, with market delta in parentheses. Near-ATM effect: sim delta reads higher than market, so borderline near-ATM candidates that previously passed on market delta are now excluded — consistent with what the sim would do.</span>
@@ -589,7 +589,10 @@ let _optParams = null;   // optimized params per regime {low,normal,elevated,hig
 let _martView = 'spy';   // active data mart tab
 let _gaps = [];          // gap contracts found during simulation
 let _pendingPublish = null;
-let _rankingRR = null; // v5.15.0 — robust ranking results for Rankings tab
+let _rankingRR = null; // v5.15.0 — robust ranking results
+let _optDisplayRows = null; // v5.15.2 — raw-sorted rows backing the Opt Results table
+let _optSelIdx = null;      // v5.15.2 — selected row index (default: raw winner)
+let _rrAxesG = null;        // v5.15.2 — swept axes of the last OPT (for the robust grid)
 let lastResult = null; // cached for price chart roll markers
 let _dmExpiryIndex = {}; // expiry → [contracts] index, rebuilt at start of each simulate()
 
@@ -2259,7 +2262,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.15.1 · SPY Covered Call Backtest');
+  logMsg('v5.15.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2308,7 +2311,7 @@ async function runSimulation() {
 
   $('results-area').style.display = 'block';
   $('tab-btn-heatmap').style.display = 'none';
-  { const _rs = $('ranking-section'); if (_rs) _rs.style.display = 'none'; } // v5.15.1
+  { const _rgb = $('robust-grid-btn'); if (_rgb) _rgb.style.display = 'none'; const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; } } // v5.15.2
   // AI tab visibility owned by initAIAnalysis (shown only when key present)
   // Show Scan tab only in non-debug STD mode
   const scanBtn = $('tab-btn-scan');
@@ -2484,7 +2487,7 @@ function handlePublish(e) {
   // v5.15.1 — the Publish button publishes the SELECTED ranking row (raw winner
   // pre-selected by default) via the confirmation card. Legacy direct publish
   // only when no ranking exists (e.g. degenerate sweep).
-  if (_rankingRR && document.querySelector('input[name="rankpick"]:checked')) { publishSelectedRow(); return; }
+  if (_optSelIdx !== null && _optDisplayRows) { publishSelectedRow(); return; }
   if (_pendingPublish) publishRollParams(_pendingPublish);
 }
 
@@ -2681,45 +2684,12 @@ function emitRobustRanking(rr) {
 }
 
 // ── v5.15.0 Rankings tab: render + select-and-publish (warn, never block) ──
-function renderRankingTable() {
-  const wrap = $('ranking-table-wrap');
-  if (!wrap || !_rankingRR || !_rankingRR.list.length) { if (wrap) wrap.innerHTML = '<div style="color:var(--muted);font-size:11px;">No robust ranking \u2014 run an optimization with at least one swept axis.</div>'; return; }
-  const th = 'padding:5px 6px;font-size:9px;letter-spacing:.05em;color:var(--muted);text-align:right;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);';
-  const td = 'padding:6px 6px;font-size:10px;font-family:var(--mono);text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;';
-  let h = '<table style="border-collapse:collapse;width:100%;min-width:640px;">'
-    + '<tr><th style="' + th + 'text-align:center;">pick</th><th style="' + th + '">R#</th><th style="' + th + '">raw#</th>'
-    + '<th style="' + th + 'text-align:left;">params</th><th style="' + th + '">core</th><th style="' + th + '">robust</th>'
-    + '<th style="' + th + '">n</th><th style="' + th + '">spr</th><th style="' + th + '">axMin</th><th style="' + th + '">\u0394stop</th>'
-    + '<th style="' + th + 'text-align:left;">flags</th></tr>';
-  _rankingRR.list.forEach((o, i) => {
-    const r = o.row;
-    const fl = _rankFlags(o);
-    const star = _rankingRR.winner === o ? ' \u2605R' : '';
-    h += '<tr>'
-      + '<td style="' + td + 'text-align:center;"><input type="radio" name="rankpick" value="' + i + '" onchange="onRankPick(this.value)"' + (o.rawRank === 1 ? ' checked' : '') + ' style="width:18px;height:18px;"></td>'
-      + '<td style="' + td + '">' + o.robustRank + star + '</td>'
-      + '<td style="' + td + 'color:var(--muted);">' + o.rawRank + '</td>'
-      + '<td style="' + td + 'text-align:left;">' + _rankParamStr(r) + '</td>'
-      + '<td style="' + td + '">' + r.yld.toFixed(1) + '%</td>'
-      + '<td style="' + td + 'color:var(--green);">' + o.robust.toFixed(2) + '%</td>'
-      + '<td style="' + td + (o.ndist < 4 ? 'color:var(--yellow);' : '') + '">' + o.ndist + '</td>'
-      + '<td style="' + td + '">' + o.spread.toFixed(1) + '</td>'
-      + '<td style="' + td + '">' + (o.axisMin !== null ? o.axisMin.toFixed(1) + '%' : '\u2014') + '</td>'
-      + '<td style="' + td + ((r.pureN ?? 0) === 0 ? 'color:var(--red);' : '') + '">' + (r.stopN ?? 0) + '(' + (r.pureN ?? 0) + ')' + '</td>'
-      + '<td style="' + td + 'text-align:left;color:var(--yellow);">' + fl + '</td>'
-      + '</tr>';
-  });
-  h += '</table>';
-  wrap.innerHTML = h;
-  $('publish-confirm-card').style.display = 'none';
-}
-
 let _selPublishPayload = null;
 async function publishSelectedRow() {
-  const sel = document.querySelector('input[name="rankpick"]:checked');
-  if (!sel || !_rankingRR) { logMsg('\u26a0 Select a ranking row first', 'err'); return; }
-  const o = _rankingRR.list[parseInt(sel.value, 10)];
-  const r = o.row;
+  if (_optSelIdx === null || !_optDisplayRows || !_optDisplayRows[_optSelIdx]) { logMsg('\u26a0 Select a result row first', 'err'); return; }
+  const r = _optDisplayRows[_optSelIdx];
+  const o = ((_rankingRR && _rankingRR.all) || []).find(x => x.row === r)
+    || { robustRank: null, rawRank: _optSelIdx + 1, robust: null, ndist: 0, spread: null, axisMin: null, edge: false };
   _selPublishPayload = {
     decayTrigger: r.decay / 100, dteFloor: r.floor, deltaThreshold: r.delta,
     otmTarget: r.otm, vixGate: r.vixgate, dtePenaltyAnchor: r.lookahead,
@@ -2742,9 +2712,9 @@ async function publishSelectedRow() {
   if (o.ndist < 4) warns.push('\u26a0 LOW SUPPORT \u2014 only ' + o.ndist + ' distinct-path observation(s) back this cell\u2019s robust score (photocopy corroboration risk).');
   if (o.edge) warns.push('\u229e GRID-EDGE CELL \u2014 the true optimum may lie outside the swept range; boundary discipline says widen the sweep first.');
   $('publish-confirm-card').innerHTML =
-    '<div style="font-size:11px;font-weight:600;margin-bottom:6px;">Publish selected \u2014 R#' + o.robustRank + ' (raw #' + o.rawRank + ')</div>'
+    '<div style="font-size:11px;font-weight:600;margin-bottom:6px;">Publish selected \u2014 ' + (o.robustRank ? 'R#' + o.robustRank : 'unranked') + ' (raw #' + o.rawRank + ')</div>'
     + '<div style="font-family:var(--mono);font-size:11px;margin-bottom:6px;">' + _rankParamStr(r) + '</div>'
-    + '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;">core ' + r.yld.toFixed(1) + '% \u00b7 robust ' + o.robust.toFixed(2) + '% \u00b7 n=' + o.ndist + ' \u00b7 spr ' + o.spread.toFixed(1) + 'pp \u00b7 axMin ' + (o.axisMin !== null ? o.axisMin.toFixed(1) + '%' : '\u2014') + ' \u00b7 \u0394stop ' + (r.stopN ?? 0) + '(' + (r.pureN ?? 0) + ')' + '</div>'
+    + '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;">core ' + r.yld.toFixed(1) + '% \u00b7 robust ' + (o.robust !== null ? o.robust.toFixed(2) + '%' : '\u2014') + ' \u00b7 n=' + o.ndist + ' \u00b7 spr ' + (o.spread !== null ? o.spread.toFixed(1) + 'pp' : '\u2014') + ' \u00b7 axMin ' + (o.axisMin !== null ? o.axisMin.toFixed(1) + '%' : '\u2014') + ' \u00b7 \u0394stop ' + (r.stopN ?? 0) + '(' + (r.pureN ?? 0) + ')' + '</div>'
     + (warns.length ? '<div style="margin-bottom:8px;">' + warns.map(w => '<div style="font-size:10px;color:var(--yellow);padding:2px 0;">' + w + '</div>').join('') + '</div>' : '')
     + '<div style="margin-bottom:8px;">'
     + diffLine('decayTrigger', cur.decayTrigger, _selPublishPayload.decayTrigger)
@@ -2770,16 +2740,20 @@ function confirmSelectedPublish() {
 
 function hidePublishCard() { $('publish-confirm-card').style.display = 'none'; }
 
-// v5.15.1 — summary panels follow the selected ranking row (same machinery as
-// the post-OPT winner re-simulation). Guard against overlapping taps.
+// v5.15.2 — tap-to-select: summary panels follow the selected row (same
+// machinery as the post-OPT winner re-simulation). Guard overlapping taps.
 let _rankPickBusy = false;
-async function onRankPick(i) {
-  if (!_rankingRR || _rankPickBusy) return;
-  const o = _rankingRR.list[parseInt(i, 10)];
-  if (!o) return;
+async function optSelectRow(i) {
+  if (!_optDisplayRows || _rankPickBusy) return;
+  const r = _optDisplayRows[i];
+  if (!r) return;
+  const prev = _optSelIdx;
+  _optSelIdx = i;
+  if (prev !== null) { const pe = $('opt-row-' + prev); if (pe) pe.style.background = ''; }
+  const ce = $('opt-row-' + i); if (ce) ce.style.background = 'rgba(96,165,250,0.14)';
+  _renderRobustGridCells(); // refresh grid selection outline if grid open
   _rankPickBusy = true;
   try {
-    const r = o.row;
     _gaps = [];
     const selResult = await simulate({ ...STD, decayTrigger: r.decay, dteFloor: r.floor,
       deltaThreshold: r.delta, otmFixed: r.otm, vixGate: r.vixgate,
@@ -2796,6 +2770,61 @@ async function onRankPick(i) {
   } finally {
     _rankPickBusy = false;
   }
+}
+
+// v5.15.2 — robust grid: 2D sweep surface, tap a cell to select it.
+// Color = core yield; ⚠ dot = no pure Δ-stop (co-fire-only or stop-off);
+// ★ raw winner · ★R robust winner · blue outline = current selection.
+// Plateaus read as constant-color runs; cliffs as abrupt color breaks.
+function toggleRobustGrid() {
+  const w = $('robust-grid-wrap');
+  if (!w) return;
+  if (w.style.display === 'none') { w.style.display = 'block'; _renderRobustGridCells(); }
+  else { w.style.display = 'none'; }
+}
+
+function _renderRobustGridCells() {
+  const w = $('robust-grid-wrap');
+  if (!w || w.style.display === 'none') return;
+  if (!_rrAxesG || Object.keys(_rrAxesG).length !== 2 || !_optDisplayRows) { w.innerHTML = ''; return; }
+  const [a1, a2] = Object.keys(_rrAxesG);           // a1 = rows, a2 = cols
+  const v1 = _rrAxesG[a1], v2 = _rrAxesG[a2];
+  const byCell = new Map(); const idxByCell = new Map();
+  _optDisplayRows.forEach((r, i) => { const k = r[a1] + '|' + r[a2]; byCell.set(k, r); idxByCell.set(k, i); });
+  const ylds = _optDisplayRows.map(r => r.yld);
+  const lo = Math.min(...ylds), hi = Math.max(...ylds);
+  const col = y => {
+    if (y === null || y === undefined) return 'var(--surface2)';
+    const t = hi === lo ? 0.5 : (y - lo) / (hi - lo);
+    return 'hsl(' + Math.round(t * 120) + ',62%,' + (22 + t * 12) + '%)';
+  };
+  const rw = _rankingRR ? _rankingRR.winner : null;
+  const bestIdx = 0; // raw winner is display row 0
+  const lbl = n => ({ decay: 'decay %', floor: 'dte d', delta: '\u0394', vixgate: 'VIX\u2265', lookahead: 'anchor d' })[n] || n;
+  let h = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 6px;">' + lbl(a1) + ' \u2193 \u00d7 ' + lbl(a2) + ' \u2192 \u00b7 color = core yield (' + lo.toFixed(1) + '% \u2192 ' + hi.toFixed(1) + '%) \u00b7 \u26a0 = no pure \u0394stop \u00b7 tap a cell to select</div>';
+  h += '<table style="border-collapse:collapse;">';
+  h += '<tr><td style="font-size:8px;color:var(--muted);padding:2px 4px;"></td>' + v2.map(x =>
+    '<td style="font-family:var(--mono);font-size:8px;color:var(--muted);padding:2px 3px;text-align:center;">' + x + '</td>').join('') + '</tr>';
+  v1.forEach(r1 => {
+    h += '<tr><td style="font-family:var(--mono);font-size:8px;color:var(--muted);padding:2px 4px;text-align:right;">' + r1 + '</td>';
+    v2.forEach(r2 => {
+      const k = r1 + '|' + r2;
+      const cell = byCell.get(k); const gi = idxByCell.get(k);
+      if (!cell) { h += '<td style="width:34px;height:26px;background:var(--surface2);border:1px solid var(--bg);"></td>'; return; }
+      const isSel = gi === _optSelIdx;
+      const isRawW = gi === bestIdx;
+      const isRobW = rw && rw.row === cell;
+      const mark = (isRawW ? '\u2605' : '') + (isRobW ? '\u2605R' : '') + ((cell.pureN ?? 0) === 0 ? '\u26a0' : '');
+      h += '<td onclick="optSelectRow(' + gi + ')" title="' + cell.yld.toFixed(1) + '% \u00b7 \u0394stop ' + (cell.stopN ?? 0) + '(' + (cell.pureN ?? 0) + ')" '
+        + 'style="cursor:pointer;width:34px;height:26px;text-align:center;vertical-align:middle;font-family:var(--mono);font-size:8px;'
+        + 'background:' + col(cell.yld) + ';color:#fff;border:1px solid var(--bg);'
+        + (isSel ? 'outline:2px solid var(--accent);outline-offset:-2px;' : '') + '">'
+        + (mark || cell.yld.toFixed(1)) + '</td>';
+    });
+    h += '</tr>';
+  });
+  h += '</table>';
+  w.innerHTML = h;
 }
 
 // ── Optimization ───────────────────────────────────────────────────────────
@@ -2918,6 +2947,7 @@ async function runOptimization() {
       if (lookaheads.length > 1) _rrAxes.lookahead = lookaheads;
       _rankingRR = computeRobustRanking(allResults.rows, _rrAxes);
       emitRobustRanking(_rankingRR);
+      _rrAxesG = _rrAxes; _optSelIdx = null; // v5.15.2
 
       // Store winner for publish button
       _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, otmTarget: b.otm, vixGate: b.vixgate, dtePenaltyAnchor: b.lookahead, optAnnYield: allResults.bestYld, decay: b.decay, floor: b.floor, delta: b.delta, vixgate: b.vixgate, lookahead: b.lookahead };
@@ -2970,9 +3000,12 @@ async function runOptimization() {
 
     $('results-area').style.display = 'block';
     $('tab-btn-heatmap').style.display = 'block';
-    // v5.15.1 — ranking section inside Opt Results
-    renderRankingTable();
-    if (_rankingRR && _rankingRR.list.length) $('ranking-section').style.display = 'block';
+    // v5.15.2 — robust grid button (2-axis sweeps only) + scan tab reset
+    const _rgb = $('robust-grid-btn');
+    if (_rgb) _rgb.style.display = (_rrAxesG && Object.keys(_rrAxesG).length === 2) ? 'block' : 'none';
+    const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; }
+    const _scb = $('tab-btn-scan'); if (_scb) _scb.style.display = 'none';
+    ['scan-status', 'roll-best-summary-wrap', 'roll-table-container'].forEach(id => { const el = $(id); if (el) el.innerHTML = ''; });
     showTab('heatmap');
 
   } catch(outerErr) {
@@ -3537,14 +3570,16 @@ function renderRollCandidates() {
 }
 
 function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads) {
-  const TOP_N = 8;
 
   // results.rows has every combo; sort by yield descending
   const rows = (results.rows || [])
     .filter(r => r.yld !== null)
     .sort((a, b) => b.yld - a.yld);
 
-  const top    = rows.slice(0, TOP_N);
+  const top    = rows; // v5.15.2 — full list (tap-select needs every rankable row)
+  _optDisplayRows = rows;
+  const mByRow = new Map();
+  ((_rankingRR && _rankingRR.all) || []).forEach(o => mByRow.set(o.row, o));
   // vs STD baseline: find the sweep row matching the live published params.
   // (v5.2.1 — was a legacy decay===75 check that never matched; column showed "—" always.)
   const stdRow = rows.find(r =>
@@ -3641,17 +3676,31 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
   if (top.length === 0) {
     html += `<div class="opt-insufficient">No qualifying results — all combos had fewer than 2 rolls.</div>`;
   } else {
-    html += `<table class="opt-result-tbl">
+    const _sth = 'position:sticky;top:0;background:var(--surface);z-index:1;';
+    html += `<div style="max-height:480px;overflow:auto;"><table class="opt-result-tbl">
       <thead><tr>
-        <th>Params</th>
-        <th>Rolls</th>
-        <th>Ann. Yield</th>
-        <th>vs STD</th>
-        <th>DM Edge %</th>
+        <th style="${_sth}">Params</th>
+        <th style="${_sth}">Rolls</th>
+        <th style="${_sth}">Ann. Yield</th>
+        <th style="${_sth}">vs STD</th>
+        <th style="${_sth}">DM Edge %</th>
+        <th style="${_sth}">R#</th>
+        <th style="${_sth}">Robust</th>
+        <th style="${_sth}">n</th>
+        <th style="${_sth}">spr</th>
+        <th style="${_sth}">axMin</th>
+        <th style="${_sth}">\u0394stop</th>
+        <th style="${_sth}">Flags</th>
       </tr></thead><tbody>`;
 
+    let _gi = -1;
     for (const row of top) {
+      _gi++;
       const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.vixgate === b.vixgate && row.lookahead === b.lookahead;
+      if (isBest && _optSelIdx === null) _optSelIdx = _gi; // default selection = raw winner
+      const m = mByRow.get(row) || null;
+      const isRW = _rankingRR && _rankingRR.winner && m === _rankingRR.winner;
+      const flags = m ? _rankFlags(m) : '';
       const vsDelta  = stdYld !== null ? row.yld - stdYld : null;
       const vsStr    = vsDelta !== null ? (vsDelta >= 0 ? '+' : '') + vsDelta.toFixed(1) + '%' : '\u2014';
       const vsClass  = vsDelta === null ? 'muted' : vsDelta >= 0 ? 'green' : 'red';
@@ -3667,15 +3716,22 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
       const edgeClass = row.edgeRatio === null || row.edgeRatio === undefined ? 'muted'
         : row.edgeRatio >= 0.3 ? 'red' : row.edgeRatio >= 0.15 ? 'yellow' : 'green';
 
-      html += `<tr class="${isBest ? 'opt-best' : ''}">
-        <td style="color:var(--text);">${paramStr}${winFlag}</td>
+      html += `<tr id="opt-row-${_gi}" onclick="optSelectRow(${_gi})" class="${isBest ? 'opt-best' : ''}" style="cursor:pointer;${_gi === _optSelIdx ? 'background:rgba(96,165,250,0.14);' : ''}">
+        <td style="color:var(--text);">${paramStr}${winFlag}${isRW ? ' <span style="color:var(--accent);font-size:9px;">\u2605R</span>' : ''}</td>
         <td class="muted">${row.rolls}</td>
         <td class="${yldClass}">${row.yld.toFixed(1)}%</td>
         <td class="${vsClass}">${vsStr}</td>
         <td class="${edgeClass}">${edgeStr}</td>
+        <td class="muted">${m && m.robustRank ? m.robustRank : '\u2014'}</td>
+        <td class="green">${m && m.robust !== null ? m.robust.toFixed(2) + '%' : '\u2014'}</td>
+        <td class="${m && m.ndist < 4 ? 'yellow' : 'muted'}">${m ? m.ndist : '\u2014'}</td>
+        <td class="muted">${m && m.spread !== null ? m.spread.toFixed(1) : '\u2014'}</td>
+        <td class="muted">${m && m.axisMin !== null ? m.axisMin.toFixed(1) + '%' : '\u2014'}</td>
+        <td class="${(row.pureN ?? 0) === 0 ? 'red' : 'muted'}">${row.stopN ?? 0}(${row.pureN ?? 0})</td>
+        <td class="yellow" style="font-size:9px;">${flags}</td>
       </tr>`;
     }
-    html += `</tbody></table>`;
+    html += `</tbody></table></div>`;
     html += `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px;">DM Edge % only computed for the winning candidate (lazy check, too costly per-eval on large sweeps) — shown as \u2014 for others.</div>`;
   }
 
