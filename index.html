@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.0.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.0.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -448,6 +448,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.0.1 · Selection-follows-sort + AC idle bar + 1×3 params + verdict hardening (DISPLAY/UX ONLY, sim untouched) — (1) The top row of the ACTIVE sort auto-selects and drives the summary panels: Robust → R#1 highlighted and simulated on OPT completion and on toggle; Raw → raw winner. (2) Grid-read strip removed from the UI (the grid view says it); the evaluator still runs invisibly and feeds Ask Claude context. Its slot now holds the Ask Claude panel as an idle bar — visible after OPT, interaction (and any API call) starts only on the button press. (3) Chat replies at 14px (user 13px); the 15px verdict box unchanged. (4) 1×3 param layout: Decay + Delta + Run/Publish in one row; VIX gate (retired on evidence), DTE floor (fixed), and anchor (dormant chaotic axis) cards hidden with ALL sweep code intact — one-line revert each — and their values surfaced in a "fixed: dte · VIX · anchor" strip that refreshes on publish. (5) Verdict/system-prompt hardening after the first live verdict violated house rules (S32 finding: recommended the 1.4-roll/week R#1 with no falsification clause): rule 9 added — every publish recommendation MUST state rolls/week and end with an explicit "Falsified if:" clause, and cells above ~1 roll/week are flagged OPERATIONALLY REJECTED on cadence. Cert: STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.0.0 · MAJOR: ranking-as-strategy milestone (DISPLAY/UX ONLY, sim untouched) — marks the S32 doctrine decision: the sweep is a candidate generator and THE RANKING IS THE STRATEGY, to be validated forward by the audit tracker (design queued) and live walk-forward rather than by in-sample argmax. In-app: (1) Opt Results sorts by ROBUST RANK by default with a Robust/Raw toggle — R#1 on top; raw order demoted to "the argmax view". (2) Grid read reformatted as a compact snapshot (REGION / CHAOS / PLATEAU with decisive numbers only) at readable 11px; narrative and always-printed legend removed, legend behind a "?" toggle; winners line dropped (the table says it). (3) Ask Claude button always visible post-OPT; missing API key prompts in-panel entry (localStorage) instead of hiding. (4) Opening the Opt panel auto-fires a one-sentence VERDICT — recommendation, decisive number, falsification condition — at 15px in a highlighted box, chat below; one verdict per OPT run, context/history reset each run. Cert: STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.15.4 · Ask Claude inline panels + grid-read strip + winner highlights (DISPLAY/UX ONLY, sim untouched) — (1) The AI Analysis tab and per-run auto-analysis are RETIRED (no more silent API calls); replaced by on-demand 🤖 Ask Claude buttons that expand inline chat panels in-place: Opt Results (context: sweep axes/steps, raw+robust top-10s with Δstop(pure) and flags, eligibility outcome, selected row, the computed grid read, and live roll_params.json) and Data Mart (context: table stats + full expiry→strike index, plus a dm_lookup tool loop — Claude can request a specific contract bar as JSON, the app executes it against in-memory DM data and feeds the result back, enabling real mark lookups). System prompt embeds the standing methodology (argmax suspension, robust/photocopy definitions, pure-stop pivotality, boundary discipline, falsification rules, cadence constraint) so advice is grounded in house rules. Key: localStorage anthropic_key; buttons hidden without it. (2) The coded grid read moves to an always-visible strip directly under the panel header — above the results table AND the grid, rendered on every OPT regardless of grid state (S32 fix: it previously hid below the grid). (3) Grid winner cells now keep their values and get hard highlights: gold border = raw ★, white border = robust ★R, blue outline = selection; ⚠ appends after the value instead of replacing it; cells widened to fit. Cert: STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.15.3 · Grid UX polish + coded grid read (DISPLAY ONLY, sim untouched) — grid toggle now reads Open Grid / Close Grid; tapping a result row shows a &#10227; simulating-selection indicator while the ~1s re-sim runs; and the robust grid gains a computed "grid read": a deterministic, no-AI structural evaluation of the actual sweep surface — chaos zone (adjacent sign-flip rate), largest coherent &ge;3% region with its bounds and any adjacent cliff, longest photocopy plateau with its pure-&Delta;stop status, and both winners — plus a plain-language legend (green-on-green shelf = publishable, green-on-red = cliff, checkerboard = chaos, constant stripe = plateau, robust = median of the surrounding boxes). Cert: STD byte-identical except banner; OPT log identical.</span>
@@ -1319,7 +1320,7 @@ async function callClaudeAPI(messages, system) {
   return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n') || 'No response received.';
 }
 
-const AC_SYSTEM = "You are the analysis assistant embedded in Ron's SPY covered-call backtester (600 SPY, Fidelity Roth IRA, manual iPad execution). Objective: Treasury-equivalent-or-better cash flow on a core long SPY position \u2014 maximize credit per cycle at an executable pace, not raw yield. Standing methodology you must respect: (1) Argmax parameter selection is suspended \u2014 raw sweep winners are presumptively spikes; only coherent regions with distinct-path support matter. (2) Robust score = median core yield over the \u00b11-grid-step neighborhood with photocopy cells (identical rolls/yield/hold) collapsed to one observation; resolution-dependent, comparable only within equal-step sweeps. (3) \u0394stop shows total(pure); pure = delta was the sole close reason. Zero pure stops means the threshold is decorative on this tape \u2014 treat such cells' protection as untested. (4) Eligibility for robust-best: pure \u22651 and n_distinct \u22654; grid-edge cells require sweep widening before trust. (5) The system is empirically a ~5-day near-ATM premium race regardless of entry DTE; full-DTE annualization is fiction. (6) All predictions must be falsifiable and stated before evaluation; missed predictions are logged, not excused. (7) Sim prices zero spread friction \u2014 cadence above ~1 roll/week carries unmodeled cost and operational burden Ron has rejected. (8) Never recommend publishing a cell solely because it ranks first on any metric; state what evidence would falsify your recommendation. Answer with specific numbers from the provided context. If the context lacks what you need, say so rather than guessing.";
+const AC_SYSTEM = "You are the analysis assistant embedded in Ron's SPY covered-call backtester (600 SPY, Fidelity Roth IRA, manual iPad execution). Objective: Treasury-equivalent-or-better cash flow on a core long SPY position \u2014 maximize credit per cycle at an executable pace, not raw yield. Standing methodology you must respect: (1) Argmax parameter selection is suspended \u2014 raw sweep winners are presumptively spikes; only coherent regions with distinct-path support matter. (2) Robust score = median core yield over the \u00b11-grid-step neighborhood with photocopy cells (identical rolls/yield/hold) collapsed to one observation; resolution-dependent, comparable only within equal-step sweeps. (3) \u0394stop shows total(pure); pure = delta was the sole close reason. Zero pure stops means the threshold is decorative on this tape \u2014 treat such cells' protection as untested. (4) Eligibility for robust-best: pure \u22651 and n_distinct \u22654; grid-edge cells require sweep widening before trust. (5) The system is empirically a ~5-day near-ATM premium race regardless of entry DTE; full-DTE annualization is fiction. (6) All predictions must be falsifiable and stated before evaluation; missed predictions are logged, not excused. (7) Sim prices zero spread friction \u2014 cadence above ~1 roll/week carries unmodeled cost and operational burden Ron has rejected. (8) Never recommend publishing a cell solely because it ranks first on any metric; state what evidence would falsify your recommendation. (9) ANY recommendation to publish or trade a cell MUST state that cell's cadence as rolls/week (rolls over the ~24-month window ≈ rolls/104) and MUST end with an explicit 'Falsified if:' clause; any recommended cell above ~1 roll/week must be flagged OPERATIONALLY REJECTED on cadence unless the user explicitly waives it. Answer with specific numbers from the provided context. If the context lacks what you need, say so rather than guessing.";
 
 const AC_DM_TOOL = "\n\nTOOL AVAILABLE \u2014 dm_lookup: to fetch an option's end-of-day bar from the in-browser data mart, reply with ONLY this JSON and nothing else: {\"dm_lookup\": {\"strike\": 760, \"expiry\": \"2026-10-16\", \"date\": \"2026-07-02\"}}. The app will execute it and send you the result; then answer the user. Use it whenever asked about specific contract marks, existence, or coverage. One lookup per reply.";
 
@@ -1344,8 +1345,8 @@ function _acRender(key) {
   const box = $('ac-msgs-' + key);
   if (!box) return;
   box.innerHTML = _acHist[key].filter(m => !m._tool).map(m =>
-    '<div style="font-size:11px;line-height:1.5;padding:8px 10px;border-radius:6px;white-space:pre-wrap;' +
-    (m.role === 'user' ? 'background:rgba(96,165,250,0.12);align-self:flex-end;max-width:85%;' : 'background:var(--surface2);align-self:flex-start;max-width:95%;') + '">' +
+    '<div style="line-height:1.5;padding:8px 10px;border-radius:6px;white-space:pre-wrap;' +
+    (m.role === 'user' ? 'font-size:13px;background:rgba(96,165,250,0.12);align-self:flex-end;max-width:85%;' : 'font-size:14px;background:var(--surface2);align-self:flex-start;max-width:95%;') + '">' +
     m.content.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</div>').join('') +
     (_acBusy[key] ? '<div style="font-size:10px;color:var(--muted);">\u27f3 thinking\u2026</div>' : '');
   box.scrollTop = box.scrollHeight;
@@ -1354,7 +1355,7 @@ function _acRender(key) {
 async function toggleAskClaude(key) {
   const p = $('ac-panel-' + key);
   if (!p) return;
-  if (p.style.display !== 'none') { p.style.display = 'none'; return; }
+  if (p.dataset.active === '1') { p.style.display = 'none'; p.dataset.active = '0'; return; } // v6.0.1
   if (!getAnthropicKey()) {
     // v6.0.0 — in-panel key entry instead of silent hiding
     p.innerHTML = '<div style="font-size:11px;color:var(--text);margin-bottom:6px;">Enter your Anthropic API key (stored only in this browser\u2019s localStorage):</div>'
@@ -1365,6 +1366,7 @@ async function toggleAskClaude(key) {
   }
   p.innerHTML = _acPanelHtml(key);
   p.style.display = 'block';
+  p.dataset.active = '1'; // v6.0.1
   _acCtx[key] = key === 'opt' ? await buildOptContext() : buildDmContext();
   _acRender(key);
   if (key === 'opt' && !_acVerdictDone) _acVerdict();
@@ -1386,7 +1388,7 @@ async function _acVerdict() {
   vb.style.display = 'block';
   vb.textContent = '⟳ getting verdict…';
   try {
-    const q = 'In EXACTLY one sentence (max 40 words): your recommendation for this sweep — publish or hold what, the single most decisive number, and what evidence would falsify it. No preamble, no markdown.';
+    const q = 'In at most two sentences: your recommendation for this sweep — publish or hold what, the decisive number, the cell\'s rolls/week — ending with an explicit \'Falsified if:\' clause. No preamble, no markdown.';
     _acHist.opt.push({ role: 'user', content: q, _tool: true });
     const reply = await callClaudeAPI(_acHist.opt.map(m => ({ role: m.role, content: m.content })), AC_SYSTEM + '\n\n' + _acCtx.opt);
     _acHist.opt.push({ role: 'assistant', content: reply, _tool: true });
@@ -2269,7 +2271,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v6.0.0 · SPY Covered Call Backtest');
+  logMsg('v6.0.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2552,6 +2554,7 @@ async function publishRollParams(p) {
             otmFixed: payload.otmTarget, decayTrigger: payload.decayTrigger * 100,
             dteFloor: payload.dteFloor, deltaThreshold: payload.deltaThreshold,
             vixGate: payload.vixGate || 0, dtePenaltyAnchor: payload.dtePenaltyAnchor || 45 };
+    updateFixedStrip(); // v6.0.1
     // Refresh all var-cards with newly published values
     const pubUpdates = {
       'vval-decay':    STD.decayTrigger + '%',
@@ -2747,12 +2750,39 @@ function confirmSelectedPublish() {
 
 function hidePublishCard() { $('publish-confirm-card').style.display = 'none'; }
 
+// v6.0.1 — 1×3 param layout: decay + delta + run/publish in one row.
+// VIX gate (retired on evidence), DTE floor (fixed 7d), and anchor (chaotic axis,
+// dormant pending audit-validated ranking) are hidden — all sweep code intact;
+// re-showing any card is a one-line revert. Fixed values surfaced in a strip.
+function updateFixedStrip() {
+  const el = $('fixed-params-strip');
+  if (!el) return;
+  const v = id => { const e = $(id); return e ? e.textContent : '?'; };
+  el.textContent = 'fixed: dte ' + v('vval-dte') + ' · VIX ' + v('vval-vixgate').toLowerCase() + ' · anchor ' + v('vval-lookahead');
+}
+(function () {
+  ['vcard-vixgate', 'vcard-dte', 'vcard-lookahead'].forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
+  const row = $('var-card-row'), run = $('run-publish-card'), ctr = $('controls-row');
+  if (row && run) row.appendChild(run);
+  if (ctr) {
+    const strip = document.createElement('div');
+    strip.id = 'fixed-params-strip';
+    strip.style.cssText = 'font-family:var(--mono);font-size:10px;color:var(--muted);padding:4px 2px 8px;';
+    ctr.parentNode.insertBefore(strip, ctr);
+    ctr.style.display = 'none';
+  }
+  updateFixedStrip();
+  setTimeout(updateFixedStrip, 1500); // after published params load
+})();
+
 // v5.15.2 — tap-to-select: summary panels follow the selected row (same
 // machinery as the post-OPT winner re-simulation). Guard overlapping taps.
 function setOptSort(m) {
   if (_optSort === m) return;
   _optSort = m;
+  _optSelIdx = null; // v6.0.1 — re-select top of the new sort
   if (_optRR_args) renderOptResults(..._optRR_args);
+  if (_optSelIdx !== null) optSelectRow(_optSelIdx); // re-sim panels to the new top
 }
 
 function toggleGridLegend() {
@@ -2864,7 +2894,7 @@ function renderGridRead() {
   const byCell = new Map();
   _optDisplayRows.forEach(r => byCell.set(r[a1] + '|' + r[a2], r));
   w.innerHTML = _evalRobustGrid(v1, v2, a1, a2, null);
-  w.style.display = 'block';
+  w.style.display = 'none'; // v6.0.1 — feeds Ask Claude context only
 }
 
 // v5.15.3 — coded grid read: deterministic structural evaluation of the sweep
@@ -3153,9 +3183,16 @@ async function runOptimization() {
     if (_rgb) _rgb.style.display = (_rrAxesG && Object.keys(_rrAxesG).length === 2) ? 'block' : 'none';
     const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; }
     if (_rgb) _rgb.textContent = '\u229e Open Grid';
-    renderGridRead(); // v5.15.4 — always-visible read strip
+    renderGridRead(); // v6.0.1 — computed for AI context only (not displayed; the grid says it)
     const _acb = $('ac-btn-opt'); if (_acb) _acb.style.display = 'block';
-    _acHist.opt = []; _acCtx.opt = null; _acVerdictDone = false; const _acpv = $('ac-panel-opt'); if (_acpv) _acpv.style.display = 'none'; // v6.0.0 — fresh AI context per run
+    _acHist.opt = []; _acCtx.opt = null; _acVerdictDone = false;
+    const _acpv = $('ac-panel-opt');
+    if (_acpv) { // v6.0.1 — idle bar in the old grid-read slot; interaction starts on button press
+      _acpv.dataset.active = '0';
+      _acpv.innerHTML = '<div style="font-size:11px;color:var(--muted);">🤖 Ask Claude · verdict + chat on this sweep — press the Ask Claude button to start (API call only on demand)</div>';
+      _acpv.style.display = 'block';
+    }
+    if (_optSelIdx !== null) optSelectRow(_optSelIdx); // v6.0.1 — panels follow the sorted top (R#1 under Robust)
     const _scb = $('tab-btn-scan'); if (_scb) _scb.style.display = 'none';
     ['scan-status', 'roll-best-summary-wrap', 'roll-table-container'].forEach(id => { const el = $(id); if (el) el.innerHTML = ''; });
     showTab('heatmap');
@@ -3738,6 +3775,7 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
     const inSet = new Set(ordered);
     dispIdx = ordered.concat(rows.map((_, i) => i).filter(i => !inSet.has(i)));
   }
+  if (_optSelIdx === null && dispIdx.length) _optSelIdx = dispIdx[0]; // v6.0.1 — top of ACTIVE sort
   const mByRow = new Map();
   ((_rankingRR && _rankingRR.all) || []).forEach(o => mByRow.set(o.row, o));
   // vs STD baseline: find the sweep row matching the live published params.
@@ -3861,7 +3899,6 @@ function renderOptResults(results, decays, floors, deltas, vixgates, lookaheads)
     for (const _gi of dispIdx) {
       const row = top[_gi];
       const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.vixgate === b.vixgate && row.lookahead === b.lookahead;
-      if (isBest && _optSelIdx === null) _optSelIdx = _gi; // default selection = raw winner
       const m = mByRow.get(row) || null;
       const isRW = _rankingRR && _rankingRR.winner && m === _rankingRR.winner;
       const flags = m ? _rankFlags(m) : '';
