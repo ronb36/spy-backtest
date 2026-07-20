@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.0.5</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -266,6 +266,20 @@ select.display-box { cursor:pointer; outline:none; }
 
   <!-- Results tabs -->
   <div id="results-area" style="display:none">
+    <!-- v6.1.0 — persistent Ask Claude chat above the tabs -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <button id="chat-btn" onclick="toggleChat()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">🤖 Ask Claude</button>
+    </div>
+    <div id="chat-section" style="display:none;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;background:var(--surface);">
+      <div id="chat-ctx-label" style="font-size:10px;color:var(--muted);margin-bottom:6px;"></div>
+      <div id="chat-verdict" style="display:none;font-size:15px;line-height:1.5;padding:12px;border:1px solid var(--accent);border-radius:6px;margin-bottom:8px;color:var(--text);background:rgba(96,165,250,0.06);"></div>
+      <div id="chat-msgs" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+      <div id="chat-sugg" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:8px;">
+        <input id="chat-in" type="text" placeholder="Ask Claude…" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;padding:9px 10px;" onkeydown="if(event.key==='Enter')sendChat()">
+        <button onclick="sendChat()" style="padding:9px 16px;font-size:11px;border-radius:4px;border:1px solid var(--accent);background:var(--surface2);color:var(--accent);cursor:pointer;">Send</button>
+      </div>
+    </div>
     <div class="tab-bar">
       <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Trade Blotter</button>
       <button class="tab-btn" id="tab-btn-chart" onclick="showTab('chart')">📈 Chart</button>
@@ -328,11 +342,12 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Heatmap tab -->
     <div id="tab-heatmap" style="display:none">
+      <div id="pub-banner" onclick="reselectPublishedRow()" style="display:none;border:1px solid #2a9d5c;border-radius:6px;padding:8px 12px;margin-bottom:10px;background:rgba(42,157,92,0.08);font-family:var(--mono);font-size:10px;color:var(--text);cursor:pointer;"></div>
       <div id="publish-confirm-card" style="display:none;border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;background:var(--surface);"></div>
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span>
-          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><button id="ac-btn-opt" onclick="acButton('opt')" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;margin-right:8px;">🤖 Ask Claude</button><button id="robust-grid-btn" onclick="toggleRobustGrid()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button>
+          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><!-- v6.1.0: inline opt Ask Claude button retired; chat section above tabs --><button id="robust-grid-btn" onclick="toggleRobustGrid()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button>
         </div>
         <div id="grid-read-wrap" style="display:none;margin-bottom:10px;"></div>
         <div id="ac-panel-opt" style="display:none;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;background:var(--surface);"></div>
@@ -371,7 +386,7 @@ select.display-box { cursor:pointer; outline:none; }
           <span class="chart-title">📒 Live Trade Blotter</span>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <span id="live-blotter-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
-            <button id="load-history-btn" onclick="loadHistoricalTrades()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--yellow);border-radius:3px;color:var(--yellow);padding:3px 10px;cursor:pointer;">⬆ Load History</button>
+            <!-- v6.1.1: Load History retired — table rebuilt from Fidelity source (S33); stale seed removed -->
             <button onclick="loadLiveBlotter()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⟳ Refresh</button>
             <button onclick="openCoverOnlyModal()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--red);border-radius:3px;color:var(--red);padding:3px 10px;cursor:pointer;">✕ Cover Only</button>
             <button onclick="openManualEntryModal()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:3px 10px;cursor:pointer;">+ Add Trade</button>
@@ -399,7 +414,7 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Data Mart tab -->
     <div id="tab-mart" style="display:none">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><button id="ac-btn-mart" onclick="acButton('mart')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">🤖 Ask Claude</button></div>
+      <!-- v6.1.0: inline mart Ask Claude button retired; chat section above tabs -->
       <div id="ac-panel-mart" style="display:none;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;background:var(--surface);"></div>
       <!-- Summary cards -->
       <div class="summary-grid" id="mart-cards" style="margin-bottom:12px;"></div>
@@ -448,6 +463,8 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.1.1 · Blotter truth alignment (DISPLAY ONLY, sim untouched) — companion to the S33 live_trades REBUILD: the table was reloaded from six Fidelity account-history exports (06/2025–07/2026, 331 option events, zero inventory violations) via a one-time reload.html loader; 163 rows/$49,731 → 168 rows/$55,160.51 exactly tying to Fidelity nets — +$5,429 of premium the old blotter never booked, and two mysteries resolved (the 12/24+01/12 credit gaps were merged partial fills, honest as recorded; the 02/26 cover_only and the phantom 698C 03/19 cover were three small LONG-call hedge buys). In-app: (1) ⤴ Load History button and the embedded 163-row seed are RETIRED — pressing it would have upserted the stale pre-rebuild history back into Supabase; (2) blotter renderer learns the rebuild’s row types: sell_only (“sold to open”) and long_call (“long call”, sell leg labeled Long); (3) BUG FIX: the renderer matched row_type “expired worthless” but rows store “expired”, so all expired covers rendered as red “Cover @ $0” — now labeled Expired (61 rows affected); (4) audit snapshot app_version bumped. Cert: STD byte-identical except banner; OPT log identical.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.1.0 · Decision Run pipeline + audit_snapshot writes (DISPLAY/PERSISTENCE ONLY, sim untouched) — (1) One button walks the pipeline: Optimize → Optimizing… → Publish → Scan. Publish flips the button to Scan (terminal ✓ Published state retired); Scan runs STD+scan under the published params (cert log + candidates in one run); selecting any row while in Scan state reverts the button to Publish (new selection = unpublished — the button label IS the published/unpublished indicator); a tappable 📌 published banner in Opt Results reselects the published row without republishing; editing any range resets to Optimize; debug remains a pure STD Run. (2) Ask Claude moves to a persistent chat section above the tabs (header button toggles Ask Claude/Close, Send beside the input); context follows the active tab (Opt / Scan / Data Mart with dm_lookup / general), histories kept per context; auto one-sentence verdicts on Opt (RULE 9) and now Scan (candidate sanity-check), once per run; tappable suggested questions per tab; the inline panel buttons are retired (panel code intact). (3) The trade ticket gains a CLOSE REASON selector (decay/delta/DTE/discretionary → live_trades.trigger) and is the ONLY audit write path (Ron S33: scans never write): on confirm it completes the open audit_snapshot row (realized close date/trigger/hold days/credit ≡ premium kept) and inserts the new cycle’s snapshot — opt run identity+axes, robust top-10 with diagnostics, raw top-5, scan top-5, chosen+fills, published params, sim predictions (mean hold + credit/cycle from the last STD result), labeled OPT+SCAN Claude verdicts; audit failures never block an executed trade (Retry button; FK live_trades.id text, DDL run in Supabase this session). BUG FIX found in-build: live_trades cover leg recorded the NEW strike/expiry (STD already overwritten at build time of the row) — now taken from the prior-position capture. Cert: STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.0.5 · Debug-off re-arms OPT (DISPLAY ONLY, sim untouched) — completes the mode symmetry: toggling Debug OFF now returns to the app’s home state, re-arming the decay×delta sweep with persisted ranges and refreshed labels/eval count (updateSweepRange both axes), exactly as on first load. Debug ON still disarms all sweeps (v6.0.4). The full invariant: debug ⇌ OPT-first are the only two states; no dead zone between them. Also this session: debug-mode STD log-certified for the first time — log 2026-07-20_1339 is the debug-mode cert baseline going forward (debug logs add ~617 verbose lines and swap the compact summary line for OTM/gap blocks by v5.11.x design; debug certs now diff debug-vs-debug). Cert: debug STD byte-identical to 1339 except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.0.4 · Debug disarms sweeps (DISPLAY ONLY, sim untouched) — with OPT-first startup, toggling Debug ON left the auto-armed decay×delta cards in OPTIMIZE state; the existing guard only ran one direction (arming a sweep auto-disables debug). toggleDebug now force-disarms all active sweeps via toggleVar(v, true) when debug turns on, restoring the invariant: debug mode is a pure STD run at published params, always — the certification path. Cert: debug STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.0.3 · OPT-first startup sequencing fix (DISPLAY ONLY, sim untouched) — v6.0.2 armed the decay×delta sweep in an early IIFE, BEFORE the saved sweep ranges restored into the min/max/step inputs, so the card subtitles showed the hardcoded defaults ("sweeping 15%–35%", "0.250–0.350") and the Run button showed the default 5×11 grid ("55 evals") while the inputs themselves later restored to the real ranges. The arm now runs inside DM-load init immediately AFTER the sweepConfig restore, followed by updateSweepRange on both axes — restoring the "sweeping lo–hi (n)" step-count labels and the correct eval total (465 on the standard pass-2 grid). Debug mode unchanged (pure STD). Cert: debug STD byte-identical except banner; OPT log identical.</span>
@@ -589,6 +606,17 @@ let _rrAxesG = null;        // v5.15.2 — swept axes of the last OPT (for the r
 let _optSort = 'robust';    // v6.0.0 — table sort: robust rank IS the ranking; raw = argmax view
 let _optRR_args = null;     // v6.0.0 — renderOptResults args for sort re-render
 let _acVerdictDone = false; // v6.0.0 — one auto verdict per OPT run
+// ── v6.1.0 Decision Run pipeline + chat + audit globals ──
+let _pipeState = 'opt';          // 'opt' | 'publish' | 'scan' | 'scanning'
+let _reselectingPub = false;     // suppress Scan→Publish revert during banner reselect
+let _chatOpen = false;           // chat section visibility
+let _chatKey = 'gen';            // active chat context: opt | scan | mart | gen
+let _acScanVerdictDone = false;  // one scan verdict per scan run
+let _lastVerdict = { opt: null, scan: null }; // audited verdict texts
+let _scanCtxData = null;         // scan capture for chat context + audit snapshot
+let _optRunTs = null;            // opt run identity timestamp
+let _tradeCloseReason = null;    // ticket close-reason selector value
+let _pendingAudit = null;        // failed audit write payload for Retry
 let lastResult = null; // cached for price chart roll markers
 let _dmExpiryIndex = {}; // expiry → [contracts] index, rebuilt at start of each simulate()
 
@@ -690,19 +718,21 @@ function setRunButtonState(state, opts = {}) {
   btn.disabled = false;
   switch (state) {
     case 'idle':
-      btn.textContent = '\u25b6 Run';
+      _pipeState = 'opt'; // v6.1.0
+      btn.textContent = (!_debugMode && typeof anySweepActive === 'function' && anySweepActive()) ? '\u25b6 Optimize' : '\u25b6 Run';
       btn.style.color = '#fff'; btn.style.opacity = opts.dmReady === false ? '.4' : '1';
       btn.style.cursor = opts.dmReady === false ? 'not-allowed' : 'pointer';
       btn.disabled = opts.dmReady === false;
       card.style.background = 'var(--accent)';
       break;
     case 'running':
-      btn.textContent = '\u25b6 Running...';
+      btn.textContent = opts.label || '\u25b6 Running...';
       btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'wait';
       btn.disabled = true;
       card.style.background = 'var(--accent)';
       break;
     case 'ready':
+      _pipeState = 'publish'; // v6.1.0
       btn.textContent = '\u2191 Publish';
       btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
       card.style.background = '#2a9d5c';
@@ -713,16 +743,13 @@ function setRunButtonState(state, opts = {}) {
       btn.disabled = true;
       card.style.background = '#2a9d5c';
       break;
-    case 'published':
-      btn.textContent = '\u2713 Published';
-      btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'default';
-      btn.disabled = true;
-      card.style.background = '#2a9d5c';
-      break;
+    case 'published': // v6.1.0 — retired terminal state; aliases to scan
     case 'scan':
-      btn.textContent = '\u25b6 Run';
+      _pipeState = 'scan';
+      btn.textContent = '\ud83d\udd0d Scan';
       btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
-      card.style.background = 'var(--accent)';
+      btn.disabled = false;
+      card.style.background = '#2a9d5c';
       break;
   }
 }
@@ -1001,19 +1028,30 @@ function setMode(m) {
 async function handleRunOrPublish() {
   const btn = $('run-btn');
   const currentLabel = btn?.textContent?.trim() || '';
-  // If the button currently reads Publish, dispatch to that flow instead of
-  // starting a new backtest run.
+  // v6.1.0 pipeline dispatch — label routes the state machine.
+  // Scan (incl. '\u2713 Scan Complete' re-tap): STD+scan under published params.
+  if (currentLabel.includes('Scan')) {
+    _pipeState = 'scanning';
+    _mode = 'test';
+    $('progress-log').textContent = ''; $('runlog-mirror').textContent = '';
+    const _m = $('runlog-mirror'); if (_m) _m.innerHTML = '';
+    setRunButtonState('running', { label: '\ud83d\udd0d Scanning...' });
+    setProgress(0);
+    await yield_();
+    await runSimulation();
+    return;
+  }
   if (currentLabel.includes('Publish')) {
     handlePublish();
     return;
   }
-  if (currentLabel.includes('Published')) return; // terminal state, no-op
 
   _mode = 'test';
   $('progress-log').textContent = ''; $('runlog-mirror').textContent = '';
   const mirror = $('runlog-mirror');
   if (mirror) mirror.innerHTML = '';
-  setRunButtonState('running');
+  if (anySweepActive() && !_debugMode) _optRunTs = new Date().toISOString(); // v6.1.0 opt run identity
+  setRunButtonState('running', { label: (anySweepActive() && !_debugMode) ? '\u25b6 Optimizing...' : '\u25b6 Running...' });
   setProgress(0);
   await yield_();  // let browser paint the reset before run starts
   if (anySweepActive()) await runOptimization();
@@ -1303,6 +1341,7 @@ function showTab(tab) {
     if (el)  el.style.display  = t === tab ? 'block' : 'none';
     if (btn) btn.classList.toggle('active', t === tab);
   });
+  if (_chatOpen) setChatContext(tab); // v6.1.0 — chat context follows the tab
   if (tab === 'mart') renderMartCards();
   if (tab === 'chart') setChartView('price');
   if (tab === 'live') loadLiveBlotter();
@@ -1342,9 +1381,9 @@ const AC_SYSTEM = "You are the analysis assistant embedded in Ron's SPY covered-
 
 const AC_DM_TOOL = "\n\nTOOL AVAILABLE \u2014 dm_lookup: to fetch an option's end-of-day bar from the in-browser data mart, reply with ONLY this JSON and nothing else: {\"dm_lookup\": {\"strike\": 760, \"expiry\": \"2026-10-16\", \"date\": \"2026-07-02\"}}. The app will execute it and send you the result; then answer the user. Use it whenever asked about specific contract marks, existence, or coverage. One lookup per reply.";
 
-let _acHist = { opt: [], mart: [] };
-let _acCtx  = { opt: null, mart: null };
-let _acBusy = { opt: false, mart: false };
+let _acHist = { opt: [], mart: [], scan: [], gen: [] }; // v6.1.0 + scan/gen
+let _acCtx  = { opt: null, mart: null, scan: null, gen: null };
+let _acBusy = { opt: false, mart: false, scan: false, gen: false };
 
 function _stripTags(h) { const d = document.createElement('div'); d.innerHTML = h; return d.textContent || ''; }
 
@@ -1506,6 +1545,185 @@ async function sendAsk(key) {
   }
 }
 
+// ── v6.1.0 chat section — tab-aware context, per-key histories ──
+function _tabToKey(tab) {
+  if (tab === 'heatmap') return 'opt';
+  if (tab === 'scan') return 'scan';
+  if (tab === 'mart') return 'mart';
+  return 'gen';
+}
+const _chatSugg = {
+  opt:  ['Is the robust winner publishable?', 'Compare R#1 vs raw #1', 'Any boundary or eligibility concerns?'],
+  scan: ['Sanity-check the best candidate', 'Compare the top expiries', 'How do the deltas sit vs the stop?'],
+  mart: ['Coverage around the current position?', 'Any recent bar gaps?'],
+  gen:  ['Summarize the current position', 'What are the published params?']
+};
+function _chatShellHtml() {
+  return '<div id="chat-ctx-label" style="font-size:10px;color:var(--muted);margin-bottom:6px;"></div>'
+    + '<div id="chat-verdict" style="display:none;font-size:15px;line-height:1.5;padding:12px;border:1px solid var(--accent);border-radius:6px;margin-bottom:8px;color:var(--text);background:rgba(96,165,250,0.06);"></div>'
+    + '<div id="chat-msgs" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>'
+    + '<div id="chat-sugg" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<input id="chat-in" type="text" placeholder="Ask Claude\u2026" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;padding:9px 10px;" onkeydown="if(event.key===\u0027Enter\u0027)sendChat()">'
+    + '<button onclick="sendChat()" style="padding:9px 16px;font-size:11px;border-radius:4px;border:1px solid var(--accent);background:var(--surface2);color:var(--accent);cursor:pointer;">Send</button></div>';
+}
+function toggleChat() {
+  const s = $('chat-section'); const b = $('chat-btn');
+  if (!s || !b) return;
+  if (!getAnthropicKey()) {
+    s.innerHTML = '<div style="font-size:11px;color:var(--text);margin-bottom:6px;">Enter your Anthropic API key (stored only in this browser\u2019s localStorage):</div>'
+      + '<div style="display:flex;gap:8px;"><input id="chat-key-in" type="password" placeholder="sk-ant-\u2026" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;padding:9px 10px;">'
+      + '<button onclick="chatSaveKey()" style="padding:9px 14px;font-size:11px;border-radius:4px;border:1px solid var(--accent);background:var(--surface2);color:var(--accent);cursor:pointer;">Save</button></div>';
+    s.style.display = 'block';
+    return;
+  }
+  _chatOpen = !_chatOpen;
+  s.style.display = _chatOpen ? 'block' : 'none';
+  b.textContent = _chatOpen ? 'Close' : '\ud83e\udd16 Ask Claude';
+  if (_chatOpen) {
+    if (!$('chat-in')) s.innerHTML = _chatShellHtml(); // rebuilt after key-entry takeover
+    const active = document.querySelector('.tab-btn.active');
+    const tab = active ? active.id.replace('tab-btn-', '') : 'log';
+    setChatContext(tab);
+  }
+}
+function chatSaveKey() {
+  const v = $('chat-key-in') && $('chat-key-in').value.trim();
+  if (!v) return;
+  localStorage.setItem('anthropic_key', v);
+  const s = $('chat-section');
+  if (s) { s.innerHTML = _chatShellHtml(); s.style.display = 'none'; }
+  _chatOpen = false;
+  toggleChat();
+}
+async function setChatContext(tab) {
+  _chatKey = _tabToKey(tab);
+  const names = { opt: 'this optimization run', scan: 'scan candidates + position', mart: 'data mart', gen: 'position + published params' };
+  const lbl = $('chat-ctx-label');
+  if (lbl) lbl.textContent = 'Ask Claude \u00b7 context: ' + names[_chatKey];
+  if (_acCtx[_chatKey] === null) {
+    if (_chatKey === 'opt') _acCtx.opt = await buildOptContext();
+    else if (_chatKey === 'mart') _acCtx.mart = buildDmContext();
+    else if (_chatKey === 'scan') _acCtx.scan = buildScanContext();
+    else _acCtx.gen = buildGenContext();
+  }
+  renderChatSugg();
+  _chatRender();
+  const vb = $('chat-verdict');
+  if (vb) {
+    if (_lastVerdict[_chatKey]) { vb.textContent = _lastVerdict[_chatKey]; vb.style.display = 'block'; }
+    else vb.style.display = 'none';
+  }
+  if (_chatKey === 'opt' && _optDisplayRows && !_acVerdictDone) chatVerdict('opt');
+  if (_chatKey === 'scan' && _scanCtxData && !_acScanVerdictDone) chatVerdict('scan');
+}
+function renderChatSugg() {
+  const box = $('chat-sugg');
+  if (!box) return;
+  box.innerHTML = (_chatSugg[_chatKey] || []).map(q =>
+    '<button onclick="askSuggested(this.textContent)" style="font-family:var(--mono);font-size:9px;padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">'
+    + q.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</button>').join('');
+}
+function askSuggested(q) { const i = $('chat-in'); if (i) i.value = q; sendChat(); }
+function _chatRender() {
+  const box = $('chat-msgs');
+  if (!box) return;
+  box.innerHTML = _acHist[_chatKey].filter(m => !m._tool).map(m =>
+    '<div style="line-height:1.5;padding:8px 10px;border-radius:6px;white-space:pre-wrap;' +
+    (m.role === 'user' ? 'font-size:13px;background:rgba(96,165,250,0.12);align-self:flex-end;max-width:85%;' : 'font-size:14px;background:var(--surface2);align-self:flex-start;max-width:95%;') + '">' +
+    m.content.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</div>').join('') +
+    (_acBusy[_chatKey] ? '<div style="font-size:10px;color:var(--muted);">\u27f3 thinking\u2026</div>' : '');
+  box.scrollTop = box.scrollHeight;
+}
+async function chatVerdict(key) {
+  const vb = $('chat-verdict');
+  if (!vb || _chatKey !== key) return;
+  vb.style.display = 'block';
+  vb.textContent = '\u27f3 getting verdict\u2026';
+  try {
+    const qOpt = 'In at most two sentences: your recommendation for this sweep \u2014 publish or hold what, the decisive number, the cell\u2019s rolls/week \u2014 ending with an explicit \u0022Falsified if:\u0022 clause. No preamble, no markdown.';
+    const qScan = 'In at most two sentences: sanity-check the \u2605 best scan candidate against the current position and published params \u2014 net credit, both deltas vs the stop, DTE; flag anything off. No preamble, no markdown.';
+    const q = key === 'opt' ? qOpt : qScan;
+    _acHist[key].push({ role: 'user', content: q, _tool: true });
+    const reply = await callClaudeAPI(_acHist[key].map(m => ({ role: m.role, content: m.content })), AC_SYSTEM + '\n\n' + _acCtx[key]);
+    _acHist[key].push({ role: 'assistant', content: reply, _tool: true });
+    _lastVerdict[key] = reply.trim();
+    if (_chatKey === key) vb.textContent = _lastVerdict[key];
+    if (key === 'opt') _acVerdictDone = true; else _acScanVerdictDone = true;
+  } catch (e) {
+    vb.textContent = '\u2717 ' + e.message;
+  }
+}
+function buildScanContext() {
+  const L = [];
+  L.push('=== SCAN CONTEXT (v6.1.0) ===');
+  if (_scanCtxData) {
+    L.push('Scan ts: ' + _scanCtxData.ts + ' \u00b7 SPY $' + _scanCtxData.spy.toFixed(2) + (_scanCtxData.cover > 0 ? ' \u00b7 cover $' + _scanCtxData.cover.toFixed(2) : ''));
+    if (_scanCtxData.trigger) L.push('Active trigger: ' + _scanCtxData.trigger);
+    L.push('TOP CANDIDATES (best first):');
+    _scanCtxData.top.forEach((r, i) => L.push('  #' + (i + 1) + ' $' + r.strike + 'C ' + r.exp + ' \u00b7 mid $' + r.mid + ' \u00b7 net ' + (r.net >= 0 ? '+' : '') + '$' + r.net + ' \u00b7 adj ' + r.adjYield + '% \u00b7 \u0394mkt ' + r.deltaMkt + ' / \u0394sim ' + r.deltaSim));
+  } else L.push('No scan run yet this session.');
+  L.push('CURRENT POSITION: short ' + (STD.contracts || 6) + 'x $' + STD.shortStrike + 'C ' + STD.shortExpiry + ' \u00b7 entry ' + STD.entryDate + ' \u00b7 sell $' + STD.sellPrice + ' \u00b7 net $' + STD.netPremium);
+  L.push('PUBLISHED PARAMS: decay ' + STD.decayTrigger + '% \u00b7 \u0394' + STD.deltaThreshold + ' \u00b7 floor ' + STD.dteFloor + 'd \u00b7 anchor ' + STD.dtePenaltyAnchor + 'd \u00b7 VIX gate ' + (STD.vixGate || 0));
+  return L.join('\n');
+}
+function buildGenContext() {
+  const L = [];
+  L.push('=== GENERAL CONTEXT (v6.1.0) ===');
+  L.push('CURRENT POSITION: short ' + (STD.contracts || 6) + 'x $' + STD.shortStrike + 'C ' + STD.shortExpiry + ' \u00b7 entry ' + STD.entryDate + ' \u00b7 sell $' + STD.sellPrice + ' \u00b7 cover paid $' + STD.coverPrice + ' \u00b7 net $' + STD.netPremium);
+  L.push('PUBLISHED PARAMS: decay ' + STD.decayTrigger + '% \u00b7 \u0394' + STD.deltaThreshold + ' \u00b7 floor ' + STD.dteFloor + 'd \u00b7 anchor ' + STD.dtePenaltyAnchor + 'd \u00b7 VIX gate ' + (STD.vixGate || 0));
+  L.push('Pipeline state: ' + _pipeState);
+  return L.join('\n');
+}
+async function sendChat() {
+  const inp = $('chat-in');
+  const key = _chatKey;
+  if (!inp || !inp.value.trim() || _acBusy[key]) return;
+  const q = inp.value.trim(); inp.value = '';
+  _acHist[key].push({ role: 'user', content: q });
+  _acBusy[key] = true; _chatRender();
+  try {
+    if (_acCtx[key] === null) {
+      const active = document.querySelector('.tab-btn.active');
+      await setChatContext(active ? active.id.replace('tab-btn-', '') : 'log');
+    }
+    const sys = AC_SYSTEM + '\n\n' + _acCtx[key];
+    for (let hop = 0; hop < 3; hop++) {
+      const reply = await callClaudeAPI(_acHist[key].map(m => ({ role: m.role, content: m.content })), sys);
+      let tool = null;
+      try { const j = JSON.parse(reply.trim()); if (j && j.dm_lookup) tool = j.dm_lookup; } catch (e) {}
+      if (tool && key === 'mart') {
+        _acHist[key].push({ role: 'assistant', content: reply, _tool: true });
+        _acHist[key].push({ role: 'user', content: '[dm_lookup result] ' + JSON.stringify(dm_lookup(tool)), _tool: true });
+        continue;
+      }
+      _acHist[key].push({ role: 'assistant', content: reply });
+      break;
+    }
+  } catch (err) {
+    _acHist[key].push({ role: 'assistant', content: '\u2717 ' + err.message });
+  } finally {
+    _acBusy[key] = false; _chatRender();
+  }
+}
+// ── v6.1.0 published banner ──
+function renderPubBanner(payload) {
+  const b = $('pub-banner');
+  if (!b) return;
+  b.innerHTML = '\ud83d\udccc PUBLISHED: decay ' + (payload.decayTrigger * 100).toFixed(0) + '% \u00b7 \u0394' + payload.deltaThreshold
+    + ' \u00b7 floor ' + payload.dteFloor + 'd \u00b7 anchor ' + payload.dtePenaltyAnchor + 'd \u00b7 ' + payload.optProjYield
+    + '% proj \u2014 <span style="color:#2a9d5c;">tap to reselect this row</span>';
+  b.style.display = 'block';
+}
+function reselectPublishedRow() {
+  if (!_optDisplayRows) return;
+  const d = STD.decayTrigger, dl = STD.deltaThreshold, fl = STD.dteFloor, an = STD.dtePenaltyAnchor;
+  const idx = _optDisplayRows.findIndex(r => Math.abs(r.decay - d) < 1e-9 && Math.abs(r.delta - dl) < 1e-9
+    && r.floor === fl && (r.lookahead || an) === an);
+  if (idx < 0) { logMsg('\u26a0 Published row not in this sweep', 'err'); return; }
+  _reselectingPub = true;
+  Promise.resolve(optSelectRow(idx)).finally(() => { _reselectingPub = false; setRunButtonState('scan'); });
+}
 function normalCDF(x) {
   const a1=.254829592, a2=-.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=.3275911;
   const s = x < 0 ? -1 : 1, v = Math.abs(x);
@@ -2304,7 +2522,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v6.0.5 · SPY Covered Call Backtest');
+  logMsg('v6.1.1 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2323,8 +2541,9 @@ async function runSimulation() {
   }
   setProgress(100);
 
-  // STD run complete — stay on Run (blue). Publish only appears after OPT sweep.
-  setRunButtonState('idle');
+  // v6.1.0 — a Scan-state run returns to Scan; otherwise idle (legacy STD).
+  if (_pipeState === 'scanning' || _pipeState === 'scan') setRunButtonState('scan');
+  else setRunButtonState('idle');
   if (_debugMode) {
     logOTMDistribution(result);
     logDMGapReport(_rollSnapshots);
@@ -2603,7 +2822,8 @@ async function publishRollParams(p) {
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
     logMsg('\u2713 Published roll_params.json — ' + payload.optProjYield + '% proj. yield · ' + today, 'ok');
-    setRunButtonState('published');
+    setRunButtonState('scan');           // v6.1.0 — pipeline advances to Scan
+    renderPubBanner(payload);            // v6.1.0 — tappable reselect banner
     updateParamDisplay();
   } catch(e) {
     // If auth failed, clear stored PAT so next attempt re-prompts
@@ -2853,6 +3073,8 @@ async function optSelectRow(i) {
   } finally {
     _rankPickBusy = false;
     if (_st) _st.textContent = '';
+    // v6.1.0 — a new selection while in Scan state means unpublished again
+    if (!_reselectingPub && (_pipeState === 'scan' || _pipeState === 'scanning')) setRunButtonState('ready');
   }
 }
 
@@ -3218,7 +3440,7 @@ async function runOptimization() {
     if (_rgb) _rgb.textContent = '\u229e Open Grid';
     renderGridRead(); // v6.0.1 — computed for AI context only (not displayed; the grid says it)
     const _acb = $('ac-btn-opt'); if (_acb) _acb.style.display = 'block';
-    _acHist.opt = []; _acCtx.opt = null; _acVerdictDone = false;
+    _acHist.opt = []; _acCtx.opt = null; _acVerdictDone = false; _lastVerdict.opt = null; // v6.1.0
     const _acpv = $('ac-panel-opt');
     if (_acpv) { // v6.0.1 — idle bar in the old grid-read slot; interaction starts on button press
       _acpv.dataset.active = '0';
@@ -4696,6 +4918,17 @@ async function runRollScan() {
   renderRollScanTable(scored, spyNow, deltaThres, currentCallMid, allUiWarnings, _scanTriggerInfo, dmStrikesPerExpiry, expList);
 
   const best = scored[0] || null;
+  // v6.1.0 — scan context capture for chat + audit snapshot (display/persistence only)
+  _scanCtxData = {
+    ts: new Date().toISOString(), spy: spyNow, cover: currentCallMid,
+    trigger: (typeof _scanTriggerInfo === 'object' && _scanTriggerInfo && _scanTriggerInfo.type) || null,
+    top: scored.slice(0, 5).map(r => ({ exp: r.exp, strike: r.strike, mid: +r.mid.toFixed(2),
+      net: +r.netCredit.toFixed(2),
+      adjYield: r.rollAdjYield != null ? +r.rollAdjYield.toFixed(1) : null,
+      deltaMkt: r.delta != null ? +(+r.delta).toFixed(3) : null,
+      deltaSim: r.deltaSim != null ? +(+r.deltaSim).toFixed(3) : null }))
+  };
+  _acHist.scan = []; _acCtx.scan = null; _acScanVerdictDone = false; _lastVerdict.scan = null;
   if (best) {
     logMsg('  ★ Best: $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2) +
       ' | Net +$' + best.netCredit.toFixed(2) +
@@ -4847,8 +5080,23 @@ function openTradeModal(strike, exp, dte, delta, otm) {
   document.getElementById('trade-confirm-btn').disabled = false;
   document.getElementById('trade-confirm-btn').textContent = 'Confirm \u0026 Publish';
 
+  // v6.1.0 — default close reason from the scan's active trigger
+  setTradeTrigger((_scanCtxData && ['decay', 'delta', 'dte'].includes(_scanCtxData.trigger)) ? _scanCtxData.trigger : 'discretionary');
+
   overlay.style.display = 'flex';
   setTimeout(() => document.getElementById('trade-cover-price').focus(), 50);
+}
+
+function setTradeTrigger(t) {
+  _tradeCloseReason = t;
+  ['decay', 'delta', 'dte', 'discretionary'].forEach(x => {
+    const b = $('tt-' + x);
+    if (!b) return;
+    const on = x === t;
+    b.style.borderColor = on ? 'var(--green)' : 'var(--border)';
+    b.style.color = on ? 'var(--green)' : 'var(--muted)';
+    b.style.background = on ? 'rgba(42,157,92,0.10)' : 'transparent';
+  });
 }
 
 function closeTradeModal() {
@@ -4934,6 +5182,9 @@ async function confirmTrade() {
       throw new Error('GitHub API ' + put.status);
     }
 
+    // v6.1.0 — capture the prior position BEFORE overwriting (audit realized fields)
+    const _prior = { entryDate: STD.entryDate, sellPrice: STD.sellPrice, strike: STD.shortStrike, expiry: STD.shortExpiry };
+
     // Update STD in memory immediately
     STD.shortStrike = _tradeCandidate.strike;
     STD.shortExpiry = _tradeCandidate.exp;
@@ -4949,26 +5200,51 @@ async function confirmTrade() {
 
     // Also append to live_trades.json
     try {
-      const contracts = STD.shares ? Math.floor(STD.shares / 100) : null;
+      const contracts = payload.contracts ?? STD.contracts ?? (STD.shares ? Math.floor(STD.shares / 100) : 6); // v6.1.0
       const liveEntry = {
         id:          makeLiveTradeId(),
         date:        today,
         type:        'roll',
         status:      'open',
         contracts:   contracts,
-        coverStrike: STD.shortStrike || null,
-        coverExpiry: STD.shortExpiry || null,
+        coverStrike: _prior.strike || null,  // v6.1.0 FIX — STD already overwritten; cover leg is the PRIOR short
+        coverExpiry: _prior.expiry || null,
         coverPrice:  parseFloat(cover.toFixed(2)),
         newStrike:   _tradeCandidate.strike,
         newExpiry:   _tradeCandidate.exp,
         sellPrice:   parseFloat(sell.toFixed(2)),
         rollCredit:  parseFloat(((sell - cover) * (contracts||1) * 100).toFixed(2)),
         annYield:    null,
-        trigger:     'roll via scan'
+        trigger:     _tradeCloseReason || 'roll via scan' // v6.1.0 — close-reason selector
       };
       await appendLiveTrade(liveEntry);
+
+      // v6.1.0 — audit_snapshot writes: the ONLY audit path (Ron S33; scans never write).
+      // Runs only after live_trades succeeds (FK trade_id). Failures never block the trade.
+      const _auditInfo = {
+        cover: parseFloat(cover.toFixed(2)), sell: parseFloat(sell.toFixed(2)),
+        contracts: contracts, payload: payload, prior: _prior,
+        chosen: { strike: _tradeCandidate.strike, exp: _tradeCandidate.exp, dte: _tradeCandidate.dte,
+                  delta: _tradeCandidate.delta, otm: _tradeCandidate.otm,
+                  fills: { cover: parseFloat(cover.toFixed(2)), sell: parseFloat(sell.toFixed(2)), contracts: contracts },
+                  close_reason_of_prior: _tradeCloseReason || null,
+                  no_opt_in_memory: !_optDisplayRows }
+      };
+      try {
+        await writeAuditRecords(liveEntry.id, _auditInfo);
+        statusEl.textContent = '\u2713 Published \u00b7 position updated \u00b7 audit written';
+      } catch (aErr) {
+        _pendingAudit = { tradeId: liveEntry.id, info: _auditInfo };
+        statusEl.innerHTML = '\u26a0 Trade saved; audit write failed: ' + aErr.message.replace(/</g, '&lt;')
+          + ' <button onclick="retryAuditWrite()" style="font-family:var(--mono);font-size:9px;padding:3px 10px;border-radius:3px;border:1px solid var(--yellow);background:transparent;color:var(--yellow);cursor:pointer;">Retry</button>';
+        statusEl.style.color = 'var(--yellow)';
+        btn.textContent = '\u2713 Done';
+        return; // keep the modal open so Retry is reachable
+      }
     } catch(liveErr) {
       console.warn('Live trade log failed:', liveErr.message);
+      statusEl.textContent = '\u2713 Published \u00b7 \u26a0 live_trades write failed (audit skipped): ' + liveErr.message;
+      statusEl.style.color = 'var(--yellow)';
     }
 
     setTimeout(() => { closeTradeModal(); runRollScan(); }, 1200);
@@ -5105,53 +5381,7 @@ async function loadLiveBlotter() {
   }
 }
 
-// ── One-time history loader ─────────────────────────────────────────────────
-async function loadHistoricalTrades() {
-  const btn = $('load-history-btn');
-  const statusEl = $('live-blotter-status');
-  if (!confirm('Load all 159 historical trades into Supabase? This is a one-time operation.')) return;
-
-  btn.disabled = true;
-  btn.textContent = 'Loading...';
-
-  // Full parsed trade history
-  const history = [{"id":"lt_0000","trade_date":"2025-06-04","status":"closed","row_type":"assigned","cover_expiry":"2025-06-03","cover_strike":593,"cover_price":0.0,"cover_contracts":1,"sell_expiry":"2025-06-04","sell_strike":598,"sell_price":1.11,"sell_contracts":1,"roll_credit":110.32,"trigger":"assigned"},{"id":"lt_0001","trade_date":"2025-06-05","status":"closed","row_type":"expired","cover_expiry":"2025-06-04","cover_strike":598,"cover_price":0.0,"cover_contracts":1,"sell_expiry":"2025-06-05","sell_strike":597,"sell_price":1.5,"sell_contracts":1,"roll_credit":149.32,"trigger":"expired worthless"},{"id":"lt_0002","trade_date":"2025-06-06","status":"closed","row_type":"expired","cover_expiry":"2025-06-05","cover_strike":597,"cover_price":0.0,"cover_contracts":1,"sell_expiry":"2025-06-06","sell_strike":600,"sell_price":0.96,"sell_contracts":1,"roll_credit":95.32,"trigger":"expired worthless"},{"id":"lt_0003","trade_date":"2025-06-09","status":"closed","row_type":"expired","cover_expiry":"2025-06-06","cover_strike":600,"cover_price":0.0,"cover_contracts":1,"sell_expiry":"2025-06-09","sell_strike":600,"sell_price":0.99,"sell_contracts":1,"roll_credit":98.32,"trigger":"expired worthless"},{"id":"lt_0004","trade_date":"2025-06-10","status":"closed","row_type":"expired","cover_expiry":"2025-06-09","cover_strike":600,"cover_price":0.0,"cover_contracts":1,"sell_expiry":"2025-06-10","sell_strike":601,"sell_price":1.09,"sell_contracts":2,"roll_credit":216.64,"trigger":"expired worthless"},{"id":"lt_0005","trade_date":"2025-06-11","status":"closed","row_type":"assigned","cover_expiry":"2025-06-10","cover_strike":601,"cover_price":0.0,"cover_contracts":2,"sell_expiry":"2025-06-11","sell_strike":604,"sell_price":1.07,"sell_contracts":2,"roll_credit":212.64,"trigger":"assigned"},{"id":"lt_0006","trade_date":"2025-06-12","status":"closed","row_type":"expired","cover_expiry":"2025-06-11","cover_strike":604,"cover_price":0.0,"cover_contracts":2,"sell_expiry":"2025-06-12","sell_strike":602,"sell_price":1.72,"sell_contracts":2,"roll_credit":342.64,"trigger":"expired worthless"},{"id":"lt_0007","trade_date":"2025-06-13","status":"closed","row_type":"assigned","cover_expiry":"2025-06-12","cover_strike":602,"cover_price":0.0,"cover_contracts":2,"sell_expiry":"2025-06-13","sell_strike":600,"sell_price":1.56,"sell_contracts":2,"roll_credit":310.64,"trigger":"assigned"},{"id":"lt_0008","trade_date":"2025-06-16","status":"closed","row_type":"expired","cover_expiry":"2025-06-13","cover_strike":600,"cover_price":0.0,"cover_contracts":2,"sell_expiry":"2025-06-16","sell_strike":600,"sell_price":2.12,"sell_contracts":2,"roll_credit":422.64,"trigger":"expired worthless"},{"id":"lt_0009","trade_date":"2025-06-17","status":"closed","row_type":"assigned","cover_expiry":"2025-06-16","cover_strike":600,"cover_price":0.0,"cover_contracts":2,"sell_expiry":"2025-06-17","sell_strike":601,"sell_price":1.07,"sell_contracts":3,"roll_credit":318.96,"trigger":"assigned"},{"id":"lt_0010","trade_date":"2025-06-18","status":"closed","row_type":"expired","cover_expiry":"2025-06-17","cover_strike":601,"cover_price":0.0,"cover_contracts":3,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0011","trade_date":"2025-06-20","status":"closed","row_type":"roll","cover_expiry":"2025-06-20","cover_strike":599,"cover_price":0.01,"cover_contracts":3,"sell_expiry":"2025-06-20","sell_strike":599,"sell_price":0.68,"sell_contracts":3,"roll_credit":198.87,"trigger":"bought back"},{"id":"lt_0012","trade_date":"2025-06-24","status":"closed","row_type":"assigned","cover_expiry":"2025-06-23","cover_strike":597,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2025-06-24","sell_strike":606,"sell_price":0.87,"sell_contracts":3,"roll_credit":258.96,"trigger":"assigned"},{"id":"lt_0013","trade_date":"2025-06-25","status":"closed","row_type":"roll","cover_expiry":"2025-06-25","cover_strike":608,"cover_price":0.07,"cover_contracts":3,"sell_expiry":"2025-06-25","sell_strike":608,"sell_price":1.17,"sell_contracts":3,"roll_credit":327.87,"trigger":"bought back"},{"id":"lt_0014","trade_date":"2025-06-25","status":"closed","row_type":"assigned","cover_expiry":"2025-06-24","cover_strike":606,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2025-06-26","sell_strike":607,"sell_price":1.38,"sell_contracts":3,"roll_credit":411.96,"trigger":"assigned"},{"id":"lt_0015","trade_date":"2025-06-27","status":"closed","row_type":"assigned","cover_expiry":"2025-06-26","cover_strike":607,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2025-06-27","sell_strike":611,"sell_price":0.92,"sell_contracts":3,"roll_credit":273.96,"trigger":"assigned"},{"id":"lt_0016","trade_date":"2025-06-30","status":"closed","row_type":"assigned","cover_expiry":"2025-06-27","cover_strike":611,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2025-06-30","sell_strike":616,"sell_price":1.68,"sell_contracts":3,"roll_credit":501.96,"trigger":"assigned"},{"id":"lt_0017","trade_date":"2025-07-01","status":"closed","row_type":"assigned","cover_expiry":"2025-06-30","cover_strike":616,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2025-07-01","sell_strike":617,"sell_price":0.97,"sell_contracts":5,"roll_credit":481.62,"trigger":"assigned"},{"id":"lt_0018","trade_date":"2025-07-02","status":"closed","row_type":"assigned","cover_expiry":"2025-07-01","cover_strike":617,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-07-02","sell_strike":618,"sell_price":0.69,"sell_contracts":5,"roll_credit":341.62,"trigger":"assigned"},{"id":"lt_0019","trade_date":"2025-07-03","status":"closed","row_type":"assigned","cover_expiry":"2025-07-02","cover_strike":618,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-07-03","sell_strike":623,"sell_price":0.87,"sell_contracts":5,"roll_credit":431.62,"trigger":"assigned"},{"id":"lt_0020","trade_date":"2025-07-07","status":"closed","row_type":"roll","cover_expiry":"2025-07-07","cover_strike":624,"cover_price":0.06,"cover_contracts":5,"sell_expiry":"2025-07-07","sell_strike":624,"sell_price":0.94,"sell_contracts":5,"roll_credit":436.49,"trigger":"bought back"},{"id":"lt_0021","trade_date":"2025-07-07","status":"closed","row_type":"assigned","cover_expiry":"2025-07-03","cover_strike":623,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-07-08","sell_strike":622,"sell_price":1.36,"sell_contracts":5,"roll_credit":676.62,"trigger":"assigned"},{"id":"lt_0022","trade_date":"2025-07-09","status":"closed","row_type":"expired","cover_expiry":"2025-07-08","cover_strike":622,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-07-09","sell_strike":624,"sell_price":0.76,"sell_contracts":5,"roll_credit":376.62,"trigger":"expired worthless"},{"id":"lt_0023","trade_date":"2025-07-10","status":"closed","row_type":"expired","cover_expiry":"2025-07-09","cover_strike":624,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-07-10","sell_strike":625,"sell_price":0.57,"sell_contracts":5,"roll_credit":281.62,"trigger":"expired worthless"},{"id":"lt_0024","trade_date":"2025-07-11","status":"closed","row_type":"roll","cover_expiry":"2025-07-11","cover_strike":624,"cover_price":0.09,"cover_contracts":5,"sell_expiry":"2025-07-11","sell_strike":624,"sell_price":0.78,"sell_contracts":5,"roll_credit":341.49,"trigger":"bought back"},{"id":"lt_0025","trade_date":"2025-07-11","status":"closed","row_type":"assigned","cover_expiry":"2025-07-10","cover_strike":625,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-07-14","sell_strike":624,"sell_price":1.5,"sell_contracts":5,"roll_credit":746.62,"trigger":"assigned"},{"id":"lt_0026","trade_date":"2025-07-15","status":"closed","row_type":"roll","cover_expiry":"2025-07-15","cover_strike":628,"cover_price":0.01,"cover_contracts":5,"sell_expiry":"2025-07-15","sell_strike":628,"sell_price":0.79,"sell_contracts":5,"roll_credit":386.49,"trigger":"bought back"},{"id":"lt_0027","trade_date":"2025-07-15","status":"closed","row_type":"assigned","cover_expiry":"2025-07-14","cover_strike":624,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-07-16","sell_strike":625,"sell_price":0.95,"sell_contracts":5,"roll_credit":471.62,"trigger":"assigned"},{"id":"lt_0028","trade_date":"2025-07-16","status":"closed","row_type":"roll","cover_expiry":"2025-07-16","cover_strike":625,"cover_price":0.06,"cover_contracts":5,"sell_expiry":"2025-07-17","sell_strike":624,"sell_price":0.92,"sell_contracts":5,"roll_credit":426.49,"trigger":"bought back"},{"id":"lt_0029","trade_date":"2025-07-17","status":"closed","row_type":"roll","cover_expiry":"2025-07-17","cover_strike":624,"cover_price":3.91,"cover_contracts":5,"sell_expiry":"2025-07-18","sell_strike":628,"sell_price":1.57,"sell_contracts":5,"roll_credit":-1176.76,"trigger":"bought back"},{"id":"lt_0030","trade_date":"2025-07-21","status":"closed","row_type":"expired","cover_expiry":"2025-07-18","cover_strike":628,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-07-21","sell_strike":629,"sell_price":0.94,"sell_contracts":5,"roll_credit":466.62,"trigger":"expired worthless"},{"id":"lt_0031","trade_date":"2025-07-22","status":"closed","row_type":"roll","cover_expiry":"2025-07-22","cover_strike":629,"cover_price":0.07,"cover_contracts":5,"sell_expiry":"2025-07-22","sell_strike":629,"sell_price":0.77,"sell_contracts":5,"roll_credit":346.49,"trigger":"bought back"},{"id":"lt_0032","trade_date":"2025-07-22","status":"closed","row_type":"expired","cover_expiry":"2025-07-21","cover_strike":629,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-07-23","sell_strike":629,"sell_price":1.41,"sell_contracts":5,"roll_credit":701.62,"trigger":"expired worthless"},{"id":"lt_0033","trade_date":"2025-07-24","status":"closed","row_type":"roll","cover_expiry":"2025-07-24","cover_strike":635,"cover_price":0.24,"cover_contracts":5,"sell_expiry":"2025-07-24","sell_strike":635,"sell_price":0.77,"sell_contracts":5,"roll_credit":261.49,"trigger":"bought back"},{"id":"lt_0034","trade_date":"2025-07-24","status":"closed","row_type":"assigned","cover_expiry":"2025-07-23","cover_strike":629,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-07-25","sell_strike":635,"sell_price":1.46,"sell_contracts":5,"roll_credit":726.62,"trigger":"assigned"},{"id":"lt_0035","trade_date":"2025-07-28","status":"closed","row_type":"roll","cover_expiry":"2025-07-28","cover_strike":638,"cover_price":0.08,"cover_contracts":5,"sell_expiry":"2025-07-28","sell_strike":638,"sell_price":0.71,"sell_contracts":5,"roll_credit":311.49,"trigger":"bought back"},{"id":"lt_0036","trade_date":"2025-07-28","status":"closed","row_type":"assigned","cover_expiry":"2025-07-25","cover_strike":635,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-07-29","sell_strike":637,"sell_price":0.96,"sell_contracts":5,"roll_credit":476.62,"trigger":"assigned"},{"id":"lt_0037","trade_date":"2025-07-29","status":"closed","row_type":"roll","cover_expiry":"2025-07-29","cover_strike":637,"cover_price":0.05,"cover_contracts":5,"sell_expiry":"2025-07-30","sell_strike":636,"sell_price":1.75,"sell_contracts":5,"roll_credit":846.49,"trigger":"bought back"},{"id":"lt_0038","trade_date":"2025-07-30","status":"closed","row_type":"roll","cover_expiry":"2025-07-30","cover_strike":636,"cover_price":0.06,"cover_contracts":5,"sell_expiry":"2025-07-31","sell_strike":635,"sell_price":1.45,"sell_contracts":5,"roll_credit":691.49,"trigger":"bought back"},{"id":"lt_0039","trade_date":"2025-07-31","status":"closed","row_type":"roll","cover_expiry":"2025-07-31","cover_strike":635,"cover_price":0.08,"cover_contracts":5,"sell_expiry":"2025-08-01","sell_strike":634,"sell_price":1.62,"sell_contracts":5,"roll_credit":766.49,"trigger":"bought back"},{"id":"lt_0040","trade_date":"2025-08-04","status":"closed","row_type":"expired","cover_expiry":"2025-08-01","cover_strike":634,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-08-04","sell_strike":629,"sell_price":0.59,"sell_contracts":5,"roll_credit":291.63,"trigger":"expired worthless"},{"id":"lt_0041","trade_date":"2025-08-05","status":"closed","row_type":"assigned","cover_expiry":"2025-08-04","cover_strike":629,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-08-05","sell_strike":632,"sell_price":1.01,"sell_contracts":5,"roll_credit":501.63,"trigger":"assigned"},{"id":"lt_0042","trade_date":"2025-08-06","status":"closed","row_type":"roll","cover_expiry":"2025-08-06","cover_strike":630,"cover_price":2.65,"cover_contracts":5,"sell_expiry":"2025-08-06","sell_strike":630,"sell_price":0.84,"sell_contracts":5,"roll_credit":-911.74,"trigger":"bought back"},{"id":"lt_0043","trade_date":"2025-08-06","status":"closed","row_type":"expired","cover_expiry":"2025-08-05","cover_strike":632,"cover_price":0.0,"cover_contracts":5,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0044","trade_date":"2025-08-07","status":"closed","row_type":"roll","cover_expiry":"2025-08-07","cover_strike":637,"cover_price":0.015,"cover_contracts":5,"sell_expiry":"2025-08-07","sell_strike":637,"sell_price":1.075,"sell_contracts":5,"roll_credit":526.51,"trigger":"bought back"},{"id":"lt_0045","trade_date":"2025-08-11","status":"closed","row_type":"roll","cover_expiry":"2025-08-11","cover_strike":637,"cover_price":0.11,"cover_contracts":5,"sell_expiry":"2025-08-11","sell_strike":637,"sell_price":1.27,"sell_contracts":5,"roll_credit":576.51,"trigger":"bought back"},{"id":"lt_0046","trade_date":"2025-08-11","status":"closed","row_type":"assigned","cover_expiry":"2025-08-08","cover_strike":633,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-08-12","sell_strike":637,"sell_price":1.82,"sell_contracts":5,"roll_credit":906.63,"trigger":"assigned"},{"id":"lt_0047","trade_date":"2025-08-13","status":"closed","row_type":"roll","cover_expiry":"2025-08-13","cover_strike":645,"cover_price":0.06,"cover_contracts":5,"sell_expiry":"2025-08-13","sell_strike":645,"sell_price":1.01,"sell_contracts":5,"roll_credit":471.51,"trigger":"bought back"},{"id":"lt_0048","trade_date":"2025-08-13","status":"closed","row_type":"assigned","cover_expiry":"2025-08-12","cover_strike":637,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-08-14","sell_strike":644,"sell_price":1.14,"sell_contracts":5,"roll_credit":566.63,"trigger":"assigned"},{"id":"lt_0049","trade_date":"2025-08-14","status":"closed","row_type":"roll","cover_expiry":"2025-08-14","cover_strike":644,"cover_price":0.67,"cover_contracts":5,"sell_expiry":"2025-08-15","sell_strike":645,"sell_price":1.45,"sell_contracts":5,"roll_credit":383.26,"trigger":"bought back"},{"id":"lt_0050","trade_date":"2025-08-18","status":"closed","row_type":"roll","cover_expiry":"2025-08-18","cover_strike":644,"cover_price":0.02,"cover_contracts":5,"sell_expiry":"2025-08-18","sell_strike":644,"sell_price":0.7,"sell_contracts":5,"roll_credit":336.51,"trigger":"bought back"},{"id":"lt_0051","trade_date":"2025-08-18","status":"closed","row_type":"expired","cover_expiry":"2025-08-15","cover_strike":645,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-08-19","sell_strike":645,"sell_price":0.54,"sell_contracts":5,"roll_credit":266.63,"trigger":"expired worthless"},{"id":"lt_0052","trade_date":"2025-08-19","status":"closed","row_type":"roll","cover_expiry":"2025-08-19","cover_strike":645,"cover_price":0.06,"cover_contracts":5,"sell_expiry":"2025-08-20","sell_strike":643,"sell_price":0.99,"sell_contracts":5,"roll_credit":461.51,"trigger":"bought back"},{"id":"lt_0053","trade_date":"2025-08-20","status":"closed","row_type":"roll","cover_expiry":"2025-08-20","cover_strike":643,"cover_price":0.05,"cover_contracts":5,"sell_expiry":"2025-08-21","sell_strike":639,"sell_price":0.95,"sell_contracts":5,"roll_credit":446.51,"trigger":"bought back"},{"id":"lt_0054","trade_date":"2025-08-21","status":"closed","row_type":"roll","cover_expiry":"2025-08-21","cover_strike":639,"cover_price":0.02,"cover_contracts":5,"sell_expiry":"2025-08-22","sell_strike":638,"sell_price":1.89,"sell_contracts":5,"roll_credit":931.51,"trigger":"bought back"},{"id":"lt_0055","trade_date":"2025-08-22","status":"closed","row_type":"roll","cover_expiry":"2025-08-22","cover_strike":646,"cover_price":0.02,"cover_contracts":5,"sell_expiry":"2025-08-22","sell_strike":646,"sell_price":0.18,"sell_contracts":5,"roll_credit":76.51,"trigger":"bought back"},{"id":"lt_0056","trade_date":"2025-08-22","status":"closed","row_type":"roll","cover_expiry":"2025-08-22","cover_strike":647,"cover_price":0.06,"cover_contracts":5,"sell_expiry":"2025-08-22","sell_strike":647,"sell_price":0.52,"sell_contracts":5,"roll_credit":226.51,"trigger":"bought back"},{"id":"lt_0057","trade_date":"2025-08-22","status":"closed","row_type":"roll","cover_expiry":"2025-08-22","cover_strike":638,"cover_price":7.98,"cover_contracts":5,"sell_expiry":"2025-08-25","sell_strike":646,"sell_price":1.06,"sell_contracts":5,"roll_credit":-3466.74,"trigger":"bought back"},{"id":"lt_0058","trade_date":"2025-08-26","status":"closed","row_type":"roll","cover_expiry":"2025-08-26","cover_strike":643,"cover_price":1.16,"cover_contracts":5,"sell_expiry":"2025-08-26","sell_strike":643,"sell_price":0.8,"sell_contracts":5,"roll_credit":-186.74,"trigger":"bought back"},{"id":"lt_0059","trade_date":"2025-08-26","status":"closed","row_type":"expired","cover_expiry":"2025-08-25","cover_strike":646,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-08-27","sell_strike":645,"sell_price":1.41,"sell_contracts":5,"roll_credit":701.63,"trigger":"expired worthless"},{"id":"lt_0060","trade_date":"2025-08-28","status":"closed","row_type":"assigned","cover_expiry":"2025-08-27","cover_strike":645,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-08-28","sell_strike":648,"sell_price":1.16,"sell_contracts":5,"roll_credit":576.63,"trigger":"assigned"},{"id":"lt_0061","trade_date":"2025-08-29","status":"closed","row_type":"assigned","cover_expiry":"2025-08-28","cover_strike":648,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-08-29","sell_strike":648,"sell_price":0.905,"sell_contracts":5,"roll_credit":449.63,"trigger":"assigned"},{"id":"lt_0062","trade_date":"2025-09-02","status":"closed","row_type":"roll","cover_expiry":"2025-09-02","cover_strike":640,"cover_price":1.55,"cover_contracts":5,"sell_expiry":"2025-09-02","sell_strike":640,"sell_price":0.86,"sell_contracts":5,"roll_credit":-351.74,"trigger":"bought back"},{"id":"lt_0063","trade_date":"2025-09-02","status":"closed","row_type":"expired","cover_expiry":"2025-08-29","cover_strike":648,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-09-03","sell_strike":640,"sell_price":2.68,"sell_contracts":5,"roll_credit":1336.63,"trigger":"expired worthless"},{"id":"lt_0064","trade_date":"2025-09-03","status":"closed","row_type":"roll","cover_expiry":"2025-09-03","cover_strike":640,"cover_price":1.18,"cover_contracts":5,"sell_expiry":"2025-09-04","sell_strike":641,"sell_price":1.81,"sell_contracts":5,"roll_credit":308.26,"trigger":"bought back"},{"id":"lt_0065","trade_date":"2025-09-04","status":"closed","row_type":"roll","cover_expiry":"2025-09-04","cover_strike":641,"cover_price":7.58,"cover_contracts":5,"sell_expiry":"2025-09-05","sell_strike":646,"sell_price":3.9,"sell_contracts":5,"roll_credit":-1846.74,"trigger":"bought back"},{"id":"lt_0066","trade_date":"2025-09-05","status":"closed","row_type":"roll","cover_expiry":"2025-09-05","cover_strike":645,"cover_price":1.65,"cover_contracts":5,"sell_expiry":"2025-09-05","sell_strike":645,"sell_price":1.66,"sell_contracts":5,"roll_credit":-1.74,"trigger":"bought back"},{"id":"lt_0067","trade_date":"2025-09-05","status":"closed","row_type":"roll","cover_expiry":"2025-09-05","cover_strike":646,"cover_price":0.75,"cover_contracts":5,"sell_expiry":"2025-09-08","sell_strike":645,"sell_price":2.53,"sell_contracts":5,"roll_credit":883.26,"trigger":"bought back"},{"id":"lt_0068","trade_date":"2025-09-08","status":"closed","row_type":"roll","cover_expiry":"2025-09-08","cover_strike":645,"cover_price":3.09,"cover_contracts":5,"sell_expiry":"2025-09-09","sell_strike":645,"sell_price":3.59,"sell_contracts":5,"roll_credit":243.26,"trigger":"bought back"},{"id":"lt_0069","trade_date":"2025-09-09","status":"closed","row_type":"roll","cover_expiry":"2025-09-09","cover_strike":645,"cover_price":5.01,"cover_contracts":5,"sell_expiry":"2025-09-10","sell_strike":647,"sell_price":3.54,"sell_contracts":5,"roll_credit":-741.74,"trigger":"bought back"},{"id":"lt_0070","trade_date":"2025-09-10","status":"closed","row_type":"roll","cover_expiry":"2025-09-10","cover_strike":647,"cover_price":5.63,"cover_contracts":5,"sell_expiry":"2025-09-11","sell_strike":652,"sell_price":2.3,"sell_contracts":5,"roll_credit":-1671.74,"trigger":"bought back"},{"id":"lt_0071","trade_date":"2025-09-12","status":"closed","row_type":"roll","cover_expiry":"2025-09-12","cover_strike":657,"cover_price":0.86,"cover_contracts":5,"sell_expiry":"2025-09-12","sell_strike":657,"sell_price":1.23,"sell_contracts":5,"roll_credit":178.26,"trigger":"bought back"},{"id":"lt_0072","trade_date":"2025-09-12","status":"closed","row_type":"assigned","cover_expiry":"2025-09-11","cover_strike":652,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-09-15","sell_strike":657,"sell_price":1.89,"sell_contracts":5,"roll_credit":941.63,"trigger":"assigned"},{"id":"lt_0073","trade_date":"2025-09-16","status":"closed","row_type":"assigned","cover_expiry":"2025-09-15","cover_strike":657,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-09-16","sell_strike":660,"sell_price":1.41,"sell_contracts":5,"roll_credit":701.63,"trigger":"assigned"},{"id":"lt_0074","trade_date":"2025-09-17","status":"closed","row_type":"assigned","cover_expiry":"2025-09-16","cover_strike":660,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-09-17","sell_strike":660,"sell_price":2.21,"sell_contracts":5,"roll_credit":1101.63,"trigger":"assigned"},{"id":"lt_0075","trade_date":"2025-09-18","status":"closed","row_type":"expired","cover_expiry":"2025-09-17","cover_strike":660,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-09-18","sell_strike":662,"sell_price":1.53,"sell_contracts":5,"roll_credit":761.63,"trigger":"expired worthless"},{"id":"lt_0076","trade_date":"2025-09-19","status":"closed","row_type":"assigned","cover_expiry":"2025-09-18","cover_strike":662,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-09-19","sell_strike":662,"sell_price":1.25,"sell_contracts":5,"roll_credit":621.63,"trigger":"assigned"},{"id":"lt_0077","trade_date":"2025-09-22","status":"closed","row_type":"assigned","cover_expiry":"2025-09-19","cover_strike":662,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-09-22","sell_strike":663,"sell_price":0.72,"sell_contracts":5,"roll_credit":356.63,"trigger":"assigned"},{"id":"lt_0078","trade_date":"2025-09-23","status":"closed","row_type":"roll","cover_expiry":"2025-09-23","cover_strike":666,"cover_price":0.02,"cover_contracts":5,"sell_expiry":"2025-09-23","sell_strike":666,"sell_price":1.16,"sell_contracts":5,"roll_credit":567.51,"trigger":"bought back"},{"id":"lt_0079","trade_date":"2025-09-23","status":"closed","row_type":"assigned","cover_expiry":"2025-09-22","cover_strike":663,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-09-24","sell_strike":664,"sell_price":1.02,"sell_contracts":5,"roll_credit":506.63,"trigger":"assigned"},{"id":"lt_0080","trade_date":"2025-09-24","status":"closed","row_type":"roll","cover_expiry":"2025-09-24","cover_strike":664,"cover_price":0.02,"cover_contracts":5,"sell_expiry":"2025-09-25","sell_strike":663,"sell_price":0.66,"sell_contracts":5,"roll_credit":316.51,"trigger":"bought back"},{"id":"lt_0081","trade_date":"2025-09-26","status":"closed","row_type":"expired","cover_expiry":"2025-09-25","cover_strike":663,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-09-26","sell_strike":663,"sell_price":0.5,"sell_contracts":5,"roll_credit":246.63,"trigger":"expired worthless"},{"id":"lt_0082","trade_date":"2025-09-29","status":"closed","row_type":"expired","cover_expiry":"2025-09-26","cover_strike":663,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-09-29","sell_strike":665,"sell_price":0.92,"sell_contracts":5,"roll_credit":456.63,"trigger":"expired worthless"},{"id":"lt_0083","trade_date":"2025-09-30","status":"closed","row_type":"expired","cover_expiry":"2025-09-29","cover_strike":665,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-09-30","sell_strike":663,"sell_price":1.04,"sell_contracts":5,"roll_credit":516.63,"trigger":"expired worthless"},{"id":"lt_0084","trade_date":"2025-10-01","status":"closed","row_type":"assigned","cover_expiry":"2025-09-30","cover_strike":663,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-10-01","sell_strike":664,"sell_price":1.55,"sell_contracts":5,"roll_credit":771.66,"trigger":"assigned"},{"id":"lt_0085","trade_date":"2025-10-02","status":"closed","row_type":"assigned","cover_expiry":"2025-10-01","cover_strike":664,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-10-02","sell_strike":669,"sell_price":1.09,"sell_contracts":5,"roll_credit":541.66,"trigger":"assigned"},{"id":"lt_0086","trade_date":"2025-10-03","status":"closed","row_type":"expired","cover_expiry":"2025-10-02","cover_strike":669,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-10-03","sell_strike":671,"sell_price":0.97,"sell_contracts":5,"roll_credit":481.66,"trigger":"expired worthless"},{"id":"lt_0087","trade_date":"2025-10-06","status":"closed","row_type":"expired","cover_expiry":"2025-10-03","cover_strike":671,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-10-06","sell_strike":671,"sell_price":1.13,"sell_contracts":5,"roll_credit":561.66,"trigger":"expired worthless"},{"id":"lt_0088","trade_date":"2025-10-07","status":"closed","row_type":"assigned","cover_expiry":"2025-10-06","cover_strike":671,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-10-07","sell_strike":672,"sell_price":1.11,"sell_contracts":5,"roll_credit":551.66,"trigger":"assigned"},{"id":"lt_0089","trade_date":"2025-10-08","status":"closed","row_type":"expired","cover_expiry":"2025-10-07","cover_strike":672,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-10-08","sell_strike":671,"sell_price":0.62,"sell_contracts":5,"roll_credit":306.66,"trigger":"expired worthless"},{"id":"lt_0090","trade_date":"2025-10-09","status":"closed","row_type":"assigned","cover_expiry":"2025-10-08","cover_strike":671,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-10-09","sell_strike":673,"sell_price":1.18,"sell_contracts":5,"roll_credit":586.66,"trigger":"assigned"},{"id":"lt_0091","trade_date":"2025-10-10","status":"closed","row_type":"expired","cover_expiry":"2025-10-09","cover_strike":673,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-10-16","sell_strike":674,"sell_price":3.09,"sell_contracts":5,"roll_credit":1541.66,"trigger":"expired worthless"},{"id":"lt_0092","trade_date":"2025-10-17","status":"closed","row_type":"expired","cover_expiry":"2025-10-16","cover_strike":674,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-10-23","sell_strike":669,"sell_price":2.43,"sell_contracts":5,"roll_credit":1211.66,"trigger":"expired worthless"},{"id":"lt_0093","trade_date":"2025-10-24","status":"closed","row_type":"assigned","cover_expiry":"2025-10-23","cover_strike":669,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-10-30","sell_strike":680,"sell_price":3.62,"sell_contracts":5,"roll_credit":1806.66,"trigger":"assigned"},{"id":"lt_0094","trade_date":"2025-10-31","status":"closed","row_type":"assigned","cover_expiry":"2025-10-30","cover_strike":680,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-11-06","sell_strike":687,"sell_price":3.15,"sell_contracts":5,"roll_credit":1571.66,"trigger":"assigned"},{"id":"lt_0095","trade_date":"2025-11-07","status":"closed","row_type":"expired","cover_expiry":"2025-11-06","cover_strike":687,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-11-13","sell_strike":676,"sell_price":1.99,"sell_contracts":5,"roll_credit":991.66,"trigger":"expired worthless"},{"id":"lt_0096","trade_date":"2025-11-14","status":"closed","row_type":"expired","cover_expiry":"2025-11-13","cover_strike":676,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-11-20","sell_strike":683,"sell_price":1.18,"sell_contracts":5,"roll_credit":586.66,"trigger":"expired worthless"},{"id":"lt_0097","trade_date":"2025-11-21","status":"closed","row_type":"expired","cover_expiry":"2025-11-20","cover_strike":683,"cover_price":0.0,"cover_contracts":5,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0098","trade_date":"2025-12-03","status":"closed","row_type":"roll","cover_expiry":"2025-12-03","cover_strike":684,"cover_price":0.66,"cover_contracts":5,"sell_expiry":"2025-12-10","sell_strike":688,"sell_price":2.9,"sell_contracts":5,"roll_credit":1113.36,"trigger":"bought back"},{"id":"lt_0099","trade_date":"2025-12-11","status":"closed","row_type":"expired","cover_expiry":"2025-12-10","cover_strike":688,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-12-15","sell_strike":689,"sell_price":1.04,"sell_contracts":5,"roll_credit":516.68,"trigger":"expired worthless"},{"id":"lt_0100","trade_date":"2025-12-16","status":"closed","row_type":"expired","cover_expiry":"2025-12-15","cover_strike":689,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-12-18","sell_strike":686,"sell_price":0.84,"sell_contracts":5,"roll_credit":416.68,"trigger":"expired worthless"},{"id":"lt_0101","trade_date":"2025-12-19","status":"closed","row_type":"expired","cover_expiry":"2025-12-18","cover_strike":686,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2025-12-24","sell_strike":685,"sell_price":0.94,"sell_contracts":5,"roll_credit":466.68,"trigger":"expired worthless"},{"id":"lt_0102","trade_date":"2025-12-24","status":"closed","row_type":"roll","cover_expiry":"2025-12-24","cover_strike":685,"cover_price":5.21,"cover_contracts":5,"sell_expiry":"2025-12-29","sell_strike":690,"sell_price":1.935,"sell_contracts":5,"roll_credit":-1714.64,"trigger":"bought back"},{"id":"lt_0103","trade_date":"2025-12-29","status":"closed","row_type":"roll","cover_expiry":"2025-12-29","cover_strike":690,"cover_price":0.08,"cover_contracts":5,"sell_expiry":"2025-12-31","sell_strike":692,"sell_price":0.56,"sell_contracts":5,"roll_credit":236.61,"trigger":"bought back"},{"id":"lt_0104","trade_date":"2026-01-02","status":"closed","row_type":"expired","cover_expiry":"2025-12-31","cover_strike":692,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2026-01-07","sell_strike":689,"sell_price":1.36,"sell_contracts":5,"roll_credit":676.63,"trigger":"expired worthless"},{"id":"lt_0105","trade_date":"2026-01-08","status":"closed","row_type":"assigned","cover_expiry":"2026-01-07","cover_strike":689,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2026-01-12","sell_strike":692,"sell_price":1.71,"sell_contracts":5,"roll_credit":851.63,"trigger":"assigned"},{"id":"lt_0106","trade_date":"2026-01-12","status":"closed","row_type":"roll","cover_expiry":"2026-01-12","cover_strike":692,"cover_price":1.918,"cover_contracts":5,"sell_expiry":"2026-01-14","sell_strike":699,"sell_price":0.74,"sell_contracts":5,"roll_credit":-643.74,"trigger":"bought back"},{"id":"lt_0107","trade_date":"2026-01-15","status":"closed","row_type":"expired","cover_expiry":"2026-01-14","cover_strike":699,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2026-01-20","sell_strike":698,"sell_price":1.07,"sell_contracts":5,"roll_credit":531.63,"trigger":"expired worthless"},{"id":"lt_0108","trade_date":"2026-01-21","status":"closed","row_type":"expired","cover_expiry":"2026-01-20","cover_strike":698,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2026-01-26","sell_strike":692,"sell_price":1.0,"sell_contracts":5,"roll_credit":496.63,"trigger":"expired worthless"},{"id":"lt_0109","trade_date":"2026-01-27","status":"closed","row_type":"assigned","cover_expiry":"2026-01-26","cover_strike":692,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2026-01-28","sell_strike":696,"sell_price":1.4,"sell_contracts":5,"roll_credit":696.63,"trigger":"assigned"},{"id":"lt_0110","trade_date":"2026-01-28","status":"closed","row_type":"roll","cover_expiry":"2026-01-28","cover_strike":696,"cover_price":0.05,"cover_contracts":5,"sell_expiry":"2026-01-30","sell_strike":698,"sell_price":1.39,"sell_contracts":5,"roll_credit":666.51,"trigger":"bought back"},{"id":"lt_0111","trade_date":"2026-01-30","status":"closed","row_type":"roll","cover_expiry":"2026-01-30","cover_strike":698,"cover_price":0.02,"cover_contracts":5,"sell_expiry":"2026-02-03","sell_strike":694,"sell_price":1.21,"sell_contracts":5,"roll_credit":591.51,"trigger":"bought back"},{"id":"lt_0112","trade_date":"2026-02-04","status":"closed","row_type":"expired","cover_expiry":"2026-02-03","cover_strike":694,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2026-02-09","sell_strike":698,"sell_price":1.32,"sell_contracts":5,"roll_credit":656.63,"trigger":"expired worthless"},{"id":"lt_0113","trade_date":"2026-02-10","status":"closed","row_type":"expired","cover_expiry":"2026-02-09","cover_strike":698,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2026-02-12","sell_strike":701,"sell_price":0.78,"sell_contracts":5,"roll_credit":386.63,"trigger":"expired worthless"},{"id":"lt_0114","trade_date":"2026-02-13","status":"closed","row_type":"expired","cover_expiry":"2026-02-12","cover_strike":699,"cover_price":0.0,"cover_contracts":2,"sell_expiry":"2026-02-18","sell_strike":691,"sell_price":1.28,"sell_contracts":7,"roll_credit":891.28,"trigger":"expired worthless"},{"id":"lt_0115","trade_date":"2026-02-13","status":"closed","row_type":"expired","cover_expiry":"2026-02-12","cover_strike":701,"cover_price":0.0,"cover_contracts":5,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0116","trade_date":"2026-02-19","status":"closed","row_type":"expired","cover_expiry":"2026-02-18","cover_strike":691,"cover_price":0.0,"cover_contracts":7,"sell_expiry":"2026-02-23","sell_strike":691,"sell_price":1.13,"sell_contracts":3,"roll_credit":336.98,"trigger":"expired worthless"},{"id":"lt_0117","trade_date":"2026-02-24","status":"closed","row_type":"expired","cover_expiry":"2026-02-23","cover_strike":691,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2026-02-26","sell_strike":691,"sell_price":1.45,"sell_contracts":7,"roll_credit":1010.28,"trigger":"expired worthless"},{"id":"lt_0118","trade_date":"2026-02-24","status":"closed","row_type":"expired","cover_expiry":"2026-02-23","cover_strike":693,"cover_price":0.0,"cover_contracts":4,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0119","trade_date":"2026-02-26","status":"closed","row_type":"cover_only","cover_expiry":"2026-02-26","cover_strike":691,"cover_price":0.05,"cover_contracts":3,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":-15.82,"trigger":"bought back"},{"id":"lt_0120","trade_date":"2026-03-04","status":"closed","row_type":"expired","cover_expiry":"2026-03-03","cover_strike":693,"cover_price":0.0,"cover_contracts":4,"sell_expiry":"2026-03-05","sell_strike":690,"sell_price":0.67,"sell_contracts":5,"roll_credit":331.64,"trigger":"expired worthless"},{"id":"lt_0121","trade_date":"2026-03-06","status":"closed","row_type":"expired","cover_expiry":"2026-03-05","cover_strike":690,"cover_price":0.0,"cover_contracts":5,"sell_expiry":"2026-03-09","sell_strike":683,"sell_price":1.3,"sell_contracts":1,"roll_credit":129.33,"trigger":"expired worthless"},{"id":"lt_0122","trade_date":"2026-03-09","status":"closed","row_type":"expired","cover_expiry":"2026-03-06","cover_strike":687,"cover_price":0.0,"cover_contracts":2,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0123","trade_date":"2026-03-10","status":"closed","row_type":"expired","cover_expiry":"2026-03-09","cover_strike":683,"cover_price":0.0,"cover_contracts":1,"sell_expiry":"2026-03-12","sell_strike":688,"sell_price":0.97,"sell_contracts":3,"roll_credit":288.98,"trigger":"expired worthless"},{"id":"lt_0124","trade_date":"2026-03-11","status":"closed","row_type":"expired","cover_expiry":"2026-03-10","cover_strike":685,"cover_price":0.0,"cover_contracts":4,"sell_expiry":"2026-03-13","sell_strike":687,"sell_price":0.9,"sell_contracts":4,"roll_credit":357.31,"trigger":"expired worthless"},{"id":"lt_0125","trade_date":"2026-03-13","status":"closed","row_type":"roll","cover_expiry":"2026-03-13","cover_strike":687,"cover_price":0.01,"cover_contracts":4,"sell_expiry":"2026-03-17","sell_strike":681,"sell_price":1.25,"sell_contracts":3,"roll_credit":368.89,"trigger":"bought back"},{"id":"lt_0126","trade_date":"2026-03-13","status":"closed","row_type":"expired","cover_expiry":"2026-03-12","cover_strike":688,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2026-03-19","sell_strike":684,"sell_price":1.37,"sell_contracts":4,"roll_credit":545.31,"trigger":"expired worthless"},{"id":"lt_0127","trade_date":"2026-03-18","status":"closed","row_type":"expired","cover_expiry":"2026-03-17","cover_strike":681,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2026-03-23","sell_strike":680,"sell_price":1.11,"sell_contracts":3,"roll_credit":330.98,"trigger":"expired worthless"},{"id":"lt_0128","trade_date":"2026-03-20","status":"closed","row_type":"expired","cover_expiry":"2026-03-19","cover_strike":684,"cover_price":0.0,"cover_contracts":4,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0129","trade_date":"2026-03-20","status":"closed","row_type":"expired","cover_expiry":"2026-03-19","cover_strike":698,"cover_price":0.0,"cover_contracts":5,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0130","trade_date":"2026-03-24","status":"closed","row_type":"expired","cover_expiry":"2026-03-23","cover_strike":680,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2026-03-26","sell_strike":668,"sell_price":0.53,"sell_contracts":5,"roll_credit":261.64,"trigger":"expired worthless"},{"id":"lt_0131","trade_date":"2026-03-26","status":"closed","row_type":"expired","cover_expiry":"2026-03-25","cover_strike":667,"cover_price":0.0,"cover_contracts":2,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0132","trade_date":"2026-03-27","status":"closed","row_type":"expired","cover_expiry":"2026-03-26","cover_strike":668,"cover_price":0.0,"cover_contracts":5,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0133","trade_date":"2026-03-31","status":"closed","row_type":"cover_only","cover_expiry":"2026-03-31","cover_strike":648,"cover_price":2.38,"cover_contracts":4,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":-954.69,"trigger":"bought back"},{"id":"lt_0134","trade_date":"2026-03-31","status":"closed","row_type":"cover_only","cover_expiry":"2026-04-01","cover_strike":650,"cover_price":3.21,"cover_contracts":3,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":-965.02,"trigger":"bought back"},{"id":"lt_0135","trade_date":"2026-04-02","status":"closed","row_type":"expired","cover_expiry":"2026-04-01","cover_strike":659,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2026-04-06","sell_strike":667,"sell_price":1.05,"sell_contracts":4,"roll_credit":417.31,"trigger":"expired worthless"},{"id":"lt_0136","trade_date":"2026-04-07","status":"closed","row_type":"expired","cover_expiry":"2026-04-06","cover_strike":667,"cover_price":0.0,"cover_contracts":4,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0137","trade_date":"2026-04-08","status":"closed","row_type":"expired","cover_expiry":"2026-04-07","cover_strike":663,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2026-04-09","sell_strike":681,"sell_price":0.44,"sell_contracts":2,"roll_credit":86.65,"trigger":"expired worthless"},{"id":"lt_0138","trade_date":"2026-04-10","status":"closed","row_type":"expired","cover_expiry":"2026-04-09","cover_strike":681,"cover_price":0.0,"cover_contracts":2,"sell_expiry":"2026-04-14","sell_strike":687,"sell_price":0.87,"sell_contracts":4,"roll_credit":345.31,"trigger":"expired worthless"},{"id":"lt_0139","trade_date":"2026-04-14","status":"closed","row_type":"roll","cover_expiry":"2026-04-14","cover_strike":687,"cover_price":5.74,"cover_contracts":4,"sell_expiry":"2026-04-16","sell_strike":693,"sell_price":2.79,"sell_contracts":4,"roll_credit":-1185.41,"trigger":"bought back"},{"id":"lt_0140","trade_date":"2026-04-14","status":"closed","row_type":"expired","cover_expiry":"2026-04-13","cover_strike":688,"cover_price":0.0,"cover_contracts":3,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0141","trade_date":"2026-04-16","status":"closed","row_type":"roll","cover_expiry":"2026-04-16","cover_strike":693,"cover_price":7.36,"cover_contracts":4,"sell_expiry":"2026-04-20","sell_strike":699,"sell_price":4.61,"sell_contracts":4,"roll_credit":-1105.42,"trigger":"bought back"},{"id":"lt_0142","trade_date":"2026-04-20","status":"closed","row_type":"roll","cover_expiry":"2026-04-20","cover_strike":705,"cover_price":2.99,"cover_contracts":3,"sell_expiry":"2026-04-24","sell_strike":703,"sell_price":8.42,"sell_contracts":4,"roll_credit":2466.22,"trigger":"bought back"},{"id":"lt_0143","trade_date":"2026-04-20","status":"closed","row_type":"roll","cover_expiry":"2026-04-20","cover_strike":699,"cover_price":9.01,"cover_contracts":4,"sell_expiry":"2026-04-22","sell_strike":707,"sell_price":3.99,"sell_contracts":3,"roll_credit":-2411.74,"trigger":"bought back"},{"id":"lt_0144","trade_date":"2026-04-22","status":"closed","row_type":"roll","cover_expiry":"2026-04-22","cover_strike":707,"cover_price":3.22,"cover_contracts":3,"sell_expiry":"2026-04-24","sell_strike":710,"sell_price":3.33,"sell_contracts":3,"roll_credit":28.93,"trigger":"bought back"},{"id":"lt_0145","trade_date":"2026-04-24","status":"closed","row_type":"roll","cover_expiry":"2026-04-24","cover_strike":703,"cover_price":10.59,"cover_contracts":4,"sell_expiry":"2026-05-04","sell_strike":708,"sell_price":10.99,"sell_contracts":4,"roll_credit":154.52,"trigger":"bought back"},{"id":"lt_0146","trade_date":"2026-04-24","status":"closed","row_type":"roll","cover_expiry":"2026-04-24","cover_strike":710,"cover_price":3.58,"cover_contracts":3,"sell_expiry":"2026-04-28","sell_strike":714,"sell_price":3.55,"sell_contracts":3,"roll_credit":-13.04,"trigger":"bought back"},{"id":"lt_0147","trade_date":"2026-04-28","status":"closed","row_type":"roll","cover_expiry":"2026-04-28","cover_strike":714,"cover_price":0.39,"cover_contracts":3,"sell_expiry":"2026-04-30","sell_strike":714,"sell_price":3.45,"sell_contracts":3,"roll_credit":915.88,"trigger":"bought back"},{"id":"lt_0148","trade_date":"2026-04-30","status":"closed","row_type":"roll","cover_expiry":"2026-04-30","cover_strike":714,"cover_price":4.86,"cover_contracts":3,"sell_expiry":"2026-05-05","sell_strike":718,"sell_price":4.65,"sell_contracts":3,"roll_credit":-67.07,"trigger":"bought back"},{"id":"lt_0149","trade_date":"2026-05-04","status":"closed","row_type":"roll","cover_expiry":"2026-05-04","cover_strike":708,"cover_price":13.43,"cover_contracts":4,"sell_expiry":"2026-05-13","sell_strike":717,"sell_price":9.25,"sell_contracts":4,"roll_credit":-1677.46,"trigger":"bought back"},{"id":"lt_0150","trade_date":"2026-05-05","status":"closed","row_type":"roll","cover_expiry":"2026-05-05","cover_strike":718,"cover_price":6.56,"cover_contracts":3,"sell_expiry":"2026-05-12","sell_strike":722,"sell_price":6.84,"sell_contracts":3,"roll_credit":79.91,"trigger":"bought back"},{"id":"lt_0151","trade_date":"2026-05-12","status":"closed","row_type":"roll","cover_expiry":"2026-05-12","cover_strike":722,"cover_price":11.19,"cover_contracts":3,"sell_expiry":"2026-05-20","sell_strike":728,"sell_price":10.01,"sell_contracts":3,"roll_credit":-358.11,"trigger":"bought back"},{"id":"lt_0152","trade_date":"2026-05-13","status":"closed","row_type":"roll","cover_expiry":"2026-05-13","cover_strike":717,"cover_price":21.35,"cover_contracts":4,"sell_expiry":"2026-06-18","sell_strike":730,"sell_price":21.03,"sell_contracts":4,"roll_credit":-133.56,"trigger":"bought back"},{"id":"lt_0153","trade_date":"2026-05-20","status":"closed","row_type":"roll","cover_expiry":"2026-05-20","cover_strike":728,"cover_price":11.24,"cover_contracts":3,"sell_expiry":"2026-06-02","sell_strike":735,"sell_price":11.07,"sell_contracts":3,"roll_credit":-55.11,"trigger":"bought back"},{"id":"lt_0154","trade_date":"2026-06-03","status":"closed","row_type":"assigned","cover_expiry":"2026-06-02","cover_strike":735,"cover_price":0.0,"cover_contracts":3,"sell_expiry":"2026-06-05","sell_strike":760,"sell_price":1.22,"sell_contracts":1,"roll_credit":121.33,"trigger":"assigned"},{"id":"lt_0155","trade_date":"2026-06-05","status":"closed","row_type":"roll","cover_expiry":"2026-06-05","cover_strike":760,"cover_price":0.01,"cover_contracts":1,"sell_expiry":"2026-06-08","sell_strike":740,"sell_price":2.79,"sell_contracts":1,"roll_credit":277.31,"trigger":"bought back"},{"id":"lt_0156","trade_date":"2026-06-05","status":"closed","row_type":"assigned","cover_expiry":"2026-06-04","cover_strike":753,"cover_price":0.0,"cover_contracts":1,"sell_expiry":"2026-06-08","sell_strike":751,"sell_price":2.08,"sell_contracts":1,"roll_credit":207.33,"trigger":"assigned"},{"id":"lt_0157","trade_date":"2026-06-09","status":"closed","row_type":"expired","cover_expiry":"2026-06-08","cover_strike":740,"cover_price":0.0,"cover_contracts":1,"sell_expiry":"2026-06-10","sell_strike":740,"sell_price":1.84,"sell_contracts":2,"roll_credit":366.65,"trigger":"expired worthless"},{"id":"lt_0158","trade_date":"2026-06-09","status":"closed","row_type":"expired","cover_expiry":"2026-06-08","cover_strike":751,"cover_price":0.0,"cover_contracts":1,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"expired worthless"},{"id":"lt_0159","trade_date":"2026-06-11","status":"closed","row_type":"expired","cover_expiry":"2026-06-10","cover_strike":740,"cover_price":0.0,"cover_contracts":2,"sell_expiry":"2026-06-12","sell_strike":730,"sell_price":3.93,"sell_contracts":2,"roll_credit":784.63,"trigger":"expired worthless"},{"id":"lt_0160","trade_date":"2026-06-15","status":"closed","row_type":"roll","cover_expiry":"2026-06-18","cover_strike":730,"cover_price":24.96,"cover_contracts":4,"sell_expiry":"2026-11-20","sell_strike":780,"sell_price":23.825,"sell_contracts":6,"roll_credit":4302.97,"trigger":"bought back"},{"id":"lt_0161","trade_date":"2026-06-15","status":"closed","row_type":"assigned","cover_expiry":"2026-06-12","cover_strike":730,"cover_price":0.0,"cover_contracts":2,"sell_expiry":null,"sell_strike":null,"sell_price":null,"sell_contracts":null,"roll_credit":0.0,"trigger":"assigned"},{"id":"lt_0162","trade_date":"2026-07-09","status":"open","row_type":"roll","cover_expiry":"2026-11-20","cover_strike":780,"cover_price":17.55,"cover_contracts":6,"sell_expiry":"2026-10-16","sell_strike":760,"sell_price":21.19,"sell_contracts":6,"roll_credit":2175.77,"trigger":"bought back"}
-  ];
-
-  // Load the rest from the parsed JSON file embedded here
-  // (We'll upsert in batches of 20)
-  try {
-    let loaded = 0;
-    const batchSize = 20;
-    const rows = history.map(tradeToRow);
-
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize);
-      const res = await fetch(`${SB_URL}/live_trades`, {
-        method: 'POST',
-        headers: { ..._sbHeaders, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-        body: JSON.stringify(batch)
-      });
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`Batch ${i}-${i+batchSize} failed: ${res.status} ${err}`);
-      }
-      loaded += batch.length;
-      btn.textContent = `Loading... ${loaded}/${rows.length}`;
-    }
-
-    statusEl.textContent = `✓ Loaded ${loaded} historical trades`;
-    statusEl.style.color = 'var(--green)';
-    btn.textContent = '✓ Done';
-    btn.style.display = 'none';
-    await loadLiveBlotter();
-  } catch(e) {
-    statusEl.textContent = '✗ ' + e.message;
-    statusEl.style.color = 'var(--red)';
-    btn.disabled = false;
-    btn.textContent = '⬆ Load History';
-  }
-}
+// v6.1.1 — loadHistoricalTrades + embedded 163-row seed RETIRED (superseded by the Fidelity rebuild, S33)
 
 let _liveBlotterAsc = false; // default newest first
 
@@ -5208,7 +5438,7 @@ function renderLiveBlotter(trades) {
     let coverCell;
     if (!t.coverStrike) {
       coverCell = '<span style="color:var(--muted);">—</span>';
-    } else if (rowType === 'assigned' || rowType === 'expired worthless') {
+    } else if (rowType === 'assigned' || rowType === 'expired' || rowType === 'expired worthless') { // v6.1.1 — 'expired' is the stored value
       const label = rowType === 'assigned' ? 'Assigned' : 'Expired';
       coverCell = `<span style="color:var(--muted);">${label} ${t.coverExpiry||''} $${t.coverStrike}</span>`;
     } else {
@@ -5217,13 +5447,15 @@ function renderLiveBlotter(trades) {
 
     // Sell (open) leg
     const sellCell = t.sellStrike
-      ? `<span style="color:var(--accent);">Sell ${t.sellExpiry||''} $${t.sellStrike} @ $${t.sellPrice||'—'}</span>`
+      ? `<span style="color:var(--accent);">${rowType === 'long_call' ? 'Long' : 'Sell'} ${t.sellExpiry||''} $${t.sellStrike} @ $${t.sellPrice||'—'}</span>`
       : '<span style="color:var(--muted);">—</span>';
 
     // Trigger label
     const triggerLabel = rowType === 'assigned' ? 'assigned' :
-                         rowType === 'expired worthless' ? 'expired' :
+                         rowType === 'expired' || rowType === 'expired worthless' ? 'expired' :
                          rowType === 'roll' ? 'rolled' :
+                         rowType === 'sell_only' ? 'sold to open' :
+                         rowType === 'long_call' ? 'long call' :
                          rowType === 'open' ? 'initial sell' : (t.trigger || '—');
 
     const openBadge = isOpen
@@ -5270,6 +5502,81 @@ async function deleteLiveTrade(id) {
 // ── Append a completed roll to Supabase ────────────────────────────────────
 async function appendLiveTrade(tradeObj) {
   await sbUpsertTrade(tradeObj);
+}
+
+// ── v6.1.0 audit_snapshot writes — trade-time only (Ron S33) ──
+// 1) completes the open snapshot's realized fields (the cycle this trade closes);
+// 2) inserts the new cycle's snapshot serializing the in-memory opt run + scan.
+// Convention: realized_credit \u2261 realized_pnl = premium the closed cycle kept
+// = (sell at open \u2212 cover at close) \u00d7 contracts \u00d7 100.
+async function writeAuditRecords(tradeId, info) {
+  const today = new Date().toISOString().slice(0, 10);
+  // 1) complete the open snapshot, if any (first audited trade: none — skip)
+  const openRes = await fetch(SB_URL + '/audit_snapshot?realized_close_date=is.null&order=created_at.desc&limit=1&select=id', { headers: _sbHeaders });
+  if (!openRes.ok) throw new Error('snapshot lookup ' + openRes.status);
+  const openRows = await openRes.json();
+  if (openRows.length) {
+    const holdDays = info.prior && info.prior.entryDate
+      ? Math.round((new Date(today + 'T00:00:00Z') - new Date(info.prior.entryDate + 'T00:00:00Z')) / 86400000) : null;
+    const kept = (info.prior && info.prior.sellPrice != null)
+      ? parseFloat(((info.prior.sellPrice - info.cover) * info.contracts * 100).toFixed(2)) : null;
+    const patch = { realized_close_date: today, realized_close_trigger: _tradeCloseReason || null,
+                    realized_hold_days: holdDays, realized_credit: kept, realized_pnl: kept };
+    const pres = await fetch(SB_URL + '/audit_snapshot?id=eq.' + openRows[0].id,
+      { method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' }, body: JSON.stringify(patch) });
+    if (!pres.ok) throw new Error('snapshot close ' + pres.status);
+  }
+  // 2) insert the new cycle's snapshot
+  const rowObj = r => ({ decay: r.decay, delta: r.delta, floor: r.floor, anchor: r.lookahead,
+    rolls: r.rolls, core: +r.yld.toFixed(2), dstop: r.stopN ?? 0, pure: r.pureN ?? 0 });
+  let preds = { hold: null, credit: null };
+  try {
+    if (typeof lastResult === 'object' && lastResult && lastResult.rolls) {
+      const h = holdStats(lastResult.cycles);
+      preds = { hold: h ? +h.days.toFixed(1) : null,
+                credit: lastResult.coreSum != null && lastResult.rolls.length ? +(lastResult.coreSum / lastResult.rolls.length).toFixed(0) : null };
+    }
+  } catch (e) {}
+  const row = {
+    trade_id: tradeId,
+    app_version: 'v6.1.1', app_md5: null,
+    opt_run_ts: _optRunTs || null,
+    opt_axes: (typeof _rrAxesG === 'object' && _rrAxesG)
+      ? Object.fromEntries(Object.entries(_rrAxesG).map(([a, v]) => [a, { min: v[0], max: v[v.length - 1], n: v.length }])) : null,
+    opt_evals: _optDisplayRows ? _optDisplayRows.length : null,
+    published_params: info.payload,
+    robust_topk: (typeof _rankingRR === 'object' && _rankingRR && _rankingRR.list)
+      ? _rankingRR.list.slice(0, 10).map(o => ({ r: o.robustRank, raw: o.rawRank, ...rowObj(o.row),
+          robust: +o.robust.toFixed(2), n: o.ndist, spread: +o.spread.toFixed(1),
+          axmin: o.axisMin != null ? +o.axisMin.toFixed(1) : null,
+          flags: (typeof _rankFlags === 'function' && _rankFlags(o)) || '' })) : null,
+    raw_topk: _optDisplayRows ? _optDisplayRows.slice(0, 5).map((r, i) => ({ rank: i + 1, ...rowObj(r) })) : null,
+    scan_ts: _scanCtxData ? _scanCtxData.ts : null,
+    scan_topk: _scanCtxData ? _scanCtxData.top : null,
+    chosen: info.chosen,
+    claude_verdict: [_lastVerdict.opt ? 'OPT: ' + _lastVerdict.opt : null,
+                     _lastVerdict.scan ? 'SCAN: ' + _lastVerdict.scan : null].filter(Boolean).join('\n') || null,
+    pred_hold_days: preds.hold, pred_credit: preds.credit, pred_close_trigger: 'decay'
+  };
+  const ins = await fetch(SB_URL + '/audit_snapshot',
+    { method: 'POST', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' }, body: JSON.stringify(row) });
+  if (!ins.ok) throw new Error('snapshot insert ' + ins.status + ' ' + (await ins.text()).slice(0, 120));
+  logMsg('\u2713 audit_snapshot written — trade ' + tradeId + (openRows.length ? ' (prior cycle closed)' : ' (first audited cycle)'), 'ok');
+}
+
+async function retryAuditWrite() {
+  if (!_pendingAudit) return;
+  const st = $('trade-modal-status');
+  if (st) { st.textContent = '\u27f3 retrying audit write\u2026'; st.style.color = 'var(--muted)'; }
+  try {
+    await writeAuditRecords(_pendingAudit.tradeId, _pendingAudit.info);
+    _pendingAudit = null;
+    if (st) { st.textContent = '\u2713 audit written'; st.style.color = 'var(--green)'; }
+    setTimeout(() => { closeTradeModal(); runRollScan(); }, 900);
+  } catch (e) {
+    if (st) { st.innerHTML = '\u26a0 still failing: ' + e.message.replace(/</g, '&lt;')
+      + ' <button onclick="retryAuditWrite()" style="font-family:var(--mono);font-size:9px;padding:3px 10px;border-radius:3px;border:1px solid var(--yellow);background:transparent;color:var(--yellow);cursor:pointer;">Retry</button>'; st.style.color = 'var(--yellow)'; }
+  }
 }
 
 function makeLiveTradeId() {
@@ -5453,6 +5760,17 @@ async function confirmManualEntry() {
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
       <span style="font-size:10px;color:var(--muted);letter-spacing:.06em;">NET CREDIT / DEBIT</span>
       <span id="trade-net-display" style="font-size:14px;font-weight:600;color:var(--muted);">—</span>
+    </div>
+
+    <!-- v6.1.0 Close reason (prior cycle) -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:9px;color:var(--muted);letter-spacing:.08em;margin-bottom:6px;">CLOSE REASON (PRIOR CYCLE)</div>
+      <div id="trade-trig-row" style="display:flex;gap:6px;">
+        <button id="tt-decay" onclick="setTradeTrigger('decay')" style="flex:1;font-family:var(--mono);font-size:9px;padding:6px 0;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">decay</button>
+        <button id="tt-delta" onclick="setTradeTrigger('delta')" style="flex:1;font-family:var(--mono);font-size:9px;padding:6px 0;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">delta</button>
+        <button id="tt-dte" onclick="setTradeTrigger('dte')" style="flex:1;font-family:var(--mono);font-size:9px;padding:6px 0;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">DTE</button>
+        <button id="tt-discretionary" onclick="setTradeTrigger('discretionary')" style="flex:1;font-family:var(--mono);font-size:9px;padding:6px 0;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">discr.</button>
+      </div>
     </div>
 
     <!-- Buttons -->
