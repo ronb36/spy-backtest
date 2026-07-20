@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.0.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.0.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -448,6 +448,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.0.3 · OPT-first startup sequencing fix (DISPLAY ONLY, sim untouched) — v6.0.2 armed the decay×delta sweep in an early IIFE, BEFORE the saved sweep ranges restored into the min/max/step inputs, so the card subtitles showed the hardcoded defaults ("sweeping 15%–35%", "0.250–0.350") and the Run button showed the default 5×11 grid ("55 evals") while the inputs themselves later restored to the real ranges. The arm now runs inside DM-load init immediately AFTER the sweepConfig restore, followed by updateSweepRange on both axes — restoring the "sweeping lo–hi (n)" step-count labels and the correct eval total (465 on the standard pass-2 grid). Debug mode unchanged (pure STD). Cert: debug STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.0.2 · Sort-aware emphasis + morphing Ask Claude button + OPT-first startup (DISPLAY/UX ONLY, sim untouched) — (1) BUG FIX: the green row emphasis was hard-wired to the raw winner regardless of sort; it now follows the ACTIVE sort — ★R emphasized under Robust, ★ under Raw, the other keeps its marker only. (2) The header Ask Claude button is a state machine: idle "🤖 Ask Claude" opens the panel and fires the verdict, then morphs to "Send" for follow-ups (Enter in the field still sends); Close collapses and resets it. The panel’s separate Send button is gone. Same behavior on Data Mart. (3) The app starts in OPT mode: decay × delta armed on load with last-used ranges (v5.4.3 localStorage persistence), so the first tap is Optimize — NORMAL MODE ONLY; debug mode stays a pure STD run since the entire certification workflow lives in that path. Queued for v6.1.0: publish→auto-STD scan pipeline, audit_snapshot table (Supabase DDL), Trade-button snapshot write. Cert: STD (debug path) byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.0.1 · Selection-follows-sort + AC idle bar + 1×3 params + verdict hardening (DISPLAY/UX ONLY, sim untouched) — (1) The top row of the ACTIVE sort auto-selects and drives the summary panels: Robust → R#1 highlighted and simulated on OPT completion and on toggle; Raw → raw winner. (2) Grid-read strip removed from the UI (the grid view says it); the evaluator still runs invisibly and feeds Ask Claude context. Its slot now holds the Ask Claude panel as an idle bar — visible after OPT, interaction (and any API call) starts only on the button press. (3) Chat replies at 14px (user 13px); the 15px verdict box unchanged. (4) 1×3 param layout: Decay + Delta + Run/Publish in one row; VIX gate (retired on evidence), DTE floor (fixed), and anchor (dormant chaotic axis) cards hidden with ALL sweep code intact — one-line revert each — and their values surfaced in a "fixed: dte · VIX · anchor" strip that refreshes on publish. (5) Verdict/system-prompt hardening after the first live verdict violated house rules (S32 finding: recommended the 1.4-roll/week R#1 with no falsification clause): rule 9 added — every publish recommendation MUST state rolls/week and end with an explicit "Falsified if:" clause, and cells above ~1 roll/week are flagged OPERATIONALLY REJECTED on cadence. Cert: STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.0.0 · MAJOR: ranking-as-strategy milestone (DISPLAY/UX ONLY, sim untouched) — marks the S32 doctrine decision: the sweep is a candidate generator and THE RANKING IS THE STRATEGY, to be validated forward by the audit tracker (design queued) and live walk-forward rather than by in-sample argmax. In-app: (1) Opt Results sorts by ROBUST RANK by default with a Robust/Raw toggle — R#1 on top; raw order demoted to "the argmax view". (2) Grid read reformatted as a compact snapshot (REGION / CHAOS / PLATEAU with decisive numbers only) at readable 11px; narrative and always-printed legend removed, legend behind a "?" toggle; winners line dropped (the table says it). (3) Ask Claude button always visible post-OPT; missing API key prompts in-panel entry (localStorage) instead of hiding. (4) Opening the Opt panel auto-fires a one-sentence VERDICT — recommendation, decisive number, falsification condition — at 15px in a highlighted box, chat below; one verdict per OPT run, context/history reset each run. Cert: STD byte-identical except banner; OPT log identical.</span>
@@ -2287,7 +2288,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v6.0.2 · SPY Covered Call Backtest');
+  logMsg('v6.0.3 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2789,13 +2790,6 @@ function updateFixedStrip() {
   }
   updateFixedStrip();
   setTimeout(updateFixedStrip, 1500); // after published params load
-  // v6.0.2 — OPT-first startup: arm decay × delta on load so the first tap
-  // is Optimize. Normal mode only — debug mode stays a pure STD run (the
-  // certification workflow lives there). Ranges persist per v5.4.3 localStorage.
-  if (!_debugMode && typeof _sweepVars === 'object') {
-    if (!_sweepVars.decay) { _sweepVars.decay = false; toggleVar('decay'); }
-    if (!_sweepVars.delta) { _sweepVars.delta = false; toggleVar('delta'); }
-  }
 })();
 
 // v5.15.2 — tap-to-select: summary panels follow the selected row (same
@@ -4240,6 +4234,18 @@ async function loadData() {
         }
       }
     } catch(e) {}
+    // v6.0.3 — OPT-first startup, correctly sequenced AFTER the saved sweep
+    // ranges restore into the inputs (v6.0.2 armed before restore, so card
+    // labels and the eval count reflected the 5×11 defaults — "55 evals" —
+    // instead of the restored 465 grid). updateSweepRange re-derives the
+    // "sweeping lo–hi (n)" labels and the eval count from the live inputs.
+    // Normal mode only; debug stays a pure STD run.
+    if (!_debugMode && typeof _sweepVars === 'object') {
+      if (!_sweepVars.decay) toggleVar('decay');
+      if (!_sweepVars.delta) toggleVar('delta');
+      updateSweepRange('decay');
+      updateSweepRange('delta');
+    }
     populateInitDates();
     updateParamDisplay();
     $('results-area').style.display='block';
