@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.15.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v5.15.4</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -274,7 +274,6 @@ select.display-box { cursor:pointer; outline:none; }
       <button class="tab-btn" id="tab-btn-runlog" onclick="showTab('runlog')">📄 Logs</button>
       <button class="tab-btn" id="tab-btn-scan" onclick="showTab('scan')" style="display:none">🔍 Scan</button>
       <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
-      <button class="tab-btn" id="tab-btn-ai" onclick="showTab('ai')" style="display:none">🤖 AI Analysis</button>
       <button class="tab-btn" id="tab-btn-live" onclick="showTab('live')">📒 Live Trades</button>
     </div>
 
@@ -333,8 +332,10 @@ select.display-box { cursor:pointer; outline:none; }
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span>
-          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><button id="robust-grid-btn" onclick="toggleRobustGrid()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button>
+          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><button id="ac-btn-opt" onclick="toggleAskClaude('opt')" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;margin-right:8px;">🤖 Ask Claude</button><button id="robust-grid-btn" onclick="toggleRobustGrid()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button>
         </div>
+        <div id="grid-read-wrap" style="display:none;margin-bottom:10px;"></div>
+        <div id="ac-panel-opt" style="display:none;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;background:var(--surface);"></div>
         <div id="robust-grid-wrap" style="display:none;overflow:auto;margin-bottom:10px;"></div>
         <div id="heatmap-container"></div>
       </div>
@@ -398,6 +399,8 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- Data Mart tab -->
     <div id="tab-mart" style="display:none">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><button id="ac-btn-mart" onclick="toggleAskClaude('mart')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">🤖 Ask Claude</button></div>
+      <div id="ac-panel-mart" style="display:none;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;background:var(--surface);"></div>
       <!-- Summary cards -->
       <div class="summary-grid" id="mart-cards" style="margin-bottom:12px;"></div>
       <!-- Contract filter (options only) -->
@@ -422,24 +425,6 @@ select.display-box { cursor:pointer; outline:none; }
     </div>
 
     <!-- AI Analysis tab -->
-    <div id="tab-ai" style="display:none;">
-      <div class="chart-panel" style="display:flex;flex-direction:column;gap:0;padding:0;overflow:hidden;min-height:400px;">
-        <div class="chart-header" style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;justify-content:space-between;align-items:center;">
-          <span class="chart-title">🤖 AI Analysis</span>
-          <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">Context resets on new run</span>
-        </div>
-        <div id="ai-messages" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:12px;min-height:300px;max-height:480px;"></div>
-        <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;">
-          <input id="ai-input" type="text" placeholder="Ask a follow-up question..."
-            onkeydown="if(event.key==='Enter'){sendAIMessage();}"
-            style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 10px;outline:none;">
-          <button onclick="sendAIMessage()" id="ai-send-btn"
-            style="background:var(--accent);border:none;border-radius:4px;color:#fff;font-family:var(--mono);font-size:12px;font-weight:700;padding:8px 14px;cursor:pointer;white-space:nowrap;">
-            Send
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="footer">
@@ -463,6 +448,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v5.15.4 · Ask Claude inline panels + grid-read strip + winner highlights (DISPLAY/UX ONLY, sim untouched) — (1) The AI Analysis tab and per-run auto-analysis are RETIRED (no more silent API calls); replaced by on-demand 🤖 Ask Claude buttons that expand inline chat panels in-place: Opt Results (context: sweep axes/steps, raw+robust top-10s with Δstop(pure) and flags, eligibility outcome, selected row, the computed grid read, and live roll_params.json) and Data Mart (context: table stats + full expiry→strike index, plus a dm_lookup tool loop — Claude can request a specific contract bar as JSON, the app executes it against in-memory DM data and feeds the result back, enabling real mark lookups). System prompt embeds the standing methodology (argmax suspension, robust/photocopy definitions, pure-stop pivotality, boundary discipline, falsification rules, cadence constraint) so advice is grounded in house rules. Key: localStorage anthropic_key; buttons hidden without it. (2) The coded grid read moves to an always-visible strip directly under the panel header — above the results table AND the grid, rendered on every OPT regardless of grid state (S32 fix: it previously hid below the grid). (3) Grid winner cells now keep their values and get hard highlights: gold border = raw ★, white border = robust ★R, blue outline = selection; ⚠ appends after the value instead of replacing it; cells widened to fit. Cert: STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.15.3 · Grid UX polish + coded grid read (DISPLAY ONLY, sim untouched) — grid toggle now reads Open Grid / Close Grid; tapping a result row shows a &#10227; simulating-selection indicator while the ~1s re-sim runs; and the robust grid gains a computed "grid read": a deterministic, no-AI structural evaluation of the actual sweep surface — chaos zone (adjacent sign-flip rate), largest coherent &ge;3% region with its bounds and any adjacent cliff, longest photocopy plateau with its pure-&Delta;stop status, and both winners — plus a plain-language legend (green-on-green shelf = publishable, green-on-red = cliff, checkerboard = chaos, constant stripe = plateau, robust = median of the surrounding boxes). Cert: STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.15.2 · Opt Results tap-select merge + robust grid + Scan reset (DISPLAY/UX ONLY, sim untouched) — (1) The separate ranking table is gone: the Opt Results table itself now lists ALL rankable cells (scrollable, sticky header) with the robust metric columns merged in (R#, robust, n, spr, axMin, &Delta;stop total(pure), flags); tap any row to select it — raw winner selected by default, summary panels/blotter/gaps re-simulate to the selection, and Publish publishes it through the confirmation card (now docked at the top of the tab, always visible). (2) New &#8862; Robust Grid toggle (2-axis sweeps): the full sweep surface as a color grid — plateaus read as constant-color runs, cliffs as abrupt breaks; &#9888; marks cells with zero pure &Delta;-stops, &#9733;/&#9733;R mark raw/robust winners, and tapping a cell selects it just like a table row. (3) Running an OPT now resets and hides the Scan tab (stale STD-scan content no longer lingers). Cert: STD byte-identical except banner; OPT sim lines and log tables identical to v5.15.1.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.15.1 · Ranking UX merge + pure-stop pivotality (DISPLAY/UX ONLY, sim untouched) — (1) Rankings tab removed; the dual-ranked table now lives inside Opt Results below the heatmap. (2) The original Publish button drives selected-row publishing: raw winner pre-selected by default (legacy behavior preserved), any selection routes through the confirmation card; the separate Publish Selected button is gone. (3) Summary panels, blotter, and gaps follow the selected row via re-simulation (same machinery as the winner re-sim). (4) &Delta;stop now displays total(pure) where pure = delta was the SOLE close reason — the S32 co-fire finding: byte-identical &Delta;-photocopy runs carried nonzero total counts, proving those fires co-fire with decay/DTE and are non-pivotal; eligibility switches to pure&ge;1, and a new &#9888;co-fire-only flag marks cells whose stop fires but never pivotally. Cert: STD byte-identical except banner; OPT sim lines and raw order identical, &Delta;stop column gains (pure).</span>
@@ -1288,7 +1274,7 @@ function updateParamDisplay() {
 
 // ── Tab management ─────────────────────────────────────────────────────────
 function showTab(tab) {
-  ['log','chart','heatmap','gaps','runlog','scan','mart','ai','live'].forEach(t => {
+  ['log','chart','heatmap','gaps','runlog','scan','mart','live'].forEach(t => {
     const el = $('tab-' + t);
     const btn = $('tab-btn-' + t);
     if (el)  el.style.display  = t === tab ? 'block' : 'none';
@@ -1308,82 +1294,12 @@ function showTab(tab) {
 // ── AI Analysis ────────────────────────────────────────────────────────────
 // Conversational analysis of run results using Claude API.
 // _aiContext is built from the run log + summary after each STD/OPT run.
-// _aiHistory maintains the conversation for follow-up questions.
-let _aiContext  = null;
-let _aiHistory  = [];
+// ── v5.15.4 Ask Claude — on-demand inline panels (AI tab + auto-analysis retired) ──
+function getAnthropicKey() { return localStorage.getItem('anthropic_key') || ''; }
 
-function buildAIContext(result) {
-  // Collect run log text
-  const logEl = $('runlog-mirror') || $('progress-log');
-  const logText = logEl ? logEl.innerText || logEl.textContent : '';
-
-  // Build summary block
-  const summary = result ? [
-    `Core Roll Yield: ${result.coreYld != null ? result.coreYld.toFixed(1) + '%' : 'n/a'}`,
-    `Core Roll Credit: ${result.coreSum != null ? '$' + Math.round(result.coreSum).toLocaleString() : 'n/a'}`,
-    `Win Rate: ${Math.round(result.winRate || 0)}%`,
-    `Total Cycles: ${result.cycles?.length || 0}`,
-    `Max Drawdown: ${(result.maxDD || 0).toFixed(1)}%`,
-  ].join('\n') : '';
-
-  return `You are an expert advisor for a SPY covered call strategy running on a 2-year backtest.
-The user is an experienced options trader managing 600 SPY shares in a Roth IRA.
-
-CURRENT RUN RESULTS:
-${summary}
-
-FULL RUN LOG (includes VIX regime split, OTM distribution, DM coverage report, sweep boundary analysis):
-${logText.slice(-8000)}
-
-When analyzing:
-- Be concise and specific — no generic options education
-- Prioritize actionable next steps
-- Reference specific numbers from the log
-- The DM (data mart) is configured via data_universe.json — changes don't require code redeployment
-- Weekly expiries can be enabled by setting "weekly": true in data_universe.json
-- Sweep ranges are set manually in the UI and persist via localStorage`;
-}
-
-function addAIMessage(role, text) {
-  const el = $('ai-messages');
-  if (!el) return;
-  const div = document.createElement('div');
-  div.style.cssText = `
-    padding: 10px 12px;
-    border-radius: 6px;
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 1.6;
-    white-space: pre-wrap;
-    ${role === 'user'
-      ? 'background:var(--surface2);border:1px solid var(--border);align-self:flex-end;max-width:85%;'
-      : 'background:rgba(99,179,237,0.08);border:1px solid rgba(99,179,237,0.25);color:var(--text);'}
-  `;
-  div.textContent = role === 'user' ? text : text;
-  el.appendChild(div);
-  el.scrollTop = el.scrollHeight;
-}
-
-function addAIThinking() {
-  const el = $('ai-messages');
-  if (!el) return;
-  const div = document.createElement('div');
-  div.id = 'ai-thinking';
-  div.style.cssText = 'padding:10px 12px;border-radius:6px;font-family:var(--mono);font-size:12px;color:var(--muted);background:rgba(99,179,237,0.08);border:1px solid rgba(99,179,237,0.25);';
-  div.textContent = '⟳ Analyzing...';
-  el.appendChild(div);
-  el.scrollTop = el.scrollHeight;
-  return div;
-}
-
-function getAnthropicKey() {
-  // Stored locally only — same pattern as gh_pat / polygon_key. Never in code.
-  return localStorage.getItem('anthropic_key') || '';
-}
-
-async function callClaudeAPI(messages) {
+async function callClaudeAPI(messages, system) {
   const apiKey = getAnthropicKey();
-  if (!apiKey) throw new Error('No Anthropic key — set localStorage anthropic_key');
+  if (!apiKey) throw new Error('No Anthropic key \u2014 set localStorage anthropic_key');
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -1392,79 +1308,129 @@ async function callClaudeAPI(messages) {
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
-      system: _aiContext,
-      messages: messages,
-    })
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1500, system: system, messages: messages })
   });
   const data = await response.json();
   if (data.error) throw new Error(data.error.message || 'API error');
-  return data.content?.[0]?.text || 'No response received.';
+  return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n') || 'No response received.';
 }
 
-async function initAIAnalysis(result) {
-  // No API key stored → skip entirely: hide tab, fire no request.
-  const tabBtn = $('tab-btn-ai');
-  if (!getAnthropicKey()) {
-    if (tabBtn) tabBtn.style.display = 'none';
-    return;
-  }
+const AC_SYSTEM = "You are the analysis assistant embedded in Ron's SPY covered-call backtester (600 SPY, Fidelity Roth IRA, manual iPad execution). Objective: Treasury-equivalent-or-better cash flow on a core long SPY position \u2014 maximize credit per cycle at an executable pace, not raw yield. Standing methodology you must respect: (1) Argmax parameter selection is suspended \u2014 raw sweep winners are presumptively spikes; only coherent regions with distinct-path support matter. (2) Robust score = median core yield over the \u00b11-grid-step neighborhood with photocopy cells (identical rolls/yield/hold) collapsed to one observation; resolution-dependent, comparable only within equal-step sweeps. (3) \u0394stop shows total(pure); pure = delta was the sole close reason. Zero pure stops means the threshold is decorative on this tape \u2014 treat such cells' protection as untested. (4) Eligibility for robust-best: pure \u22651 and n_distinct \u22654; grid-edge cells require sweep widening before trust. (5) The system is empirically a ~5-day near-ATM premium race regardless of entry DTE; full-DTE annualization is fiction. (6) All predictions must be falsifiable and stated before evaluation; missed predictions are logged, not excused. (7) Sim prices zero spread friction \u2014 cadence above ~1 roll/week carries unmodeled cost and operational burden Ron has rejected. (8) Never recommend publishing a cell solely because it ranks first on any metric; state what evidence would falsify your recommendation. Answer with specific numbers from the provided context. If the context lacks what you need, say so rather than guessing.";
 
-  // Build context from current run
-  _aiContext = buildAIContext(result);
-  _aiHistory = [];
+const AC_DM_TOOL = "\n\nTOOL AVAILABLE \u2014 dm_lookup: to fetch an option's end-of-day bar from the in-browser data mart, reply with ONLY this JSON and nothing else: {\"dm_lookup\": {\"strike\": 760, \"expiry\": \"2026-10-16\", \"date\": \"2026-07-02\"}}. The app will execute it and send you the result; then answer the user. Use it whenever asked about specific contract marks, existence, or coverage. One lookup per reply.";
 
-  // Show and activate the AI tab
-  if (tabBtn) tabBtn.style.display = '';
+let _acHist = { opt: [], mart: [] };
+let _acCtx  = { opt: null, mart: null };
+let _acBusy = { opt: false, mart: false };
 
-  // Clear previous messages
-  const el = $('ai-messages');
-  if (el) el.innerHTML = '';
+function _stripTags(h) { const d = document.createElement('div'); d.innerHTML = h; return d.textContent || ''; }
 
-  // Auto-generate initial analysis
-  const thinking = addAIThinking();
-  try {
-    const initialPrompt = 'Please analyze this run. Start with the most important finding, then list recommended next steps in priority order. Be specific and reference the actual numbers.';
-    const text = await callClaudeAPI([{ role: 'user', content: initialPrompt }]);
-    if (thinking) thinking.remove();
-    _aiHistory.push({ role: 'user', content: initialPrompt });
-    _aiHistory.push({ role: 'assistant', content: text });
-    addAIMessage('assistant', text);
-  } catch(e) {
-    if (thinking) thinking.remove();
-    addAIMessage('assistant', `⚠ Analysis unavailable: ${e.message}`);
-  }
+function _acPanelHtml(key) {
+  return '<div style="font-size:10px;color:var(--muted);margin-bottom:6px;">Ask Claude \u00b7 context: ' + (key === 'opt' ? 'this optimization run' : 'data mart') + ' \u00b7 on-demand only</div>'
+    + '<div id="ac-msgs-' + key + '" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<input id="ac-in-' + key + '" type="text" placeholder="Ask about ' + (key === 'opt' ? 'the sweep, rankings, or what to publish\u2026' : 'marks, strikes, coverage\u2026') + '" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;padding:9px 10px;" onkeydown="if(event.key===\'Enter\')sendAsk(\'' + key + '\')">'
+    + '<button onclick="sendAsk(\'' + key + '\')" style="padding:9px 14px;font-size:11px;border-radius:4px;border:1px solid var(--accent);background:var(--surface2);color:var(--accent);cursor:pointer;">Send</button>'
+    + '<button onclick="toggleAskClaude(\'' + key + '\')" style="padding:9px 12px;font-size:11px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Close</button>'
+    + '</div>';
 }
 
-async function sendAIMessage() {
-  const input = $('ai-input');
-  if (!input || !input.value.trim() || !_aiContext) return;
-  const text = input.value.trim();
-  input.value = '';
+function _acRender(key) {
+  const box = $('ac-msgs-' + key);
+  if (!box) return;
+  box.innerHTML = _acHist[key].filter(m => !m._tool).map(m =>
+    '<div style="font-size:11px;line-height:1.5;padding:8px 10px;border-radius:6px;white-space:pre-wrap;' +
+    (m.role === 'user' ? 'background:rgba(96,165,250,0.12);align-self:flex-end;max-width:85%;' : 'background:var(--surface2);align-self:flex-start;max-width:95%;') + '">' +
+    m.content.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</div>').join('') +
+    (_acBusy[key] ? '<div style="font-size:10px;color:var(--muted);">\u27f3 thinking\u2026</div>' : '');
+  box.scrollTop = box.scrollHeight;
+}
 
-  addAIMessage('user', text);
-  _aiHistory.push({ role: 'user', content: text });
+async function toggleAskClaude(key) {
+  const p = $('ac-panel-' + key);
+  if (!p) return;
+  if (p.style.display !== 'none') { p.style.display = 'none'; return; }
+  if (!getAnthropicKey()) { logMsg('\u26a0 No Anthropic key \u2014 set localStorage anthropic_key', 'err'); return; }
+  p.innerHTML = _acPanelHtml(key);
+  p.style.display = 'block';
+  _acCtx[key] = key === 'opt' ? await buildOptContext() : buildDmContext();
+  _acRender(key);
+}
 
-  const btn = $('ai-send-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '...'; }
-
-  const thinking = addAIThinking();
+async function buildOptContext() {
+  const L = [];
+  L.push('=== OPTIMIZATION RUN CONTEXT (v5.15.4) ===');
+  if (_rrAxesG) L.push('Swept axes/steps: ' + Object.entries(_rrAxesG).map(([a, v]) => a + ' ' + v[0] + '\u2013' + v[v.length - 1] + ' step ' + (v.length > 1 ? Math.abs(v[1] - v[0]).toFixed(3).replace(/\.?0+$/, '') : '\u2014') + ' (' + v.length + ' values)').join(' \u00d7 '));
+  const fmtRow = r => 'decay=' + r.decay + '%/dte=' + r.floor + 'd/\u0394' + r.delta + '/anchor=' + r.lookahead + 'd \u00b7 ' + r.rolls + ' rolls \u00b7 core ' + r.yld.toFixed(1) + '% \u00b7 \u0394stop ' + (r.stopN ?? 0) + '(' + (r.pureN ?? 0) + ')';
+  if (_optDisplayRows) {
+    L.push('RAW TOP 10 (by core yield):');
+    _optDisplayRows.slice(0, 10).forEach((r, i) => L.push('  #' + (i + 1) + ' ' + fmtRow(r)));
+  }
+  if (_rankingRR) {
+    L.push('ROBUST TOP 10 (neighborhood median, distinct-path):');
+    _rankingRR.list.slice(0, 10).forEach(o => L.push('  R#' + o.robustRank + ' [raw#' + o.rawRank + '] ' + fmtRow(o.row) + ' \u00b7 robust ' + o.robust.toFixed(2) + '% \u00b7 n=' + o.ndist + ' \u00b7 spr ' + o.spread.toFixed(1) + ' \u00b7 axMin ' + (o.axisMin !== null ? o.axisMin.toFixed(1) : '\u2014') + (_rankFlags(o) ? ' \u00b7 ' + _rankFlags(o) : '')));
+    L.push(_rankingRR.winner ? 'Robust winner (eligible pure\u22651,n\u22654): R#' + _rankingRR.winner.robustRank : 'NO eligible robust winner');
+  }
+  if (_optSelIdx !== null && _optDisplayRows && _optDisplayRows[_optSelIdx]) L.push('Currently selected row: ' + fmtRow(_optDisplayRows[_optSelIdx]));
+  const gr = $('grid-read-wrap');
+  if (gr && gr.innerHTML) L.push('GRID READ (computed): ' + _stripTags(gr.innerHTML).replace(/\s+/g, ' ').trim());
   try {
-    const reply = await callClaudeAPI(_aiHistory);
-    if (thinking) thinking.remove();
-    _aiHistory.push({ role: 'assistant', content: reply });
-    addAIMessage('assistant', reply);
-  } catch(e) {
-    if (thinking) thinking.remove();
-    addAIMessage('assistant', `⚠ Error: ${e.message}`);
+    const res = await fetch('https://ronb36.github.io/spy-backtest/roll_params.json?_=' + Date.now(), { cache: 'no-store' });
+    if (res.ok) L.push('PUBLISHED roll_params.json: ' + JSON.stringify(await res.json()));
+  } catch (e) { L.push('PUBLISHED roll_params.json: fetch failed'); }
+  return L.join('\n');
+}
+
+function buildDmContext() {
+  const L = [];
+  L.push('=== DATA MART CONTEXT (in-browser, v5.15.4) ===');
+  if (DM.spy && DM.spy.length) L.push('SPY daily: ' + DM.spy.length + ' rows, ' + DM.spy[0].date + ' \u2192 ' + DM.spy[DM.spy.length - 1].date);
+  if (DM.vix && DM.vix.length) L.push('VIX daily: ' + DM.vix.length + ' rows');
+  const cs = Object.values(DM.options || {});
+  L.push('Contracts: ' + cs.length);
+  const byExp = {};
+  cs.forEach(c => { (byExp[c.expiry] = byExp[c.expiry] || []).push(c.strike); });
+  Object.keys(byExp).sort().forEach(e => L.push('  ' + e + ': strikes ' + byExp[e].sort((a, b) => a - b).join(',')));
+  return L.join('\n') + AC_DM_TOOL;
+}
+
+function dm_lookup(a) {
+  const cs = Object.values(DM.options || {});
+  const c = cs.find(x => Number(x.strike) === Number(a.strike) && x.expiry === a.expiry);
+  if (!c) return { found: false, reason: 'no contract ' + a.strike + 'C ' + a.expiry, expiries: [...new Set(cs.map(x => x.expiry))].sort() };
+  const bars = c.days || c.bars || [];
+  const b = bars.find(x => x.date === a.date);
+  if (!b) return { found: false, reason: 'contract exists, no bar on ' + a.date, barCount: bars.length, firstBar: bars[0]?.date, lastBar: bars[bars.length - 1]?.date };
+  return { found: true, strike: c.strike, expiry: c.expiry, date: b.date, bar: b };
+}
+
+async function sendAsk(key) {
+  const inp = $('ac-in-' + key);
+  if (!inp || !inp.value.trim() || _acBusy[key]) return;
+  const q = inp.value.trim(); inp.value = '';
+  _acHist[key].push({ role: 'user', content: q });
+  _acBusy[key] = true; _acRender(key);
+  try {
+    const sys = AC_SYSTEM + '\n\n' + _acCtx[key];
+    for (let hop = 0; hop < 3; hop++) {
+      const reply = await callClaudeAPI(_acHist[key].map(m => ({ role: m.role, content: m.content })), sys);
+      let tool = null;
+      try { const j = JSON.parse(reply.trim()); if (j && j.dm_lookup) tool = j.dm_lookup; } catch (e) {}
+      if (tool && key === 'mart') {
+        _acHist[key].push({ role: 'assistant', content: reply, _tool: true });
+        _acHist[key].push({ role: 'user', content: '[dm_lookup result] ' + JSON.stringify(dm_lookup(tool)), _tool: true });
+        continue;
+      }
+      _acHist[key].push({ role: 'assistant', content: reply });
+      break;
+    }
+  } catch (err) {
+    _acHist[key].push({ role: 'assistant', content: '\u2717 ' + err.message });
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Send'; }
-    const el = $('ai-input');
-    if (el) el.focus();
+    _acBusy[key] = false; _acRender(key);
   }
 }
+
 function normalCDF(x) {
   const a1=.254829592, a2=-.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=.3275911;
   const s = x < 0 ? -1 : 1, v = Math.abs(x);
@@ -2263,7 +2229,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v5.15.3 · SPY Covered Call Backtest');
+  logMsg('v5.15.4 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2298,7 +2264,7 @@ async function runSimulation() {
     logMsg(`  ${result.rolls.length} cycles · ${result.coreYld != null ? result.coreYld.toFixed(1) + '% core yield' : 'core yield n/a'} · ${result.coreSum != null ? '$' + Math.round(result.coreSum).toLocaleString() + ' core credit' : ''} · ${_wr}% win rate · ${_hStr} · OTM 1-5%=${_otmPct}% max=${_otmMax.toFixed(1)}%`, 'ok');
   }
   logHeadroomTable(result);  // v5.11.4 — headroom look, both STD paths
-  initAIAnalysis(result);
+  /* v5.15.4 auto-analysis retired; Ask Claude is on-demand */
   
   
   
@@ -2312,7 +2278,7 @@ async function runSimulation() {
 
   $('results-area').style.display = 'block';
   $('tab-btn-heatmap').style.display = 'none';
-  { const _rgb = $('robust-grid-btn'); if (_rgb) { _rgb.style.display = 'none'; _rgb.textContent = '\u229e Open Grid'; } const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; } } // v5.15.3
+  { const _rgb = $('robust-grid-btn'); if (_rgb) { _rgb.style.display = 'none'; _rgb.textContent = '\u229e Open Grid'; } const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; } const _grw = $('grid-read-wrap'); if (_grw) { _grw.style.display = 'none'; _grw.innerHTML = ''; } const _acb = $('ac-btn-opt'); if (_acb) _acb.style.display = 'none'; const _acp = $('ac-panel-opt'); if (_acp) _acp.style.display = 'none'; } // v5.15.4
   // AI tab visibility owned by initAIAnalysis (shown only when key present)
   // Show Scan tab only in non-debug STD mode
   const scanBtn = $('tab-btn-scan');
@@ -2811,7 +2777,7 @@ function _renderRobustGridCells() {
   const rw = _rankingRR ? _rankingRR.winner : null;
   const bestIdx = 0; // raw winner is display row 0
   const lbl = n => ({ decay: 'decay %', floor: 'dte d', delta: '\u0394', vixgate: 'VIX\u2265', lookahead: 'anchor d' })[n] || n;
-  let h = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 6px;">' + lbl(a1) + ' \u2193 \u00d7 ' + lbl(a2) + ' \u2192 \u00b7 color = core yield (' + lo.toFixed(1) + '% \u2192 ' + hi.toFixed(1) + '%) \u00b7 \u26a0 = no pure \u0394stop \u00b7 tap a cell to select</div>';
+  let h = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 6px;">' + lbl(a1) + ' \u2193 \u00d7 ' + lbl(a2) + ' \u2192 \u00b7 color = core yield (' + lo.toFixed(1) + '% \u2192 ' + hi.toFixed(1) + '%) \u00b7 \u26a0 = no pure \u0394stop \u00b7 gold border = raw \u2605 \u00b7 white border = robust \u2605R \u00b7 blue outline = selection \u00b7 tap a cell to select</div>';
   h += '<table style="border-collapse:collapse;">';
   h += '<tr><td style="font-size:8px;color:var(--muted);padding:2px 4px;"></td>' + v2.map(x =>
     '<td style="font-family:var(--mono);font-size:8px;color:var(--muted);padding:2px 3px;text-align:center;">' + x + '</td>').join('') + '</tr>';
@@ -2824,23 +2790,37 @@ function _renderRobustGridCells() {
       const isSel = gi === _optSelIdx;
       const isRawW = gi === bestIdx;
       const isRobW = rw && rw.row === cell;
-      const mark = (isRawW ? '\u2605' : '') + (isRobW ? '\u2605R' : '') + ((cell.pureN ?? 0) === 0 ? '\u26a0' : '');
-      h += '<td onclick="optSelectRow(' + gi + ')" title="' + cell.yld.toFixed(1) + '% \u00b7 \u0394stop ' + (cell.stopN ?? 0) + '(' + (cell.pureN ?? 0) + ')" '
-        + 'style="cursor:pointer;width:34px;height:26px;text-align:center;vertical-align:middle;font-family:var(--mono);font-size:8px;'
-        + 'background:' + col(cell.yld) + ';color:#fff;border:1px solid var(--bg);'
+      const border = isRobW ? 'border:2px solid #fff;' : isRawW ? 'border:2px solid var(--yellow);' : 'border:1px solid var(--bg);';
+      h += '<td onclick="optSelectRow(' + gi + ')" title="' + cell.yld.toFixed(1) + '% \u00b7 \u0394stop ' + (cell.stopN ?? 0) + '(' + (cell.pureN ?? 0) + ')' + (isRawW ? ' \u00b7 raw winner' : '') + (isRobW ? ' \u00b7 robust winner' : '') + '" '
+        + 'style="cursor:pointer;width:40px;height:26px;text-align:center;vertical-align:middle;font-family:var(--mono);font-size:8px;'
+        + 'background:' + col(cell.yld) + ';color:#fff;' + border
         + (isSel ? 'outline:2px solid var(--accent);outline-offset:-2px;' : '') + '">'
-        + (mark || cell.yld.toFixed(1)) + '</td>';
+        + cell.yld.toFixed(1) + ((cell.pureN ?? 0) === 0 ? '\u26a0' : '') + '</td>';
     });
     h += '</tr>';
   });
   h += '</table>';
-  h += _evalRobustGrid(v1, v2, a1, a2, byCell, lbl);
   w.innerHTML = h;
+}
+
+// v5.15.4 — grid read renders in its own always-visible strip above table+grid
+function renderGridRead() {
+  const w = $('grid-read-wrap');
+  if (!w) return;
+  if (!_rrAxesG || Object.keys(_rrAxesG).length !== 2 || !_optDisplayRows) { w.style.display = 'none'; w.innerHTML = ''; return; }
+  const [a1, a2] = Object.keys(_rrAxesG);
+  const v1 = _rrAxesG[a1], v2 = _rrAxesG[a2];
+  const byCell = new Map();
+  _optDisplayRows.forEach(r => byCell.set(r[a1] + '|' + r[a2], r));
+  w.innerHTML = _evalRobustGrid(v1, v2, a1, a2, null);
+  w.style.display = 'block';
 }
 
 // v5.15.3 — coded grid read: deterministic structural evaluation of the sweep
 // surface, generated from the actual cells (no AI, no network). Facts only.
-function _evalRobustGrid(v1, v2, a1, a2, byCell, lbl) {
+function _evalRobustGrid(v1, v2, a1, a2, _unused) {
+  const byCell = new Map();
+  (_optDisplayRows || []).forEach(r => byCell.set(r[a1] + '|' + r[a2], r));
   const get = (r1, r2) => byCell.get(r1 + '|' + r2) || null;
   const nm = { decay: 'decay', delta: '\u0394', floor: 'dte', vixgate: 'VIX\u2265', lookahead: 'anchor' };
   const word = n => nm[n] || n;
@@ -3095,7 +3075,7 @@ async function runOptimization() {
         renderCycleTable(winResult);
         renderGapsTab(_gaps);
         logOTMDistribution(winResult);
-        initAIAnalysis(winResult);
+        /* v5.15.4 auto-analysis retired */
         setRunButtonState('ready');
       }
     } else {
@@ -3137,6 +3117,8 @@ async function runOptimization() {
     if (_rgb) _rgb.style.display = (_rrAxesG && Object.keys(_rrAxesG).length === 2) ? 'block' : 'none';
     const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; }
     if (_rgb) _rgb.textContent = '\u229e Open Grid';
+    renderGridRead(); // v5.15.4 — always-visible read strip
+    const _acb = $('ac-btn-opt'); if (_acb) _acb.style.display = getAnthropicKey() ? 'block' : 'none';
     const _scb = $('tab-btn-scan'); if (_scb) _scb.style.display = 'none';
     ['scan-status', 'roll-best-summary-wrap', 'roll-table-container'].forEach(id => { const el = $(id); if (el) el.innerHTML = ''; });
     showTab('heatmap');
