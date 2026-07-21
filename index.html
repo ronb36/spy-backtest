@@ -58,6 +58,7 @@ select.display-box { cursor:pointer; outline:none; }
 .var-card { transition:all .15s; user-select:none; border-color:var(--accent) !important; }
 .var-card:hover { opacity:.85; }
 .var-card.active { border-color:var(--green) !important; background:rgba(0,200,120,.07) !important; }
+.var-card.published { border-color:var(--border) !important; background:var(--surface) !important; } /* v6.1.3 — post-publish STD look, wins by source order */
 
 /* Param display */
 .param-box { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:10px 14px; }
@@ -153,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -463,6 +464,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.1.3 · Armed-button publish + STD-mode styling + advisor de-cadenced (DISPLAY ONLY, sim untouched) — (1) The publish confirmation CARD is retired: tapping Publish now ARMS the button itself (✓ Confirm Publish, compact diff in the sub-line — proj change · changed-field count · ⚠ warning count; full warnings + field diff logged to Logs); second tap publishes; row selection, range edits, or a 6s timeout disarm back to Publish. (2) Post-publish the screen reads as LIVE STATE: param cards repaint from green “selected ✓” to a neutral “published ✓” (.published class overrides the armed green), and the Scan button switches to the STD look — dark fill, blue border, blue text — visually distinct from the staged-selection green; any new selection restores the green staged mode. (3) Ask Claude de-cadenced per Ron (S33): rule 9 reduces to the mandatory “Falsified if:” clause (rolls/week mandate and OPERATIONALLY REJECTED flag removed); rule 7 keeps the zero-spread-friction caveat as methodology but drops the ~1 roll/week threshold and the rejection-in-Ron’s-name; the auto-verdict prompt drops its rolls/week element. Preference stated, not enforced — the decision lives at the ticket and the audit records what was chosen. Cert: STD byte-identical except banner; OPT log identical to 2115-era baseline.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.2 · Selection-true cards + live-blotter economics (DISPLAY ONLY, sim untouched) — S33 findings-to-Publish batch: (1) BUG FIX: the OPT param cards were written once at completion from the RAW winner and never updated on selection — cards now follow the SELECTED row via updateCardsFromSel (sub-label “selected ✓”), so they always show what Publish would write; with Robust-first completion the cards open on R#1. (2) BUG FIX: live blotter sorted on the display date (MM/DD/YY string) so year boundaries interleaved — the open 07/09/26 row filed between 07/09/25 and 07/10/25; sort key now reparses to ISO. (3) Open-position MTM: the summary line fetches the live mark for the open short (Polygon snapshot, localStorage key, silent degrade) and shows mark · unrealized MTM · % premium kept — the same decay number the agent watches. (4) New Ann Yield summary card: Total Roll Credit over the TIME-WEIGHTED notional — per-day contracts walked from the blotter rows (long_call rows excluded) × 100 × last SPY close from the DM — annualized over the span; assumes the corresponding SPY is always held with no excess cash (Ron’s convention). (5) Tab renamed Trade Blotter → Sim Trades (ids unchanged). (6) Stale empty-state text still pointing at the retired Load History button replaced. ALSO this session: certification protocol amendment — the 6:00 PM ET weeknight collector refreshes the DM, so baselines are only valid against the DM state they ran on; cert pairs must straddle no collection (the 1028/1452 morning baselines were retired when the 07/20 collection landed mid-session; the 2008 OPT log is the new OPT baseline). Live falsification note: raw argmax flipped on the DM change (3/Δ0.74→6/Δ0.65) while robust R#1 held at 3/Δ0.73. Cert: STD byte-identical except banner vs the next post-collection STD baseline; OPT identical to 2008.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.1 · Blotter truth alignment (DISPLAY ONLY, sim untouched) — companion to the S33 live_trades REBUILD: the table was reloaded from six Fidelity account-history exports (06/2025–07/2026, 331 option events, zero inventory violations) via a one-time reload.html loader; 163 rows/$49,731 → 168 rows/$55,160.51 exactly tying to Fidelity nets — +$5,429 of premium the old blotter never booked, and two mysteries resolved (the 12/24+01/12 credit gaps were merged partial fills, honest as recorded; the 02/26 cover_only and the phantom 698C 03/19 cover were three small LONG-call hedge buys). In-app: (1) ⤴ Load History button and the embedded 163-row seed are RETIRED — pressing it would have upserted the stale pre-rebuild history back into Supabase; (2) blotter renderer learns the rebuild’s row types: sell_only (“sold to open”) and long_call (“long call”, sell leg labeled Long); (3) BUG FIX: the renderer matched row_type “expired worthless” but rows store “expired”, so all expired covers rendered as red “Cover @ $0” — now labeled Expired (61 rows affected); (4) audit snapshot app_version bumped. Cert: STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.0 · Decision Run pipeline + audit_snapshot writes (DISPLAY/PERSISTENCE ONLY, sim untouched) — (1) One button walks the pipeline: Optimize → Optimizing… → Publish → Scan. Publish flips the button to Scan (terminal ✓ Published state retired); Scan runs STD+scan under the published params (cert log + candidates in one run); selecting any row while in Scan state reverts the button to Publish (new selection = unpublished — the button label IS the published/unpublished indicator); a tappable 📌 published banner in Opt Results reselects the published row without republishing; editing any range resets to Optimize; debug remains a pure STD Run. (2) Ask Claude moves to a persistent chat section above the tabs (header button toggles Ask Claude/Close, Send beside the input); context follows the active tab (Opt / Scan / Data Mart with dm_lookup / general), histories kept per context; auto one-sentence verdicts on Opt (RULE 9) and now Scan (candidate sanity-check), once per run; tappable suggested questions per tab; the inline panel buttons are retired (panel code intact). (3) The trade ticket gains a CLOSE REASON selector (decay/delta/DTE/discretionary → live_trades.trigger) and is the ONLY audit write path (Ron S33: scans never write): on confirm it completes the open audit_snapshot row (realized close date/trigger/hold days/credit ≡ premium kept) and inserts the new cycle’s snapshot — opt run identity+axes, robust top-10 with diagnostics, raw top-5, scan top-5, chosen+fills, published params, sim predictions (mean hold + credit/cycle from the last STD result), labeled OPT+SCAN Claude verdicts; audit failures never block an executed trade (Retry button; FK live_trades.id text, DDL run in Supabase this session). BUG FIX found in-build: live_trades cover leg recorded the NEW strike/expiry (STD already overwritten at build time of the row) — now taken from the prior-position capture. Cert: STD byte-identical except banner; OPT log identical.</span>
@@ -600,6 +602,7 @@ let _optParams = null;   // optimized params per regime {low,normal,elevated,hig
 let _martView = 'spy';   // active data mart tab
 let _gaps = [];          // gap contracts found during simulation
 let _pendingPublish = null;
+let _confirmTimer = null; // v6.1.3 — armed-publish disarm timeout
 let _rankingRR = null; // v5.15.0 — robust ranking results
 let _optDisplayRows = null; // v5.15.2 — raw-sorted rows backing the Opt Results table
 let _optSelIdx = null;      // v5.15.2 — selected row index (default: raw winner)
@@ -717,6 +720,7 @@ function setRunButtonState(state, opts = {}) {
   const card = $('run-publish-card');
   if (!btn || !card) return;
   btn.disabled = false;
+  card.style.border = 'none'; // v6.1.3 — only the scan (STD) state carries a border
   switch (state) {
     case 'idle':
       _pipeState = 'opt'; // v6.1.0
@@ -744,13 +748,22 @@ function setRunButtonState(state, opts = {}) {
       btn.disabled = true;
       card.style.background = '#2a9d5c';
       break;
+    case 'confirm': // v6.1.3 — armed publish: second tap confirms
+      _pipeState = 'confirm';
+      btn.textContent = '\u2713 Confirm Publish';
+      btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+      btn.disabled = false;
+      card.style.background = '#2a9d5c';
+      { const c = $('run-eval-count'); if (c && opts.sub) { c.style.display = 'block'; c.textContent = opts.sub; } }
+      break;
     case 'published': // v6.1.0 — retired terminal state; aliases to scan
     case 'scan':
       _pipeState = 'scan';
       btn.textContent = '\ud83d\udd0d Scan';
-      btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+      btn.style.color = 'var(--accent)'; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; // v6.1.3 — STD look
       btn.disabled = false;
-      card.style.background = '#2a9d5c';
+      card.style.background = 'var(--surface)';
+      card.style.border = '1px solid var(--accent)';
       break;
   }
 }
@@ -1030,6 +1043,12 @@ async function handleRunOrPublish() {
   const btn = $('run-btn');
   const currentLabel = btn?.textContent?.trim() || '';
   // v6.1.0 pipeline dispatch — label routes the state machine.
+  // v6.1.3 — armed publish: 'Confirm' outranks all (its label contains 'Publish').
+  if (currentLabel.includes('Confirm')) {
+    if (_confirmTimer) { clearTimeout(_confirmTimer); _confirmTimer = null; }
+    confirmSelectedPublish();
+    return;
+  }
   // Scan (incl. '\u2713 Scan Complete' re-tap): STD+scan under published params.
   if (currentLabel.includes('Scan')) {
     _pipeState = 'scanning';
@@ -1378,7 +1397,7 @@ async function callClaudeAPI(messages, system) {
   return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n') || 'No response received.';
 }
 
-const AC_SYSTEM = "You are the analysis assistant embedded in Ron's SPY covered-call backtester (600 SPY, Fidelity Roth IRA, manual iPad execution). Objective: Treasury-equivalent-or-better cash flow on a core long SPY position \u2014 maximize credit per cycle at an executable pace, not raw yield. Standing methodology you must respect: (1) Argmax parameter selection is suspended \u2014 raw sweep winners are presumptively spikes; only coherent regions with distinct-path support matter. (2) Robust score = median core yield over the \u00b11-grid-step neighborhood with photocopy cells (identical rolls/yield/hold) collapsed to one observation; resolution-dependent, comparable only within equal-step sweeps. (3) \u0394stop shows total(pure); pure = delta was the sole close reason. Zero pure stops means the threshold is decorative on this tape \u2014 treat such cells' protection as untested. (4) Eligibility for robust-best: pure \u22651 and n_distinct \u22654; grid-edge cells require sweep widening before trust. (5) The system is empirically a ~5-day near-ATM premium race regardless of entry DTE; full-DTE annualization is fiction. (6) All predictions must be falsifiable and stated before evaluation; missed predictions are logged, not excused. (7) Sim prices zero spread friction \u2014 cadence above ~1 roll/week carries unmodeled cost and operational burden Ron has rejected. (8) Never recommend publishing a cell solely because it ranks first on any metric; state what evidence would falsify your recommendation. (9) ANY recommendation to publish or trade a cell MUST state that cell's cadence as rolls/week (rolls over the ~24-month window ≈ rolls/104) and MUST end with an explicit 'Falsified if:' clause; any recommended cell above ~1 roll/week must be flagged OPERATIONALLY REJECTED on cadence unless the user explicitly waives it. Answer with specific numbers from the provided context. If the context lacks what you need, say so rather than guessing.";
+const AC_SYSTEM = "You are the analysis assistant embedded in Ron's SPY covered-call backtester (600 SPY, Fidelity Roth IRA, manual iPad execution). Objective: Treasury-equivalent-or-better cash flow on a core long SPY position \u2014 maximize credit per cycle at an executable pace, not raw yield. Standing methodology you must respect: (1) Argmax parameter selection is suspended \u2014 raw sweep winners are presumptively spikes; only coherent regions with distinct-path support matter. (2) Robust score = median core yield over the \u00b11-grid-step neighborhood with photocopy cells (identical rolls/yield/hold) collapsed to one observation; resolution-dependent, comparable only within equal-step sweeps. (3) \u0394stop shows total(pure); pure = delta was the sole close reason. Zero pure stops means the threshold is decorative on this tape \u2014 treat such cells' protection as untested. (4) Eligibility for robust-best: pure \u22651 and n_distinct \u22654; grid-edge cells require sweep widening before trust. (5) The system is empirically a ~5-day near-ATM premium race regardless of entry DTE; full-DTE annualization is fiction. (6) All predictions must be falsifiable and stated before evaluation; missed predictions are logged, not excused. (7) Sim prices zero spread friction \u2014 higher roll frequency carries real, unmodeled transaction cost; state this caveat where relevant. (8) Never recommend publishing a cell solely because it ranks first on any metric; state what evidence would falsify your recommendation. (9) ANY recommendation to publish or trade a cell MUST end with an explicit 'Falsified if:' clause. Answer with specific numbers from the provided context. If the context lacks what you need, say so rather than guessing.";
 
 const AC_DM_TOOL = "\n\nTOOL AVAILABLE \u2014 dm_lookup: to fetch an option's end-of-day bar from the in-browser data mart, reply with ONLY this JSON and nothing else: {\"dm_lookup\": {\"strike\": 760, \"expiry\": \"2026-10-16\", \"date\": \"2026-07-02\"}}. The app will execute it and send you the result; then answer the user. Use it whenever asked about specific contract marks, existence, or coverage. One lookup per reply.";
 
@@ -1461,7 +1480,7 @@ async function _acVerdict() {
   vb.style.display = 'block';
   vb.textContent = '⟳ getting verdict…';
   try {
-    const q = 'In at most two sentences: your recommendation for this sweep — publish or hold what, the decisive number, the cell\'s rolls/week — ending with an explicit \'Falsified if:\' clause. No preamble, no markdown.';
+    const q = 'In at most two sentences: your recommendation for this sweep — publish or hold what, plus the decisive number — ending with an explicit \'Falsified if:\' clause. No preamble, no markdown.';
     _acHist.opt.push({ role: 'user', content: q, _tool: true });
     const reply = await callClaudeAPI(_acHist.opt.map(m => ({ role: m.role, content: m.content })), AC_SYSTEM + '\n\n' + _acCtx.opt);
     _acHist.opt.push({ role: 'assistant', content: reply, _tool: true });
@@ -1642,7 +1661,7 @@ async function chatVerdict(key) {
   vb.style.display = 'block';
   vb.textContent = '\u27f3 getting verdict\u2026';
   try {
-    const qOpt = 'In at most two sentences: your recommendation for this sweep \u2014 publish or hold what, the decisive number, the cell\u2019s rolls/week \u2014 ending with an explicit \u0022Falsified if:\u0022 clause. No preamble, no markdown.';
+    const qOpt = 'In at most two sentences: your recommendation for this sweep \u2014 publish or hold what, plus the decisive number \u2014 ending with an explicit \u0022Falsified if:\u0022 clause. No preamble, no markdown.';
     const qScan = 'In at most two sentences: sanity-check the \u2605 best scan candidate against the current position and published params \u2014 net credit, both deltas vs the stop, DTE; flag anything off. No preamble, no markdown.';
     const q = key === 'opt' ? qOpt : qScan;
     _acHist[key].push({ role: 'user', content: q, _tool: true });
@@ -2523,7 +2542,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v6.1.2 · SPY Covered Call Backtest');
+  logMsg('v6.1.3 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -2823,8 +2842,16 @@ async function publishRollParams(p) {
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
     logMsg('\u2713 Published roll_params.json — ' + payload.optProjYield + '% proj. yield · ' + today, 'ok');
-    setRunButtonState('scan');           // v6.1.0 — pipeline advances to Scan
+    setRunButtonState('scan');           // v6.1.0 — pipeline advances to Scan (v6.1.3: STD look)
     renderPubBanner(payload);            // v6.1.0 — tappable reselect banner
+    // v6.1.3 — param cards repaint to published/STD state
+    Object.keys(_sweepVars).forEach(v => {
+      const card = $('vcard-' + v); const sub = $('vsub-' + v); const el = $('vval-' + v);
+      if (!card || !_sweepVars[v]) return;
+      card.classList.add('published');
+      if (sub) sub.textContent = 'published \u2713';
+      if (el) el.style.color = 'var(--text)';
+    });
     updateParamDisplay();
   } catch(e) {
     // If auth failed, clear stored PAT so next attempt re-prompts
@@ -2975,26 +3002,31 @@ async function publishSelectedRow() {
   else if ((r.pureN ?? 0) === 0) warns.push('\u26a0 CO-FIRE-ONLY \u2014 the \u0394-stop fires ' + r.stopN + '\u00d7 but never as the sole reason (S32 finding): every fire coincides with decay/DTE, so the stop is non-pivotal on this tape.');
   if (o.ndist < 4) warns.push('\u26a0 LOW SUPPORT \u2014 only ' + o.ndist + ' distinct-path observation(s) back this cell\u2019s robust score (photocopy corroboration risk).');
   if (o.edge) warns.push('\u229e GRID-EDGE CELL \u2014 the true optimum may lie outside the swept range; boundary discipline says widen the sweep first.');
-  $('publish-confirm-card').innerHTML =
-    '<div style="font-size:11px;font-weight:600;margin-bottom:6px;">Publish selected \u2014 ' + (o.robustRank ? 'R#' + o.robustRank : 'unranked') + ' (raw #' + o.rawRank + ')</div>'
-    + '<div style="font-family:var(--mono);font-size:11px;margin-bottom:6px;">' + _rankParamStr(r) + '</div>'
-    + '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;">core ' + r.yld.toFixed(1) + '% \u00b7 robust ' + (o.robust !== null ? o.robust.toFixed(2) + '%' : '\u2014') + ' \u00b7 n=' + o.ndist + ' \u00b7 spr ' + (o.spread !== null ? o.spread.toFixed(1) + 'pp' : '\u2014') + ' \u00b7 axMin ' + (o.axisMin !== null ? o.axisMin.toFixed(1) + '%' : '\u2014') + ' \u00b7 \u0394stop ' + (r.stopN ?? 0) + '(' + (r.pureN ?? 0) + ')' + '</div>'
-    + (warns.length ? '<div style="margin-bottom:8px;">' + warns.map(w => '<div style="font-size:10px;color:var(--yellow);padding:2px 0;">' + w + '</div>').join('') + '</div>' : '')
-    + '<div style="margin-bottom:8px;">'
-    + diffLine('decayTrigger', cur.decayTrigger, _selPublishPayload.decayTrigger)
-    + diffLine('deltaThreshold', cur.deltaThreshold, _selPublishPayload.deltaThreshold)
-    + diffLine('dteFloor', cur.dteFloor, _selPublishPayload.dteFloor)
-    + diffLine('vixGate', cur.vixGate ?? 0, _selPublishPayload.vixGate || 0)
-    + diffLine('dtePenaltyAnchor', cur.dtePenaltyAnchor, _selPublishPayload.dtePenaltyAnchor)
-    + diffLine('otmTarget', cur.otmTarget, _selPublishPayload.otmTarget)
-    + diffLine('optProjYield', cur.optProjYield, parseFloat(_selPublishPayload.optAnnYield.toFixed(1)))
-    + '</div>'
-    + '<div style="display:flex;gap:10px;">'
-    + '<button onclick="confirmSelectedPublish()" style="flex:1;padding:10px;font-size:11px;border-radius:4px;border:1px solid var(--green);background:var(--surface2);color:var(--green);cursor:pointer;">\u2713 Confirm Publish</button>'
-    + '<button onclick="hidePublishCard()" style="flex:1;padding:10px;font-size:11px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Cancel</button>'
-    + '</div>';
-  showTab('heatmap'); // v5.15.1 — card lives in Opt Results
-  $('publish-confirm-card').style.display = 'block';
+  // v6.1.3 — the confirmation card is retired: ARM the button instead.
+  // Compact diff rides the button sub-line; full field diff + warnings go to Logs.
+  const fields = [
+    ['decayTrigger', cur.decayTrigger, _selPublishPayload.decayTrigger],
+    ['deltaThreshold', cur.deltaThreshold, _selPublishPayload.deltaThreshold],
+    ['dteFloor', cur.dteFloor, _selPublishPayload.dteFloor],
+    ['vixGate', cur.vixGate ?? 0, _selPublishPayload.vixGate || 0],
+    ['dtePenaltyAnchor', cur.dtePenaltyAnchor, _selPublishPayload.dtePenaltyAnchor],
+    ['otmTarget', cur.otmTarget, _selPublishPayload.otmTarget],
+    ['optProjYield', cur.optProjYield, parseFloat(_selPublishPayload.optAnnYield.toFixed(1))],
+  ];
+  const changed = fields.filter(f => String(f[1]) !== String(f[2]));
+  logMsg('\u2500\u2500 Publish armed \u2014 ' + (o.robustRank ? 'R#' + o.robustRank : 'unranked') + ' (raw #' + o.rawRank + ') ' + _rankParamStr(r), '');
+  fields.forEach(f => logMsg('  ' + f[0] + ': ' + (f[1] ?? '\u2014') + (String(f[1]) !== String(f[2]) ? ' \u2192 ' + f[2] : ' (unchanged)'), String(f[1]) !== String(f[2]) ? 'ok' : 'dbg'));
+  warns.forEach(w => logMsg('  ' + _stripTags(w), 'err'));
+  const projF = fields[6];
+  const sub = (String(projF[1]) !== String(projF[2]) ? 'proj ' + (projF[1] ?? '\u2014') + '\u2192' + projF[2] + ' \u00b7 ' : '')
+    + changed.length + ' chg' + (warns.length ? ' \u00b7 \u26a0' + warns.length : '');
+  setRunButtonState('confirm', { sub: sub });
+  if (_confirmTimer) clearTimeout(_confirmTimer);
+  _confirmTimer = setTimeout(() => {
+    _confirmTimer = null;
+    const b = $('run-btn');
+    if (b && (b.textContent || '').includes('Confirm')) setRunButtonState('ready');
+  }, 6000);
 }
 
 function confirmSelectedPublish() {
@@ -3048,6 +3080,7 @@ let _rankPickBusy = false;
 // v6.1.2 — single writer for the param cards: always the selected row.
 function updateCardsFromSel(r) {
   if (!r) return;
+  Object.keys(_sweepVars).forEach(v => { const c = $('vcard-' + v); if (c) c.classList.remove('published'); }); // v6.1.3
   const vals = {
     decay:     r.decay + '%',
     dte:       r.floor + 'd',
@@ -3097,7 +3130,7 @@ async function optSelectRow(i) {
     _rankPickBusy = false;
     if (_st) _st.textContent = '';
     // v6.1.0 — a new selection while in Scan state means unpublished again
-    if (!_reselectingPub && (_pipeState === 'scan' || _pipeState === 'scanning')) setRunButtonState('ready');
+    if (!_reselectingPub && (_pipeState === 'scan' || _pipeState === 'scanning' || _pipeState === 'confirm')) setRunButtonState('ready'); // v6.1.3 — selection also disarms Confirm
   }
 }
 
@@ -5604,7 +5637,7 @@ async function writeAuditRecords(tradeId, info) {
   } catch (e) {}
   const row = {
     trade_id: tradeId,
-    app_version: 'v6.1.2', app_md5: null,
+    app_version: 'v6.1.3', app_md5: null,
     opt_run_ts: _optRunTs || null,
     opt_axes: (typeof _rrAxesG === 'object' && _rrAxesG)
       ? Object.fromEntries(Object.entries(_rrAxesG).map(([a, v]) => [a, { min: v[0], max: v[v.length - 1], n: v.length }])) : null,
