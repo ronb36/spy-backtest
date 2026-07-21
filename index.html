@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.10</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.11</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -464,6 +464,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.1.11 · entrySpy in roll_params (PERSISTENCE ONLY, sim untouched) — closes the S33 entry-day frame gap: the ticket now writes entrySpy (scan-time SPY from _scanCtxData) into the roll_params payload alongside the position fields, giving the agent the true entry-time spot for intrinsic-stripped TV-decay on entry day, before the nightly collection lands. Both writers spread the existing JSON, so the field survives publishes and is overwritten fresh on each trade. Companion: agent v1.6.4 consumes it as the middle tier of its fallback chain (DM close → roll_params.entrySpy → raw price decay). Cert: banner-only; field verified in roll_params.json after the next ticket.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.10 · Ticket blotter-write schema fix (DISPLAY/PERSISTENCE ONLY, sim untouched) — BUG FIX, found on walk-forward cycle 1’s first production pass through the v6.1.0 ticket: liveEntry still spoke the PRE-REBUILD vocabulary (newStrike / newExpiry / type / contracts) while tradeToRow’s fallback chains only know the rebuilt column names, so sell_strike, sell_expiry, sell_contracts, cover_contracts, and row_type all silently mapped to NULL — the open row rendered as “Short 6 null $nullC” with QTY — and no MTM. Everything that DID match wrote correctly (cover leg, sell_price, roll_credit +$12,300, trigger decay), roll_params and the audit snapshot were always right, and the row was repaired by SQL UPDATE same-day. liveEntry now emits the canonical names: row_type, sellStrike, sellExpiry, sellContracts, coverContracts. Cert: banner-only; next ticket write must produce a fully-populated row with zero repair.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.9 · Scan selection model + honest ticket triggers + polish batch (DISPLAY ONLY, sim untouched) — (1) Scan candidate rows are now SELECTABLE like OPT rows: the banner shows the SELECTED candidate’s enhanced metrics (spot next to strike, OTM in $ AND %, DTE), labeled “Best roll” with the BEST tag only when row 1 is selected, “Selected roll” otherwise; the Trade button lives ONLY on the banner and acts on the selection — per-row Trade buttons removed. (2) HONEST TICKET TRIGGERS: non-firing close reasons are greyed/disabled — only the scan’s fired trigger(s) plus Discretionary are selectable, so recording a delta close when delta never fired is structurally impossible. (3) BUG FIX: the Scanning button flipped outline↔fill mid-cycle because three writers raced (dispatch running → STD completion flipping to the outlined scan state mid-pipeline → runRollScan raw text write); the completion no longer exits running while _pipeState is scanning, and runRollScan routes through the state machine — solid blue for the whole cycle. (4) Scan Complete no longer shrinks the font for all subsequent labels (fontSize reset joins the border reset). (5) Pre-DM placeholder reads Loading… — the last ▶ Run in the interface is gone. (6) Stale “click ▶ Run” param label → “press Optimize”. (7) Scan context gains the Δsim definition line (internal Black-Scholes: spot/strike/DTE/VIX/r=4.5%, the frame the Δ-stop is calibrated in; Δmkt = Polygon greeks, reference only). Cert: banner-only; scan log format vs 0638; selection + ticket screenshots.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.8 · Run state retired from normal flow (DISPLAY ONLY, sim untouched) — the solid-blue ▶ Run button was a fossil of the pre-pipeline workflow: since v5.2.2 a standard run always uses published params, and the Scan path already IS “STD run + scan”, so Run added nothing in normal mode — and it kept resurfacing (post-publish param toggle on/off landed on solid-blue Run instead of the blue-outlined Scan, S33 report). Idle with no sweeps armed (non-debug, DM ready) now ALIASES to the Scan resting state: sweeps armed → green Optimize · no sweeps → blue-outlined Scan · debug → gold Run (the one place a scan-less verbose STD run is the right tool). Boot unchanged (home state auto-arms decay+delta → Optimize). Cert: OPT identical to the 0636 baseline; scan log matches the 0638 compact format; toggle-sequence screenshots.</span>
@@ -2596,7 +2597,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v6.1.10 · SPY Covered Call Backtest' + (_debugMode ? ' · DEBUG' : ''));
+  logMsg('v6.1.11 · SPY Covered Call Backtest' + (_debugMode ? ' · DEBUG' : ''));
   logMsg('Building lookups...');
   await yield_();
 
@@ -5300,6 +5301,7 @@ async function confirmTrade() {
       shortStrike:    _tradeCandidate.strike,
       shortExpiry:    _tradeCandidate.exp,
       entryDate:      today,
+      entrySpy:       (_scanCtxData && _scanCtxData.spy > 0) ? parseFloat(_scanCtxData.spy.toFixed(2)) : null, // v6.1.11 — true entry-time spot for the agent's entry-day TV-decay
       coverPrice:     parseFloat(cover.toFixed(2)),
       sellPrice:      parseFloat(sell.toFixed(2)),
       netPremium:     netPremium,
@@ -5734,7 +5736,7 @@ async function writeAuditRecords(tradeId, info) {
   } catch (e) {}
   const row = {
     trade_id: tradeId,
-    app_version: 'v6.1.10', app_md5: null,
+    app_version: 'v6.1.11', app_md5: null,
     opt_run_ts: _optRunTs || null,
     opt_axes: (typeof _rrAxesG === 'object' && _rrAxesG)
       ? Object.fromEntries(Object.entries(_rrAxesG).map(([a, v]) => [a, { min: v[0], max: v[v.length - 1], n: v.length }])) : null,
