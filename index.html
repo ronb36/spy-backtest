@@ -153,7 +153,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -281,7 +281,7 @@ select.display-box { cursor:pointer; outline:none; }
       </div>
     </div>
     <div class="tab-bar">
-      <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Trade Blotter</button>
+      <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Sim Trades</button>
       <button class="tab-btn" id="tab-btn-chart" onclick="showTab('chart')">📈 Chart</button>
       <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Opt Results</button>
       <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
@@ -463,6 +463,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.1.2 · Selection-true cards + live-blotter economics (DISPLAY ONLY, sim untouched) — S33 findings-to-Publish batch: (1) BUG FIX: the OPT param cards were written once at completion from the RAW winner and never updated on selection — cards now follow the SELECTED row via updateCardsFromSel (sub-label “selected ✓”), so they always show what Publish would write; with Robust-first completion the cards open on R#1. (2) BUG FIX: live blotter sorted on the display date (MM/DD/YY string) so year boundaries interleaved — the open 07/09/26 row filed between 07/09/25 and 07/10/25; sort key now reparses to ISO. (3) Open-position MTM: the summary line fetches the live mark for the open short (Polygon snapshot, localStorage key, silent degrade) and shows mark · unrealized MTM · % premium kept — the same decay number the agent watches. (4) New Ann Yield summary card: Total Roll Credit over the TIME-WEIGHTED notional — per-day contracts walked from the blotter rows (long_call rows excluded) × 100 × last SPY close from the DM — annualized over the span; assumes the corresponding SPY is always held with no excess cash (Ron’s convention). (5) Tab renamed Trade Blotter → Sim Trades (ids unchanged). (6) Stale empty-state text still pointing at the retired Load History button replaced. ALSO this session: certification protocol amendment — the 6:00 PM ET weeknight collector refreshes the DM, so baselines are only valid against the DM state they ran on; cert pairs must straddle no collection (the 1028/1452 morning baselines were retired when the 07/20 collection landed mid-session; the 2008 OPT log is the new OPT baseline). Live falsification note: raw argmax flipped on the DM change (3/Δ0.74→6/Δ0.65) while robust R#1 held at 3/Δ0.73. Cert: STD byte-identical except banner vs the next post-collection STD baseline; OPT identical to 2008.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.1 · Blotter truth alignment (DISPLAY ONLY, sim untouched) — companion to the S33 live_trades REBUILD: the table was reloaded from six Fidelity account-history exports (06/2025–07/2026, 331 option events, zero inventory violations) via a one-time reload.html loader; 163 rows/$49,731 → 168 rows/$55,160.51 exactly tying to Fidelity nets — +$5,429 of premium the old blotter never booked, and two mysteries resolved (the 12/24+01/12 credit gaps were merged partial fills, honest as recorded; the 02/26 cover_only and the phantom 698C 03/19 cover were three small LONG-call hedge buys). In-app: (1) ⤴ Load History button and the embedded 163-row seed are RETIRED — pressing it would have upserted the stale pre-rebuild history back into Supabase; (2) blotter renderer learns the rebuild’s row types: sell_only (“sold to open”) and long_call (“long call”, sell leg labeled Long); (3) BUG FIX: the renderer matched row_type “expired worthless” but rows store “expired”, so all expired covers rendered as red “Cover @ $0” — now labeled Expired (61 rows affected); (4) audit snapshot app_version bumped. Cert: STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.0 · Decision Run pipeline + audit_snapshot writes (DISPLAY/PERSISTENCE ONLY, sim untouched) — (1) One button walks the pipeline: Optimize → Optimizing… → Publish → Scan. Publish flips the button to Scan (terminal ✓ Published state retired); Scan runs STD+scan under the published params (cert log + candidates in one run); selecting any row while in Scan state reverts the button to Publish (new selection = unpublished — the button label IS the published/unpublished indicator); a tappable 📌 published banner in Opt Results reselects the published row without republishing; editing any range resets to Optimize; debug remains a pure STD Run. (2) Ask Claude moves to a persistent chat section above the tabs (header button toggles Ask Claude/Close, Send beside the input); context follows the active tab (Opt / Scan / Data Mart with dm_lookup / general), histories kept per context; auto one-sentence verdicts on Opt (RULE 9) and now Scan (candidate sanity-check), once per run; tappable suggested questions per tab; the inline panel buttons are retired (panel code intact). (3) The trade ticket gains a CLOSE REASON selector (decay/delta/DTE/discretionary → live_trades.trigger) and is the ONLY audit write path (Ron S33: scans never write): on confirm it completes the open audit_snapshot row (realized close date/trigger/hold days/credit ≡ premium kept) and inserts the new cycle’s snapshot — opt run identity+axes, robust top-10 with diagnostics, raw top-5, scan top-5, chosen+fills, published params, sim predictions (mean hold + credit/cycle from the last STD result), labeled OPT+SCAN Claude verdicts; audit failures never block an executed trade (Retry button; FK live_trades.id text, DDL run in Supabase this session). BUG FIX found in-build: live_trades cover leg recorded the NEW strike/expiry (STD already overwritten at build time of the row) — now taken from the prior-position capture. Cert: STD byte-identical except banner; OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.0.5 · Debug-off re-arms OPT (DISPLAY ONLY, sim untouched) — completes the mode symmetry: toggling Debug OFF now returns to the app’s home state, re-arming the decay×delta sweep with persisted ranges and refreshed labels/eval count (updateSweepRange both axes), exactly as on first load. Debug ON still disarms all sweeps (v6.0.4). The full invariant: debug ⇌ OPT-first are the only two states; no dead zone between them. Also this session: debug-mode STD log-certified for the first time — log 2026-07-20_1339 is the debug-mode cert baseline going forward (debug logs add ~617 verbose lines and swap the compact summary line for OTM/gap blocks by v5.11.x design; debug certs now diff debug-vs-debug). Cert: debug STD byte-identical to 1339 except banner; OPT log identical.</span>
@@ -2522,7 +2523,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v6.1.1 · SPY Covered Call Backtest');
+  logMsg('v6.1.2 · SPY Covered Call Backtest');
   logMsg('Building lookups...');
   await yield_();
 
@@ -3044,6 +3045,27 @@ function toggleGridLegend() {
 }
 
 let _rankPickBusy = false;
+// v6.1.2 — single writer for the param cards: always the selected row.
+function updateCardsFromSel(r) {
+  if (!r) return;
+  const vals = {
+    decay:     r.decay + '%',
+    dte:       r.floor + 'd',
+    delta:     r.delta?.toFixed(3),
+    vixgate:   r.vixgate > 0 ? 'VIX\u2265' + r.vixgate : 'Off',
+    lookahead: r.lookahead ? r.lookahead + 'd' : null,
+  };
+  for (const [v, val] of Object.entries(vals)) {
+    if (!_sweepVars[v] || !val) continue;
+    const el = $('vval-' + v);
+    const sub = $('vsub-' + v);
+    if (el) { el.textContent = val; el.style.color = 'var(--green)'; el.style.fontSize = '14px'; el.style.letterSpacing = '0'; }
+    if (sub) sub.textContent = 'selected \u2713';
+    const rangeEl = $('vrange-' + v);
+    if (rangeEl) rangeEl.style.display = 'none';
+  }
+}
+
 async function optSelectRow(i) {
   if (!_optDisplayRows || _rankPickBusy) return;
   const r = _optDisplayRows[i];
@@ -3062,6 +3084,7 @@ async function optSelectRow(i) {
       deltaThreshold: r.delta, otmFixed: r.otm, vixGate: r.vixgate,
       shares: STD.shares || 600, dtePenaltyAnchor: r.lookahead || STD.dtePenaltyAnchor || 45 });
     if (selResult) {
+      updateCardsFromSel(r); // v6.1.2 — cards follow the selection
       lastResult = selResult;
       buildRollSnapshots(selResult);
       renderSummary(selResult);
@@ -3411,25 +3434,10 @@ async function runOptimization() {
     renderOptResults(allResults, decays, floors, deltas, vixgates, lookaheads);
     updateParamDisplay();
 
-    // Update var cards with winning values
-    if (b) {
-      const cardUpdates = {
-        decay:     b.decay + '%',
-        dte:       b.floor + 'd',
-        delta:     b.delta?.toFixed(3),
-        vixgate:   b.vixgate > 0 ? 'VIX\u2265' + b.vixgate : 'Off',
-        lookahead: b.lookahead ? b.lookahead + 'd' : null,
-      };
-      for (const [v, winVal] of Object.entries(cardUpdates)) {
-        if (!_sweepVars[v] || !winVal) continue;
-        const val = $('vval-' + v);
-        const sub = $('vsub-' + v);
-        if (val) { val.textContent = winVal; val.style.color = 'var(--green)'; val.style.fontSize = '14px'; val.style.letterSpacing = '0'; }
-        if (sub) sub.textContent = 'optimized \u2713';
-        const rangeEl = $('vrange-' + v);
-        if (rangeEl) rangeEl.style.display = 'none';
-      }
-    }
+    // v6.1.2 — cards show the SELECTION (what Publish writes); completion seeds
+    // with the raw winner, then the auto-select of the sorted top (R#1 under
+    // Robust) immediately re-writes them via optSelectRow → updateCardsFromSel.
+    updateCardsFromSel(b);
 
     $('results-area').style.display = 'block';
     $('tab-btn-heatmap').style.display = 'block';
@@ -5391,7 +5399,7 @@ function renderLiveBlotter(trades) {
   if (!tableEl) return;
 
   if (!trades || trades.length === 0) {
-    tableEl.innerHTML = '<div style="padding:20px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No live trades logged yet. Tap ⬆ Load History to seed from Fidelity data.</div>';
+    tableEl.innerHTML = '<div style="padding:20px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No live trades logged yet.</div>';
     if (summaryEl) summaryEl.style.display = 'none';
     return;
   }
@@ -5403,15 +5411,48 @@ function renderLiveBlotter(trades) {
   const winRate    = credits.length ? Math.round(100 * wins / credits.length) : 0;
   const openTrade  = trades.find(t => t.status === 'open');
 
+  // v6.1.2 — ramp-aware annualized yield: Total Roll Credit over the
+  // TIME-WEIGHTED notional. Per-day contracts walked from blotter rows
+  // (long_call hedges excluded), notional = contracts × 100 × last SPY close
+  // from the DM. Assumes the corresponding SPY is always held, no excess cash.
+  const _isoD = d => { const m = (d || '').match(/^(\d{2})\/(\d{2})\/(\d{2})$/); return m ? '20' + m[3] + '-' + m[1] + '-' + m[2] : (d || ''); };
+  let annYieldHtml = '<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--muted);">\u2014</span>';
+  try {
+    if (typeof DM === 'object' && DM && DM.spy && DM.spy.length) {
+      const walk = trades.filter(t => t.row_type !== 'long_call')
+        .map(t => ({ d: _isoD(t.trade_date), dq: (t.sellContracts || 0) - (t.coverContracts || 0) }))
+        .filter(w => w.d)
+        .sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+      if (walk.length) {
+        const firstD = walk[0].d;
+        const todayD = new Date().toISOString().slice(0, 10);
+        const closes = DM.spy;
+        let wi = 0, ci = 0, ct = 0, lastClose = closes[0].close, sumN = 0, nDays = 0;
+        for (let t = new Date(firstD + 'T00:00:00Z'); t <= new Date(todayD + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + 1)) {
+          const ds = t.toISOString().slice(0, 10);
+          while (wi < walk.length && walk[wi].d <= ds) { ct += walk[wi].dq; wi++; }
+          while (ci < closes.length && closes[ci].date <= ds) { lastClose = closes[ci].close; ci++; }
+          sumN += Math.max(0, ct) * 100 * lastClose; nDays++;
+        }
+        const twan = nDays ? sumN / nDays : 0;
+        if (twan > 0 && nDays > 0) {
+          const yld = totalCredit / twan * 365 / nDays * 100;
+          annYieldHtml = `<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--green);">${yld.toFixed(1)}%</span><div style="font-size:10px;color:var(--muted);">TW notional $${Math.round(twan / 1000)}k \u00b7 ${nDays}d \u00b7 SPY held, no excess cash</div>`;
+        }
+      }
+    }
+  } catch (e) { /* leave dash */ }
+
   if (summaryEl) {
     summaryEl.style.display = 'flex';
     const fmt = v => (v >= 0 ? '+' : '') + '$' + Math.abs(Math.round(v)).toLocaleString();
     const openDisplay = openTrade
-      ? `<span style="font-family:var(--mono);font-size:11px;color:var(--green);">Short ${openTrade.sellContracts || openTrade.coverContracts || 6} &nbsp;${openTrade.sellExpiry} &nbsp;$${openTrade.sellStrike}C &nbsp;@ $${openTrade.sellPrice}</span>`
+      ? `<span style="font-family:var(--mono);font-size:11px;color:var(--green);">Short ${openTrade.sellContracts || openTrade.coverContracts || 6} &nbsp;${openTrade.sellExpiry} &nbsp;$${openTrade.sellStrike}C &nbsp;@ $${openTrade.sellPrice}</span><span id="live-mtm" style="font-family:var(--mono);font-size:11px;color:var(--muted);"></span>`
       : '<span style="font-family:var(--mono);font-size:11px;color:var(--muted);">Flat</span>';
     summaryEl.innerHTML = [
       ['Total Roll Credit', `<span class="${totalCredit>=0?'green':'red'}" style="font-family:var(--mono);font-size:15px;font-weight:600;">${fmt(totalCredit)}</span>`],
       ['Win Rate', `<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--green);">${winRate}%</span><div style="font-size:10px;color:var(--muted);">${wins} / ${credits.length} rolls</div>`],
+      ['Ann Yield', annYieldHtml],
       ['Total Cycles', `<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--accent);">${trades.length}</span>`],
       ['Open Position', openDisplay],
     ].map(([label, val]) =>
@@ -5419,8 +5460,32 @@ function renderLiveBlotter(trades) {
     ).join('');
   }
 
-  // Sort by trade_date
-  const toSortKey = t => (t.trade_date || '');
+  // v6.1.2 — open-position MTM: live mark for the open short via Polygon
+  // snapshot (localStorage key only — never prompts; silent degrade on any miss).
+  if (openTrade && openTrade.sellStrike && openTrade.sellExpiry) {
+    (async () => {
+      try {
+        const key = localStorage.getItem('polygon_key') || '';
+        if (!key) return;
+        const snap = await fetchContractSnapshot(_isoD(openTrade.sellExpiry), openTrade.sellStrike, key);
+        const el = $('live-mtm');
+        if (!snap || !el) return;
+        const ct = openTrade.sellContracts || openTrade.coverContracts || 6;
+        const mtm = (openTrade.sellPrice - snap.mid) * ct * 100;
+        const kept = openTrade.sellPrice > 0 ? (1 - snap.mid / openTrade.sellPrice) * 100 : 0;
+        el.innerHTML = ' \u00b7 mark $' + snap.mid.toFixed(2) + ' \u00b7 <span style="color:' + (mtm >= 0 ? 'var(--green)' : 'var(--red)')
+          + ';">MTM ' + (mtm >= 0 ? '+' : '\u2212') + '$' + Math.abs(Math.round(mtm)).toLocaleString()
+          + ' (' + kept.toFixed(0) + '% kept)</span>';
+      } catch (e) { /* silent */ }
+    })();
+  }
+
+  // Sort by trade_date — v6.1.2: reparse display MM/DD/YY to ISO so year
+  // boundaries sort correctly (07/09/26 was filing between 07/09/25 and 07/10/25)
+  const toSortKey = t => {
+    const m = (t.trade_date || '').match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+    return m ? '20' + m[3] + '-' + m[1] + '-' + m[2] : (t.trade_date || '');
+  };
   const sorted = [...trades].sort((a, b) => {
     const ka = toSortKey(a), kb = toSortKey(b);
     return _liveBlotterAsc ? (ka < kb ? -1 : 1) : (ka > kb ? -1 : 1);
@@ -5539,7 +5604,7 @@ async function writeAuditRecords(tradeId, info) {
   } catch (e) {}
   const row = {
     trade_id: tradeId,
-    app_version: 'v6.1.1', app_md5: null,
+    app_version: 'v6.1.2', app_md5: null,
     opt_run_ts: _optRunTs || null,
     opt_axes: (typeof _rrAxesG === 'object' && _rrAxesG)
       ? Object.fromEntries(Object.entries(_rrAxesG).map(([a, v]) => [a, { min: v[0], max: v[v.length - 1], n: v.length }])) : null,
