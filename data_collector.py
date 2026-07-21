@@ -1,5 +1,15 @@
 """
-SPY Backtest Data Collector — v2.3.3 (Supabase)
+SPY Backtest Data Collector — v2.3.4 (Supabase)
+
+v2.3.4 — Phase 1.6: daily Treasury yield curve → yield_daily.
+Source: /fed/v1/treasury-yields (probe-verified on this key, S33) —
+3-month CMT plus the standard curve (1m,3m,1y,2y,5y,10y,30y), daily
+back to 1962. First run backfills the full 2-year DM window; nightly
+runs are incremental with the standard OVERLAP_DAYS re-fetch. Data-only:
+nothing reads this yet — it accumulates so a future r-frame re-sweep or
+the scorer redesign has history on day one (hardcoded r=4.5% vs 3.85%
+actual as of 2026-07-21; ~1pp sustained divergence is the revisit tripwire).
+Non-fatal on error: a failed yields fetch logs and the run continues.
 =================================================
 v2.3.3 — Audit/report correctness (no data-path changes):
 (1) Phantom filter: audit phantom check restricted to the fetch window
@@ -72,7 +82,7 @@ from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 
-COLLECTOR_VERSION = "2.3.3"
+COLLECTOR_VERSION = "2.3.4"
 
 # ── Credentials ────────────────────────────────────────────────────────────
 POLYGON_KEY   = os.environ["POLYGON_KEY"]
@@ -330,6 +340,47 @@ def append_spy_vix(start, end):
     if new_vix or refresh_vix:
         sb_upsert("vix_daily", new_vix + refresh_vix)
     log(f"  ✓ VIX: {len(new_vix)} new · {len(refresh_vix)} overlap-refreshed")
+
+
+# ── Phase 1.6: Treasury yield curve daily (v2.3.4) ────────────────────────
+def append_treasury_yields(start, end):
+    """Fetch the daily Treasury yield curve from /fed/v1/treasury-yields and
+    upsert into yield_daily. Mirrors the SPY/VIX pattern: missing dates
+    inserted, trailing OVERLAP_DAYS window re-upserted. Non-fatal on error."""
+    try:
+        existing = sb_get_dates("yield_daily")
+        overlap_start = (date.today() - timedelta(days=OVERLAP_DAYS)).isoformat()
+        log(f"Phase 1.6: Treasury yields {start} → {end} — {len(existing)} dates already in DM")
+        url = (f"https://api.polygon.io/fed/v1/treasury-yields"
+               f"?date.gte={start}&date.lte={end}&limit=50000&sort=date.asc"
+               f"&apiKey={POLYGON_KEY}")
+        r = requests.get(url, timeout=20)
+        if r.status_code != 200:
+            log(f"  ✗ treasury-yields: HTTP {r.status_code} — {r.text[:100]} (continuing)")
+            return
+        results = r.json().get("results", [])
+        fmap = {"y1m": "yield_1_month", "y3m": "yield_3_month", "y1y": "yield_1_year",
+                "y2y": "yield_2_year", "y5y": "yield_5_year",
+                "y10y": "yield_10_year", "y30y": "yield_30_year"}
+        new_rows, refresh_rows = [], []
+        for res in results:
+            dt = res.get("date")
+            if not dt:
+                continue
+            row = {"date": dt}
+            for col, field in fmap.items():
+                v = res.get(field)
+                row[col] = round(float(v), 3) if v is not None else None
+            if dt not in existing:
+                new_rows.append(row)
+            elif dt >= overlap_start:
+                refresh_rows.append(row)
+        if new_rows or refresh_rows:
+            sb_upsert("yield_daily", new_rows + refresh_rows)
+        log(f"  ✓ Yields: {len(new_rows)} new · {len(refresh_rows)} overlap-refreshed")
+        time.sleep(CALL_DELAY)
+    except Exception as e:
+        log(f"  ✗ treasury-yields: {e} (continuing)")
 
 
 # ── One-time full-window audit (v2.3.2, AUDIT_FULL=1) ─────────────────────
@@ -718,6 +769,9 @@ if __name__ == "__main__":
     # Phase 1.5: ES futures daily OHLC
     append_es_daily(start, end)
 
+    # Phase 1.6: Treasury yield curve (v2.3.4)
+    append_treasury_yields(start, end)
+
     # Get current SPY for Phase 3+4
     spy_rows = sb_select("spy_daily", select="date,c",
                          filters={"order": "date.desc", "limit": "1"})
@@ -764,7 +818,8 @@ if __name__ == "__main__":
     sb_set_metadata("options_count", opt_count)
 
     spy_count = len(spy_dates)
-    log(f"Done — {spy_count} SPY days, {opt_count} contracts")
+    yld_count = sb_count("yield_daily")  # v2.3.4
+    log(f"Done — {spy_count} SPY days, {opt_count} contracts, {yld_count} yield days")
 
     # v2.3.3 — explicit nightly health verdict: option bars current with SPY?
     spy_latest = max(spy_dates) if spy_dates else None
