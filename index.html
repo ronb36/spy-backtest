@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.8</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.9</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -249,7 +249,7 @@ select.display-box { cursor:pointer; outline:none; }
       <div id="run-publish-card" style="height:104px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
         <button class="btn" id="run-btn" onclick="handleRunOrPublish()" disabled
           style="font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.04em;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;padding:0;line-height:1.3;text-align:center;">
-          ▶ Run
+          Loading…
         </button>
         <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;color:rgba(255,255,255,.8);"></div>
       </div>
@@ -464,6 +464,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.1.9 · Scan selection model + honest ticket triggers + polish batch (DISPLAY ONLY, sim untouched) — (1) Scan candidate rows are now SELECTABLE like OPT rows: the banner shows the SELECTED candidate’s enhanced metrics (spot next to strike, OTM in $ AND %, DTE), labeled “Best roll” with the BEST tag only when row 1 is selected, “Selected roll” otherwise; the Trade button lives ONLY on the banner and acts on the selection — per-row Trade buttons removed. (2) HONEST TICKET TRIGGERS: non-firing close reasons are greyed/disabled — only the scan’s fired trigger(s) plus Discretionary are selectable, so recording a delta close when delta never fired is structurally impossible. (3) BUG FIX: the Scanning button flipped outline↔fill mid-cycle because three writers raced (dispatch running → STD completion flipping to the outlined scan state mid-pipeline → runRollScan raw text write); the completion no longer exits running while _pipeState is scanning, and runRollScan routes through the state machine — solid blue for the whole cycle. (4) Scan Complete no longer shrinks the font for all subsequent labels (fontSize reset joins the border reset). (5) Pre-DM placeholder reads Loading… — the last ▶ Run in the interface is gone. (6) Stale “click ▶ Run” param label → “press Optimize”. (7) Scan context gains the Δsim definition line (internal Black-Scholes: spot/strike/DTE/VIX/r=4.5%, the frame the Δ-stop is calibrated in; Δmkt = Polygon greeks, reference only). Cert: banner-only; scan log format vs 0638; selection + ticket screenshots.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.8 · Run state retired from normal flow (DISPLAY ONLY, sim untouched) — the solid-blue ▶ Run button was a fossil of the pre-pipeline workflow: since v5.2.2 a standard run always uses published params, and the Scan path already IS “STD run + scan”, so Run added nothing in normal mode — and it kept resurfacing (post-publish param toggle on/off landed on solid-blue Run instead of the blue-outlined Scan, S33 report). Idle with no sweeps armed (non-debug, DM ready) now ALIASES to the Scan resting state: sweeps armed → green Optimize · no sweeps → blue-outlined Scan · debug → gold Run (the one place a scan-less verbose STD run is the right tool). Boot unchanged (home state auto-arms decay+delta → Optimize). Cert: OPT identical to the 0636 baseline; scan log matches the 0638 compact format; toggle-sequence screenshots.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.7 · Decay-trigger economics CORRECTED (DISPLAY ONLY, sim untouched) — falsification note against the builder, logged per discipline: the v6.1.4 labeled-economics line asserted the decay trigger fires at mark ≤ sellPrice × decayTrigger — wrong semantics AND a units bug (STD.decayTrigger is percent after the loader’s ×100, so the line printed “fires at mark ≤ $63.57 (300% of entry credit)”). The sim’s actual semantics (index.html ~2192): the trigger fires when TIME-VALUE DECAY ≥ decayTrigger% of entry time value — for the live 760C that is TV ≤ ~$20.55, meaning the original S33 in-app verdict’s “~$20.52” clause was essentially right and the human-side “correction” was wrong; the labels mechanism then faithfully propagated the wrong label. The economics line now states the true rule and computes current TV decay from scan-time spot/mark (intrinsic-stripped, entry-OTM basis) with a FIRED marker when past threshold. Agent parity unaffected — the agent’s TV-decay formula was correct throughout. Cert: OPT identical; STD invariants; context-only change.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.6 · Publish-disarm sync + debug gate + gold debug state (LOGGING/DISPLAY ONLY, sim untouched) — (1) BUG FIX (S33 nine-screenshot sequence): Publish painted the cards “published ✓” but left _sweepVars armed underneath, so the button showed Optimize · 5 evals with nothing visibly armed and a delta-only re-arm read 35 evals (5×7 with hidden decay); publish success now DISARMS armed sweeps first (toggleVar force-off, before setRunButtonState since toggleVar’s onConfigChanged resets the button), then paints the published look — visuals and logic agree by construction, and a published card re-arms in one tap. (2) The missing logDbg gate is implemented: verbose per-candidate/per-roll detail now requires debug mode — the 21k-line “mystery” Scan logs (logDbg only ever suppressed during OPT; the debug check was never written) become compact by design; verbose detail remains available deliberately via Debug. (3) Debug is now visible state: the Run button card renders GOLD in idle/running while debug is on (green staged / blue live / red write / gold diagnostic), and the run header line carries · DEBUG so a verbose log can never masquerade as a baseline. Cert: OPT identical to 2008; STD invariants vs the published cell; compact scan log by design.</span>
@@ -727,6 +728,7 @@ function setRunButtonState(state, opts = {}) {
   if (!btn || !card) return;
   btn.disabled = false;
   card.style.border = 'none'; // v6.1.3 — only the scan (STD) state carries a border
+  btn.style.fontSize = '';    // v6.1.9 — no state may leak typography into another
   switch (state) {
     case 'idle': {
       _pipeState = 'opt'; // v6.1.0
@@ -1349,7 +1351,7 @@ function updateParamDisplay() {
   // Update vixgate card display
   const vgVal = $('vval-vixgate');
   if (vgVal && !_sweepVars.vixgate) vgVal.textContent = p.vixGate > 0 ? 'VIX≥' + p.vixGate : 'Off';
-  set('param-label', isOpt ? 'Optimized Parameters' : anySweepActive() ? 'Sweep pending — click ▶ Run' : 'Standard Parameters');
+  set('param-label', isOpt ? 'Optimized Parameters' : anySweepActive() ? 'Sweep pending — press Optimize' : 'Standard Parameters');
 
   // Bottom row border: blue (default) → green (changed from STD)
   const accentBorder = '1px solid var(--accent)';
@@ -1711,6 +1713,7 @@ function buildScanContext() {
       L.push('  #' + (i + 1) + ' $' + r.strike + 'C ' + r.exp + mny + dte + ' \u00b7 mid $' + r.mid + ' \u00b7 net ' + (r.net >= 0 ? '+' : '') + '$' + r.net + ' \u00b7 adj ' + r.adjYield + '% \u00b7 \u0394mkt ' + r.deltaMkt + ' / \u0394sim ' + r.deltaSim);
     });
     if (STD.deltaThreshold != null) L.push('Published \u0394-stop = ' + STD.deltaThreshold + ' \u2014 any candidate with \u0394sim BELOW this is INSIDE the stop (no violation).'); // v6.1.5
+    L.push('DEFINITIONS: \u0394sim = internal Black-Scholes delta (spot, strike, DTE, VIX, r=4.5%) \u2014 the frame the \u0394-stop was calibrated in and the value the system acts on. \u0394mkt = Polygon market greeks (implied vol), reference display only.'); // v6.1.9
   } else L.push('No scan run yet this session.');
   L.push('CURRENT POSITION: short ' + (STD.contracts || 6) + 'x $' + STD.shortStrike + 'C ' + STD.shortExpiry + ' \u00b7 entry ' + STD.entryDate + ' \u00b7 sell $' + STD.sellPrice + ' \u00b7 net $' + STD.netPremium);
   // v6.1.4 — labeled economics so the verdict states facts instead of deriving them (S33: $3.64 misread as remaining premium)
@@ -2592,7 +2595,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v6.1.8 · SPY Covered Call Backtest' + (_debugMode ? ' · DEBUG' : ''));
+  logMsg('v6.1.9 · SPY Covered Call Backtest' + (_debugMode ? ' · DEBUG' : ''));
   logMsg('Building lookups...');
   await yield_();
 
@@ -2612,7 +2615,7 @@ async function runSimulation() {
   setProgress(100);
 
   // v6.1.0 — a Scan-state run returns to Scan; otherwise idle (legacy STD).
-  if (_pipeState === 'scanning' || _pipeState === 'scan') setRunButtonState('scan');
+  if (_pipeState === 'scan') setRunButtonState('scan'); // v6.1.9 — do NOT exit running mid-pipeline while scanning
   else setRunButtonState('idle');
   if (_debugMode) {
     logOTMDistribution(result);
@@ -4662,7 +4665,7 @@ async function runRollScan() {
   if (rescanBtn) rescanBtn.disabled = true;
   const mainBtn  = $('run-btn');
   const mainCard = $('run-publish-card');
-  if (mainBtn) { mainBtn.textContent = '⟳ Scanning...'; mainBtn.disabled = true; mainBtn.style.opacity = '1'; }
+  setRunButtonState('running', { label: '⟳ Scanning...' }); // v6.1.9 — single writer; solid blue through the whole cycle
 
   statusEl.textContent = 'Fetching live prices...';
   statusEl.className = 'scan-status';
@@ -5036,7 +5039,6 @@ async function runRollScan() {
     mainBtn.disabled       = false;
     mainBtn.style.opacity  = '1';
     mainBtn.style.cursor   = 'pointer';
-    mainBtn.style.fontSize = '12px';
     mainBtn.style.color    = '#fff'; // v6.1.5 — color always paired with background (blue-on-green bug)
     mainCard.style.background = '#2a9d5c';
     const countEl = $('run-eval-count');
@@ -5052,7 +5054,23 @@ async function runRollScan() {
   statusEl.className = scored.length > 0 ? 'scan-status ok' : 'scan-status err';
 }
 
+let _scanSel = 0;        // v6.1.9 — selected candidate index (0 = best)
+let _scanRenderCtx = null; // v6.1.9 — stashed render args for selection re-render
+
+function selectScanRow(i) { // v6.1.9
+  if (!_scanRenderCtx || i < 0 || i >= _scanRenderCtx.rows.length) return;
+  _scanSel = i;
+  _renderScanUI();
+}
+
 function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarnings, triggerInfo, dmStrikesPerExpiry, expList) {
+  _scanRenderCtx = { rows, spyNow, deltaThres, currentCallMid, edgeWarnings, triggerInfo, dmStrikesPerExpiry, expList };
+  _scanSel = 0; // fresh scan → best selected
+  _renderScanUI();
+}
+
+function _renderScanUI() { // v6.1.9 — banner + table from stash + selection
+  const { rows, spyNow, deltaThres, currentCallMid, edgeWarnings, triggerInfo, dmStrikesPerExpiry, expList } = _scanRenderCtx;
   const summaryEl    = $('roll-best-summary-wrap');
   const tableEl      = $('roll-table-container');
   const hasCoverPrice = currentCallMid > 0;
@@ -5063,16 +5081,25 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     return;
   }
 
-  const best = rows[0];
+  const sel = rows[Math.min(_scanSel, rows.length - 1)]; // v6.1.9 — banner shows the SELECTION
+  const isBestSel = _scanSel === 0;
+  const otmDollars = spyNow > 0 ? sel.strike - spyNow : null;
 
-  // Best roll summary (keep as-is)
-  let summaryHtml = '<div class="roll-best-summary"><strong>Best roll:</strong> '
+  let summaryHtml = '<div class="roll-best-summary" style="display:flex;align-items:center;gap:12px;">'
+    + '<div style="flex:1;"><strong>' + (isBestSel ? 'Best roll:' : 'Selected roll:') + '</strong> '
     + (hasCoverPrice ? 'Cover $' + currentCallMid.toFixed(2) + ' | ' : '')
-    + 'Sell $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2)
-    + ' | +$' + best.netCredit.toFixed(2) + '/sh net credit'
-    + ' | ' + best.rollAdjYield.toFixed(1) + '% adj.yield'
-    + ' | ' + best.otmPct.toFixed(1) + '% OTM | \u0394 ' + best.delta.toFixed(3) + ' (sim ' + (best.deltaSim !== undefined ? best.deltaSim.toFixed(3) : '\u2014') + ')'
-    + (best.oi ? ' | OI ' + best.oi.toLocaleString() : '')
+    + 'Sell $' + sel.strike + 'C ' + sel.exp + ' @ $' + sel.mid.toFixed(2)
+    + (spyNow > 0 ? ' (SPY $' + spyNow.toFixed(2) + ')' : '')
+    + (isBestSel ? ' <span class="best-badge">BEST</span>' : '')
+    + ' | +$' + sel.netCredit.toFixed(2) + '/sh net credit'
+    + ' | ' + sel.rollAdjYield.toFixed(1) + '% adj.yield'
+    + (otmDollars !== null ? ' | OTM ' + (otmDollars >= 0 ? '+' : '\u2212') + '$' + Math.abs(otmDollars).toFixed(2) + ' / ' + sel.otmPct.toFixed(1) + '%' : ' | ' + sel.otmPct.toFixed(1) + '% OTM')
+    + ' | ' + sel.dte + 'd DTE'
+    + ' | \u0394 ' + sel.delta.toFixed(3) + ' (sim ' + (sel.deltaSim !== undefined ? sel.deltaSim.toFixed(3) : '\u2014') + ')'
+    + (sel.oi ? ' | OI ' + sel.oi.toLocaleString() : '')
+    + '</div>'
+    + '<button onclick="openTradeModal(' + sel.strike + ',\'' + sel.exp + '\',' + sel.dte + ',' + sel.delta.toFixed(4) + ',' + (sel.otmPct / 100).toFixed(4) + ')" '
+    + 'style="font-family:var(--mono);font-size:10px;padding:8px 16px;border-radius:4px;border:1px solid var(--green);background:rgba(42,157,92,0.10);color:var(--green);cursor:pointer;letter-spacing:.05em;white-space:nowrap;">Trade</button>'
     + '</div>';
   if (edgeWarnings && edgeWarnings.length) {
     edgeWarnings.forEach(w => {
@@ -5103,12 +5130,11 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
     + '<th>Ann. Yield</th>'
     + '<th>Trigger</th>'
     + '<th>Edge</th>'
-    + '<th></th>'
     + '</tr></thead>';
 
   const tbody = rows.map((r, i) => {
     const isTop    = i === 0;
-    const rowClass = isTop ? 'best-row' : '';
+    const rowClass = (i === _scanSel ? 'best-row' : ''); // v6.1.9 — highlight follows the selection
     const badge    = isTop ? '<span class="best-badge">BEST</span>' : '';
     const yldClass = r.rollAdjYield >= 3 ? 'green' : r.rollAdjYield >= 1 ? 'yellow' : 'muted';
     const creditDisp = hasCoverPrice ? '+$' + r.netCredit.toFixed(2) : '\u2014';
@@ -5141,14 +5167,13 @@ function renderRollScanTable(rows, spyNow, deltaThres, currentCallMid, edgeWarni
       ? '<span style="color:var(--yellow);">⚠ ' + edgeParts.join('+') + '</span>'
       : '<span style="color:var(--muted);">—</span>';
 
-    return '<tr class="' + rowClass + '">'
+    return '<tr class="' + rowClass + '" onclick="selectScanRow(' + i + ')" style="cursor:pointer;">'
       + '<td class="red" style="font-size:10px;">' + coverDisp + '</td>'
       + '<td style="color:var(--green);">$' + r.strike + 'C ' + r.exp + ' @ $' + r.mid.toFixed(2) + badge + '</td>'
       + '<td class="green">' + creditDisp + '</td>'
       + '<td class="' + yldClass + '">' + yldDisp + '</td>'
       + '<td class="muted" style="font-size:10px;">' + triggerDisp + '</td>'
       + '<td style="font-size:10px;">' + edgeDisp + '</td>'
-      + '<td><button onclick="openTradeModal(' + r.strike + ',\'' + r.exp + '\',' + r.dte + ',' + r.delta.toFixed(4) + ',' + (r.otmPct/100).toFixed(4) + ')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;letter-spacing:.05em;">Trade</button></td>'
       + '</tr>';
   }).join('');
 
@@ -5177,14 +5202,28 @@ function openTradeModal(strike, exp, dte, delta, otm) {
   document.getElementById('trade-confirm-btn').disabled = false;
   document.getElementById('trade-confirm-btn').textContent = 'Confirm \u0026 Publish';
 
-  // v6.1.0 — default close reason from the scan's active trigger
-  setTradeTrigger((_scanCtxData && ['decay', 'delta', 'dte'].includes(_scanCtxData.trigger)) ? _scanCtxData.trigger : 'discretionary');
+  // v6.1.0/v6.1.9 — close reason: only the scan's FIRED trigger(s) + Discretionary
+  // are selectable; non-firing triggers are greyed so the audit can't record fiction.
+  const _fired = (_scanCtxData && ['decay', 'delta', 'dte'].includes(_scanCtxData.trigger)) ? [_scanCtxData.trigger] : [];
+  _ttEnabled = _fired.concat(['discretionary']);
+  ['decay', 'delta', 'dte', 'discretionary'].forEach(x => {
+    const b = $('tt-' + x);
+    if (!b) return;
+    const en = _ttEnabled.includes(x);
+    b.disabled = !en;
+    b.style.opacity = en ? '1' : '0.35';
+    b.style.cursor = en ? 'pointer' : 'not-allowed';
+  });
+  setTradeTrigger(_fired[0] || 'discretionary');
 
   overlay.style.display = 'flex';
   setTimeout(() => document.getElementById('trade-cover-price').focus(), 50);
 }
 
+let _ttEnabled = null; // v6.1.9 — selectable close reasons for the open ticket
+
 function setTradeTrigger(t) {
+  if (_ttEnabled && !_ttEnabled.includes(t)) return; // v6.1.9 — greyed = unselectable
   _tradeCloseReason = t;
   ['decay', 'delta', 'dte', 'discretionary'].forEach(x => {
     const b = $('tt-' + x);
@@ -5693,7 +5732,7 @@ async function writeAuditRecords(tradeId, info) {
   } catch (e) {}
   const row = {
     trade_id: tradeId,
-    app_version: 'v6.1.8', app_md5: null,
+    app_version: 'v6.1.9', app_md5: null,
     opt_run_ts: _optRunTs || null,
     opt_axes: (typeof _rrAxesG === 'object' && _rrAxesG)
       ? Object.fromEntries(Object.entries(_rrAxesG).map(([a, v]) => [a, { min: v[0], max: v[v.length - 1], n: v.length }])) : null,
