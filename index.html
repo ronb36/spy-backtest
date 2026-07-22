@@ -80,9 +80,9 @@ select.display-box { cursor:pointer; outline:none; }
 .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:12px 14px; }
 .stat-label { font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:5px; }
 .stat-value { font-family:var(--mono); font-size:16px; font-weight:600; }
-#run-btn { font-size:18px !important; text-align:center !important; width:100% !important; } /* v6.3.1 18px; v6.3.2 centering — stylesheet-enforced so state-machine inline styles can't shift it */
-#run-publish-card { align-items:center !important; justify-content:center !important; }
-#run-eval-count { text-align:center !important; width:100%; } /* v6.3.2 */
+#run-btn { font-size:18px !important; text-align:center !important; width:100% !important; height:100% !important; display:flex !important; align-items:center !important; justify-content:center !important; } /* v6.3.1 18px; v6.3.3 true both-axis centering: the button is a flex box filling the card */
+#run-publish-card { position:relative !important; align-items:center !important; justify-content:center !important; }
+#run-eval-count { position:absolute !important; bottom:6px !important; left:0 !important; right:0 !important; text-align:center !important; } /* v6.3.3 — counter pinned bottom-center, label stays dead-center */
 .stat-sub { font-size:10px; color:var(--muted); margin-top:2px; }
 
 /* Tabs */
@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.3.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.3.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -423,7 +423,7 @@ select.display-box { cursor:pointer; outline:none; }
           <span class="chart-title" id="runlog-status">📄 Run Log</span>
           <div style="display:flex;gap:6px;">
             <button onclick="downloadLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="download-log-btn">⬇ Download</button>
-            <button onclick="copyDebugLog()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;" id="copy-log-btn2">Copy Log</button>
+            <!-- v6.3.3 — Copy Log retired: user downloads only; copyDebugLog removed as dead machinery -->
           </div>
         </div>
         <div class="progress-log" id="runlog-mirror" style="max-height:480px;overflow-y:auto;white-space:pre;"></div>
@@ -496,6 +496,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.3.3 · Display patch (DISPLAY ONLY, sim untouched) — S35 cosmetics close-out: (1) robust-ranking rows + robust-winner line append defH when >0 (_rankParamStr; instance #7 of the missed-reader class); (2) Defense Horizon card adopts the selected/winner value after a run — updateCardsFromSel never learned defh, the card stayed "OPTIMIZE" while sibling cards showed "selected ✓" (instance #8); (3) Copy Log button retired per user (download-only), copyDebugLog (59 lines incl. iPad clipboard fallback modal) removed as dead machinery; (4) true both-axis button centering — the label is now a flex box filling the card with the eval counter absolutely pinned bottom-center (v6.3.2's card-level rules centered the stack, not the label). Cert: visual (centered label, defh card adopts value on selection tap, no Copy button) + re-render of a defh sweep shows defH in R# rows.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.3.2 · Display patch (DISPLAY ONLY, sim untouched) — three more missed-reader fixes from the S35 first defh sweep (instances #4–#6 of the day's dominant defect class) + centering: (1) robust ranker learns the defh axis — _rrAxes never listed it, so a defh-only sweep logged "robust ranking skipped — no swept axes" and the Robust view silently showed the Raw sort; (2) Opt Results table param strings append defH when >0 — all ten rows of the first sweep were visually indistinguishable; (3) audit rowObj carries defh — robust_topk rows would have recorded defh sweeps without the swept value; (4) Optimize button label + eval counter centered via stylesheet rules (v6.1.15 mechanism — immune to state-machine inline resets). Cert: visual (centered label; distinct table rows on re-render) + defh re-sweep shows a real robust ranking + OPT numbers identical to the v6.3.1 sweep.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.3.1 · Display patch (DISPLAY ONLY, sim untouched) — (1) eval-count preview learns the defh axis: updateEvalCount multiplied over a hardcoded five-axis list and showed "1 evals" with Defense Horizon armed (the RUN was always correct — the OPT loop reads getSweepGrid, which included defh; preview-only). Third "field needs all readers" instance logged today (v1.6.3 SOD delta, OPT re-run call sites, this). (2) #run-btn 22px→18px per S35 eyeball, stylesheet-rule mechanism (v6.1.15) retained. Cert: visual (10 evals shows with defh armed at defaults; button size) + OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.3.0 · Defense trigger — H_def horizon (SIM CHANGE, ships at identity) — the delta stop generalizes to defΔ = callDelta(S, K, min(defHorizon, DTE), VIX) ≥ deltaThreshold: the stop evaluated over the defense horizon instead of full DTE, firing while still OTM when defHorizon ≈ the measured ~6d hold. defHorizon=0 (off ≡ full DTE) is the EMBEDDED NULL — at 0 the defense chain is the incumbent stop expression-for-expression (v5.8.0 gapFloor pattern; S35 doctrine: new machinery ships at its identity point, certified byte-identical, then deforms one axis at a time from the benchmark). Entire stop chain moves to the defense frame: entry low-water init, daily low-water re-arm, upward-cross fire, debug trigger line, cycle exitDelta. Candidate-side deltaThreshold filter (findNextContract) stays full-DTE — entry quality is not defense. Δ_def IS deltaThreshold (shared knob, coupling registered). New OPT axis defh (sweepable card takes row-1 slot, grid 2×2); OPT/STD log strings append defH only when >0 — logs byte-identical at the null. roll_params gains defHorizon on next publish (default 0). REGISTERED GATE: publishing defHorizon>0 requires scan+agent defense-frame parity first — neither evaluates H_def yet. HOUSEKEEPING: APP_VERSION constant introduced — run-header, scan_snapshot, and audit_snapshot app_version now derive from it (scan wrote hardcoded 'v6.2.0' since v6.2.0 — rows 3–4 mislabeled their build; audit wrote 'v6.1.11' across seven releases; both stale-hardcode defects logged). Cert: STD byte-identical vs v6.2.2 · 141 cycles · 3.3% · $22,154 · Δstop 12(1); OPT log identical except banner.</span>
@@ -651,7 +652,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.3.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.3.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -707,65 +708,7 @@ function downloadLog() {
   if (btn) { btn.textContent = '✓ Saved'; setTimeout(() => btn.textContent = '⬇ Download', 2000); }
 }
 
-function copyDebugLog() {
-  const el = document.getElementById('progress-log');
-  if (!el) return;
-  let text = el.textContent || '';
-
-  // Append Roll Log blotter
-  const blotterRows = document.querySelectorAll('#roll-log-body tr');
-  if (blotterRows.length) {
-    text += '\n── ROLL LOG ─────────────────────────────────────────────────────\n';
-    text += ['Date','Cover (Close)','New Leg (Open)','Roll Credit','Ann Yield','Trigger'].join('\t') + '\n';
-    blotterRows.forEach(row => {
-      const cells = row.querySelectorAll('td');
-      text += Array.from(cells).map(td => td.innerText.trim().replace(/\n/g,' ')).join('\t') + '\n';
-    });
-  }
-
-  // Append Performance Summary
-  const statCards = document.querySelectorAll('#summary-grid .stat-card');
-  if (statCards.length) {
-    text += '\n── PERFORMANCE SUMMARY ──────────────────────────────────────────\n';
-    statCards.forEach(card => {
-      const label = card.querySelector('.stat-label')?.innerText?.trim() || '';
-      const value = card.querySelector('.stat-value')?.innerText?.trim() || '';
-      const sub   = card.querySelector('.stat-sub')?.innerText?.trim()   || '';
-      text += `${label}: ${value}  (${sub})\n`;
-    });
-  }
-
-  // No truncation — full log preserved for upload/analysis
-  navigator.clipboard.writeText(text).then(() => {
-    ['copy-log-btn','copy-log-btn2'].forEach(id => {
-      const btn = document.getElementById(id);
-      if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = 'Copy Log', 2000); }
-    });
-  }).catch(() => {
-    // iPad clipboard fallback — show modal with selectable text
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
-    const box = document.createElement('div');
-    box.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;width:100%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;gap:10px;';
-    const title = document.createElement('div');
-    title.style.cssText = 'color:var(--text);font-family:var(--mono);font-size:12px;';
-    title.textContent = 'Select all and copy:';
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.cssText = 'flex:1;min-height:300px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:8px;font-family:var(--mono);font-size:10px;resize:none;';
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = 'Close';
-    closeBtn.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:6px 16px;cursor:pointer;font-family:var(--mono);font-size:11px;';
-    closeBtn.onclick = () => document.body.removeChild(overlay);
-    box.appendChild(title);
-    box.appendChild(ta);
-    box.appendChild(closeBtn);
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-    ta.focus();
-    ta.select();
-  });
-}
+// v6.3.3 — copyDebugLog removed (Copy Log button retired; download is the only log export path)
 
 function setProgress(pct) {
   const el = $('progress-bar');
@@ -3063,7 +3006,8 @@ function computeRobustRanking(rows, axes) {
 
 function _rankParamStr(r) {
   return 'decay=' + r.decay + '% / dte=' + r.floor + 'd / \u0394' + (r.delta ?? STD.deltaThreshold)
-    + ' / VIX\u2265' + (r.vixgate ?? STD.vixGate) + ' / anchor=' + (r.lookahead ?? STD.dtePenaltyAnchor) + 'd';
+    + ' / VIX\u2265' + (r.vixgate ?? STD.vixGate) + ' / anchor=' + (r.lookahead ?? STD.dtePenaltyAnchor) + 'd'
+    + ((r.defh ?? 0) > 0 ? ' / defH=' + r.defh + 'd' : ''); // v6.3.3 — robust rows were indistinguishable on defh sweeps (instance #7)
 }
 
 function _rankFlags(o) {
@@ -3219,6 +3163,7 @@ function updateCardsFromSel(r) {
     delta:     r.delta?.toFixed(3),
     vixgate:   r.vixgate > 0 ? 'VIX\u2265' + r.vixgate : 'Off',
     lookahead: r.lookahead ? r.lookahead + 'd' : null,
+    defh:      (r.defh ?? 0) > 0 ? r.defh + 'd' : 'Off', // v6.3.3 — card now adopts the selected/winner value (instance #8)
   };
   for (const [v, val] of Object.entries(vals)) {
     if (!_sweepVars[v] || !val) continue;
