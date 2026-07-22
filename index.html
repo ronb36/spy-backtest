@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.3.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.4.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -496,6 +496,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.4.0 · Trigger/candidate parameter split (SIM CHANGE, ships at identity) — deltaThreshold and dteFloor each served two unrelated roles (position stop + candidate cap; DTE trigger + candidate min DTE), making entry and defense effects inseparable — the S35 2D recon's P-D4 confound made this concrete: every delta cell below 0.6 was dominated by the entry side. New candidate-set params entryDeltaCap and entryDteMin, resolved at point of use as null → follow the trigger twin (EMBEDDED IDENTITY: unset ≡ today's coupled behavior everywhere, including OPT sweeps of deltaThreshold — baselines unchanged at defaults). Consumers moved to the entry side: all three findNextContract call sites (initial, VIX-recovery re-entry, roll) and the LIVE SCAN's candidate machinery (expiry gate, Δsim cap, skip messages, table threshold) — sim and scan split in the same release so the production candidate engine cannot diverge. Trigger set unchanged: deltaThreshold (Δ_exit), defHorizon, decayTrigger, dteFloor. Decay stays trigger-only (candidates have no decay history). roll_params gains entryDeltaCap/entryDteMin (null) on next publish. Entry-param sweep axes deferred to v6.4.1 (card-layout design). Pre-registered P-S1: sweeping deltaThreshold with entryDeltaCap PINNED at 0.73 re-runs the delta axis without the entry confound — first honest test of whether the S29/S35 delta chaos was the coupling. Cert: STD + OPT byte-identical at defaults vs v6.3.3 chain.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.3.3 · Display patch (DISPLAY ONLY, sim untouched) — S35 cosmetics close-out: (1) robust-ranking rows + robust-winner line append defH when >0 (_rankParamStr; instance #7 of the missed-reader class); (2) Defense Horizon card adopts the selected/winner value after a run — updateCardsFromSel never learned defh, the card stayed "OPTIMIZE" while sibling cards showed "selected ✓" (instance #8); (3) Copy Log button retired per user (download-only), copyDebugLog (59 lines incl. iPad clipboard fallback modal) removed as dead machinery; (4) true both-axis button centering — the label is now a flex box filling the card with the eval counter absolutely pinned bottom-center (v6.3.2's card-level rules centered the stack, not the label). Cert: visual (centered label, defh card adopts value on selection tap, no Copy button) + re-render of a defh sweep shows defH in R# rows.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.3.2 · Display patch (DISPLAY ONLY, sim untouched) — three more missed-reader fixes from the S35 first defh sweep (instances #4–#6 of the day's dominant defect class) + centering: (1) robust ranker learns the defh axis — _rrAxes never listed it, so a defh-only sweep logged "robust ranking skipped — no swept axes" and the Robust view silently showed the Raw sort; (2) Opt Results table param strings append defH when >0 — all ten rows of the first sweep were visually indistinguishable; (3) audit rowObj carries defh — robust_topk rows would have recorded defh sweeps without the swept value; (4) Optimize button label + eval counter centered via stylesheet rules (v6.1.15 mechanism — immune to state-machine inline resets). Cert: visual (centered label; distinct table rows on re-render) + defh re-sweep shows a real robust ranking + OPT numbers identical to the v6.3.1 sweep.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.3.1 · Display patch (DISPLAY ONLY, sim untouched) — (1) eval-count preview learns the defh axis: updateEvalCount multiplied over a hardcoded five-axis list and showed "1 evals" with Defense Horizon armed (the RUN was always correct — the OPT loop reads getSweepGrid, which included defh; preview-only). Third "field needs all readers" instance logged today (v1.6.3 SOD delta, OPT re-run call sites, this). (2) #run-btn 22px→18px per S35 eyeball, stylesheet-rule mechanism (v6.1.15) retained. Cert: visual (10 evals shows with defh armed at defaults; button size) + OPT log identical.</span>
@@ -583,6 +584,8 @@ let STD = {
   vixGate:        0,    // 0 = off (no VIX gate)
   dtePenaltyAnchor: 45,
   defHorizon:     0,    // v6.3.0 — defense horizon (days); 0 = off ≡ full DTE (embedded null)
+  entryDeltaCap:  null, // v6.4.0 — candidate-side Δ cap; null = follow deltaThreshold (embedded identity)
+  entryDteMin:    null, // v6.4.0 — candidate-side min DTE; null = follow dteFloor (embedded identity)
 };
 
 // (v5.2.2 — _debugOverrides removed: the card-edit input UI was deleted in
@@ -607,6 +610,8 @@ async function loadRollParams() {
       vixGate:        data.vixGate || 0,
       dtePenaltyAnchor: data.dtePenaltyAnchor || 45,
       defHorizon:     data.defHorizon || 0, // v6.3.0 — absent in pre-v6.3.0 params → 0 (off)
+      entryDeltaCap:  data.entryDeltaCap ?? null, // v6.4.0 — null = coupled to deltaThreshold
+      entryDteMin:    data.entryDteMin ?? null,   // v6.4.0 — null = coupled to dteFloor
       // Live position fields — contracts is primary, shares always derived
       contracts:      data.contracts ?? (data.shares ? Math.round(data.shares / 100) : 6),
       shares:         (data.contracts ?? (data.shares ? Math.round(data.shares / 100) : 6)) * 100,
@@ -652,7 +657,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.3.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.4.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1734,14 +1739,14 @@ function buildScanContext() {
     if (STD.netPremium != null) eco += ' \u00b7 $' + STD.netPremium + '/sh is the LAST ROLL\u2019S NET CREDIT (sell minus buyback), NOT remaining premium';
     L.push(eco);
   }
-  L.push('PUBLISHED PARAMS: decay ' + STD.decayTrigger + '% \u00b7 \u0394' + STD.deltaThreshold + ' \u00b7 floor ' + STD.dteFloor + 'd \u00b7 anchor ' + STD.dtePenaltyAnchor + 'd \u00b7 VIX gate ' + (STD.vixGate || 0) + ((STD.defHorizon || 0) > 0 ? ' \u00b7 defH ' + STD.defHorizon + 'd' : '')); // v6.3.0 — only when non-null
+  L.push('PUBLISHED PARAMS: decay ' + STD.decayTrigger + '% \u00b7 \u0394' + STD.deltaThreshold + ' \u00b7 floor ' + STD.dteFloor + 'd \u00b7 anchor ' + STD.dtePenaltyAnchor + 'd \u00b7 VIX gate ' + (STD.vixGate || 0) + ((STD.defHorizon || 0) > 0 ? ' \u00b7 defH ' + STD.defHorizon + 'd' : '') + (STD.entryDeltaCap != null ? ' \u00b7 entry\u0394cap ' + STD.entryDeltaCap : '') + (STD.entryDteMin != null ? ' \u00b7 entryDTE ' + STD.entryDteMin + 'd' : '')); // v6.3.0/v6.4.0 — only when non-null
   return L.join('\n');
 }
 function buildGenContext() {
   const L = [];
   L.push('=== GENERAL CONTEXT (v6.1.0) ===');
   L.push('CURRENT POSITION: short ' + (STD.contracts || 6) + 'x $' + STD.shortStrike + 'C ' + STD.shortExpiry + ' \u00b7 entry ' + STD.entryDate + ' \u00b7 sell $' + STD.sellPrice + ' \u00b7 cover paid $' + STD.coverPrice + ' \u00b7 net $' + STD.netPremium);
-  L.push('PUBLISHED PARAMS: decay ' + STD.decayTrigger + '% \u00b7 \u0394' + STD.deltaThreshold + ' \u00b7 floor ' + STD.dteFloor + 'd \u00b7 anchor ' + STD.dtePenaltyAnchor + 'd \u00b7 VIX gate ' + (STD.vixGate || 0) + ((STD.defHorizon || 0) > 0 ? ' \u00b7 defH ' + STD.defHorizon + 'd' : '')); // v6.3.0 — only when non-null
+  L.push('PUBLISHED PARAMS: decay ' + STD.decayTrigger + '% \u00b7 \u0394' + STD.deltaThreshold + ' \u00b7 floor ' + STD.dteFloor + 'd \u00b7 anchor ' + STD.dtePenaltyAnchor + 'd \u00b7 VIX gate ' + (STD.vixGate || 0) + ((STD.defHorizon || 0) > 0 ? ' \u00b7 defH ' + STD.defHorizon + 'd' : '') + (STD.entryDeltaCap != null ? ' \u00b7 entry\u0394cap ' + STD.entryDeltaCap : '') + (STD.entryDteMin != null ? ' \u00b7 entryDTE ' + STD.entryDteMin + 'd' : '')); // v6.3.0/v6.4.0 — only when non-null
   L.push('Pipeline state: ' + _pipeState);
   return L.join('\n');
 }
@@ -2028,6 +2033,12 @@ function updateInitPosition() {
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
   const { otmFixed, decayTrigger, dteFloor, deltaThreshold, vixGate = 0, dtePenaltyAnchor = 45, shares, defHorizon = 0 } = p; // v6.3.0 — defense horizon; 0 = off ≡ full DTE
+  // v6.4.0 — trigger/candidate parameter split. Entry-side params resolve to
+  // their trigger twins when null: unset ≡ today's coupled behavior (embedded
+  // identity — sweeping deltaThreshold with entry unset stays coupled, exactly
+  // the incumbent; pinning entry explicitly is what decouples).
+  const entryCap_    = (p.entryDeltaCap ?? deltaThreshold);
+  const entryDteMin_ = (p.entryDteMin   ?? dteFloor);
   // Clear stale entryPx/entryDate/entrySPY stamped onto shared DM contract objects
   // by the pendingContract capture of a prior simulate() call — without this flush
   // a later run's OPEN row could inherit a previous run's entry price.
@@ -2069,7 +2080,7 @@ async function simulate(p) {
   // find the initial contract immediately so the log shows it upfront.
   let waitingForVIX = vixGate > 0;
   if (!waitingForVIX) {
-    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vixMap[startDate] || 18); // v5.14.0 — real trigger-date VIX feeds the candidate filter
+    curC = findNextContract(startDate, otmFixed, startSPY, dtePenaltyAnchor, entryDteMin_, null, entryCap_, 0, vixMap[startDate] || 18); // v6.4.0 — candidate side uses entry params (≡ trigger twins when unset)
     if (!curC) { logMsg('✗ No initial contract found', 'err'); return null; }
     buildDayMap(curC);
     const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
@@ -2134,7 +2145,7 @@ async function simulate(p) {
       if (waitingForVIX) {
         if (vixGate === 0 || vix >= vixGate) {
           // VIX has recovered (or initial entry) — find new contract via INTL yield optimizer
-          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor, null, deltaThreshold, 0, vix); // v5.14.0 — real trigger-date VIX feeds the candidate filter
+          const reentryC = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, entryDteMin_, null, entryCap_, 0, vix); // v6.4.0 — candidate side uses entry params
           if (reentryC) {
             curC = reentryC;
             waitingForVIX = false;
@@ -2340,8 +2351,8 @@ async function simulate(p) {
     }
 
     // ── Find next contract ──
-    const next = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, dteFloor,
-      curC.expiry+'_'+curC.strike, deltaThreshold, isExp ? 0 : exitPx, vix); // v5.14.0 — real trigger-date VIX feeds the candidate filter
+    const next = findNextContract(date, otmFixed, spy, dtePenaltyAnchor, entryDteMin_,
+      curC.expiry+'_'+curC.strike, entryCap_, isExp ? 0 : exitPx, vix); // v6.4.0 — candidate side uses entry params (≡ trigger twins when unset)
     if (!next) {
       // v5.4.2 — no net-credit candidate exists at current SPY level: hold
       // long SPY and re-scan daily via the recovery path (still VIX-gated).
@@ -2869,6 +2880,8 @@ async function publishRollParams(p) {
       vixGate: p.vixGate || 0,
       dtePenaltyAnchor: p.dtePenaltyAnchor || STD.dtePenaltyAnchor || 45,
       defHorizon: p.defHorizon ?? STD.defHorizon ?? 0, // v6.3.0 — REGISTERED GATE: publishing >0 requires scan+agent defense-frame parity first
+      entryDeltaCap: STD.entryDeltaCap ?? null, // v6.4.0 — null = coupled to deltaThreshold
+      entryDteMin:   STD.entryDteMin ?? null,   // v6.4.0 — null = coupled to dteFloor
       lastOptimized: today,
       optProjYield: parseFloat(p.optAnnYield.toFixed(1)),
       contracts: _existingJson.contracts ?? STD.contracts ?? 6, // guarantee position-size field — agent has no fallbacks
@@ -4763,6 +4776,10 @@ async function runRollScan() {
   const anchor     = STD.dtePenaltyAnchor || 54;
   const otmTarget  = STD.otmFixed || 0.03;
   const deltaThres = STD.deltaThreshold || 0.670;
+  // v6.4.0 — trigger/candidate split: the scan's CANDIDATE filters use the
+  // entry-side params, resolving to trigger twins when null (identity).
+  const entryCap    = STD.entryDeltaCap ?? deltaThres;
+  const entryDteMin = STD.entryDteMin   ?? dteFloor;
   if (_fb.length) logMsg('  ⚠ SCAN FALLBACK — params missing, using certified baseline: ' + _fb.join(' · '), 'err');
 
   // DM future contracts — same gate as findNextContract(): dteFloor only,
@@ -4773,12 +4790,12 @@ async function runRollScan() {
     Object.values(DM.options).forEach(c => {
       const d = new Date(c.expiry + 'T12:00:00Z');
       const dte = Math.round((d - today) / 86400000);
-      if (dte >= dteFloor) futureExpiries.add(c.expiry);
+      if (dte >= entryDteMin) futureExpiries.add(c.expiry); // v6.4.0 — candidate gate uses entryDteMin
     });
   }
   const expList = Array.from(futureExpiries).sort();
   if (!expList.length) {
-    statusEl.textContent = 'No future DM expiries beyond ' + dteFloor + 'd floor.';
+    statusEl.textContent = 'No future DM expiries beyond ' + entryDteMin + 'd entry floor.';
     statusEl.className = 'scan-status err';
     if (rescanBtn) rescanBtn.disabled = false;
     setRunButtonState('idle', { dmReady: true });
@@ -4871,7 +4888,7 @@ async function runRollScan() {
     // real VIX, TNX 4.5) — the same frame findNextContract filters in since
     // v5.14.0. Strict < matches the sim's `>= threshold → skip`. Market delta
     // remains display reference only.
-    const deltaOk      = deltaSim < deltaThres;
+    const deltaOk      = deltaSim < entryCap; // v6.4.0 — candidate cap is entry-side
     const isOTM        = r.strike > spyNow;
     return Object.assign({}, r, { netCredit, rollAdjYield, otmPct, delta, deltaSim, deltaOk, isOTM });
   })
@@ -4960,8 +4977,8 @@ async function runRollScan() {
       let skipReason = '';
       if (r.strike <= spyNow) {
         skipReason = 'ITM (' + otmPct + '% OTM) — sim never sells ITM (parity, v5.13.0)';
-      } else if (_dSim >= deltaThres) {
-        skipReason = 'Δsim ' + _dSim.toFixed(3) + ' ≥ ' + deltaThres.toFixed(3) + ' (mkt ' + delta.toFixed(3) + ') — sim-frame filter, v5.14.2';
+      } else if (_dSim >= entryCap) { // v6.4.0
+        skipReason = 'Δsim ' + _dSim.toFixed(3) + ' ≥ ' + entryCap.toFixed(3) + ' (mkt ' + delta.toFixed(3) + ') — sim-frame entry cap (v6.4.0)';
       } else if (netCredit <= 0) {
         skipReason = 'net debit $' + netCredit.toFixed(2);
         _scanDebitSkips++; // v6.2.0
@@ -5064,7 +5081,7 @@ async function runRollScan() {
 
     return { type: primaryType, currentVal, allTypes, decayVal, rawTrigger: '' };
   })();
-  renderRollScanTable(scored, spyNow, deltaThres, currentCallMid, allUiWarnings, _scanTriggerInfo, dmStrikesPerExpiry, expList);
+  renderRollScanTable(scored, spyNow, entryCap, currentCallMid, allUiWarnings, _scanTriggerInfo, dmStrikesPerExpiry, expList); // v6.4.0 — table shows the entry cap
 
   const best = scored[0] || null;
   // v6.1.0 — scan context capture for chat + audit snapshot (display/persistence only)
