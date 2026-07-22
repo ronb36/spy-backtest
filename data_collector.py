@@ -1,5 +1,12 @@
 """
-SPY Backtest Data Collector — v2.3.4 (Supabase)
+SPY Backtest Data Collector — v2.3.5 (Supabase)
+
+v2.3.5 — Yields in the nightly push (S34, display-only): the Pushover
+summary gains a "YLD {n} days → {latest}" line after ES, making Treasury
+collection visible in the nightly health check like every other table
+(previously count reached only the container log). Companion to the
+backtester's Treasuries panel (v6.1.13), which reads yield_daily
+directly from Supabase at DM load.
 
 v2.3.4 — Phase 1.6: daily Treasury yield curve → yield_daily.
 Source: /fed/v1/treasury-yields (probe-verified on this key, S33) —
@@ -82,7 +89,7 @@ from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 
-COLLECTOR_VERSION = "2.3.4"
+COLLECTOR_VERSION = "2.3.5"
 
 # ── Credentials ────────────────────────────────────────────────────────────
 POLYGON_KEY   = os.environ["POLYGON_KEY"]
@@ -818,7 +825,8 @@ if __name__ == "__main__":
     sb_set_metadata("options_count", opt_count)
 
     spy_count = len(spy_dates)
-    yld_count = sb_count("yield_daily")  # v2.3.4
+    yld_dates = sb_get_dates("yield_daily")  # v2.3.5 — dates (count + latest) for push line
+    yld_count = len(yld_dates)
     log(f"Done — {spy_count} SPY days, {opt_count} contracts, {yld_count} yield days")
 
     # v2.3.3 — explicit nightly health verdict: option bars current with SPY?
@@ -832,6 +840,7 @@ if __name__ == "__main__":
         f"SPY {spy_count} days → {spy_latest or '—'}\n"
         f"VIX {len(vix_dates)} days → {max(vix_dates) if vix_dates else '—'}\n"
         f"ES  {len(es_dates)} days → {max(es_dates) if es_dates else '—'}\n"
+        f"YLD {yld_count} days → {max(yld_dates) if yld_dates else '—'}\n"
         f"OPT {opt_days} days → {opt_last or '—'}\n"
         f"{integrity_line}\n"
         f"\n"

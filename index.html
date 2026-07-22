@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.12</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.13</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -248,7 +248,7 @@ select.display-box { cursor:pointer; outline:none; }
       </div>
       <div id="run-publish-card" style="height:104px;box-sizing:border-box;background:var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
         <button class="btn" id="run-btn" onclick="handleRunOrPublish()" disabled
-          style="font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.04em;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;padding:0;line-height:1.3;text-align:center;">
+          style="font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:.04em;width:100%;background:transparent;color:#fff;border:none;cursor:pointer;opacity:.4;padding:0;line-height:1.3;text-align:center;">
           Loading…
         </button>
         <div class="stat-sub" id="run-eval-count" style="text-align:center;display:none;color:rgba(255,255,255,.8);"></div>
@@ -434,6 +434,21 @@ select.display-box { cursor:pointer; outline:none; }
           <div class="display-box" id="mart-contract-info" style="color:var(--muted);font-size:10px;min-width:200px;">—</div>
         </div>
       </div>
+      <!-- Tenor filter (treasuries only, v6.1.13) -->
+      <div id="mart-tenor-filter" style="margin-bottom:12px;display:none;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="ctrl">
+          <div class="mono-label">Tenor</div>
+          <select id="mart-tenor" onchange="renderMartTable()" style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 8px;height:34px;outline:none;min-width:130px;">
+            <option value="y3m">3 Month</option>
+            <option value="y1m">1 Month</option>
+            <option value="y1y">1 Year</option>
+            <option value="y2y">2 Year</option>
+            <option value="y5y">5 Year</option>
+            <option value="y10y">10 Year</option>
+            <option value="y30y">30 Year</option>
+          </select>
+        </div>
+      </div>
       <!-- Table -->
       <div class="chart-panel">
         <div class="tbl-wrap"><div id="mart-table-container"></div></div>
@@ -464,6 +479,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.1.13 · Treasuries in the DM tab + r-gap strip + Scan button typography (DISPLAY ONLY, sim untouched) — (1) DM load fetches yield_daily (7 CMT tenors, collector v2.3.4 Phase 1.6) into DM.yields; new Treasuries card on the Data Mart tab alongside SPY/VIX/Options opens a date×yield table with a tenor dropdown filter (1m/3m/1y/2y/5y/10y/30y, default 3m — the sim's r-frame reference), latest first, day-over-day change column. (2) The fixed-params strip gains the r-frame gap: "r 4.5% vs 3m X.XX%" from the latest DM yield row — the S33 tripwire (sustained ~1pp ⇒ calibrated re-sweep, never a constant swap) is now visible on every load instead of remembered. (3) Scan/Run button label 15px→22px to match the param-card numbers as rendered on iPad (Safari font-boosts div text but never form controls — the source sizes were 14/15px yet rendered unequal). Companion: collector v2.3.5 adds the YLD line to the nightly push. Cert: STD byte-identical except banner; scan log identical incl. shadow block.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.12 · Phase A holdRatio shadow (LOG ONLY, sim and ranking untouched) — every scan appends a shadow re-scoring block: the same qualifying candidate list the live ranking scored, re-ranked at hold horizons H ∈ {∞, 30, 14, 7, 6, 3} days with score_H = (netCredit·capture/SPY)·(365/min(H,DTE))·min(1,DTE/anchor), capture = 1−√(1−min(H,DTE)/DTE). H=∞ collapses algebraically to the live formula (capture=1, horizon=DTE) and is the always-logged identity benchmark — a P1 verdict line asserts it matches the live ranking exactly on every scan. WHY H-DAYS AND NOT h-RATIO (the original S34 spec, killed at the step-0 algebra gate before any code): the ratio transform scored credit·capture(h) annualized over h·DTE with capture(h)=1−√(1−h). But capture(h) is candidate-INDEPENDENT, so score_h = score_live · [(1−√(1−h))/h] — every candidate multiplied by the same constant. Rankings provably identical at every h; the shadow would have logged five copies of the same list forever and predictions P2–P5 were unfalsifiable by construction. The physics the ratio missed: the position holds ~6 DAYS regardless of DTE (S29), an absolute time, not a proportional one. In H-days form capture depends on H/DTE per candidate — 6 days is 100%% of a weekly, 4%% of a LEAP — so rankings genuinely diverge. Notable H=6 limit: for DTE ≤ anchor, score ∝ netCredit alone (max credit wins, subject to Δ-filter); above anchor, ∝ netCredit/DTE. Pre-registered: P1 identity null · P2 top-pick DTE falls monotonically with H, ≤~54d at H=6 · P3 Nov/Dec/Jan inversion between H=30 and H=14 · P4 at H=6 ≥1 top-5 sits bottom-half of H=∞ · P5 H=6 picks imply ~2–3 rolls/wk. Cert: scan log diff vs 0638 baseline — shadow block is the only new content, P1 verdict ✓.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.11 · entrySpy in roll_params (PERSISTENCE ONLY, sim untouched) — closes the S33 entry-day frame gap: the ticket now writes entrySpy (scan-time SPY from _scanCtxData) into the roll_params payload alongside the position fields, giving the agent the true entry-time spot for intrinsic-stripped TV-decay on entry day, before the nightly collection lands. Both writers spread the existing JSON, so the field survives publishes and is overwritten fresh on each trade. Companion: agent v1.6.4 consumes it as the middle tier of its fallback chain (DM close → roll_params.entrySpy → raw price decay). Cert: banner-only; field verified in roll_params.json after the next ticket.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.10 · Ticket blotter-write schema fix (DISPLAY/PERSISTENCE ONLY, sim untouched) — BUG FIX, found on walk-forward cycle 1’s first production pass through the v6.1.0 ticket: liveEntry still spoke the PRE-REBUILD vocabulary (newStrike / newExpiry / type / contracts) while tradeToRow’s fallback chains only know the rebuilt column names, so sell_strike, sell_expiry, sell_contracts, cover_contracts, and row_type all silently mapped to NULL — the open row rendered as “Short 6 null $nullC” with QTY — and no MTM. Everything that DID match wrote correctly (cover leg, sell_price, roll_credit +$12,300, trigger decay), roll_params and the audit snapshot were always right, and the row was repaired by SQL UPDATE same-day. liveEntry now emits the canonical names: row_type, sellStrike, sellExpiry, sellContracts, coverContracts. Cert: banner-only; next ticket write must produce a fully-populated row with zero repair.</span>
@@ -2598,7 +2614,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v6.1.12 · SPY Covered Call Backtest' + (_debugMode ? ' · DEBUG' : ''));
+  logMsg('v6.1.13 · SPY Covered Call Backtest' + (_debugMode ? ' · DEBUG' : ''));
   logMsg('Building lookups...');
   await yield_();
 
@@ -3105,7 +3121,10 @@ function updateFixedStrip() {
   const el = $('fixed-params-strip');
   if (!el) return;
   const v = id => { const e = $(id); return e ? e.textContent : '?'; };
-  el.textContent = 'fixed: dte ' + v('vval-dte') + ' · VIX ' + v('vval-vixgate').toLowerCase() + ' · anchor ' + v('vval-lookahead');
+  let rGap = '';  // v6.1.13 — r-frame gap: hardcoded sim r vs latest 3m CMT (S33 tripwire, visible not remembered)
+  const _ly = (typeof DM==='object' && DM && DM.yields && DM.yields.length) ? DM.yields[DM.yields.length-1] : null;
+  if (_ly && _ly.y3m != null) rGap = ' · r 4.5% vs 3m ' + _ly.y3m.toFixed(2) + '%';
+  el.textContent = 'fixed: dte ' + v('vval-dte') + ' · VIX ' + v('vval-vixgate').toLowerCase() + ' · anchor ' + v('vval-lookahead') + rGap;
 }
 (function () {
   ['vcard-vixgate', 'vcard-dte', 'vcard-lookahead'].forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
@@ -4366,6 +4385,7 @@ function renderMartCards() {
     card('spy','SPY Daily',spy.length+' days',spy[0]?.date+' → '+spy[spy.length-1]?.date,_martView==='spy')+
     card('vix','VIX Daily',vix.length+' days',vix[0]?.date+' → '+vix[vix.length-1]?.date,_martView==='vix')+
     card('calls','Options',opts.length+' contracts',expiries.length+' expiries · '+totalDays.toLocaleString()+' day records',_martView==='calls')+
+    card('yields','Treasuries',(DM.yields?.length||0)+' days',(DM.yields?.[0]?.date||'—')+' → '+(DM.yields?.[DM.yields.length-1]?.date||'—'),_martView==='yields')+
     `<div class="stat-card"><div class="stat-label">Last Updated</div>
       <div class="stat-value green" style="font-size:13px;">${DM.metadata?.last_updated||'—'}</div>
       <div class="stat-sub">OTM: ${DM.metadata?.otm_targets?.map(t=>(t*100).toFixed(0)+'%').join(', ')||'—'}</div>
@@ -4384,6 +4404,8 @@ function setMartView(view) {
   _martView=view;
   const filter=$('mart-filter');
   if (filter) filter.style.display=view==='calls'?'flex':'none';
+  const tf=$('mart-tenor-filter');  // v6.1.13
+  if (tf) tf.style.display=view==='yields'?'flex':'none';
   renderMartCards();
 }
 
@@ -4406,6 +4428,19 @@ function renderMartTable() {
         <td class="muted">${r.date}</td><td>$${fmt(r.o)}</td><td>$${fmt(r.h)}</td><td>$${fmt(r.l)}</td>
         <td class="accent">$${fmt(r.c)}</td><td class="muted">${(r.v/1e6).toFixed(1)}M</td>
       </tr>`).join('')}</tbody></table>`;
+  } else if (_martView==='yields') {
+    // v6.1.13 — Treasuries: selected-tenor series, latest first, DoD change
+    const TENOR_LABELS={y1m:'1m',y3m:'3m',y1y:'1y',y2y:'2y',y5y:'5y',y10y:'10y',y30y:'30y'};
+    const tenor=$('mart-tenor')?.value||'y3m';
+    const rows=(DM.yields||[]).filter(r=>r[tenor]!=null);
+    html=`<table class="tbl"><thead><tr><th>Date</th><th>${TENOR_LABELS[tenor]} CMT</th><th>Δ day</th></tr></thead>
+      <tbody>${rows.slice().reverse().map((r,i,arr)=>{
+        const prev=arr[i+1];
+        const chg=prev?(r[tenor]-prev[tenor]):null;
+        const chgStr=chg==null?'—':(chg>=0?'+':'−')+Math.abs(chg).toFixed(3);
+        const chgCls=chg==null?'muted':chg>0?'red':chg<0?'green':'muted';
+        return `<tr><td class="muted">${r.date}</td><td class="accent">${r[tenor].toFixed(3)}%</td><td class="${chgCls}">${chgStr}</td></tr>`;
+      }).join('')}</tbody></table>`;
   } else if (_martView==='vix') {
     html=`<table class="tbl"><thead><tr><th>Date</th><th>VIX</th><th>Regime</th></tr></thead>
       <tbody>${DM.vix.slice().reverse().map(r=>{
@@ -4491,10 +4526,11 @@ async function loadData() {
     };
 
     logMsg('Fetching SPY/VIX daily data...', '');
-    const [spyRows, vixRows, metaRows] = await Promise.all([
+    const [spyRows, vixRows, metaRows, yldRows] = await Promise.all([
       sbFetchAll('spy_daily', 'order=date.asc'),
       sbFetchAll('vix_daily', 'order=date.asc'),
       sbFetch('metadata', 'select=key,value'),
+      sbFetchAll('yield_daily', 'order=date.asc'),  // v6.1.13 — Treasuries (collector v2.3.4 Phase 1.6)
     ]);
 
     logMsg('Fetching option contracts...', '');
@@ -4535,6 +4571,7 @@ async function loadData() {
     return {
       spy:      spyRows.map(r => ({ date: r.date, o: r.o, h: r.h, l: r.l, c: r.c, v: r.v })),
       vix:      vixRows.map(r => ({ date: r.date, c: r.c })),
+      yields:   yldRows,  // v6.1.13 — [{date,y1m,y3m,y1y,y2y,y5y,y10y,y30y}]
       options,
       metadata: {
         last_updated:   meta.last_updated || '—',
@@ -4556,6 +4593,7 @@ async function loadData() {
     status.textContent=`✓ Data mart loaded — ${DM.spy.length} SPY days · ${Object.keys(DM.options).length} contracts · updated ${DM.metadata?.last_updated}`;
     status.style.color='var(--green)';
     setRunButtonState('idle', { dmReady: true });
+    updateFixedStrip(); // v6.1.13 — r-gap needs DM.yields, which only exists after DM load
     await loadRollParams(); // reload to ensure STD is fully synced after DM available
     // Restore sweep ranges from localStorage (persisted from last session)
     try {
