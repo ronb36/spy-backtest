@@ -80,7 +80,7 @@ select.display-box { cursor:pointer; outline:none; }
 .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:12px 14px; }
 .stat-label { font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:5px; }
 .stat-value { font-family:var(--mono); font-size:16px; font-weight:600; }
-#run-btn { font-size:22px !important; } /* v6.1.15 — survives the v6.1.9 inline typography reset */
+#run-btn { font-size:18px !important; } /* v6.3.1 — 22px→18px per S35 eyeball; v6.1.15 stylesheet-rule mechanism retained */
 .stat-sub { font-size:10px; color:var(--muted); margin-top:2px; }
 
 /* Tabs */
@@ -155,7 +155,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.3.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.3.1</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -494,6 +494,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.3.1 · Display patch (DISPLAY ONLY, sim untouched) — (1) eval-count preview learns the defh axis: updateEvalCount multiplied over a hardcoded five-axis list and showed "1 evals" with Defense Horizon armed (the RUN was always correct — the OPT loop reads getSweepGrid, which included defh; preview-only). Third "field needs all readers" instance logged today (v1.6.3 SOD delta, OPT re-run call sites, this). (2) #run-btn 22px→18px per S35 eyeball, stylesheet-rule mechanism (v6.1.15) retained. Cert: visual (10 evals shows with defh armed at defaults; button size) + OPT log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.3.0 · Defense trigger — H_def horizon (SIM CHANGE, ships at identity) — the delta stop generalizes to defΔ = callDelta(S, K, min(defHorizon, DTE), VIX) ≥ deltaThreshold: the stop evaluated over the defense horizon instead of full DTE, firing while still OTM when defHorizon ≈ the measured ~6d hold. defHorizon=0 (off ≡ full DTE) is the EMBEDDED NULL — at 0 the defense chain is the incumbent stop expression-for-expression (v5.8.0 gapFloor pattern; S35 doctrine: new machinery ships at its identity point, certified byte-identical, then deforms one axis at a time from the benchmark). Entire stop chain moves to the defense frame: entry low-water init, daily low-water re-arm, upward-cross fire, debug trigger line, cycle exitDelta. Candidate-side deltaThreshold filter (findNextContract) stays full-DTE — entry quality is not defense. Δ_def IS deltaThreshold (shared knob, coupling registered). New OPT axis defh (sweepable card takes row-1 slot, grid 2×2); OPT/STD log strings append defH only when >0 — logs byte-identical at the null. roll_params gains defHorizon on next publish (default 0). REGISTERED GATE: publishing defHorizon>0 requires scan+agent defense-frame parity first — neither evaluates H_def yet. HOUSEKEEPING: APP_VERSION constant introduced — run-header, scan_snapshot, and audit_snapshot app_version now derive from it (scan wrote hardcoded 'v6.2.0' since v6.2.0 — rows 3–4 mislabeled their build; audit wrote 'v6.1.11' across seven releases; both stale-hardcode defects logged). Cert: STD byte-identical vs v6.2.2 · 141 cycles · 3.3% · $22,154 · Δstop 12(1); OPT log identical except banner.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.2.2 · Button 22px (DISPLAY ONLY, sim untouched) — #run-btn 24px→22px, converging on the boosted param size by eye (28 over, 24 close). Note: v6.1.13 also said "22px" but that build's size never rendered — it lived in the inline style the v6.1.9 typography reset wiped; this is the first time a true 22px reaches the screen. Cert: visual.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.2.1 · entrySpy mapping + button 24px (DISPLAY/PERSISTENCE ONLY, sim untouched) — (1) BUG FIX from v6.2.0's first row: pos_tv_decay wrote null because loadRollParams never mapped entrySpy into STD — the ticket writes the field (v6.1.11), the agent reads it, but the backtester's own reader dropped it. One line added to the STD build; the next scan row carries intrinsic-stripped TV decay. (2) #run-btn 28px→24px (Ron: true-28 overshoots the boosted-14 params on iPad; boost factor is evidently below 2× at that container width). Cert: next scan row has non-null pos_tv_decay ≈ agent's decay figure; button visual.</span>
@@ -647,7 +648,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.3.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.3.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1095,7 +1096,7 @@ function updateEvalCount(done, total) {
     return;
   }
   const g = getSweepGrid();
-  const evals = g.decay.length * g.dte.length * g.delta.length * g.vixgate.length * g.lookahead.length;
+  const evals = g.decay.length * g.dte.length * g.delta.length * g.vixgate.length * g.lookahead.length * g.defh.length; // v6.3.1 — defh axis was missing from the preview (run was correct; getSweepGrid covered it)
   counter.textContent = evals.toLocaleString() + ' evals';
   counter.style.display = 'block';
 }
