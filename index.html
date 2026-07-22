@@ -155,7 +155,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.1.15</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.2.0</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -480,6 +480,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.2.0 · scan_snapshot persistence (PERSISTENCE ONLY, sim untouched) — every scan now writes one append-only row to Supabase scan_snapshot regardless of outcome (HOLD scans included; DDL run by Ron S34): market frame (SPY/VIX/latest 3m CMT), position state at scan time (strike/expiry/DTE/Δsim/intrinsic-stripped TV decay via roll_params entrySpy/cover mid/fired-trigger string), menu stats (qualifying count, debit skips, quotes, expiries, best candidate identity+net+DTE+adj yield, expiry-edge flag), and the full v6.1.12 shadow block as JSONB (top-10 per H) plus the P1 identity verdict — the shadow was previously computed and thrown away. Purposes: (1) menu-breadth-vs-trigger-state hypothesis (S34: decay scans wide, delta scans narrow) becomes one SQL query as rows accrue; (2) every H column becomes a ranker-tournament entrant with a permanent record; (3) forward evidence for the S35 menu-trigger design session. Write is fire-and-forget: failures log ⚠ and never block the scan. Doctrine clarified: "scans never write" (S33) governs audit_snapshot (ticket-only, unchanged); scan_snapshot is observational and append-only by RLS (no UPDATE/DELETE policies exist). app_md5 written null — the self-hash decision remains open (chicken-and-egg: embedding the hash changes the hash). Cert: scan log identical except banner + one new ✓ scan_snapshot line; row visible in Supabase with sane values; P1 in row matches log.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.15 · Button font fix, root-caused (DISPLAY ONLY, sim untouched) — v6.1.13's 22px and v6.1.14's 28px both "failed" for the same reason, diagnosed from Ron's screenshot pair: the size rendered correctly in the pre-state "Loading…" then shrank — v6.1.9's typography reset (btn.style.fontSize='') runs on every setRunButtonState and erases the inline style attribute where the size lived, falling back to the small .btn class size. Fix: font-size:28px moved to a #run-btn stylesheet rule, which inline-style resets cannot touch; the v6.1.9 reset keeps doing its job (clearing state-leaked inline overrides) and now falls back to 28px instead of the class default. Cert: visual — Scan/Optimize label holds size after state transitions; scan log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.14 · Display batch (DISPLAY ONLY, sim untouched) — (1) Scan/Run button 22px→28px: the v6.1.13 guess undershot iPad Safari's font boost (~2×; the 14px param numbers render ~28px, buttons are never boosted). (2) Tenor dropdown reordered ascending (1m, 3m, 1y, 2y, 5y, 10y, 30y); default selection remains 3m via selected attribute. (3) Metadata fix: the DM metadata builder never parsed otm_targets from the metadata table, so the Last Updated card has read "OTM: —" since the card was added — now parsed (JSON string → array) and displayed. Cert: visual (button size, dropdown order, OTM list populated); scan log identical.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.1.13 · Treasuries in the DM tab + r-gap strip + Scan button typography (DISPLAY ONLY, sim untouched) — (1) DM load fetches yield_daily (7 CMT tenors, collector v2.3.4 Phase 1.6) into DM.yields; new Treasuries card on the Data Mart tab alongside SPY/VIX/Options opens a date×yield table with a tenor dropdown filter (1m/3m/1y/2y/5y/10y/30y, default 3m — the sim's r-frame reference), latest first, day-over-day change column. (2) The fixed-params strip gains the r-frame gap: "r 4.5% vs 3m X.XX%" from the latest DM yield row — the S33 tripwire (sustained ~1pp ⇒ calibrated re-sweep, never a constant swap) is now visible on every load instead of remembered. (3) Scan/Run button label 15px→22px to match the param-card numbers as rendered on iPad (Safari font-boosts div text but never form controls — the source sizes were 14/15px yet rendered unequal). Companion: collector v2.3.5 adds the YLD line to the nightly push. Cert: STD byte-identical except banner; scan log identical incl. shadow block.</span>
@@ -2617,7 +2618,7 @@ async function runSimulation() {
   setProgress(0);
   await yield_();
   setProgress(5);
-  logMsg('v6.1.15 · SPY Covered Call Backtest' + (_debugMode ? ' · DEBUG' : ''));
+  logMsg('v6.2.0 · SPY Covered Call Backtest' + (_debugMode ? ' · DEBUG' : ''));
   logMsg('Building lookups...');
   await yield_();
 
@@ -4911,6 +4912,7 @@ async function runRollScan() {
   // We need all fetched results before filtering — build from raw results array
   // and the scored (filtered) set so we can identify which were dropped and why.
   const scoredKeys = new Set(scored.map(r => r.exp + '_' + r.strike));
+  let _scanDebitSkips = 0; // v6.2.0 — menu stat for scan_snapshot
 
   // Per-expiry sorted strike list for edge tagging
   const allResultsByKey = {};
@@ -4960,6 +4962,7 @@ async function runRollScan() {
         skipReason = 'Δsim ' + _dSim.toFixed(3) + ' ≥ ' + deltaThres.toFixed(3) + ' (mkt ' + delta.toFixed(3) + ') — sim-frame filter, v5.14.2';
       } else if (netCredit <= 0) {
         skipReason = 'net debit $' + netCredit.toFixed(2);
+        _scanDebitSkips++; // v6.2.0
       } else {
         skipReason = 'score=0';
       }
@@ -5085,7 +5088,9 @@ async function runRollScan() {
   // capture = 1−√(1−min(H,DTE)/DTE). H=∞ ⇒ capture=1, horizon=DTE ≡ live
   // formula (identity benchmark, P1). h-as-RATIO was killed at the algebra
   // gate: capture(h) candidate-independent ⇒ rank-invariant at every h.
+  let _shadowTopk = null, _shadowP1 = null; // v6.2.0 — captured for scan_snapshot
   if (scored.length > 0) {
+    _shadowTopk = {};
     const H_SET = [Infinity, 30, 14, 7, 6, 3];
     const hLabel = H => H === Infinity ? 'H=∞ (identity)' : 'H=' + H + 'd';
     logMsg('── Shadow: hold-horizon re-scoring (v6.1.12, log-only) ──────────────────', '');
@@ -5101,7 +5106,10 @@ async function runRollScan() {
       }).sort((a, b) => b.score - a.score);
       if (H === Infinity) {
         p1ok = ranked.every((r, i) => r.key === liveOrder[i]);
+        _shadowP1 = p1ok; // v6.2.0
       }
+      _shadowTopk[H === Infinity ? 'inf' : String(H)] =
+        ranked.slice(0, 10).map(r => ({ exp: r.exp, strike: r.strike, dte: r.dte, score: +r.score.toFixed(2) })); // v6.2.0
       const rows = ranked.slice(0, 10).map((r, i) => {
         const li = liveOrder.indexOf(r.key);
         const dv = li < 0 ? '?' : li === i ? '—' : (li > i ? '↑' + (li - i) : '↓' + (i - li));
@@ -5113,6 +5121,57 @@ async function runRollScan() {
     logMsg(p1ok ? '  ✓ P1 identity: H=∞ ranking matches live ranking exactly'
                 : '  ✗ P1 IDENTITY FAILURE: H=∞ ranking diverges from live — shadow defect, do not trust block', p1ok ? 'ok' : 'err');
   }
+
+  // ── v6.2.0 · scan_snapshot write (PERSISTENCE ONLY — fire-and-forget) ──
+  // Every scan writes one append-only row: menu-breadth hypothesis + ranker
+  // tournament substrate. audit_snapshot remains ticket-only (S33 doctrine).
+  (async () => {
+    try {
+      const K = STD.shortStrike ? parseFloat(STD.shortStrike) : null;
+      const dteNow = STD.shortExpiry
+        ? Math.round((new Date(STD.shortExpiry + 'T12:00:00Z') - new Date()) / 86400000) : null;
+      const posDelta = (K && dteNow != null && dteNow > 0)
+        ? +callDelta(spyNow, K, dteNow, scanVix, 4.5).toFixed(3) : null;
+      // Intrinsic-stripped TV decay (agent formula; entrySpy from roll_params, v6.1.11)
+      let tvDecay = null;
+      const _es = STD.entrySpy ? parseFloat(STD.entrySpy) : null;
+      const _sp = STD.sellPrice ? parseFloat(STD.sellPrice) : null;
+      if (K && _es && _sp && currentCallMid > 0) {
+        const entryTV = Math.max(0, _sp - Math.max(0, _es - K));
+        const curTV   = Math.max(0, currentCallMid - Math.max(0, spyNow - K));
+        if (entryTV > 0) tvDecay = +(((entryTV - curTV) / entryTV) * 100).toFixed(2);
+      }
+      const row = {
+        id: 'scan_' + Date.now(),
+        app_version: 'v6.2.0', app_md5: null,
+        spy: +spyNow.toFixed(2), vix: scanVix != null ? +scanVix.toFixed(2) : null,
+        y3m: (DM && DM.yields && DM.yields.length && DM.yields[DM.yields.length-1].y3m != null)
+             ? DM.yields[DM.yields.length-1].y3m : null,
+        pos_strike: K, pos_expiry: STD.shortExpiry || null, pos_dte: dteNow,
+        pos_delta_sim: posDelta, pos_tv_decay: tvDecay,
+        cover_mid: currentCallMid > 0 ? +currentCallMid.toFixed(2) : null,
+        signal: (_scanTriggerInfo.allTypes && _scanTriggerInfo.allTypes.length)
+                ? _scanTriggerInfo.allTypes.join('+') : 'HOLD',
+        n_qualifying: scored.length, n_debit_skips: _scanDebitSkips,
+        n_quotes: results.length, n_expiries: expList.length,
+        best_exp: best ? best.exp : null, best_strike: best ? best.strike : null,
+        best_net: best ? +best.netCredit.toFixed(2) : null,
+        best_dte: best ? best.dte : null,
+        best_adj_yield: best ? +best.rollAdjYield.toFixed(2) : null,
+        at_expiry_edge: best ? (best.exp === expList[expList.length - 1]) : null,
+        shadow_topk: _shadowTopk, p1_identity: _shadowP1,
+      };
+      const res = await fetch(SB_URL + '/scan_snapshot', {
+        method: 'POST',
+        headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
+        body: JSON.stringify(row),
+      });
+      if (res.ok) logMsg('  ✓ scan_snapshot written — ' + row.id + ' (' + row.signal + ' · menu ' + row.n_qualifying + ')', 'ok');
+      else logMsg('  ⚠ scan_snapshot write failed: HTTP ' + res.status + ' (scan unaffected)', 'err');
+    } catch (e) {
+      logMsg('  ⚠ scan_snapshot write failed: ' + e.message + ' (scan unaffected)', 'err');
+    }
+  })();
 
 
   if (mainBtn && mainCard) {
