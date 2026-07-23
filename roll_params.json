@@ -5,7 +5,7 @@
   "otmTarget": 0.03,
   "vixGate": 0,
   "dtePenaltyAnchor": 54,
-  "lastOptimized": "2026-07-21",
+  "lastOptimized": "2026-07-23",
   "contracts": 6,
   "shortStrike": 745,
   "shortExpiry": "2026-12-18",
@@ -16,5 +16,7 @@
   "entrySpy": 742.09,
   "defHorizon": 0,
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.",
-  "optProjYield": 3.3
+  "optProjYield": 5,
+  "entryDeltaCap": null,
+  "entryDteMin": null
 }
