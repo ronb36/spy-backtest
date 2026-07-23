@@ -14,7 +14,7 @@
   "coverPrice": 16.68,
   "sellPrice": 37.18,
   "entrySpy": 742.09,
-  "defHorizon": 0,
+  "defHorizon": 24,
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.",
   "optProjYield": 3.3
 }
