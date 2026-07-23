@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.4.5</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.4.6</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -320,7 +320,6 @@ select.display-box { cursor:pointer; outline:none; }
     <div class="tab-bar">
       <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Sim Trades</button>
       <button class="tab-btn" id="tab-btn-chart" onclick="showTab('chart')">📈 Chart</button>
-      <button class="tab-btn" id="tab-btn-graph" onclick="showTab('graph')">⛰ Graph</button>
       <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Opt Results</button>
       <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
       <button class="tab-btn" id="tab-btn-runlog" onclick="showTab('runlog')">📄 Logs</button>
@@ -379,43 +378,18 @@ select.display-box { cursor:pointer; outline:none; }
     </div>
 
     <!-- Heatmap tab -->
-    <!-- v6.4.3 — Graph tab: single-axis terrain survey -->
-    <div id="tab-graph" style="display:none">
-      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);opacity:.75;margin:6px 2px 10px;">
-        ⚠ Single-axis slices pinned at published params — parity diagnostics, not optimization evidence. Curves show where support is real (multi-cell) vs. argmax bait (single-cell spikes, edge maxima).
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;font-family:var(--mono);font-size:11px;">
-        <select id="graph-axis" onchange="graphAxisChanged()" style="font-family:var(--mono);font-size:11px;padding:4px 6px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:3px;">
-          <option value="defh">Exit Defense Horizon</option>
-          <option value="delta">Exit Delta</option>
-          <option value="entrycap">Entry Delta Cap</option>
-          <option value="decay">Exit Decay</option>
-          <option value="lookahead">DTE Penalty Anchor</option>
-          <option value="vixgate">VIX Gate</option>
-        </select>
-        <span style="color:var(--muted);">min</span><input id="graph-min" type="number" style="width:62px;font-family:var(--mono);font-size:11px;padding:3px 4px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:3px;">
-        <span style="color:var(--muted);">max</span><input id="graph-max" type="number" style="width:62px;font-family:var(--mono);font-size:11px;padding:3px 4px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:3px;">
-        <span style="color:var(--muted);">step</span><input id="graph-step" type="number" style="width:62px;font-family:var(--mono);font-size:11px;padding:3px 4px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:3px;">
-        <button id="graph-run-btn" onclick="runGraphSweep()" style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:5px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;">▶ Run</button>
-        <span id="graph-status" style="color:var(--muted);"></span>
-      </div>
-      <div id="graph-svg-wrap" style="border:1px solid var(--border);border-radius:4px;background:var(--surface2);padding:4px;">
-        <svg id="graph-svg" viewBox="0 0 860 430" style="width:100%;height:auto;display:block;"></svg>
-      </div>
-      <div id="graph-summary" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6;"></div>
-    </div>
-
     <div id="tab-heatmap" style="display:none"><!-- v6.4.4 — reopened: v6.4.3 graph-panel insertion consumed this tag, leaking heatmap content under every tab -->
       <div id="pub-banner" onclick="reselectPublishedRow()" style="display:none;border:1px solid #2a9d5c;border-radius:6px;padding:8px 12px;margin-bottom:10px;background:rgba(42,157,92,0.08);font-family:var(--mono);font-size:10px;color:var(--text);cursor:pointer;"></div>
       <div id="publish-confirm-card" style="display:none;border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;background:var(--surface);"></div>
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span>
-          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><!-- v6.1.0: inline opt Ask Claude button retired; chat section above tabs --><button id="robust-grid-btn" onclick="toggleRobustGrid()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button>
+          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><!-- v6.1.0: inline opt Ask Claude button retired; chat section above tabs --><button id="robust-grid-btn" onclick="toggleShapeView()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button>
         </div>
         <div id="grid-read-wrap" style="display:none;margin-bottom:10px;"></div>
         <div id="ac-panel-opt" style="display:none;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;background:var(--surface);"></div>
         <div id="robust-grid-wrap" style="display:none;overflow:auto;margin-bottom:10px;"></div>
+        <div id="opt-graph-wrap" style="display:none;margin-bottom:10px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);padding:4px;"><svg id="opt-graph-svg" viewBox="0 0 860 430" style="width:100%;height:auto;display:block;"></svg><div id="opt-graph-summary" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:6px 4px;line-height:1.6;"></div></div><!-- v6.4.6 — embedded 1-axis graph -->
         <div id="heatmap-container"></div>
       </div>
     </div>
@@ -542,7 +516,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
-    <br><span style="color:var(--muted);opacity:.6;">v6.4.5 · Graph tab round 2 (DISPLAY ONLY, sim untouched) — (1) incumbent reference: every graph run adds one eval at exactly the published config and draws its core yield as a horizontal dashed line (doubles as a per-run STD parity tripwire — logged as "incumbent reference"); (2) Ask Claude wired to the tab as a first-class context: sweep cells, flags, incumbent yield, and the argmax/parity doctrine ship in the prompt; interpretation (zone naming, support quality) is Claude's job, never auto-labeled by the tool. Append/merge mode considered and rejected (single fine run is as easy). Cert: visual (incumbent line + label; Ask Claude on Graph tab answers from sweep data) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.4 · Defect fix (DISPLAY ONLY, sim untouched) — v6.4.3 graph-panel insertion consumed the tab-heatmap opening div, leaking Opt Results content (pub banner, heatmap panel) below every tab and orphaning showTab('heatmap'). Tag restored; builder miss logged. Cert: heatmap strip gone from non-heatmap tabs; Opt Results tab renders normally after an OPT run; STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.3 · Graph tab (DISPLAY ONLY, sim untouched) — single-axis terrain survey: param dropdown (6 axes), range/step prefilled from house sweep ranges, runs live 1D sweep via simulate() with all else pinned at published, plots core-yield curve with survey conventions (published marker, single-cell flags ≥0.3pp, 🔴 edge-max warning, null cells hatched); per-cell results also written to run log. Parity-diagnostic caveat printed on tab; 60-eval cap. Cert: STD log identical to S36 baseline + tab defH curve reproduces S36 refresh cell-for-cell.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.2 · Card naming (DISPLAY ONLY, sim untouched) — trigger cards renamed to the exit taxonomy per S35 split: Decay→Exit Decay, Delta→Exit Delta, Defense Horizon→Exit Defense Horizon (all tagged "trigger"; the days unit left the label — the value carries "d"); Entry Δ Cap→Entry Delta Cap. Sweep-range labels follow. Cert: visual.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.4.6 · Graph embedded in Opt Results (DISPLAY ONLY, sim untouched) — standalone Graph tab removed after 3 versions (superseded; one code path). Adaptive shape slot on the Opt Results header: 1 swept axis → ⛰ Open Graph, 2 axes → ⊞ Open Grid, 3+ → greyed "table only" (no faithful 2D picture of a ≥3-D surface; the ranked table is the correct view). Graph renders directly from the OPT rows — zero re-simulation, graph≡OPT parity by construction — plus one published-ref eval drawing the incumbent line (per-run STD parity tripwire, logged). Terrain (cells, flags, doctrine, incumbent) folds into the opt Ask Claude context; 1-axis runs get a terrain-flavored auto-verdict (zones, support grade, point advice per doctrine, Falsified-if). Graph chat key removed. Cert: visual (slot states × 1/2-axis runs; embedded curve matches OPT log cells; verdict fires) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.5 · Graph tab round 2 (DISPLAY ONLY, sim untouched) — (1) incumbent reference: every graph run adds one eval at exactly the published config and draws its core yield as a horizontal dashed line (doubles as a per-run STD parity tripwire — logged as "incumbent reference"); (2) Ask Claude wired to the tab as a first-class context: sweep cells, flags, incumbent yield, and the argmax/parity doctrine ship in the prompt; interpretation (zone naming, support quality) is Claude's job, never auto-labeled by the tool. Append/merge mode considered and rejected (single fine run is as easy). Cert: visual (incumbent line + label; Ask Claude on Graph tab answers from sweep data) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.4 · Defect fix (DISPLAY ONLY, sim untouched) — v6.4.3 graph-panel insertion consumed the tab-heatmap opening div, leaking Opt Results content (pub banner, heatmap panel) below every tab and orphaning showTab('heatmap'). Tag restored; builder miss logged. Cert: heatmap strip gone from non-heatmap tabs; Opt Results tab renders normally after an OPT run; STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.3 · Graph tab (DISPLAY ONLY, sim untouched) — single-axis terrain survey: param dropdown (6 axes), range/step prefilled from house sweep ranges, runs live 1D sweep via simulate() with all else pinned at published, plots core-yield curve with survey conventions (published marker, single-cell flags ≥0.3pp, 🔴 edge-max warning, null cells hatched); per-cell results also written to run log. Parity-diagnostic caveat printed on tab; 60-eval cap. Cert: STD log identical to S36 baseline + tab defH curve reproduces S36 refresh cell-for-cell.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.2 · Card naming (DISPLAY ONLY, sim untouched) — trigger cards renamed to the exit taxonomy per S35 split: Decay→Exit Decay, Delta→Exit Delta, Defense Horizon→Exit Defense Horizon (all tagged "trigger"; the days unit left the label — the value carries "d"); Entry Δ Cap→Entry Delta Cap. Sweep-range labels follow. Cert: visual.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.4.1 · Entry-param UI + Entry Δ Cap sweep axis (DISPLAY + OPT MACHINERY, sim math unchanged from v6.4.0) — the split params are now visible: grid 3×2 (decay, trigger Δ, defense horizon / Entry Δ Cap, Entry DTE Min, run). Entry Δ Cap is a full sweep axis (card, range, OPT dimension, robust ranking, boundary strip, audit rowObj ecap, selection/winner re-run passthrough, publish); Entry DTE Min is display-only, JSON-set. Both cards show the coupled state honestly: "= Δ trigger" / "= DTE floor" when null. [null] grid cell when unswept resolves to the trigger twin in simulate() — identity preserved, baselines unchanged. Cert (covers v6.4.0+v6.4.1 as one chain): STD + OPT byte-identical at defaults; visual — 3×2 grid, coupled-state labels, eval count multiplies when Entry Δ Cap armed. P-S1 now runnable from UI: pin entryDeltaCap via JSON or sweep trigger Δ with cap armed at a single value.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.4.0 · Trigger/candidate parameter split (SIM CHANGE, ships at identity) — deltaThreshold and dteFloor each served two unrelated roles (position stop + candidate cap; DTE trigger + candidate min DTE), making entry and defense effects inseparable — the S35 2D recon's P-D4 confound made this concrete: every delta cell below 0.6 was dominated by the entry side. New candidate-set params entryDeltaCap and entryDteMin, resolved at point of use as null → follow the trigger twin (EMBEDDED IDENTITY: unset ≡ today's coupled behavior everywhere, including OPT sweeps of deltaThreshold — baselines unchanged at defaults). Consumers moved to the entry side: all three findNextContract call sites (initial, VIX-recovery re-entry, roll) and the LIVE SCAN's candidate machinery (expiry gate, Δsim cap, skip messages, table threshold) — sim and scan split in the same release so the production candidate engine cannot diverge. Trigger set unchanged: deltaThreshold (Δ_exit), defHorizon, decayTrigger, dteFloor. Decay stays trigger-only (candidates have no decay history). roll_params gains entryDeltaCap/entryDteMin (null) on next publish. Entry-param sweep axes deferred to v6.4.1 (card-layout design). Pre-registered P-S1: sweeping deltaThreshold with entryDeltaCap PINNED at 0.73 re-runs the delta axis without the entry confound — first honest test of whether the S29/S35 delta chaos was the coupling. Cert: STD + OPT byte-identical at defaults vs v6.3.3 chain.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.3.3 · Display patch (DISPLAY ONLY, sim untouched) — S35 cosmetics close-out: (1) robust-ranking rows + robust-winner line append defH when >0 (_rankParamStr; instance #7 of the missed-reader class); (2) Defense Horizon card adopts the selected/winner value after a run — updateCardsFromSel never learned defh, the card stayed "OPTIMIZE" while sibling cards showed "selected ✓" (instance #8); (3) Copy Log button retired per user (download-only), copyDebugLog (59 lines incl. iPad clipboard fallback modal) removed as dead machinery; (4) true both-axis button centering — the label is now a flex box filling the card with the eval counter absolutely pinned bottom-center (v6.3.2's card-level rules centered the stack, not the label). Cert: visual (centered label, defh card adopts value on selection tap, no Copy button) + re-render of a defh sweep shows defH in R# rows.</span>
@@ -708,7 +682,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.4.5'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.4.6'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1431,7 +1405,7 @@ function updateParamDisplay() {
 
 // ── Tab management ─────────────────────────────────────────────────────────
 function showTab(tab) {
-  ['log','chart','graph','heatmap','gaps','runlog','scan','mart','live'].forEach(t => { // v6.4.3 — graph tab
+  ['log','chart','heatmap','gaps','runlog','scan','mart','live'].forEach(t => { // v6.4.6 — standalone graph tab removed (graph embedded in Opt Results)
     const el = $('tab-' + t);
     const btn = $('tab-btn-' + t);
     if (el)  el.style.display  = t === tab ? 'block' : 'none';
@@ -1439,7 +1413,6 @@ function showTab(tab) {
   });
   if (_chatOpen) setChatContext(tab); // v6.1.0 — chat context follows the tab
   if (tab === 'mart') renderMartCards();
-  if (tab === 'graph' && !$('graph-min').value) graphAxisChanged(); // v6.4.3 — prefill house range on first open
   if (tab === 'chart') setChartView('price');
   if (tab === 'live') loadLiveBlotter();
   if (tab === 'runlog') {
@@ -1456,90 +1429,47 @@ function showTab(tab) {
 // single-cell flags (strict local max, both neighbors ≥0.3pp lower),
 // 🔴 edge-max warning, null cells hatched. Per-cell results also written
 // to the run log (results belong in the log artifact, not just the UI).
-let _graphLast = null; // v6.4.5 — last graph run (feeds Ask Claude context)
+let _graphLast = null; // v6.4.5/v6.4.6 — last 1-axis OPT terrain (feeds embedded graph + Ask Claude opt context)
+let _shapeMode = null; // v6.4.6 — adaptive slot: 'graph' (1 axis) | 'grid' (2 axes) | null (3+/none)
+function toggleShapeView() { // v6.4.6 — one slot, run decides the shape
+  if (_shapeMode === 'grid') return toggleRobustGrid();
+  if (_shapeMode === 'graph') return toggleOptGraph();
+}
+function toggleOptGraph() {
+  const w = $('opt-graph-wrap'), btn = $('robust-grid-btn');
+  if (!w || !_graphLast) return;
+  if (w.style.display === 'none') {
+    w.style.display = 'block';
+    renderGraphSvg(_graphLast.rows, _graphLast.cfg, _graphLast.pubYld);
+    const s = $('opt-graph-summary'); if (s) s.innerHTML = _optGraphSummaryHtml(_graphLast);
+    if (btn) btn.textContent = '\u26f0 Close Graph';
+  } else {
+    w.style.display = 'none';
+    if (btn) btn.textContent = '\u26f0 Open Graph';
+  }
+}
+function _optGraphSummaryHtml(g) {
+  const yls = g.rows.map(r => r.yld).filter(y => y != null);
+  const bestY = Math.max(...yls);
+  const singles = g.rows.filter(r => r.single).map(r => g.cfg.fmt(r.v));
+  const edges   = g.rows.filter(r => r.edgeMax).map(r => g.cfg.fmt(r.v));
+  return 'best cell: <b style="color:var(--text)">' + g.cfg.fmt(g.rows.find(r=>r.yld===bestY)?.v) + ' \u00b7 ' + bestY.toFixed(1) + '%</b>'
+    + ' \u00b7 published: ' + g.cfg.pubStr(g.cfg.pub()) + (g.pubYld != null ? ' \u2192 ' + g.pubYld.toFixed(1) + '%' : '')
+    + (singles.length ? ' \u00b7 \u26a0 single-cell spike at ' + singles.join(', ') + ' \u2014 argmax discipline applies' : '')
+    + (edges.length ? ' \u00b7 \ud83d\udd34 max on boundary (' + edges.join(', ') + ')' : '')
+    + ' \u00b7 rendered from the OPT rows (no re-sim)';
+}
 const _graphAxes = { // axis → simulate() param key + display config
   defh:      { key:'defHorizon',       label:'Exit Defense Horizon', fmt:v=>v+'d',            pub:()=>STD.defHorizon,       pubStr:v=> v>0 ? v+'d' : 'off (0)' },
   delta:     { key:'deltaThreshold',   label:'Exit Delta',           fmt:v=>String(+v.toFixed(3)), pub:()=>STD.deltaThreshold, pubStr:v=>String(v) },
   entrycap:  { key:'entryDeltaCap',    label:'Entry Delta Cap',      fmt:v=>String(+v.toFixed(3)), pub:()=>(STD.entryDeltaCap ?? STD.deltaThreshold), pubStr:v=> STD.entryDeltaCap==null ? v+' (coupled)' : String(v) },
   decay:     { key:'decayTrigger',     label:'Exit Decay',           fmt:v=>v+'%',            pub:()=>STD.decayTrigger,     pubStr:v=>v+'%' },
+  floor:     { key:'dteFloor',          label:'DTE Floor',            fmt:v=>v+'d',            pub:()=>STD.dteFloor,         pubStr:v=>v+'d' }, // v6.4.6 — OPT axis-name parity
   lookahead: { key:'dtePenaltyAnchor', label:'DTE Penalty Anchor',   fmt:v=>v+'d',            pub:()=>STD.dtePenaltyAnchor, pubStr:v=>v+'d' },
   vixgate:   { key:'vixGate',          label:'VIX Gate',             fmt:v=>'VIX≥'+v,         pub:()=>STD.vixGate,          pubStr:v=> v>0 ? 'VIX≥'+v : 'off (0)' },
 };
-function graphAxisChanged() {
-  const axis = $('graph-axis').value;
-  const c = _sweepConfig[axis];
-  if (c) { $('graph-min').value = c.min; $('graph-max').value = c.max; $('graph-step').value = c.step; }
-  $('graph-status').textContent = '';
-}
-async function runGraphSweep() {
-  const axis = $('graph-axis').value;
-  const cfg  = _graphAxes[axis];
-  const min = parseFloat($('graph-min').value), max = parseFloat($('graph-max').value), step = parseFloat($('graph-step').value);
-  const status = $('graph-status');
-  if (!(DM && DM.spy && DM.spy.length)) { status.textContent = '⚠ load data first'; return; }
-  if (!(step > 0) || !(max >= min))     { status.textContent = '⚠ bad range';       return; }
-  const vals = buildRange(min, max, step);
-  if (vals.length > 60) { status.textContent = '⚠ ' + vals.length + ' evals — cap is 60, widen the step'; return; }
-  const btn = $('graph-run-btn'); btn.disabled = true;
-  _mode = 'optimize'; // quiet per-candidate logging, same as OPT
-  logMsg('Graph sweep — ' + cfg.label + ': ' + vals.length + ' evals (' + cfg.fmt(min) + '→' + cfg.fmt(max) + ' step ' + step + '), all else at published...');
-  const rows = [];
-  try {
-    for (let i = 0; i < vals.length; i++) {
-      const v = vals[i];
-      status.textContent = 'eval ' + (i+1) + '/' + vals.length + ' · ' + cfg.fmt(v);
-      _gaps = [];
-      let r = null;
-      try { r = await simulate({ ...STD, shares: STD.shares || 600, [cfg.key]: v }); }
-      catch(e) { logMsg('✗ Graph eval ' + cfg.fmt(v) + ': ' + e.message, 'err'); }
-      let yld = null;
-      if (r?.rolls?.length >= 2 && r.coreYld != null) yld = r.coreYld;
-      const stopN = (r?.cycles || []).filter(c => c.reason && c.reason.startsWith('delta ')).length;
-      const pureN = (r?.cycles || []).filter(c => c.reason && c.reason.startsWith('delta ') && !c.reason.includes('\u00b7')).length;
-      rows.push({ v, yld, stopN, pureN, rolls: r?.rolls?.length ?? 0 });
-      setProgress(Math.round(((i+1)/vals.length)*100));
-      await yield_();
-    }
-  } finally { btn.disabled = false; setProgress(0); }
-  // v6.4.5 — one extra eval at exactly the published config: draws the
-  // incumbent reference line AND doubles as a per-run STD parity tripwire
-  // (if this ever diverges from the certified baseline yield, something drifted).
-  let pubYld = null;
-  try {
-    status.textContent = 'published ref eval...';
-    _gaps = [];
-    const rp = await simulate({ ...STD, shares: STD.shares || 600 });
-    if (rp?.rolls?.length >= 2 && rp.coreYld != null) pubYld = rp.coreYld;
-  } catch(e) { logMsg('\u2717 published ref eval: ' + e.message, 'err'); }
-  logMsg('  published (' + cfg.pubStr(cfg.pub()) + ') \u00b7 ' + (pubYld == null ? 'core \u2014' : 'core ' + pubYld.toFixed(1) + '%') + '  \u2190 incumbent reference');
-  status.textContent = '';
-  // Survey analysis: flags computed once, used by log + svg + summary
-  const yls = rows.map(r => r.yld);
-  const bestY = Math.max(...yls.filter(y => y != null));
-  rows.forEach((r, i) => {
-    const L = i > 0 ? yls[i-1] : null, Rn = i < yls.length-1 ? yls[i+1] : null;
-    r.single = r.yld != null && L != null && Rn != null && (r.yld - L >= 0.3) && (r.yld - Rn >= 0.3);
-    r.edgeMax = r.yld != null && r.yld === bestY && (i === 0 || i === yls.length-1);
-  });
-  rows.forEach(r => {
-    logMsg('  ' + cfg.label + '=' + cfg.fmt(r.v) + ' · ' + (r.yld == null ? 'core —' : 'core ' + r.yld.toFixed(1) + '%')
-      + ' · ' + r.rolls + ' rolls · \u0394stop ' + r.stopN + '(' + r.pureN + ')'
-      + (r.single ? '  ⚠single-cell' : '') + (r.edgeMax ? '  🔴edge-max' : ''));
-  });
-  renderGraphSvg(rows, cfg, pubYld);
-  _graphLast = { axis, cfg, rows, pubYld, min, max, step }; // v6.4.5 — feeds Ask Claude context
-  _acCtx.graph = null; // invalidate: next chat open on this tab rebuilds from this run
-  const singles = rows.filter(r => r.single).map(r => cfg.fmt(r.v));
-  const edges   = rows.filter(r => r.edgeMax).map(r => cfg.fmt(r.v));
-  $('graph-summary').innerHTML =
-    'best cell: <b style="color:var(--text)">' + cfg.fmt(rows.find(r=>r.yld===bestY)?.v) + ' · ' + bestY.toFixed(1) + '%</b>'
-    + ' · published: ' + cfg.pubStr(cfg.pub()) + (pubYld != null ? ' → ' + pubYld.toFixed(1) + '%' : '')
-    + (singles.length ? ' · ⚠ single-cell spike at ' + singles.join(', ') + ' — argmax discipline applies' : '')
-    + (edges.length ? ' · 🔴 max on boundary (' + edges.join(', ') + ') — true optimum may lie outside range' : '')
-    + ' · ' + rows.length + ' evals in log';
-}
 function renderGraphSvg(rows, cfg, pubYld) {
-  const svg = $('graph-svg'); while (svg.firstChild) svg.removeChild(svg.firstChild);
+  const svg = $('opt-graph-svg'); while (svg.firstChild) svg.removeChild(svg.firstChild); // v6.4.6 — embedded target
   const NS = 'http://www.w3.org/2000/svg';
   const gc = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888';
   const TXT = gc('--text'), MUT = gc('--muted'), BRD = gc('--border');
@@ -1631,9 +1561,9 @@ const AC_SYSTEM = "You are the analysis assistant embedded in Ron's SPY covered-
 
 const AC_DM_TOOL = "\n\nTOOL AVAILABLE \u2014 dm_lookup: to fetch an option's end-of-day bar from the in-browser data mart, reply with ONLY this JSON and nothing else: {\"dm_lookup\": {\"strike\": 760, \"expiry\": \"2026-10-16\", \"date\": \"2026-07-02\"}}. The app will execute it and send you the result; then answer the user. Use it whenever asked about specific contract marks, existence, or coverage. One lookup per reply.";
 
-let _acHist = { opt: [], mart: [], scan: [], gen: [], graph: [] }; // v6.1.0 + scan/gen; v6.4.5 + graph
-let _acCtx  = { opt: null, mart: null, scan: null, gen: null, graph: null }; // v6.4.5 + graph
-let _acBusy = { opt: false, mart: false, scan: false, gen: false, graph: false }; // v6.4.5 + graph
+let _acHist = { opt: [], mart: [], scan: [], gen: [] }; // v6.1.0 + scan/gen; v6.4.6 graph key removed (terrain folded into opt)
+let _acCtx  = { opt: null, mart: null, scan: null, gen: null };
+let _acBusy = { opt: false, mart: false, scan: false, gen: false };
 
 function _stripTags(h) { const d = document.createElement('div'); d.innerHTML = h; return d.textContent || ''; }
 
@@ -1738,6 +1668,14 @@ async function buildOptContext() {
   if (_optSelIdx !== null && _optDisplayRows && _optDisplayRows[_optSelIdx]) L.push('Currently selected row: ' + fmtRow(_optDisplayRows[_optSelIdx]));
   const gr = $('grid-read-wrap');
   if (gr && gr.innerHTML) L.push('GRID READ (computed): ' + _stripTags(gr.innerHTML).replace(/\s+/g, ' ').trim());
+  if (_graphLast) { // v6.4.6 — single-axis terrain (embedded graph data)
+    const g = _graphLast;
+    L.push('TERRAIN \u2014 single-axis sweep of ' + g.cfg.label + ' (' + g.cfg.fmt(g.min) + '\u2192' + g.cfg.fmt(g.max) + ' step ' + g.step + '), all else pinned at published:');
+    L.push('Doctrine (apply strictly): 1D slices are parity diagnostics, not optimization evidence. Single-cell spikes have no forward predictive value (S29); multi-cell shelves with near-identical neighboring paths are real support; boundary maxima mean the true optimum may lie outside the range. Name terrain features (basin/cliff/ridge/dip/plateau) from the numbers and ground any point advice in this doctrine \u2014 or say plainly that nothing is publishable from a 1D slice.');
+    L.push('Incumbent (published ' + g.cfg.pubStr(g.cfg.pub()) + '): core ' + (g.pubYld != null ? g.pubYld.toFixed(1) + '%' : 'n/a') + ' \u2014 read every cell relative to this.');
+    L.push('CELLS (value \u00b7 core \u00b7 rolls \u00b7 \u0394stop total(pure) \u00b7 flags):');
+    g.rows.forEach(r => L.push('  ' + g.cfg.fmt(r.v) + ' \u00b7 ' + (r.yld == null ? '\u2014' : r.yld.toFixed(1) + '%') + ' \u00b7 ' + r.rolls + ' \u00b7 ' + r.stopN + '(' + r.pureN + ')' + (r.single ? ' \u00b7 SINGLE-CELL' : '') + (r.edgeMax ? ' \u00b7 EDGE-MAX' : '')));
+  }
   try {
     const res = await fetch('https://ronb36.github.io/spy-backtest/roll_params.json?_=' + Date.now(), { cache: 'no-store' });
     if (res.ok) L.push('PUBLISHED roll_params.json: ' + JSON.stringify(await res.json()));
@@ -1798,7 +1736,6 @@ async function sendAsk(key) {
 // ── v6.1.0 chat section — tab-aware context, per-key histories ──
 function _tabToKey(tab) {
   if (tab === 'heatmap') return 'opt';
-  if (tab === 'graph') return 'graph'; // v6.4.5
   if (tab === 'scan') return 'scan';
   if (tab === 'mart') return 'mart';
   return 'gen';
@@ -1807,7 +1744,6 @@ const _chatSugg = {
   opt:  ['Is the robust winner publishable?', 'Compare R#1 vs raw #1', 'Any boundary or eligibility concerns?'],
   scan: ['Sanity-check the best candidate', 'Compare the top expiries', 'How do the deltas sit vs the stop?'],
   mart: ['Coverage around the current position?', 'Any recent bar gaps?'],
-  graph: ['Name the zones on this curve', 'Where is support real vs single-cell?', 'Is anything here publishable, honestly?'], // v6.4.5
   gen:  ['Summarize the current position', 'What are the published params?']
 };
 function _chatShellHtml() {
@@ -1850,14 +1786,13 @@ function chatSaveKey() {
 }
 async function setChatContext(tab) {
   _chatKey = _tabToKey(tab);
-  const names = { opt: 'this optimization run', scan: 'scan candidates + position', mart: 'data mart', gen: 'position + published params', graph: 'this graph sweep' }; // v6.4.5
+  const names = { opt: 'this optimization run', scan: 'scan candidates + position', mart: 'data mart', gen: 'position + published params' };
   const lbl = $('chat-ctx-label');
   if (lbl) lbl.textContent = 'Ask Claude \u00b7 context: ' + names[_chatKey];
   if (_acCtx[_chatKey] === null) {
     if (_chatKey === 'opt') _acCtx.opt = await buildOptContext();
     else if (_chatKey === 'mart') _acCtx.mart = buildDmContext();
     else if (_chatKey === 'scan') _acCtx.scan = buildScanContext();
-    else if (_chatKey === 'graph') _acCtx.graph = buildGraphContext(); // v6.4.5
     else _acCtx.gen = buildGenContext();
   }
   renderChatSugg();
@@ -1896,7 +1831,8 @@ async function chatVerdict(key) {
   try {
     const qOpt = 'In at most two sentences: your recommendation for this sweep \u2014 publish or hold what, plus the decisive number \u2014 ending with an explicit \u0022Falsified if:\u0022 clause. No preamble, no markdown.';
     const qScan = 'In at most two sentences: sanity-check the \u2605 best scan candidate against the current position and published params \u2014 net credit, both deltas vs the stop, DTE; flag anything off. No preamble, no markdown.';
-    const q = key === 'opt' ? qOpt : qScan;
+    const qOptTerrain = 'In at most three sentences: read this single-axis terrain \u2014 name the zones from the numbers, say where support is real (multi-cell) vs single-cell/edge, and advise which point (if any) the evidence favors under house doctrine including vs the incumbent line \u2014 ending with an explicit \u0022Falsified if:\u0022 clause. No preamble, no markdown.'; // v6.4.6
+    const q = key === 'opt' ? (_graphLast ? qOptTerrain : qOpt) : qScan;
     _acHist[key].push({ role: 'user', content: q, _tool: true });
     const reply = await callClaudeAPI(_acHist[key].map(m => ({ role: m.role, content: m.content })), AC_SYSTEM + '\n\n' + _acCtx[key]);
     _acHist[key].push({ role: 'assistant', content: reply, _tool: true });
@@ -1952,20 +1888,6 @@ function buildScanContext() {
     L.push(eco);
   }
   L.push('PUBLISHED PARAMS: decay ' + STD.decayTrigger + '% \u00b7 \u0394' + STD.deltaThreshold + ' \u00b7 floor ' + STD.dteFloor + 'd \u00b7 anchor ' + STD.dtePenaltyAnchor + 'd \u00b7 VIX gate ' + (STD.vixGate || 0) + ((STD.defHorizon || 0) > 0 ? ' \u00b7 defH ' + STD.defHorizon + 'd' : '') + (STD.entryDeltaCap != null ? ' \u00b7 entry\u0394cap ' + STD.entryDeltaCap : '') + (STD.entryDteMin != null ? ' \u00b7 entryDTE ' + STD.entryDteMin + 'd' : '')); // v6.3.0/v6.4.0 — only when non-null
-  return L.join('\n');
-}
-function buildGraphContext() { // v6.4.5 — Ask Claude context for the Graph tab
-  if (!_graphLast) return '=== GRAPH CONTEXT ===\nNo graph sweep has been run yet in this session.';
-  const g = _graphLast, L = [];
-  L.push('=== GRAPH SWEEP CONTEXT (v6.4.5) ===');
-  L.push('Single-axis terrain slice: ' + g.cfg.label + ' swept ' + g.cfg.fmt(g.min) + '\u2192' + g.cfg.fmt(g.max) + ' step ' + g.step + ', ALL other params pinned at published.');
-  L.push('DOCTRINE (apply strictly): this is a parity diagnostic, NOT optimization evidence. Single-axis slices cannot justify publishing a parameter. Argmax on isolated cells is invalid \u2014 a one-cell spike has no forward predictive value (S29 lesson). Multi-cell shelves with near-identical neighboring paths are real support; boundary maxima mean the true optimum may lie outside the tested range. When interpreting, name terrain features (basin/cliff/ridge/dip/plateau) from the numbers, distinguish measured support from spikes, and be honest about what cannot be concluded from a 1D slice.');
-  L.push('Incumbent (published ' + g.cfg.pubStr(g.cfg.pub()) + '): core ' + (g.pubYld != null ? g.pubYld.toFixed(1) + '%' : 'n/a') + ' \u2014 read every cell relative to this line.');
-  L.push('CELLS (value \u00b7 core yield \u00b7 rolls \u00b7 \u0394stops total(pure-fire) \u00b7 flags):');
-  g.rows.forEach(r => {
-    L.push('  ' + g.cfg.fmt(r.v) + ' \u00b7 ' + (r.yld == null ? 'core \u2014 (unrankable)' : 'core ' + r.yld.toFixed(1) + '%') + ' \u00b7 ' + r.rolls + ' rolls \u00b7 \u0394stop ' + r.stopN + '(' + r.pureN + ')' + (r.single ? ' \u00b7 SINGLE-CELL SPIKE' : '') + (r.edgeMax ? ' \u00b7 MAX-ON-BOUNDARY' : ''));
-  });
-  L.push('Published params: decay ' + STD.decayTrigger + '% \u00b7 \u0394' + STD.deltaThreshold + ' \u00b7 floor ' + STD.dteFloor + 'd \u00b7 anchor ' + STD.dtePenaltyAnchor + 'd \u00b7 defH ' + (STD.defHorizon || 0) + ' \u00b7 entry\u0394cap ' + (STD.entryDeltaCap == null ? 'coupled' : STD.entryDeltaCap));
   return L.join('\n');
 }
 function buildGenContext() {
@@ -2887,7 +2809,7 @@ async function runSimulation() {
 
   $('results-area').style.display = 'block';
   $('tab-btn-heatmap').style.display = 'none';
-  { const _rgb = $('robust-grid-btn'); if (_rgb) { _rgb.style.display = 'none'; _rgb.textContent = '\u229e Open Grid'; } const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; } const _grw = $('grid-read-wrap'); if (_grw) { _grw.style.display = 'none'; _grw.innerHTML = ''; } const _acb = $('ac-btn-opt'); if (_acb) _acb.style.display = 'none'; const _acp = $('ac-panel-opt'); if (_acp) _acp.style.display = 'none'; } // v5.15.4
+  { const _rgb = $('robust-grid-btn'); if (_rgb) { _rgb.style.display = 'none'; _rgb.textContent = '\u229e Open Grid'; } const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; } const _ogw2 = $('opt-graph-wrap'); if (_ogw2) _ogw2.style.display = 'none'; const _grw = $('grid-read-wrap'); if (_grw) { _grw.style.display = 'none'; _grw.innerHTML = ''; } const _acb = $('ac-btn-opt'); if (_acb) _acb.style.display = 'none'; const _acp = $('ac-panel-opt'); if (_acp) _acp.style.display = 'none'; } // v5.15.4
   // AI tab visibility owned by initAIAnalysis (shown only when key present)
   // Show Scan tab only in non-debug STD mode
   const scanBtn = $('tab-btn-scan');
@@ -3815,11 +3737,41 @@ async function runOptimization() {
 
     $('results-area').style.display = 'block';
     $('tab-btn-heatmap').style.display = 'block';
-    // v5.15.2 — robust grid button (2-axis sweeps only) + scan tab reset
+    // v5.15.2/v6.4.6 — adaptive shape slot: 1 axis → Graph, 2 axes → Grid, 3+ → table only
     const _rgb = $('robust-grid-btn');
-    if (_rgb) _rgb.style.display = (_rrAxesG && Object.keys(_rrAxesG).length === 2) ? 'block' : 'none';
+    const _axN = _rrAxesG ? Object.keys(_rrAxesG).length : 0;
+    _shapeMode = _axN === 1 ? 'graph' : _axN === 2 ? 'grid' : null;
+    if (_rgb) {
+      _rgb.style.display = _axN === 0 ? 'none' : 'block';
+      _rgb.disabled = (_shapeMode === null);
+      _rgb.style.opacity = _shapeMode === null ? '.45' : '1';
+      _rgb.textContent = _shapeMode === 'graph' ? '\u26f0 Open Graph' : _shapeMode === 'grid' ? '\u229e Open Grid' : 'table only (3+ axes)';
+    }
     const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; }
-    if (_rgb) _rgb.textContent = '\u229e Open Grid';
+    { const _ogw = $('opt-graph-wrap'); if (_ogw) _ogw.style.display = 'none'; } // v6.4.6
+    _graphLast = null; // v6.4.6 — rebuilt below for 1-axis runs; null keeps verdict/context multi-axis-flavored otherwise
+    if (_shapeMode === 'graph') {
+      const _gAxis = Object.keys(_rrAxesG)[0];
+      const _gCfg  = _graphAxes[_gAxis];
+      if (_gCfg) {
+        const _gRows = allResults.rows.map(r => ({ v: r[_gAxis], yld: r.yld, stopN: r.stopN, pureN: r.pureN, rolls: r.rolls })).sort((a, b) => a.v - b.v);
+        const _gYls = _gRows.map(r => r.yld);
+        const _gBest = Math.max(..._gYls.filter(y => y != null));
+        _gRows.forEach((r, i) => {
+          const Ln = i > 0 ? _gYls[i-1] : null, Rn = i < _gYls.length - 1 ? _gYls[i+1] : null;
+          r.single = r.yld != null && Ln != null && Rn != null && (r.yld - Ln >= 0.3) && (r.yld - Rn >= 0.3);
+          r.edgeMax = r.yld != null && r.yld === _gBest && (i === 0 || i === _gYls.length - 1);
+        });
+        let _gPub = null;
+        try {
+          _gaps = [];
+          const _rp = await simulate({ ...STD, shares: STD.shares || 600 });
+          if (_rp?.rolls?.length >= 2 && _rp.coreYld != null) _gPub = _rp.coreYld;
+        } catch(e) { logMsg('\u2717 published ref eval: ' + e.message, 'err'); }
+        logMsg('  published (' + _gCfg.pubStr(_gCfg.pub()) + ') \u00b7 ' + (_gPub == null ? 'core \u2014' : 'core ' + _gPub.toFixed(1) + '%') + '  \u2190 incumbent reference');
+        _graphLast = { axis: _gAxis, cfg: _gCfg, rows: _gRows, pubYld: _gPub, min: _gRows[0]?.v, max: _gRows[_gRows.length-1]?.v, step: _gRows.length > 1 ? +(_gRows[1].v - _gRows[0].v).toFixed(4) : 0 };
+      }
+    }
     renderGridRead(); // v6.0.1 — computed for AI context only (not displayed; the grid says it)
     const _acb = $('ac-btn-opt'); if (_acb) _acb.style.display = 'block';
     _acHist.opt = []; _acCtx.opt = null; _acVerdictDone = false; _lastVerdict.opt = null; // v6.1.0
