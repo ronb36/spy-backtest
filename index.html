@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.4.2</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.4.3</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -320,6 +320,7 @@ select.display-box { cursor:pointer; outline:none; }
     <div class="tab-bar">
       <button class="tab-btn active" id="tab-btn-log" onclick="showTab('log')">📋 Sim Trades</button>
       <button class="tab-btn" id="tab-btn-chart" onclick="showTab('chart')">📈 Chart</button>
+      <button class="tab-btn" id="tab-btn-graph" onclick="showTab('graph')">⛰ Graph</button>
       <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Opt Results</button>
       <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
       <button class="tab-btn" id="tab-btn-runlog" onclick="showTab('runlog')">📄 Logs</button>
@@ -378,7 +379,32 @@ select.display-box { cursor:pointer; outline:none; }
     </div>
 
     <!-- Heatmap tab -->
-    <div id="tab-heatmap" style="display:none">
+    <!-- v6.4.3 — Graph tab: single-axis terrain survey -->
+    <div id="tab-graph" style="display:none">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);opacity:.75;margin:6px 2px 10px;">
+        ⚠ Single-axis slices pinned at published params — parity diagnostics, not optimization evidence. Curves show where support is real (multi-cell) vs. argmax bait (single-cell spikes, edge maxima).
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;font-family:var(--mono);font-size:11px;">
+        <select id="graph-axis" onchange="graphAxisChanged()" style="font-family:var(--mono);font-size:11px;padding:4px 6px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:3px;">
+          <option value="defh">Exit Defense Horizon</option>
+          <option value="delta">Exit Delta</option>
+          <option value="entrycap">Entry Delta Cap</option>
+          <option value="decay">Exit Decay</option>
+          <option value="lookahead">DTE Penalty Anchor</option>
+          <option value="vixgate">VIX Gate</option>
+        </select>
+        <span style="color:var(--muted);">min</span><input id="graph-min" type="number" style="width:62px;font-family:var(--mono);font-size:11px;padding:3px 4px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:3px;">
+        <span style="color:var(--muted);">max</span><input id="graph-max" type="number" style="width:62px;font-family:var(--mono);font-size:11px;padding:3px 4px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:3px;">
+        <span style="color:var(--muted);">step</span><input id="graph-step" type="number" style="width:62px;font-family:var(--mono);font-size:11px;padding:3px 4px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:3px;">
+        <button id="graph-run-btn" onclick="runGraphSweep()" style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:5px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;">▶ Run</button>
+        <span id="graph-status" style="color:var(--muted);"></span>
+      </div>
+      <div id="graph-svg-wrap" style="border:1px solid var(--border);border-radius:4px;background:var(--surface2);padding:4px;">
+        <svg id="graph-svg" viewBox="0 0 860 430" style="width:100%;height:auto;display:block;"></svg>
+      </div>
+      <div id="graph-summary" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6;"></div>
+    </div>
+
       <div id="pub-banner" onclick="reselectPublishedRow()" style="display:none;border:1px solid #2a9d5c;border-radius:6px;padding:8px 12px;margin-bottom:10px;background:rgba(42,157,92,0.08);font-family:var(--mono);font-size:10px;color:var(--text);cursor:pointer;"></div>
       <div id="publish-confirm-card" style="display:none;border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;background:var(--surface);"></div>
       <div class="chart-panel">
@@ -515,7 +541,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
-    <br><span style="color:var(--muted);opacity:.6;">v6.4.2 · Card naming (DISPLAY ONLY, sim untouched) — trigger cards renamed to the exit taxonomy per S35 split: Decay→Exit Decay, Delta→Exit Delta, Defense Horizon→Exit Defense Horizon (all tagged "trigger"; the days unit left the label — the value carries "d"); Entry Δ Cap→Entry Delta Cap. Sweep-range labels follow. Cert: visual.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.4.3 · Graph tab (DISPLAY ONLY, sim untouched) — single-axis terrain survey: param dropdown (6 axes), range/step prefilled from house sweep ranges, runs live 1D sweep via simulate() with all else pinned at published, plots core-yield curve with survey conventions (published marker, single-cell flags ≥0.3pp, 🔴 edge-max warning, null cells hatched); per-cell results also written to run log. Parity-diagnostic caveat printed on tab; 60-eval cap. Cert: STD log identical to S36 baseline + tab defH curve reproduces S36 refresh cell-for-cell.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.2 · Card naming (DISPLAY ONLY, sim untouched) — trigger cards renamed to the exit taxonomy per S35 split: Decay→Exit Decay, Delta→Exit Delta, Defense Horizon→Exit Defense Horizon (all tagged "trigger"; the days unit left the label — the value carries "d"); Entry Δ Cap→Entry Delta Cap. Sweep-range labels follow. Cert: visual.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.4.1 · Entry-param UI + Entry Δ Cap sweep axis (DISPLAY + OPT MACHINERY, sim math unchanged from v6.4.0) — the split params are now visible: grid 3×2 (decay, trigger Δ, defense horizon / Entry Δ Cap, Entry DTE Min, run). Entry Δ Cap is a full sweep axis (card, range, OPT dimension, robust ranking, boundary strip, audit rowObj ecap, selection/winner re-run passthrough, publish); Entry DTE Min is display-only, JSON-set. Both cards show the coupled state honestly: "= Δ trigger" / "= DTE floor" when null. [null] grid cell when unswept resolves to the trigger twin in simulate() — identity preserved, baselines unchanged. Cert (covers v6.4.0+v6.4.1 as one chain): STD + OPT byte-identical at defaults; visual — 3×2 grid, coupled-state labels, eval count multiplies when Entry Δ Cap armed. P-S1 now runnable from UI: pin entryDeltaCap via JSON or sweep trigger Δ with cap armed at a single value.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.4.0 · Trigger/candidate parameter split (SIM CHANGE, ships at identity) — deltaThreshold and dteFloor each served two unrelated roles (position stop + candidate cap; DTE trigger + candidate min DTE), making entry and defense effects inseparable — the S35 2D recon's P-D4 confound made this concrete: every delta cell below 0.6 was dominated by the entry side. New candidate-set params entryDeltaCap and entryDteMin, resolved at point of use as null → follow the trigger twin (EMBEDDED IDENTITY: unset ≡ today's coupled behavior everywhere, including OPT sweeps of deltaThreshold — baselines unchanged at defaults). Consumers moved to the entry side: all three findNextContract call sites (initial, VIX-recovery re-entry, roll) and the LIVE SCAN's candidate machinery (expiry gate, Δsim cap, skip messages, table threshold) — sim and scan split in the same release so the production candidate engine cannot diverge. Trigger set unchanged: deltaThreshold (Δ_exit), defHorizon, decayTrigger, dteFloor. Decay stays trigger-only (candidates have no decay history). roll_params gains entryDeltaCap/entryDteMin (null) on next publish. Entry-param sweep axes deferred to v6.4.1 (card-layout design). Pre-registered P-S1: sweeping deltaThreshold with entryDeltaCap PINNED at 0.73 re-runs the delta axis without the entry confound — first honest test of whether the S29/S35 delta chaos was the coupling. Cert: STD + OPT byte-identical at defaults vs v6.3.3 chain.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.3.3 · Display patch (DISPLAY ONLY, sim untouched) — S35 cosmetics close-out: (1) robust-ranking rows + robust-winner line append defH when >0 (_rankParamStr; instance #7 of the missed-reader class); (2) Defense Horizon card adopts the selected/winner value after a run — updateCardsFromSel never learned defh, the card stayed "OPTIMIZE" while sibling cards showed "selected ✓" (instance #8); (3) Copy Log button retired per user (download-only), copyDebugLog (59 lines incl. iPad clipboard fallback modal) removed as dead machinery; (4) true both-axis button centering — the label is now a flex box filling the card with the eval counter absolutely pinned bottom-center (v6.3.2's card-level rules centered the stack, not the label). Cert: visual (centered label, defh card adopts value on selection tap, no Copy button) + re-render of a defh sweep shows defH in R# rows.</span>
@@ -681,7 +707,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.4.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.4.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1404,7 +1430,7 @@ function updateParamDisplay() {
 
 // ── Tab management ─────────────────────────────────────────────────────────
 function showTab(tab) {
-  ['log','chart','heatmap','gaps','runlog','scan','mart','live'].forEach(t => {
+  ['log','chart','graph','heatmap','gaps','runlog','scan','mart','live'].forEach(t => { // v6.4.3 — graph tab
     const el = $('tab-' + t);
     const btn = $('tab-btn-' + t);
     if (el)  el.style.display  = t === tab ? 'block' : 'none';
@@ -1412,6 +1438,7 @@ function showTab(tab) {
   });
   if (_chatOpen) setChatContext(tab); // v6.1.0 — chat context follows the tab
   if (tab === 'mart') renderMartCards();
+  if (tab === 'graph' && !$('graph-min').value) graphAxisChanged(); // v6.4.3 — prefill house range on first open
   if (tab === 'chart') setChartView('price');
   if (tab === 'live') loadLiveBlotter();
   if (tab === 'runlog') {
@@ -1420,6 +1447,138 @@ function showTab(tab) {
     const dst = $('runlog-mirror');
     if (src && dst) { dst.innerHTML = src.innerHTML; dst.scrollTop = dst.scrollHeight; }
   }
+}
+
+// ── v6.4.3 Graph tab — single-axis terrain survey ──────────────────────────
+// Runs a live 1D sweep (all else pinned at published STD) via simulate(),
+// plots the core-yield curve with survey conventions: published marker,
+// single-cell flags (strict local max, both neighbors ≥0.3pp lower),
+// 🔴 edge-max warning, null cells hatched. Per-cell results also written
+// to the run log (results belong in the log artifact, not just the UI).
+const _graphAxes = { // axis → simulate() param key + display config
+  defh:      { key:'defHorizon',       label:'Exit Defense Horizon', fmt:v=>v+'d',            pub:()=>STD.defHorizon,       pubStr:v=> v>0 ? v+'d' : 'off (0)' },
+  delta:     { key:'deltaThreshold',   label:'Exit Delta',           fmt:v=>String(+v.toFixed(3)), pub:()=>STD.deltaThreshold, pubStr:v=>String(v) },
+  entrycap:  { key:'entryDeltaCap',    label:'Entry Delta Cap',      fmt:v=>String(+v.toFixed(3)), pub:()=>(STD.entryDeltaCap ?? STD.deltaThreshold), pubStr:v=> STD.entryDeltaCap==null ? v+' (coupled)' : String(v) },
+  decay:     { key:'decayTrigger',     label:'Exit Decay',           fmt:v=>v+'%',            pub:()=>STD.decayTrigger,     pubStr:v=>v+'%' },
+  lookahead: { key:'dtePenaltyAnchor', label:'DTE Penalty Anchor',   fmt:v=>v+'d',            pub:()=>STD.dtePenaltyAnchor, pubStr:v=>v+'d' },
+  vixgate:   { key:'vixGate',          label:'VIX Gate',             fmt:v=>'VIX≥'+v,         pub:()=>STD.vixGate,          pubStr:v=> v>0 ? 'VIX≥'+v : 'off (0)' },
+};
+function graphAxisChanged() {
+  const axis = $('graph-axis').value;
+  const c = _sweepConfig[axis];
+  if (c) { $('graph-min').value = c.min; $('graph-max').value = c.max; $('graph-step').value = c.step; }
+  $('graph-status').textContent = '';
+}
+async function runGraphSweep() {
+  const axis = $('graph-axis').value;
+  const cfg  = _graphAxes[axis];
+  const min = parseFloat($('graph-min').value), max = parseFloat($('graph-max').value), step = parseFloat($('graph-step').value);
+  const status = $('graph-status');
+  if (!(DM && DM.spy && DM.spy.length)) { status.textContent = '⚠ load data first'; return; }
+  if (!(step > 0) || !(max >= min))     { status.textContent = '⚠ bad range';       return; }
+  const vals = buildRange(min, max, step);
+  if (vals.length > 60) { status.textContent = '⚠ ' + vals.length + ' evals — cap is 60, widen the step'; return; }
+  const btn = $('graph-run-btn'); btn.disabled = true;
+  _mode = 'optimize'; // quiet per-candidate logging, same as OPT
+  logMsg('Graph sweep — ' + cfg.label + ': ' + vals.length + ' evals (' + cfg.fmt(min) + '→' + cfg.fmt(max) + ' step ' + step + '), all else at published...');
+  const rows = [];
+  try {
+    for (let i = 0; i < vals.length; i++) {
+      const v = vals[i];
+      status.textContent = 'eval ' + (i+1) + '/' + vals.length + ' · ' + cfg.fmt(v);
+      _gaps = [];
+      let r = null;
+      try { r = await simulate({ ...STD, shares: STD.shares || 600, [cfg.key]: v }); }
+      catch(e) { logMsg('✗ Graph eval ' + cfg.fmt(v) + ': ' + e.message, 'err'); }
+      let yld = null;
+      if (r?.rolls?.length >= 2 && r.coreYld != null) yld = r.coreYld;
+      const stopN = (r?.cycles || []).filter(c => c.reason && c.reason.startsWith('delta ')).length;
+      const pureN = (r?.cycles || []).filter(c => c.reason && c.reason.startsWith('delta ') && !c.reason.includes('\u00b7')).length;
+      rows.push({ v, yld, stopN, pureN, rolls: r?.rolls?.length ?? 0 });
+      setProgress(Math.round(((i+1)/vals.length)*100));
+      await yield_();
+    }
+  } finally { btn.disabled = false; setProgress(0); }
+  // Survey analysis: flags computed once, used by log + svg + summary
+  const yls = rows.map(r => r.yld);
+  const bestY = Math.max(...yls.filter(y => y != null));
+  rows.forEach((r, i) => {
+    const L = i > 0 ? yls[i-1] : null, Rn = i < yls.length-1 ? yls[i+1] : null;
+    r.single = r.yld != null && L != null && Rn != null && (r.yld - L >= 0.3) && (r.yld - Rn >= 0.3);
+    r.edgeMax = r.yld != null && r.yld === bestY && (i === 0 || i === yls.length-1);
+  });
+  rows.forEach(r => {
+    logMsg('  ' + cfg.label + '=' + cfg.fmt(r.v) + ' · ' + (r.yld == null ? 'core —' : 'core ' + r.yld.toFixed(1) + '%')
+      + ' · ' + r.rolls + ' rolls · \u0394stop ' + r.stopN + '(' + r.pureN + ')'
+      + (r.single ? '  ⚠single-cell' : '') + (r.edgeMax ? '  🔴edge-max' : ''));
+  });
+  renderGraphSvg(rows, cfg);
+  const singles = rows.filter(r => r.single).map(r => cfg.fmt(r.v));
+  const edges   = rows.filter(r => r.edgeMax).map(r => cfg.fmt(r.v));
+  $('graph-summary').innerHTML =
+    'best cell: <b style="color:var(--text)">' + cfg.fmt(rows.find(r=>r.yld===bestY)?.v) + ' · ' + bestY.toFixed(1) + '%</b>'
+    + ' · published: ' + cfg.pubStr(cfg.pub())
+    + (singles.length ? ' · ⚠ single-cell spike at ' + singles.join(', ') + ' — argmax discipline applies' : '')
+    + (edges.length ? ' · 🔴 max on boundary (' + edges.join(', ') + ') — true optimum may lie outside range' : '')
+    + ' · ' + rows.length + ' evals in log';
+}
+function renderGraphSvg(rows, cfg) {
+  const svg = $('graph-svg'); while (svg.firstChild) svg.removeChild(svg.firstChild);
+  const NS = 'http://www.w3.org/2000/svg';
+  const gc = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888';
+  const TXT = gc('--text'), MUT = gc('--muted'), BRD = gc('--border');
+  const CURVE = '#e0b25c', PUBC = '#69c2a3', RED = '#ff5d5d', ORG = '#ff9d45';
+  const W = 860, H = 430, L = 56, R = 18, T = 22, B = 46;
+  const xs = rows.map(r => r.v);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const ys = rows.map(r => r.yld).filter(y => y != null);
+  let y0 = Math.min(0, ...ys), y1 = Math.max(...ys, 1);
+  const pad = (y1 - y0) * 0.12 || 1; y1 += pad; if (y0 < 0) y0 -= pad;
+  const X = v => x1 === x0 ? (L+W-R)/2 : L + (v-x0)/(x1-x0)*(W-L-R);
+  const Y = v => H-B - (v-y0)/(y1-y0)*(H-T-B);
+  const el = (t,a,txt) => { const e = document.createElementNS(NS,t); for (const k in a) e.setAttribute(k,a[k]); if (txt!=null) e.textContent = txt; svg.appendChild(e); return e; };
+  // grid + axes
+  const yTicks = 6;
+  for (let i = 0; i <= yTicks; i++) {
+    const yv = y0 + (y1-y0)*i/yTicks;
+    el('line',{x1:L,y1:Y(yv),x2:W-R,y2:Y(yv),stroke:BRD,'stroke-width':1,opacity:.5});
+    el('text',{x:L-8,y:Y(yv)+3.5,'text-anchor':'end','font-size':10,fill:MUT,'font-family':'monospace'}, yv.toFixed(1)+'%');
+  }
+  rows.forEach(r => {
+    el('line',{x1:X(r.v),y1:H-B,x2:X(r.v),y2:H-B+4,stroke:MUT,'stroke-width':1});
+    el('text',{x:X(r.v),y:H-B+16,'text-anchor':'middle','font-size':9.5,fill:MUT,'font-family':'monospace'}, cfg.fmt(r.v));
+  });
+  if (y0 < 0) el('line',{x1:L,y1:Y(0),x2:W-R,y2:Y(0),stroke:MUT,'stroke-width':1,opacity:.7});
+  el('text',{x:(L+W-R)/2,y:H-6,'text-anchor':'middle','font-size':10,fill:TXT,'font-family':'monospace','letter-spacing':'.08em'}, cfg.label.toUpperCase() + ' — CORE YIELD');
+  // published marker
+  const pv = cfg.pub();
+  if (pv != null && pv >= x0 && pv <= x1) {
+    el('line',{x1:X(pv),y1:T,x2:X(pv),y2:H-B,stroke:PUBC,'stroke-width':1.5,'stroke-dasharray':'3 4',opacity:.85});
+    el('text',{x:X(pv)+4,y:T+10,'font-size':9.5,fill:PUBC,'font-family':'monospace'}, 'published ' + cfg.pubStr(pv));
+  } else {
+    el('text',{x:W-R,y:T+10,'text-anchor':'end','font-size':9.5,fill:PUBC,'font-family':'monospace'}, 'published: ' + cfg.pubStr(pv) + ' (off-range)');
+  }
+  // curve — break at nulls; null cells hatched at baseline
+  let path = '', pen = false;
+  rows.forEach(r => {
+    if (r.yld == null) { pen = false;
+      el('rect',{x:X(r.v)-4,y:H-B-10,width:8,height:10,fill:'none',stroke:MUT,'stroke-width':1,'stroke-dasharray':'2 2',opacity:.6});
+      return; }
+    path += (pen ? ' L' : ' M') + X(r.v).toFixed(1) + ' ' + Y(r.yld).toFixed(1); pen = true;
+  });
+  el('path',{d:path.trim(),fill:'none',stroke:CURVE,'stroke-width':2.5,'stroke-linejoin':'round'});
+  rows.forEach(r => {
+    if (r.yld == null) return;
+    el('circle',{cx:X(r.v),cy:Y(r.yld),r:4,fill:gc('--surface2')||'#222',stroke:CURVE,'stroke-width':2});
+    if (r.single) {
+      el('circle',{cx:X(r.v),cy:Y(r.yld),r:8,fill:'none',stroke:ORG,'stroke-width':1.5,'stroke-dasharray':'2 2'});
+      el('text',{x:X(r.v),y:Y(r.yld)-12,'text-anchor':'middle','font-size':9.5,fill:ORG,'font-family':'monospace'},'single cell');
+    }
+    if (r.edgeMax) {
+      el('circle',{cx:X(r.v),cy:Y(r.yld),r:8,fill:'none',stroke:RED,'stroke-width':2});
+      el('text',{x:X(r.v),y:Y(r.yld)-12,'text-anchor':'middle','font-size':9.5,fill:RED,'font-family':'monospace'},'🔴 edge');
+    }
+  });
 }
 
 // ── AI Analysis ────────────────────────────────────────────────────────────
