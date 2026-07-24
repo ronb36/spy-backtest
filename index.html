@@ -3828,7 +3828,7 @@ function renderCycleTable(r) {
         <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
         <td class="muted">—</td>
         <td class="muted">—</td>
-        <td class="muted" style="font-size:10px;">${_gateOn?'VIX recovery · ':''}re-entry after ${gapDays}d hold</td>
+        <td class="muted" style="font-size:10px;">re-entry after ${gapDays}d hold</td><!-- v6.5.0 — _gateOn reader removed with the gate -->
       </tr>`;
       return closeRow + reentryRow;
     }
