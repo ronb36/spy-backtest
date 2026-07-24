@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.4.9</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.4.10</div><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -166,9 +166,10 @@ select.display-box { cursor:pointer; outline:none; }
       <span id="init-badge" class="init-badge" style="margin:0;">📈 Long SPY + Short Call</span>
       <span style="color:var(--muted);">Entry <span id="init-entry-date" style="color:var(--text);">—</span></span>
       <span style="color:var(--muted);">|</span>
-      <span style="color:var(--muted);">Net <span id="init-net-premium" style="color:var(--green);">—</span></span>
-      <span style="color:var(--muted);">|</span>
       <span id="init-position-line" style="color:var(--text);">—</span>
+      <span style="color:var(--muted);">|</span>
+      <span id="init-mkt-snap" style="color:var(--muted);">—</span>
+      <span id="init-dagger-note" style="font-size:9px;color:var(--muted);opacity:.7;display:none;">† DM close — live after Scan</span>
     </div>
     <select id="init-date" style="display:none;"></select>
     <div id="init-strike" style="display:none;"></div>
@@ -244,6 +245,11 @@ select.display-box { cursor:pointer; outline:none; }
         <div class="stat-value" id="vval-entrydte" style="font-size:14px;">= DTE floor</div>
         <div class="stat-sub">Set in roll_params.json</div>
       </div>
+      <div class="stat-card" id="vcard-otm" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden;"><!-- v6.4.10 — display only: initial seed -->
+        <div class="stat-label">OTM Target <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">candidate</span></div>
+        <div class="stat-value" id="vval-otm" style="font-size:14px;">3%</div>
+        <div class="stat-sub">Initial seed · roll_params.json</div>
+      </div>
       <div class="stat-card var-card" id="vcard-vixgate" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('vixgate')" style="cursor:inherit;">
           <div class="stat-label">VIX <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">gate</span></div>
@@ -264,13 +270,13 @@ select.display-box { cursor:pointer; outline:none; }
     <!-- Row 2: DTE Min + DTE Penalty Anchor + Run -->
     <div id="controls-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;grid-auto-rows:104px;">
       <div class="stat-card" id="vcard-dte" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden;">
-        <div class="stat-label">DTE Min <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">gate</span></div>
+        <div class="stat-label">DTE Min <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">trigger</span></div>
         <div class="stat-value accent" id="vval-dte" style="font-size:14px;">7d</div>
-        <div class="stat-sub">fixed at published value</div>
+        <div class="stat-sub">Set in roll_params.json</div>
       </div>
       <div class="stat-card var-card" id="vcard-lookahead" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('lookahead')" style="cursor:inherit;">
-          <div class="stat-label">DTE Penalty Anchor <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">days</span></div>
+          <div class="stat-label">DTE Penalty Anchor <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">candidate</span></div>
           <div class="stat-value accent" id="vval-lookahead" style="font-size:14px;">45d</div>
           <div class="stat-sub" id="vsub-lookahead">Click to optimize</div>
         </div>
@@ -516,7 +522,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
-    <br><span style="color:var(--muted);opacity:.6;">v6.4.9 · Row cleanup + winFlag fix (DISPLAY ONLY, sim untouched) — (1) OPT rows trim to the five card params (ExitDecay / ExitΔ / defH / entryΔ / entryDTE), ★ on armed; statics (ExitDTE, VIX, anchor) live only in the fixed: line; armed non-card axes (vixgate/anchor) append when actually swept. (2) isBest learns defh + entrycap — missed reader #10: the raw-winner ★ starred EVERY row on defh/entrycap sweeps (visible in v6.4.7/v6.4.8 screenshots). Cert: visual (5-param rows; exactly one ★ winner row) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.8 · Publish-path field fix + row cosmetics (PUBLISH PATH + DISPLAY, sim untouched) — S36 publish bug closed: the v6.1.3-era selection-publish payload (_selPublishPayload) silently dropped every post-v6.1.3 field — today it published defHorizon:0 while 12 was chosen (missed-reader #9, worst class: silent policy drop). (1) payload now carries defHorizon + entryDeltaCap from the selected row; (2) post-publish STD merge mirrors the payload (defHorizon/entryDeltaCap/entryDteMin) so cards can't show stale values; (3) the Publish-armed field diff includes both — the yellow "defHorizon: 0 → 12" line that would have caught today's drop pre-commit; (4) UI rows show ALL optimizable params with ★ on armed axes. Cert: visual (armed diff shows defHorizon; rows show full param set with ★; post-publish card correct) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.7 · OPT table row labels (DISPLAY ONLY, sim + log untouched) — the Opt Results UI table now shows only the ARMED axes per row (including single-value pins like entryΔ≤0.73), in the exit taxonomy (ExitDecay / ExitDTE / ExitΔ / defH / entryΔ≤); static pinned params stay in the "fixed:" line. Log format deliberately unchanged — it is the certification diff artifact. Also closes v6.4.1 missed reader: the UI row builder never learned entrycap (pins were invisible in the table). Cert: visual (rows show armed-only labels; log lines byte-identical format) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.6 · Graph embedded in Opt Results (DISPLAY ONLY, sim untouched) — standalone Graph tab removed after 3 versions (superseded; one code path). Adaptive shape slot on the Opt Results header: 1 swept axis → ⛰ Open Graph, 2 axes → ⊞ Open Grid, 3+ → greyed "table only" (no faithful 2D picture of a ≥3-D surface; the ranked table is the correct view). Graph renders directly from the OPT rows — zero re-simulation, graph≡OPT parity by construction — plus one published-ref eval drawing the incumbent line (per-run STD parity tripwire, logged). Terrain (cells, flags, doctrine, incumbent) folds into the opt Ask Claude context; 1-axis runs get a terrain-flavored auto-verdict (zones, support grade, point advice per doctrine, Falsified-if). Graph chat key removed. Cert: visual (slot states × 1/2-axis runs; embedded curve matches OPT log cells; verdict fires) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.5 · Graph tab round 2 (DISPLAY ONLY, sim untouched) — (1) incumbent reference: every graph run adds one eval at exactly the published config and draws its core yield as a horizontal dashed line (doubles as a per-run STD parity tripwire — logged as "incumbent reference"); (2) Ask Claude wired to the tab as a first-class context: sweep cells, flags, incumbent yield, and the argmax/parity doctrine ship in the prompt; interpretation (zone naming, support quality) is Claude's job, never auto-labeled by the tool. Append/merge mode considered and rejected (single fine run is as easy). Cert: visual (incumbent line + label; Ask Claude on Graph tab answers from sweep data) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.4 · Defect fix (DISPLAY ONLY, sim untouched) — v6.4.3 graph-panel insertion consumed the tab-heatmap opening div, leaking Opt Results content (pub banner, heatmap panel) below every tab and orphaning showTab('heatmap'). Tag restored; builder miss logged. Cert: heatmap strip gone from non-heatmap tabs; Opt Results tab renders normally after an OPT run; STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.3 · Graph tab (DISPLAY ONLY, sim untouched) — single-axis terrain survey: param dropdown (6 axes), range/step prefilled from house sweep ranges, runs live 1D sweep via simulate() with all else pinned at published, plots core-yield curve with survey conventions (published marker, single-cell flags ≥0.3pp, 🔴 edge-max warning, null cells hatched); per-cell results also written to run log. Parity-diagnostic caveat printed on tab; 60-eval cap. Cert: STD log identical to S36 baseline + tab defH curve reproduces S36 refresh cell-for-cell.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.2 · Card naming (DISPLAY ONLY, sim untouched) — trigger cards renamed to the exit taxonomy per S35 split: Decay→Exit Decay, Delta→Exit Delta, Defense Horizon→Exit Defense Horizon (all tagged "trigger"; the days unit left the label — the value carries "d"); Entry Δ Cap→Entry Delta Cap. Sweep-range labels follow. Cert: visual.</span>
+    <br><span style="color:var(--muted);opacity:.6;">v6.4.10 · Position banner + full input visibility + Confirm field diffs (DISPLAY ONLY, sim untouched) — (1) Live Position banner rebuilt per Ron’s spec: badge + entry date, then “600 SPY @ $px · Short 6 mm/dd/yy $KC @ $px” — prices are last DM close marked † until a Scan runs, then flip to live quotes (SPY + cover from the scan fetch); Net credit dropped intentionally (blotter is the credit source). (2) Market snapshot appended: VIX + 3m CMT (DM-nightly, always †) carrying the r-frame gap tripwire “(r 4.5%)” relocated from the retired fixed: strip. (3) Full input visibility: DTE Min + Anchor cards restored (row 2 re-shown; v6.0.1 hide reverted), new OTM Target display-only card — every sim input now lives on a card; only the VIX gate card stays hidden (retired; code removal = v6.5.0); fixed: strip never created (updateFixedStrip self-no-ops). Both card writers (loader + post-publish) learned vval-otm in the same edit — all-readers rule. (4) Confirm-armed sub-line shows the actual field diffs (old→new per changed field) instead of “N chg” — the S36 “decision point shows the diff” doctrine item, closing the queue. Cert: STD log byte-identical to the 07/24 08:31 baseline except banner; screenshots certify banner †→live flip, 3×3 card grid, armed field diff.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.9 · Row cleanup + winFlag fix (DISPLAY ONLY, sim untouched) — (1) OPT rows trim to the five card params (ExitDecay / ExitΔ / defH / entryΔ / entryDTE), ★ on armed; statics (ExitDTE, VIX, anchor) live only in the fixed: line; armed non-card axes (vixgate/anchor) append when actually swept. (2) isBest learns defh + entrycap — missed reader #10: the raw-winner ★ starred EVERY row on defh/entrycap sweeps (visible in v6.4.7/v6.4.8 screenshots). Cert: visual (5-param rows; exactly one ★ winner row) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.8 · Publish-path field fix + row cosmetics (PUBLISH PATH + DISPLAY, sim untouched) — S36 publish bug closed: the v6.1.3-era selection-publish payload (_selPublishPayload) silently dropped every post-v6.1.3 field — today it published defHorizon:0 while 12 was chosen (missed-reader #9, worst class: silent policy drop). (1) payload now carries defHorizon + entryDeltaCap from the selected row; (2) post-publish STD merge mirrors the payload (defHorizon/entryDeltaCap/entryDteMin) so cards can't show stale values; (3) the Publish-armed field diff includes both — the yellow "defHorizon: 0 → 12" line that would have caught today's drop pre-commit; (4) UI rows show ALL optimizable params with ★ on armed axes. Cert: visual (armed diff shows defHorizon; rows show full param set with ★; post-publish card correct) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.7 · OPT table row labels (DISPLAY ONLY, sim + log untouched) — the Opt Results UI table now shows only the ARMED axes per row (including single-value pins like entryΔ≤0.73), in the exit taxonomy (ExitDecay / ExitDTE / ExitΔ / defH / entryΔ≤); static pinned params stay in the "fixed:" line. Log format deliberately unchanged — it is the certification diff artifact. Also closes v6.4.1 missed reader: the UI row builder never learned entrycap (pins were invisible in the table). Cert: visual (rows show armed-only labels; log lines byte-identical format) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.6 · Graph embedded in Opt Results (DISPLAY ONLY, sim untouched) — standalone Graph tab removed after 3 versions (superseded; one code path). Adaptive shape slot on the Opt Results header: 1 swept axis → ⛰ Open Graph, 2 axes → ⊞ Open Grid, 3+ → greyed "table only" (no faithful 2D picture of a ≥3-D surface; the ranked table is the correct view). Graph renders directly from the OPT rows — zero re-simulation, graph≡OPT parity by construction — plus one published-ref eval drawing the incumbent line (per-run STD parity tripwire, logged). Terrain (cells, flags, doctrine, incumbent) folds into the opt Ask Claude context; 1-axis runs get a terrain-flavored auto-verdict (zones, support grade, point advice per doctrine, Falsified-if). Graph chat key removed. Cert: visual (slot states × 1/2-axis runs; embedded curve matches OPT log cells; verdict fires) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.5 · Graph tab round 2 (DISPLAY ONLY, sim untouched) — (1) incumbent reference: every graph run adds one eval at exactly the published config and draws its core yield as a horizontal dashed line (doubles as a per-run STD parity tripwire — logged as "incumbent reference"); (2) Ask Claude wired to the tab as a first-class context: sweep cells, flags, incumbent yield, and the argmax/parity doctrine ship in the prompt; interpretation (zone naming, support quality) is Claude's job, never auto-labeled by the tool. Append/merge mode considered and rejected (single fine run is as easy). Cert: visual (incumbent line + label; Ask Claude on Graph tab answers from sweep data) + STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.4 · Defect fix (DISPLAY ONLY, sim untouched) — v6.4.3 graph-panel insertion consumed the tab-heatmap opening div, leaking Opt Results content (pub banner, heatmap panel) below every tab and orphaning showTab('heatmap'). Tag restored; builder miss logged. Cert: heatmap strip gone from non-heatmap tabs; Opt Results tab renders normally after an OPT run; STD log identical.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.3 · Graph tab (DISPLAY ONLY, sim untouched) — single-axis terrain survey: param dropdown (6 axes), range/step prefilled from house sweep ranges, runs live 1D sweep via simulate() with all else pinned at published, plots core-yield curve with survey conventions (published marker, single-cell flags ≥0.3pp, 🔴 edge-max warning, null cells hatched); per-cell results also written to run log. Parity-diagnostic caveat printed on tab; 60-eval cap. Cert: STD log identical to S36 baseline + tab defH curve reproduces S36 refresh cell-for-cell.</span><br><span style="color:var(--muted);opacity:.6;">v6.4.2 · Card naming (DISPLAY ONLY, sim untouched) — trigger cards renamed to the exit taxonomy per S35 split: Decay→Exit Decay, Delta→Exit Delta, Defense Horizon→Exit Defense Horizon (all tagged "trigger"; the days unit left the label — the value carries "d"); Entry Δ Cap→Entry Delta Cap. Sweep-range labels follow. Cert: visual.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.4.1 · Entry-param UI + Entry Δ Cap sweep axis (DISPLAY + OPT MACHINERY, sim math unchanged from v6.4.0) — the split params are now visible: grid 3×2 (decay, trigger Δ, defense horizon / Entry Δ Cap, Entry DTE Min, run). Entry Δ Cap is a full sweep axis (card, range, OPT dimension, robust ranking, boundary strip, audit rowObj ecap, selection/winner re-run passthrough, publish); Entry DTE Min is display-only, JSON-set. Both cards show the coupled state honestly: "= Δ trigger" / "= DTE floor" when null. [null] grid cell when unswept resolves to the trigger twin in simulate() — identity preserved, baselines unchanged. Cert (covers v6.4.0+v6.4.1 as one chain): STD + OPT byte-identical at defaults; visual — 3×2 grid, coupled-state labels, eval count multiplies when Entry Δ Cap armed. P-S1 now runnable from UI: pin entryDeltaCap via JSON or sweep trigger Δ with cap armed at a single value.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.4.0 · Trigger/candidate parameter split (SIM CHANGE, ships at identity) — deltaThreshold and dteFloor each served two unrelated roles (position stop + candidate cap; DTE trigger + candidate min DTE), making entry and defense effects inseparable — the S35 2D recon's P-D4 confound made this concrete: every delta cell below 0.6 was dominated by the entry side. New candidate-set params entryDeltaCap and entryDteMin, resolved at point of use as null → follow the trigger twin (EMBEDDED IDENTITY: unset ≡ today's coupled behavior everywhere, including OPT sweeps of deltaThreshold — baselines unchanged at defaults). Consumers moved to the entry side: all three findNextContract call sites (initial, VIX-recovery re-entry, roll) and the LIVE SCAN's candidate machinery (expiry gate, Δsim cap, skip messages, table threshold) — sim and scan split in the same release so the production candidate engine cannot diverge. Trigger set unchanged: deltaThreshold (Δ_exit), defHorizon, decayTrigger, dteFloor. Decay stays trigger-only (candidates have no decay history). roll_params gains entryDeltaCap/entryDteMin (null) on next publish. Entry-param sweep axes deferred to v6.4.1 (card-layout design). Pre-registered P-S1: sweeping deltaThreshold with entryDeltaCap PINNED at 0.73 re-runs the delta axis without the entry confound — first honest test of whether the S29/S35 delta chaos was the coupling. Cert: STD + OPT byte-identical at defaults vs v6.3.3 chain.</span>
     <br><span style="color:var(--muted);opacity:.6;">v6.3.3 · Display patch (DISPLAY ONLY, sim untouched) — S35 cosmetics close-out: (1) robust-ranking rows + robust-winner line append defH when >0 (_rankParamStr; instance #7 of the missed-reader class); (2) Defense Horizon card adopts the selected/winner value after a run — updateCardsFromSel never learned defh, the card stayed "OPTIMIZE" while sibling cards showed "selected ✓" (instance #8); (3) Copy Log button retired per user (download-only), copyDebugLog (59 lines incl. iPad clipboard fallback modal) removed as dead machinery; (4) true both-axis button centering — the label is now a flex box filling the card with the eval counter absolutely pinned bottom-center (v6.3.2's card-level rules centered the stack, not the label). Cert: visual (centered label, defh card adopts value on selection tap, no Copy button) + re-render of a defh sweep shows defH in R# rows.</span>
@@ -655,6 +661,7 @@ async function loadRollParams() {
       'vval-defh':    STD.defHorizon > 0 ? STD.defHorizon + 'd' : 'Off', // v6.3.0
       'vval-entrycap': STD.entryDeltaCap != null ? STD.entryDeltaCap.toFixed(3) : '= Δ trigger', // v6.4.1
       'vval-entrydte': STD.entryDteMin != null ? STD.entryDteMin + 'd' : '= DTE floor', // v6.4.1
+      'vval-otm':     STD.otmFixed != null ? (STD.otmFixed * 100).toFixed(0) + '%' : '\u2014', // v6.4.10 \u2014 display-only seed card
     };
     Object.entries(updates).forEach(([id, val]) => {
       const el = document.getElementById(id); if (el && !_sweepVars[id.replace('vval-','')]) el.textContent = val;
@@ -682,7 +689,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.4.9'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.4.10'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -706,6 +713,7 @@ let _chatKey = 'gen';            // active chat context: opt | scan | mart | gen
 let _acScanVerdictDone = false;  // one scan verdict per scan run
 let _lastVerdict = { opt: null, scan: null }; // audited verdict texts
 let _scanCtxData = null;         // scan capture for chat context + audit snapshot
+let _bannerLive = { spy: null, cover: null }; // v6.4.10 — live quotes for the position banner; null = show DM close with †
 let _optRunTs = null;            // opt run identity timestamp
 let _tradeCloseReason = null;    // ticket close-reason selector value
 let _pendingAudit = null;        // failed audit write payload for Retry
@@ -2134,35 +2142,64 @@ function updateInitPosition() {
     return `${m}/${d}/${y}`;
   };
 
-  // Line 1: Entry date | Net premium
+  // Entry date
   const el_entry   = $('init-entry-date');
-  const el_premium = $('init-net-premium');
   if (el_entry)   el_entry.textContent  = STD.entryDate ? fmtD(STD.entryDate) : '—';
-  if (el_premium) {
-    if (STD.sellPrice != null) {
-      el_premium.textContent = '$' + Number(STD.sellPrice - (STD.coverPrice || 0)).toFixed(2) + '/sh';
-    } else if (STD.netPremium != null) {
-      el_premium.textContent = '$' + Number(STD.netPremium).toFixed(2) + '/sh';
-    } else {
-      el_premium.textContent = '—';
-    }
-  }
 
-  // Line 2: Badge + position line
+  // v6.4.10 — position line with CURRENT prices (Ron's spec): shares @ SPY px ·
+  // Short N expiry $strikeC @ call px. Prices are live scan quotes when a scan
+  // has run this session, else last DM close marked with †. Net credit dropped
+  // intentionally — the trade blotter is the source for credit.
+  const live  = (typeof _bannerLive === 'object' && _bannerLive) ? _bannerLive : { spy: null, cover: null };
+  const dmSpy = (DM.spy && DM.spy.length) ? DM.spy[DM.spy.length - 1].c : null;
+  const spyPx   = live.spy != null ? live.spy : dmSpy;
+  const spyMark = live.spy != null ? '' : '†';
+  let dmCover = null;
+  if (hasPosition && DM.options) {
+    try {
+      const t = buildScanTicker(STD.shortExpiry, parseFloat(STD.shortStrike));
+      const c = DM.options[t];
+      if (c && c.days && c.days.length) dmCover = c.days[c.days.length - 1].c;
+    } catch (e) {}
+  }
+  const covPx   = live.cover != null ? live.cover : dmCover;
+  const covMark = live.cover != null ? '' : '†';
+  let usedDagger = false;
+  const pxStr = (px, mark) => {
+    if (px == null) return '—';
+    if (mark) usedDagger = true;
+    return '$' + Number(px).toFixed(2) + mark;
+  };
+
   const badge    = $('init-badge');
   const posLine  = $('init-position-line');
+  const spyLeg   = `${STD.shares || 600} SPY @ ${pxStr(spyPx, spyMark)}`;
   if (hasPosition) {
     if (badge) { badge.textContent = '📈 Long SPY + Short Call'; badge.style.opacity = '1'; }
     if (posLine) {
       const expStr  = fmtExpiry(STD.shortExpiry);
-      const sellPx  = STD.sellPrice != null ? '$' + Number(STD.sellPrice).toFixed(2) : '—';
-      posLine.textContent = `Short ${contracts}  ${expStr}  $${STD.shortStrike} Calls  @  ${sellPx}`;
+      posLine.textContent = `${spyLeg} · Short ${contracts} ${expStr} $${STD.shortStrike}C @ ${pxStr(covPx, covMark)}`;
       posLine.style.color = 'var(--text)';
     }
   } else {
     if (badge) { badge.textContent = '📈 Long SPY Only'; badge.style.opacity = '1'; }
-    if (posLine) { posLine.textContent = 'No covered call'; posLine.style.color = 'var(--muted)'; }
+    if (posLine) { posLine.textContent = spyLeg + ' · No covered call'; posLine.style.color = 'var(--muted)'; }
   }
+
+  // v6.4.10 — market snapshot: VIX + 3m CMT (both DM-nightly, always †) with the
+  // r-frame gap tripwire (S33: visible, not remembered) relocated from the
+  // retired fixed: strip.
+  const snapEl = $('init-mkt-snap');
+  if (snapEl) {
+    const vx = (DM.vix && DM.vix.length) ? DM.vix[DM.vix.length - 1].c : null;
+    const _ly = (DM.yields && DM.yields.length) ? DM.yields[DM.yields.length - 1] : null;
+    const y3 = (_ly && _ly.y3m != null) ? _ly.y3m : null;
+    const vStr = vx != null ? (usedDagger = true, vx.toFixed(2) + '†') : '—';
+    const yStr = y3 != null ? (usedDagger = true, y3.toFixed(2) + '%† (r 4.5%)') : '—';
+    snapEl.textContent = 'VIX ' + vStr + ' · 3m ' + yStr;
+  }
+  const dagEl = $('init-dagger-note');
+  if (dagEl) dagEl.style.display = usedDagger ? '' : 'none';
 
   $('init-panel').style.display = 'block';
 
@@ -3074,6 +3111,7 @@ async function publishRollParams(p) {
       'vval-defh':    STD.defHorizon > 0 ? STD.defHorizon + 'd' : 'Off', // v6.3.0
       'vval-entrycap': STD.entryDeltaCap != null ? STD.entryDeltaCap.toFixed(3) : '= Δ trigger', // v6.4.1
       'vval-entrydte': STD.entryDteMin != null ? STD.entryDteMin + 'd' : '= DTE floor', // v6.4.1
+      'vval-otm':     STD.otmFixed != null ? (STD.otmFixed * 100).toFixed(0) + '%' : '\u2014', // v6.4.10 \u2014 display-only seed card
     };
     Object.entries(pubUpdates).forEach(([id, val]) => {
       const el = document.getElementById(id);
@@ -3267,9 +3305,15 @@ async function publishSelectedRow() {
   logMsg('\u2500\u2500 Publish armed \u2014 ' + (o.robustRank ? 'R#' + o.robustRank : 'unranked') + ' (raw #' + o.rawRank + ') ' + _rankParamStr(r), '');
   fields.forEach(f => logMsg('  ' + f[0] + ': ' + (f[1] ?? '\u2014') + (String(f[1]) !== String(f[2]) ? ' \u2192 ' + f[2] : ' (unchanged)'), String(f[1]) !== String(f[2]) ? 'ok' : 'dbg'));
   warns.forEach(w => logMsg('  ' + _stripTags(w), 'err'));
-  const projF = fields[8]; // v6.4.8 — two fields inserted above
-  const sub = (String(projF[1]) !== String(projF[2]) ? 'proj ' + (projF[1] ?? '\u2014') + '\u2192' + projF[2] + ' \u00b7 ' : '')
-    + changed.length + ' chg' + (warns.length ? ' \u00b7 \u26a0' + warns.length : '');
+  // v6.4.10 — the decision point must show the DIFF, not a count (S36 doctrine;
+  // the count hid the defHorizon:0 drop until v6.4.8's log line). Every changed
+  // field rides the button sub-line as old\u2192new; unchanged fields stay in Logs.
+  const _shortLbl = { decayTrigger: 'decay', deltaThreshold: '\u0394', dteFloor: 'dte', vixGate: 'vix',
+    dtePenaltyAnchor: 'anchor', otmTarget: 'otm', defHorizon: 'defH', entryDeltaCap: 'e\u0394cap', optProjYield: 'proj' };
+  const sub = (changed.length
+      ? changed.map(f => (_shortLbl[f[0]] || f[0]) + ' ' + (f[1] ?? '\u2014') + '\u2192' + f[2]).join(' \u00b7 ')
+      : 'no field changes')
+    + (warns.length ? ' \u00b7 \u26a0' + warns.length : '');
   setRunButtonState('confirm', { sub: sub });
   if (_confirmTimer) clearTimeout(_confirmTimer);
   _confirmTimer = setTimeout(() => {
@@ -3300,18 +3344,13 @@ function updateFixedStrip() {
   el.textContent = 'fixed: dte ' + v('vval-dte') + ' · VIX ' + v('vval-vixgate').toLowerCase() + ' · anchor ' + v('vval-lookahead') + rGap; // v6.3.0 — defH lives on its own card, not the strip
 }
 (function () {
-  ['vcard-vixgate', 'vcard-dte', 'vcard-lookahead'].forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
-  const row = $('var-card-row'), run = $('run-publish-card'), ctr = $('controls-row');
-  if (row && run) row.appendChild(run);
-  if (ctr) {
-    const strip = document.createElement('div');
-    strip.id = 'fixed-params-strip';
-    strip.style.cssText = 'font-family:var(--mono);font-size:10px;color:var(--muted);padding:4px 2px 8px;';
-    ctr.parentNode.insertBefore(strip, ctr);
-    ctr.style.display = 'none';
-  }
-  updateFixedStrip();
-  setTimeout(updateFixedStrip, 1500); // after published params load
+  // v6.4.10 — full input visibility: every sim input lives on a card. DTE Min +
+  // Anchor cards restored (row 2 re-shown, Run stays in it); OTM Target card added
+  // (row 1). Only the VIX gate card stays hidden — retired on evidence, code
+  // removal queued for v6.5.0. The fixed: strip is gone (never created —
+  // updateFixedStrip self-no-ops on the missing element); the r-frame gap
+  // tripwire moved to the market snapshot in the position banner.
+  ['vcard-vixgate'].forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
 })();
 
 // v5.15.2 — tap-to-select: summary panels follow the selected row (same
@@ -5313,6 +5352,8 @@ async function runRollScan() {
       deltaMkt: r.delta != null ? +(+r.delta).toFixed(3) : null,
       deltaSim: r.deltaSim != null ? +(+r.deltaSim).toFixed(3) : null }))
   };
+  _bannerLive = { spy: spyNow, cover: currentCallMid > 0 ? currentCallMid : null }; // v6.4.10 — banner flips DM† → live
+  updateInitPosition();
   _acHist.scan = []; _acCtx.scan = null; _acScanVerdictDone = false; _lastVerdict.scan = null;
   if (best) {
     logMsg('  ★ Best: $' + best.strike + 'C ' + best.exp + ' @ $' + best.mid.toFixed(2) +
@@ -5707,6 +5748,7 @@ async function confirmTrade() {
     STD.coverPrice  = payload.coverPrice;
     STD.sellPrice   = payload.sellPrice;
     STD.netPremium  = netPremium;
+    _bannerLive.cover = null; // v6.4.10 — live quote belonged to the OLD contract; new leg shows DM†/— until next scan
     updateInitPosition();
 
     statusEl.textContent = '\u2713 Published \u2014 position updated';
