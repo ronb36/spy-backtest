@@ -6,19 +6,11 @@
   "dtePenaltyAnchor": 54,
   "lastOptimized": "2026-07-23",
   "contracts": 6,
-  "shortStrike": 740,
-  "shortExpiry": "2027-01-15",
-  "entryDate": "2026-07-24",
-  "netPremium": 7.32,
-  "coverPrice": 39,
-  "sellPrice": 39.81,
-  "entrySpy": 737.61,
   "defHorizon": 12,
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.",
   "optProjYield": 5.4,
   "entryDeltaCap": 0.73,
   "oppTheta": null,
   "oppH": 6,
-  "entryDteMin": null,
-  "flat": true
+  "entryDteMin": null
 }
