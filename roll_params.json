@@ -10,7 +10,7 @@
   "shortExpiry": "2027-01-15",
   "entryDate": "2026-07-24",
   "netPremium": 7.32,
-  "coverPrice": 32.49,
+  "coverPrice": 39,
   "sellPrice": 39.81,
   "entrySpy": 737.61,
   "defHorizon": 12,
@@ -19,5 +19,6 @@
   "entryDeltaCap": 0.73,
   "oppTheta": null,
   "oppH": 6,
-  "entryDteMin": null
+  "entryDteMin": null,
+  "flat": true
 }
