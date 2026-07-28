@@ -19,5 +19,6 @@
   "entrySpy": 739.04,
   "coverPrice": 0,
   "sellPrice": 18.77,
-  "netPremium": 18.77
+  "netPremium": 18.77,
+  "graceDays": 3
 }
