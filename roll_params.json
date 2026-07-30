@@ -14,11 +14,11 @@
   "oppH": 6,
   "entryDteMin": null,
   "shortStrike": 740,
-  "shortExpiry": "2026-09-18",
-  "entryDate": "2026-07-27",
-  "entrySpy": 739.04,
-  "coverPrice": 0,
-  "sellPrice": 18.77,
-  "netPremium": 18.77,
+  "shortExpiry": "2027-01-15",
+  "entryDate": "2026-07-30",
+  "entrySpy": 737.66,
+  "coverPrice": 17.56,
+  "sellPrice": 38.28,
+  "netPremium": 20.72,
   "graceDays": 3
 }
