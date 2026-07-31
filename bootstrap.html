@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cycle-Ledger Bootstrap — SPY CC</title>
+<style>
+  :root{
+    --paper:#f6f7f5; --panel:#ffffff; --ink:#1c2126; --dim:#6b7480;
+    --line:#d8dce0; --mono-bg:#f0f2f1; --signal:#2456c8; --pass:#1a7d3c;
+    --fail:#b3261e; --warn:#a05a00; --band:#dfe7f8;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);
+       font:16px/1.5 -apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif}
+  .wrap{max-width:880px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:21px;font-weight:700;letter-spacing:.01em;margin:6px 0 2px}
+  .sub{color:var(--dim);font-size:13.5px;margin:0 0 18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+        padding:14px 16px;margin-bottom:14px}
+  .card h2{font-size:13px;font-weight:700;text-transform:uppercase;
+           letter-spacing:.07em;color:var(--dim);margin:0 0 10px}
+  textarea{width:100%;height:130px;font:12px/1.45 ui-monospace,Menlo,monospace;
+           border:1px solid var(--line);border-radius:6px;padding:8px;
+           background:var(--mono-bg);color:var(--ink);resize:vertical}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px}
+  label{font-size:12.5px;color:var(--dim);display:block;margin-bottom:3px}
+  input[type=text],input[type=number]{
+    font:14px ui-monospace,Menlo,monospace;border:1px solid var(--line);
+    border-radius:6px;padding:7px 9px;width:110px;background:#fff;color:var(--ink)}
+  input[type=file]{display:none}
+  button{font:600 14px -apple-system,sans-serif;border:1px solid var(--ink);
+         border-radius:6px;padding:9px 16px;background:var(--ink);color:#fff;
+         cursor:pointer}
+  button.ghost{background:#fff;color:var(--ink)}
+  button:disabled{opacity:.45;cursor:default}
+  .gatemsg{font:12.5px ui-monospace,Menlo,monospace;color:var(--warn)}
+  .mono{font-family:ui-monospace,Menlo,monospace}
+  .parsebox{font:12.5px/1.6 ui-monospace,Menlo,monospace;background:var(--mono-bg);
+            border:1px solid var(--line);border-radius:6px;padding:8px 10px;
+            margin-top:10px;white-space:pre-wrap}
+  .ok{color:var(--pass);font-weight:700}.bad{color:var(--fail);font-weight:700}
+  .wn{color:var(--warn);font-weight:700}
+  table{border-collapse:collapse;width:100%;font:13px/1.5 ui-monospace,Menlo,monospace}
+  th,td{text-align:right;padding:4px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:600;font-size:11.5px;text-transform:uppercase;
+     letter-spacing:.05em}
+  th:first-child,td:first-child{text-align:left}
+  .gauge{position:relative;height:34px;margin:8px 0 2px;background:var(--mono-bg);
+         border:1px solid var(--line);border-radius:5px;overflow:hidden}
+  .gauge .band{position:absolute;top:0;bottom:0;background:var(--band)}
+  .gauge .iqr{position:absolute;top:9px;bottom:9px;background:#b9c9ee}
+  .gauge .med{position:absolute;top:0;bottom:0;width:2px;background:var(--signal)}
+  .gauge .cmp{position:absolute;top:0;bottom:0;width:2px;background:var(--fail)}
+  .gauge .cmp::after{content:attr(data-l);position:absolute;top:-1px;left:4px;
+         font:10px ui-monospace,monospace;color:var(--fail);white-space:nowrap}
+  .axis{display:flex;justify-content:space-between;font:10.5px ui-monospace,monospace;
+        color:var(--dim);margin-bottom:10px}
+  .verdict{font:13px/1.6 ui-monospace,Menlo,monospace;border-left:3px solid var(--line);
+           padding:6px 10px;margin:8px 0;background:var(--mono-bg);border-radius:0 5px 5px 0}
+  .verdict.pass{border-left-color:var(--pass)}
+  .verdict.fail{border-left-color:var(--fail)}
+  .runhdr{font:12px/1.6 ui-monospace,Menlo,monospace;color:var(--dim);
+          background:var(--mono-bg);border:1px dashed var(--line);border-radius:6px;
+          padding:7px 10px;margin-bottom:10px;white-space:pre-wrap;user-select:all}
+  .note{font-size:12.5px;color:var(--dim);margin-top:8px}
+  @media (max-width:520px){ input[type=text],input[type=number]{width:88px} th,td{padding:4px 5px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Cycle-Ledger Bootstrap <span class="mono" style="font-weight:400;font-size:14px;color:var(--dim)">v1.1.0</span></h1>
+  <p class="sub">Circular moving-block bootstrap on Exit Attribution per-cycle rows.
+  Evaluation instrument only — no policy machinery. Load a certified STD log file,
+  or paste rows exactly as they appear in the log (timestamps optional).</p>
+
+  <div class="card">
+    <h2>Ledger A — incumbent</h2>
+    <textarea id="txtA" placeholder="#1 2024-07-19 decay 3d P&amp;L +$5,841 ITM -2.8% Δin 0.68&#10;#2 ..."></textarea>
+    <div class="row">
+      <div><label>Observed core yield %</label><input type="number" id="yA" step="0.1" value="5.8"></div>
+      <button class="ghost" id="loadA">Load STD log…</button>
+      <input type="file" id="fileA" accept=".txt,text/plain">
+      <button class="ghost" id="parseA">Parse Ledger A</button>
+    </div>
+    <div class="parsebox" id="pboxA">— not parsed —</div>
+  </div>
+
+  <div class="card">
+    <h2>Ledger B — comparison (optional)</h2>
+    <textarea id="txtB" placeholder="Load or paste the sandbox run's log here, or leave empty and use the point-yield field below."></textarea>
+    <div class="row">
+      <div><label>Observed core yield %</label><input type="number" id="yB" step="0.1"></div>
+      <button class="ghost" id="loadB">Load STD log…</button>
+      <input type="file" id="fileB" accept=".txt,text/plain">
+      <button class="ghost" id="parseB">Parse Ledger B</button>
+    </div>
+    <div class="parsebox" id="pboxB">— not parsed —</div>
+  </div>
+
+  <div class="card">
+    <h2>Run</h2>
+    <div class="row">
+      <div><label>Resamples B</label><input type="number" id="nB" value="10000"></div>
+      <div><label>Seed</label><input type="number" id="seed" value="42"></div>
+      <div><label>Comparison yield % (P-B1)</label><input type="number" id="cmpY" step="0.01"></div>
+      <button id="run" disabled>Run bootstrap</button>
+      <span class="gatemsg" id="gateMsg"></span>
+    </div>
+    <p class="note">Block lengths L ∈ {3, 6, 10} always run together (P-B2). Seeded PRNG —
+    same seed + same rows reproduces the run exactly. Comparison yield defaults to
+    Ledger B's observed yield when B is parsed.</p>
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<script>
+"use strict";
+/* Cycle-Ledger Bootstrap v1.1.0 — S43
+   v1.1.0 (S43): file-load path ("Load STD log…" reads the full log via FileReader
+     and auto-parses); Run-gate status line (disabled Run is never silent);
+     paste hardening (normalize \u2028 \u2029 \r to \n before splitting).
+     NO METHOD CHANGE — bootstrap math, seeding, and verdicts identical to v1.0.0;
+     runs remain comparable across versions at equal seed and rows.
+   v1.0.0 (S42): initial build.
+   Method (locked in-session before build):
+   - Rows: "#i DATE pool Nd P&L +$X,XXX ITM +Y.Y% Δin 0.ZZ" (timestamps stripped)
+   - Circular moving-block bootstrap, block length L, on the ordered rows.
+   - Clock fill: concatenate blocks until sum(hold days) >= observed sum; truncate
+     the final block at the boundary (partial block allowed, whole cycles only).
+   - Yield functional: y_b = yObs * (PnL_b / PnL_obs) * (D_obs / D_b)
+     (linear in credit, corrected for resampled clock length).
+   - Stop share s_b = -sum(stopPnL_b)/sum(harvestPnL_b) reported as secondary (P-B3).
+   - PRNG: mulberry32(seed) — reproducible.
+*/
+const $=id=>document.getElementById(id);
+let A=null,Bl=null;
+
+function parseLedger(txt){
+  const rows=[];const errs=[];
+  const re=/#(\d+)\s+(\d{4}-\d{2}-\d{2})\s+(\S+)\s+(\d+)d\s+P&L\s+([+-])\$([\d,]+)\s+ITM\s+([+-][\d.]+)%\s+Δin\s+([\d.]+)/;
+  txt.replace(/[\u2028\u2029\r]/g,'\n').split(/\n/).forEach(line=>{
+    const t=line.replace(/^\[[^\]]*\]\s*/,'').trim();
+    if(!t||!t.includes('#'))return;
+    const m=t.match(re);
+    if(m){rows.push({i:+m[1],date:m[2],pool:m[3],days:+m[4],
+      pnl:(m[5]==='-'?-1:1)*parseInt(m[6].replace(/,/g,''),10)});}
+    else if(/^#\d+/.test(t))errs.push(t.slice(0,60));
+  });
+  return {rows,errs};
+}
+function fingerprint(rows){ // small stable hash for the run header
+  let h=2166136261>>>0;
+  rows.forEach(r=>{const s=r.i+r.date+r.pool+r.days+r.pnl;
+    for(let k=0;k<s.length;k++){h^=s.charCodeAt(k);h=Math.imul(h,16777619);}});
+  return (h>>>0).toString(16).padStart(8,'0');
+}
+function summarize(rows){
+  const pools={};let pnl=0,days=0;
+  rows.forEach(r=>{pools[r.pool]=(pools[r.pool]||0)+1;pnl+=r.pnl;days+=r.days;});
+  return {n:rows.length,pools,pnl,days};
+}
+function showParse(which,res){
+  const box=which==='A'?$('pboxA'):$('pboxB');
+  if(!res.rows.length){box.innerHTML='<span class="bad">No rows parsed.</span> '
+    +'Expected rows like: <span class="mono">#1 2024-07-19 decay 3d P&amp;L +$5,841 ITM -2.8% Δin 0.68</span>'
+    +' — load the STD log file directly if pasting fails.';return null;}
+  const s=summarize(res.rows);
+  const p=Object.entries(s.pools).map(([k,v])=>k+' '+v).join(' · ');
+  box.innerHTML='rows <b>'+s.n+'</b> · '+p+' · ΣP&L <b>'
+    +(s.pnl<0?'−':'+')+'$'+Math.abs(s.pnl).toLocaleString()+'</b> · Σhold '
+    +s.days+'d · fp <b>'+fingerprint(res.rows)+'</b>\n'
+    +'<span class="wn">Verify n and ΣP&L against the log checksum line before running.</span>'
+    +(res.errs.length?'\n<span class="bad">'+res.errs.length+' unparsed #-rows (first: '
+      +res.errs[0]+')</span>':'');
+  return {rows:res.rows,sum:s};
+}
+function loadFile(which){
+  const inp=which==='A'?$('fileA'):$('fileB');
+  const f=inp.files&&inp.files[0];
+  if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const txt=String(rd.result);
+    if(which==='A'){$('txtA').value=txt;A=showParse('A',parseLedger(txt));}
+    else{$('txtB').value=txt;Bl=showParse('B',parseLedger(txt));
+      if(Bl&&$('yB').value&&!$('cmpY').value)$('cmpY').value=$('yB').value;}
+    gate();
+  };
+  rd.onerror=()=>{
+    const box=which==='A'?$('pboxA'):$('pboxB');
+    box.innerHTML='<span class="bad">File read failed.</span>';
+  };
+  rd.readAsText(f);
+  inp.value=''; // allow re-selecting the same file
+}
+$('loadA').onclick=()=>$('fileA').click();
+$('loadB').onclick=()=>$('fileB').click();
+$('fileA').onchange=()=>loadFile('A');
+$('fileB').onchange=()=>loadFile('B');
+$('parseA').onclick=()=>{A=showParse('A',parseLedger($('txtA').value));gate();};
+$('parseB').onclick=()=>{Bl=showParse('B',parseLedger($('txtB').value));
+  if(Bl&&$('yB').value&&!$('cmpY').value)$('cmpY').value=$('yB').value;gate();};
+function gate(){
+  const ready=!!(A&&A.rows.length&&+$('yA').value);
+  $('run').disabled=!ready;
+  $('gateMsg').textContent=ready?'':
+    (!A||!A.rows.length?'Load or parse Ledger A first':'Enter Ledger A observed yield');
+}
+$('yA').oninput=gate;
+gate();
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;
+  let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;
+  return((t^t>>>14)>>>0)/4294967296;};}
+
+function bootstrapLedger(rows,yObs,L,B,rng){
+  const n=rows.length;
+  const Dobs=rows.reduce((a,r)=>a+r.days,0);
+  const Pobs=rows.reduce((a,r)=>a+r.pnl,0);
+  const ys=new Float64Array(B),ss=new Float64Array(B);
+  for(let b=0;b<B;b++){
+    let d=0,p=0,harv=0,stop=0;
+    while(d<Dobs){
+      const start=Math.floor(rng()*n);
+      for(let k=0;k<L&&d<Dobs;k++){
+        const r=rows[(start+k)%n];
+        d+=r.days;p+=r.pnl;
+        if(r.pool==='delta-stop')stop+=r.pnl;else harv+=r.pnl;
+      }
+    }
+    ys[b]=yObs*(p/Pobs)*(Dobs/d);
+    ss[b]=harv>0?(-stop/harv)*100:NaN;
+  }
+  ys.sort();const q=f=>ys[Math.min(B-1,Math.floor(f*B))];
+  const sv=Array.from(ss).filter(x=>!isNaN(x)).sort((a,b)=>a-b);
+  const sq=f=>sv.length?sv[Math.min(sv.length-1,Math.floor(f*sv.length))]:NaN;
+  return {p05:q(.05),p25:q(.25),p50:q(.50),p75:q(.75),p95:q(.95),
+          s25:sq(.25),s50:sq(.50),s75:sq(.75),
+          mean:ys.reduce((a,v)=>a+v,0)/B,
+          sd:Math.sqrt(ys.reduce((a,v)=>a+(v-ys.reduce((x,y)=>x+y,0)/B)**2,0)/B)};
+}
+function gauge(r,lo,hi,cmp,cmpLabel){
+  const X=v=>((v-lo)/(hi-lo)*100).toFixed(2)+'%';
+  const W=(a,b)=>((b-a)/(hi-lo)*100).toFixed(2)+'%';
+  let g='<div class="gauge">'
+    +'<div class="band" style="left:'+X(r.p05)+';width:'+W(r.p05,r.p95)+'"></div>'
+    +'<div class="iqr" style="left:'+X(r.p25)+';width:'+W(r.p25,r.p75)+'"></div>'
+    +'<div class="med" style="left:'+X(r.p50)+'"></div>';
+  if(cmp!=null&&cmp>=lo&&cmp<=hi)
+    g+='<div class="cmp" data-l="'+cmpLabel+' '+cmp.toFixed(2)+'" style="left:'+X(cmp)+'"></div>';
+  g+='</div><div class="axis"><span>'+lo.toFixed(1)+'%</span><span>'+hi.toFixed(1)+'%</span></div>';
+  return g;
+}
+
+$('run').onclick=()=>{
+  const B=Math.max(100,+$('nB').value||10000);
+  const seed=+$('seed').value||42;
+  const Ls=[3,6,10];
+  const cmp=$('cmpY').value?+$('cmpY').value:null;
+  const out=[];
+  const hdr='bootstrap v1.1.0 · '+new Date().toISOString().slice(0,16).replace('T',' ')
+    +' · seed '+seed+' · B '+B+' · L {3,6,10}\n'
+    +'A: n '+A.sum.n+' · ΣP&L '+(A.sum.pnl<0?'−':'+')+'$'+Math.abs(A.sum.pnl).toLocaleString()
+    +' · Σhold '+A.sum.days+'d · yObs '+(+$('yA').value).toFixed(1)+'% · fp '+fingerprint(A.rows)
+    +(Bl&&Bl.rows.length?'\nB: n '+Bl.sum.n+' · ΣP&L '+(Bl.sum.pnl<0?'−':'+')
+      +'$'+Math.abs(Bl.sum.pnl).toLocaleString()+' · Σhold '+Bl.sum.days+'d · yObs '
+      +($('yB').value?(+$('yB').value).toFixed(1)+'%':'?')+' · fp '+fingerprint(Bl.rows):'')
+    +(cmp!=null?'\ncomparison yield (P-B1): '+cmp.toFixed(2)+'%':'');
+  out.push('<div class="card"><h2>Run header — copy into the session record</h2>'
+    +'<div class="runhdr">'+hdr+'</div>');
+
+  const resA={},resB={};
+  Ls.forEach(L=>{resA[L]=bootstrapLedger(A.rows,+$('yA').value,L,B,mulberry32(seed*100+L));});
+  if(Bl&&Bl.rows.length&&$('yB').value)
+    Ls.forEach(L=>{resB[L]=bootstrapLedger(Bl.rows,+$('yB').value,L,B,mulberry32(seed*100+L+50));});
+
+  const allv=[];Ls.forEach(L=>{allv.push(resA[L].p05,resA[L].p95);
+    if(resB[L])allv.push(resB[L].p05,resB[L].p95);});
+  if(cmp!=null)allv.push(cmp);
+  const lo=Math.floor(Math.min(...allv))-1,hi=Math.ceil(Math.max(...allv))+1;
+
+  let tbl='<table><tr><th>Ledger·L</th><th>p05</th><th>p25</th><th>median</th>'
+    +'<th>p75</th><th>p95</th><th>90% CI width</th><th>stop-share med (IQR)</th></tr>';
+  Ls.forEach(L=>{const r=resA[L];
+    tbl+='<tr><td>A · L='+L+'</td><td>'+r.p05.toFixed(2)+'</td><td>'+r.p25.toFixed(2)
+      +'</td><td><b>'+r.p50.toFixed(2)+'</b></td><td>'+r.p75.toFixed(2)+'</td><td>'
+      +r.p95.toFixed(2)+'</td><td>'+(r.p95-r.p05).toFixed(2)+'pp</td><td>'
+      +r.s50.toFixed(0)+'% ('+r.s25.toFixed(0)+'–'+r.s75.toFixed(0)+')</td></tr>';});
+  Ls.forEach(L=>{const r=resB[L];if(!r)return;
+    tbl+='<tr><td>B · L='+L+'</td><td>'+r.p05.toFixed(2)+'</td><td>'+r.p25.toFixed(2)
+      +'</td><td><b>'+r.p50.toFixed(2)+'</b></td><td>'+r.p75.toFixed(2)+'</td><td>'
+      +r.p95.toFixed(2)+'</td><td>'+(r.p95-r.p05).toFixed(2)+'pp</td><td>'
+      +r.s50.toFixed(0)+'% ('+r.s25.toFixed(0)+'–'+r.s75.toFixed(0)+')</td></tr>';});
+  tbl+='</table>';
+  out.push('<h2 style="margin-top:14px">Ledger A · L=6 (primary)</h2>'
+    +gauge(resA[6],lo,hi,cmp,'cmp')
+    +(resB[6]?'<h2>Ledger B · L=6</h2>'+gauge(resB[6],lo,hi,null,''):'')
+    +tbl);
+
+  // Verdicts
+  const rA=resA[6];
+  if(cmp!=null){
+    const inCI=cmp>=rA.p05&&cmp<=rA.p95;
+    out.push('<div class="verdict '+(inCI?'pass':'fail')+'">P-B1 — comparison '
+      +cmp.toFixed(2)+'% '+(inCI?'INSIDE':'OUTSIDE')+' A\u2019s 90% interval ['
+      +rA.p05.toFixed(2)+', '+rA.p95.toFixed(2)+'] at L=6 → '
+      +(inCI?'gap NOT resolvable at this resolution':'gap IS resolvable — a real distinction')
+      +'</div>');
+  }
+  const l3=resA[3],l10=resA[10];
+  const stable=Math.abs(l3.p05-l10.p05)<=1.0&&Math.abs(l3.p95-l10.p95)<=1.0
+    &&(cmp==null||((cmp>=l3.p05&&cmp<=l3.p95)===(cmp>=l10.p05&&cmp<=l10.p95)));
+  out.push('<div class="verdict '+(stable?'pass':'fail')+'">P-B2 — endpoints across '
+    +'L {3,6,10}: p05 {'+l3.p05.toFixed(2)+', '+rA.p05.toFixed(2)+', '+l10.p05.toFixed(2)
+    +'} · p95 {'+l3.p95.toFixed(2)+', '+rA.p95.toFixed(2)+', '+l10.p95.toFixed(2)+'} → '
+    +(stable?'STABLE (≤1.0pp drift, same P-B1 verdict)':'BLOCK-LENGTH FRAGILE')+'</div>');
+  out.push('<div class="verdict">P-B3 — stop-share dispersion: IQR '
+    +(rA.s75-rA.s25).toFixed(0)+'pp on median '+rA.s50.toFixed(0)
+    +'% (record vs harvest dispersion in the session log)</div>');
+  out.push('<p class="note">Method: circular moving-block bootstrap · clock-filled to Σhold '
+    +A.sum.days+'d (truncate at boundary) · y = yObs·(P&L_b/P&L_obs)·(D_obs/D_b) · '
+    +'unpaired A/B comparison by interval overlap only.</p></div>');
+  $('out').innerHTML=out.join('');
+};
+</script>
+</body>
+</html>
