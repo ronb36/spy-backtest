@@ -1,14 +1,14 @@
 {
-  "decayTrigger": 0.03,
+  "decayTrigger": 0.08,
   "dteFloor": 7,
   "deltaThreshold": 0.73,
   "otmTarget": 0.03,
   "dtePenaltyAnchor": 54,
-  "lastOptimized": "2026-07-29",
+  "lastOptimized": "2026-07-31",
   "contracts": 6,
   "defHorizon": 12,
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.",
-  "optProjYield": 5.8,
+  "optProjYield": 8.7,
   "entryDeltaCap": 0.73,
   "oppTheta": null,
   "oppH": 6,
@@ -20,5 +20,5 @@
   "coverPrice": 17.56,
   "sellPrice": 38.28,
   "netPremium": 20.72,
-  "graceDays": 3
+  "graceDays": 1
 }
