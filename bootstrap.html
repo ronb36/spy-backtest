@@ -70,7 +70,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Cycle-Ledger Bootstrap <span class="mono" style="font-weight:400;font-size:14px;color:var(--dim)">v1.2.0</span></h1>
+  <h1>Cycle-Ledger Bootstrap <span class="mono" style="font-weight:400;font-size:14px;color:var(--dim)">v1.2.1</span></h1>
   <p class="sub">Circular moving-block bootstrap on Exit Attribution per-cycle rows.
   Evaluation instrument only — no policy machinery. Load a certified STD log file,
   or paste rows exactly as they appear in the log (timestamps optional).</p>
@@ -118,8 +118,15 @@
 
 <script>
 "use strict";
-/* Cycle-Ledger Bootstrap v1.2.0 — S44
-   v1.2.0 (S44): yObs BECOMES A READER — root cause of the 8/2 mis-centered run
+/* Cycle-Ledger Bootstrap v1.2.1 — S44
+   v1.2.1 (S44): ET-LABELED TIMESTAMPS — the report header and download filename
+   used toISOString(), i.e. UTC, with no zone label. A 21:11 ET run stamped "00:11",
+   which was misread in-session as a past-midnight run (the reader had no way to know
+   — an unlabeled stamp is the defect, not the reader). Both sites now render
+   America/New_York via Intl.DateTimeFormat with an explicit ET suffix. DISPLAY ONLY:
+   the method functions (mulberry32 / bootstrapLedger / fingerprint / summarize) and
+   every number they produce are untouched — same seed, same streams, same results.
+   v1.2.1 (S44): yObs BECOMES A READER — root cause of the 8/2 mis-centered run
      was the yA input's baked value="5.8" (incumbent-era default; field never
      cross-checked against the loaded log — missed-reader family, silent-stale
      variant). Now: "Core yield: X.X%/yr" is parsed from the log, auto-fills the
@@ -158,7 +165,7 @@ function parseLedger(txt){
   txt.replace(/[\u2028\u2029\r]/g,'\n').split(/\n/).forEach(line=>{
     const t=line.replace(/^\[[^\]]*\]\s*/,'').trim();
     if(!t)return;
-    // v1.2.0 — identity readers (first hit wins; stripped of timestamps)
+    // v1.2.1 — identity readers (first hit wins; stripped of timestamps)
     if(!meta.verLine&&/^v[\d.]+\s+·\s+SPY Covered Call Backtest/.test(t))meta.verLine=t;
     if(!meta.runLine&&/^Running — /.test(t))meta.runLine=t;
     if(meta.coreLine===null){
@@ -201,7 +208,15 @@ function showParse(which,res){
       +res.errs[0]+')</span>':'');
   return {rows:res.rows,sum:s,meta:res.meta};
 }
-function autofillY(which){  // v1.2.0 — the log's Core-yield line wins the field
+function etStamp(d, forFilename){ // v1.2.1 — America/New_York, DST-correct via Intl (never hand-offset)
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone:'America/New_York', year:'numeric', month:'2-digit',
+    day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }).formatToParts(d)
+    .reduce((o,x)=>(o[x.type]=x.value,o),{});
+  const hh = p.hour === '24' ? '00' : p.hour; // en-CA can emit 24 at midnight
+  return forFilename ? `${p.year}-${p.month}-${p.day}_${hh}${p.minute}ET`
+                     : `${p.year}-${p.month}-${p.day} ${hh}:${p.minute} ET`;
+}
+function autofillY(which){  // v1.2.1 — the log's Core-yield line wins the field
   const L=which==='A'?A:Bl;
   if(L&&L.meta&&L.meta.yObs!=null)$(which==='A'?'yA':'yB').value=L.meta.yObs;
 }
@@ -231,7 +246,7 @@ $('fileB').onchange=()=>loadFile('B');
 $('parseA').onclick=()=>{A=showParse('A',parseLedger($('txtA').value));autofillY('A');gate();};
 $('parseB').onclick=()=>{Bl=showParse('B',parseLedger($('txtB').value));autofillY('B');
   if(Bl&&$('yB').value&&!$('cmpY').value)$('cmpY').value=$('yB').value;gate();};
-function yMismatch(L,fld){ // v1.2.0 — parsed log value vs field, 0.05 tolerance
+function yMismatch(L,fld){ // v1.2.1 — parsed log value vs field, 0.05 tolerance
   if(!L||!L.meta||L.meta.yObs==null)return false;
   const v=+$(fld).value;
   return !v||Math.abs(v-L.meta.yObs)>0.05;
@@ -300,10 +315,10 @@ $('run').onclick=()=>{
   const Ls=[3,6,10];
   const cmp=$('cmpY').value?+$('cmpY').value:null;
   const out=[];
-  const stamp=new Date().toISOString().slice(0,16).replace('T',' ');
+  const stamp=etStamp(new Date(), false); // v1.2.1 — ET-labeled (was unlabeled UTC)
   const yTagA=A.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
   const yTagB=Bl&&Bl.meta&&Bl.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
-  const hdr='bootstrap v1.2.0 · '+stamp
+  const hdr='bootstrap v1.2.1 · '+stamp
     +' · seed '+seed+' · B '+B+' · L {3,6,10}\n'
     +'A: n '+A.sum.n+' · ΣP&L '+(A.sum.pnl<0?'−':'+')+'$'+Math.abs(A.sum.pnl).toLocaleString()
     +' · Σhold '+A.sum.days+'d · yObs '+(+$('yA').value).toFixed(1)+'% '+yTagA+' · fp '+fingerprint(A.rows)
@@ -373,7 +388,7 @@ $('run').onclick=()=>{
     +'<div class="row" style="margin-top:10px"><button class="ghost" id="dl">Download results log</button></div></div>');
   $('out').innerHTML=out.join('');
 
-  // v1.2.0 — plain-text report (the downloadable artifact)
+  // v1.2.1 — plain-text report (the downloadable artifact)
   const idLines=(tag,L)=>{
     if(!L||!L.meta)return [];
     const ls=[];
@@ -407,7 +422,7 @@ $('run').onclick=()=>{
   rep.push('');
   rep.push(methodLine);
   reportTxt=rep.join('\n')+'\n';
-  const fn='bootstrap_'+new Date().toISOString().slice(0,16).replace('T','_').replace(':','')+'.txt';
+  const fn='bootstrap_'+etStamp(new Date(), true)+'.txt'; // v1.2.1 — ET-labeled filename
   $('dl').onclick=()=>{
     const blob=new Blob([reportTxt],{type:'text/plain'});
     const a=document.createElement('a');
