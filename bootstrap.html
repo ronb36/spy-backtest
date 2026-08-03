@@ -70,16 +70,16 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Cycle-Ledger Bootstrap <span class="mono" style="font-weight:400;font-size:14px;color:var(--dim)">v1.1.0</span></h1>
+  <h1>Cycle-Ledger Bootstrap <span class="mono" style="font-weight:400;font-size:14px;color:var(--dim)">v1.2.0</span></h1>
   <p class="sub">Circular moving-block bootstrap on Exit Attribution per-cycle rows.
   Evaluation instrument only — no policy machinery. Load a certified STD log file,
   or paste rows exactly as they appear in the log (timestamps optional).</p>
 
   <div class="card">
-    <h2>Ledger A — incumbent</h2>
+    <h2>Ledger A — primary</h2>
     <textarea id="txtA" placeholder="#1 2024-07-19 decay 3d P&amp;L +$5,841 ITM -2.8% Δin 0.68&#10;#2 ..."></textarea>
     <div class="row">
-      <div><label>Observed core yield %</label><input type="number" id="yA" step="0.1" value="5.8"></div>
+      <div><label>Observed core yield %</label><input type="number" id="yA" step="0.1"></div>
       <button class="ghost" id="loadA">Load STD log…</button>
       <input type="file" id="fileA" accept=".txt,text/plain">
       <button class="ghost" id="parseA">Parse Ledger A</button>
@@ -118,7 +118,20 @@
 
 <script>
 "use strict";
-/* Cycle-Ledger Bootstrap v1.1.0 — S43
+/* Cycle-Ledger Bootstrap v1.2.0 — S44
+   v1.2.0 (S44): yObs BECOMES A READER — root cause of the 8/2 mis-centered run
+     was the yA input's baked value="5.8" (incumbent-era default; field never
+     cross-checked against the loaded log — missed-reader family, silent-stale
+     variant). Now: "Core yield: X.X%/yr" is parsed from the log, auto-fills the
+     field, and the run gate BLOCKS on field≠log mismatch; manual entry allowed
+     only when the log carries no Core-yield line, and is tagged MANUAL/unverified
+     in the header and report. Also: downloadable plain-text results report
+     (client-side Blob; run header + source-log identity lines + full percentile
+     table + verdicts) so runs produce a diffable artifact, not a screenshot.
+     Source identity (backtester version line · Running-params line · Core-yield
+     line) parsed and embedded per ledger. Ledger A label "incumbent" retired.
+     NO METHOD CHANGE — bootstrap math, seeding, and verdicts identical to
+     v1.1.0; runs remain comparable across versions at equal seed and rows.
    v1.1.0 (S43): file-load path ("Load STD log…" reads the full log via FileReader
      and auto-parses); Run-gate status line (disabled Run is never silent);
      paste hardening (normalize \u2028 \u2029 \r to \n before splitting).
@@ -136,20 +149,29 @@
    - PRNG: mulberry32(seed) — reproducible.
 */
 const $=id=>document.getElementById(id);
-let A=null,Bl=null;
+let A=null,Bl=null,reportTxt=null;
 
 function parseLedger(txt){
   const rows=[];const errs=[];
+  const meta={yObs:null,coreLine:null,verLine:null,runLine:null};
   const re=/#(\d+)\s+(\d{4}-\d{2}-\d{2})\s+(\S+)\s+(\d+)d\s+P&L\s+([+-])\$([\d,]+)\s+ITM\s+([+-][\d.]+)%\s+Δin\s+([\d.]+)/;
   txt.replace(/[\u2028\u2029\r]/g,'\n').split(/\n/).forEach(line=>{
     const t=line.replace(/^\[[^\]]*\]\s*/,'').trim();
-    if(!t||!t.includes('#'))return;
+    if(!t)return;
+    // v1.2.0 — identity readers (first hit wins; stripped of timestamps)
+    if(!meta.verLine&&/^v[\d.]+\s+·\s+SPY Covered Call Backtest/.test(t))meta.verLine=t;
+    if(!meta.runLine&&/^Running — /.test(t))meta.runLine=t;
+    if(meta.coreLine===null){
+      const cy=t.match(/^Core yield:\s*([\d.]+)%\/yr\b/);
+      if(cy){meta.coreLine=t;meta.yObs=parseFloat(cy[1]);}
+    }
+    if(!t.includes('#'))return;
     const m=t.match(re);
     if(m){rows.push({i:+m[1],date:m[2],pool:m[3],days:+m[4],
       pnl:(m[5]==='-'?-1:1)*parseInt(m[6].replace(/,/g,''),10)});}
     else if(/^#\d+/.test(t))errs.push(t.slice(0,60));
   });
-  return {rows,errs};
+  return {rows,errs,meta};
 }
 function fingerprint(rows){ // small stable hash for the run header
   let h=2166136261>>>0;
@@ -171,11 +193,17 @@ function showParse(which,res){
   const p=Object.entries(s.pools).map(([k,v])=>k+' '+v).join(' · ');
   box.innerHTML='rows <b>'+s.n+'</b> · '+p+' · ΣP&L <b>'
     +(s.pnl<0?'−':'+')+'$'+Math.abs(s.pnl).toLocaleString()+'</b> · Σhold '
-    +s.days+'d · fp <b>'+fingerprint(res.rows)+'</b>\n'
+    +s.days+'d · fp <b>'+fingerprint(res.rows)+'</b>'
+    +(res.meta.yObs!=null?' · yObs <b>'+res.meta.yObs.toFixed(1)+'%</b> (parsed from log)':
+      ' · <span class="wn">no Core-yield line — yObs MANUAL</span>')+'\n'
     +'<span class="wn">Verify n and ΣP&L against the log checksum line before running.</span>'
     +(res.errs.length?'\n<span class="bad">'+res.errs.length+' unparsed #-rows (first: '
       +res.errs[0]+')</span>':'');
-  return {rows:res.rows,sum:s};
+  return {rows:res.rows,sum:s,meta:res.meta};
+}
+function autofillY(which){  // v1.2.0 — the log's Core-yield line wins the field
+  const L=which==='A'?A:Bl;
+  if(L&&L.meta&&L.meta.yObs!=null)$(which==='A'?'yA':'yB').value=L.meta.yObs;
 }
 function loadFile(which){
   const inp=which==='A'?$('fileA'):$('fileB');
@@ -184,8 +212,8 @@ function loadFile(which){
   const rd=new FileReader();
   rd.onload=()=>{
     const txt=String(rd.result);
-    if(which==='A'){$('txtA').value=txt;A=showParse('A',parseLedger(txt));}
-    else{$('txtB').value=txt;Bl=showParse('B',parseLedger(txt));
+    if(which==='A'){$('txtA').value=txt;A=showParse('A',parseLedger(txt));autofillY('A');}
+    else{$('txtB').value=txt;Bl=showParse('B',parseLedger(txt));autofillY('B');
       if(Bl&&$('yB').value&&!$('cmpY').value)$('cmpY').value=$('yB').value;}
     gate();
   };
@@ -200,16 +228,27 @@ $('loadA').onclick=()=>$('fileA').click();
 $('loadB').onclick=()=>$('fileB').click();
 $('fileA').onchange=()=>loadFile('A');
 $('fileB').onchange=()=>loadFile('B');
-$('parseA').onclick=()=>{A=showParse('A',parseLedger($('txtA').value));gate();};
-$('parseB').onclick=()=>{Bl=showParse('B',parseLedger($('txtB').value));
+$('parseA').onclick=()=>{A=showParse('A',parseLedger($('txtA').value));autofillY('A');gate();};
+$('parseB').onclick=()=>{Bl=showParse('B',parseLedger($('txtB').value));autofillY('B');
   if(Bl&&$('yB').value&&!$('cmpY').value)$('cmpY').value=$('yB').value;gate();};
+function yMismatch(L,fld){ // v1.2.0 — parsed log value vs field, 0.05 tolerance
+  if(!L||!L.meta||L.meta.yObs==null)return false;
+  const v=+$(fld).value;
+  return !v||Math.abs(v-L.meta.yObs)>0.05;
+}
 function gate(){
-  const ready=!!(A&&A.rows.length&&+$('yA').value);
-  $('run').disabled=!ready;
-  $('gateMsg').textContent=ready?'':
-    (!A||!A.rows.length?'Load or parse Ledger A first':'Enter Ledger A observed yield');
+  let msg='';
+  if(!A||!A.rows.length)msg='Load or parse Ledger A first';
+  else if(A.meta.yObs==null&&!+$('yA').value)msg='Enter Ledger A observed yield (no Core-yield line in log — manual)';
+  else if(yMismatch(A,'yA'))msg='⚠ yObs field '+(+$('yA').value||'?')+' ≠ log Core yield '
+    +A.meta.yObs.toFixed(1)+' (Ledger A) — field must match the loaded log';
+  else if(Bl&&Bl.rows.length&&yMismatch(Bl,'yB'))msg='⚠ yObs field '+(+$('yB').value||'?')
+    +' ≠ log Core yield '+Bl.meta.yObs.toFixed(1)+' (Ledger B) — field must match the loaded log';
+  $('run').disabled=!!msg;
+  $('gateMsg').textContent=msg;
 }
 $('yA').oninput=gate;
+$('yB').oninput=gate;
 gate();
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;
@@ -261,13 +300,16 @@ $('run').onclick=()=>{
   const Ls=[3,6,10];
   const cmp=$('cmpY').value?+$('cmpY').value:null;
   const out=[];
-  const hdr='bootstrap v1.1.0 · '+new Date().toISOString().slice(0,16).replace('T',' ')
+  const stamp=new Date().toISOString().slice(0,16).replace('T',' ');
+  const yTagA=A.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
+  const yTagB=Bl&&Bl.meta&&Bl.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
+  const hdr='bootstrap v1.2.0 · '+stamp
     +' · seed '+seed+' · B '+B+' · L {3,6,10}\n'
     +'A: n '+A.sum.n+' · ΣP&L '+(A.sum.pnl<0?'−':'+')+'$'+Math.abs(A.sum.pnl).toLocaleString()
-    +' · Σhold '+A.sum.days+'d · yObs '+(+$('yA').value).toFixed(1)+'% · fp '+fingerprint(A.rows)
+    +' · Σhold '+A.sum.days+'d · yObs '+(+$('yA').value).toFixed(1)+'% '+yTagA+' · fp '+fingerprint(A.rows)
     +(Bl&&Bl.rows.length?'\nB: n '+Bl.sum.n+' · ΣP&L '+(Bl.sum.pnl<0?'−':'+')
       +'$'+Math.abs(Bl.sum.pnl).toLocaleString()+' · Σhold '+Bl.sum.days+'d · yObs '
-      +($('yB').value?(+$('yB').value).toFixed(1)+'%':'?')+' · fp '+fingerprint(Bl.rows):'')
+      +($('yB').value?(+$('yB').value).toFixed(1)+'% '+yTagB:'?')+' · fp '+fingerprint(Bl.rows):'')
     +(cmp!=null?'\ncomparison yield (P-B1): '+cmp.toFixed(2)+'%':'');
   out.push('<div class="card"><h2>Run header — copy into the session record</h2>'
     +'<div class="runhdr">'+hdr+'</div>');
@@ -300,30 +342,79 @@ $('run').onclick=()=>{
     +(resB[6]?'<h2>Ledger B · L=6</h2>'+gauge(resB[6],lo,hi,null,''):'')
     +tbl);
 
-  // Verdicts
+  // Verdicts (plain-text copies collected for the report)
+  const vTxt=[];
   const rA=resA[6];
   if(cmp!=null){
     const inCI=cmp>=rA.p05&&cmp<=rA.p95;
-    out.push('<div class="verdict '+(inCI?'pass':'fail')+'">P-B1 — comparison '
-      +cmp.toFixed(2)+'% '+(inCI?'INSIDE':'OUTSIDE')+' A\u2019s 90% interval ['
-      +rA.p05.toFixed(2)+', '+rA.p95.toFixed(2)+'] at L=6 → '
-      +(inCI?'gap NOT resolvable at this resolution':'gap IS resolvable — a real distinction')
-      +'</div>');
+    const v='P-B1 — comparison '+cmp.toFixed(2)+'% '+(inCI?'INSIDE':'OUTSIDE')
+      +' A\u2019s 90% interval ['+rA.p05.toFixed(2)+', '+rA.p95.toFixed(2)+'] at L=6 → '
+      +(inCI?'gap NOT resolvable at this resolution':'gap IS resolvable — a real distinction');
+    vTxt.push(v);
+    out.push('<div class="verdict '+(inCI?'pass':'fail')+'">'+v+'</div>');
   }
   const l3=resA[3],l10=resA[10];
   const stable=Math.abs(l3.p05-l10.p05)<=1.0&&Math.abs(l3.p95-l10.p95)<=1.0
     &&(cmp==null||((cmp>=l3.p05&&cmp<=l3.p95)===(cmp>=l10.p05&&cmp<=l10.p95)));
-  out.push('<div class="verdict '+(stable?'pass':'fail')+'">P-B2 — endpoints across '
-    +'L {3,6,10}: p05 {'+l3.p05.toFixed(2)+', '+rA.p05.toFixed(2)+', '+l10.p05.toFixed(2)
-    +'} · p95 {'+l3.p95.toFixed(2)+', '+rA.p95.toFixed(2)+', '+l10.p95.toFixed(2)+'} → '
-    +(stable?'STABLE (≤1.0pp drift, same P-B1 verdict)':'BLOCK-LENGTH FRAGILE')+'</div>');
-  out.push('<div class="verdict">P-B3 — stop-share dispersion: IQR '
-    +(rA.s75-rA.s25).toFixed(0)+'pp on median '+rA.s50.toFixed(0)
-    +'% (record vs harvest dispersion in the session log)</div>');
-  out.push('<p class="note">Method: circular moving-block bootstrap · clock-filled to Σhold '
+  const v2='P-B2 — endpoints across L {3,6,10}: p05 {'+l3.p05.toFixed(2)+', '
+    +rA.p05.toFixed(2)+', '+l10.p05.toFixed(2)+'} · p95 {'+l3.p95.toFixed(2)+', '
+    +rA.p95.toFixed(2)+', '+l10.p95.toFixed(2)+'} → '
+    +(stable?'STABLE (≤1.0pp drift, same P-B1 verdict)':'BLOCK-LENGTH FRAGILE');
+  vTxt.push(v2);
+  out.push('<div class="verdict '+(stable?'pass':'fail')+'">'+v2+'</div>');
+  const v3='P-B3 — stop-share dispersion: IQR '+(rA.s75-rA.s25).toFixed(0)
+    +'pp on median '+rA.s50.toFixed(0)+'% (record vs harvest dispersion in the session log)';
+  vTxt.push(v3);
+  out.push('<div class="verdict">'+v3+'</div>');
+  const methodLine='Method: circular moving-block bootstrap · clock-filled to Σhold '
     +A.sum.days+'d (truncate at boundary) · y = yObs·(P&L_b/P&L_obs)·(D_obs/D_b) · '
-    +'unpaired A/B comparison by interval overlap only.</p></div>');
+    +'unpaired A/B comparison by interval overlap only.';
+  out.push('<p class="note">'+methodLine+'</p>'
+    +'<div class="row" style="margin-top:10px"><button class="ghost" id="dl">Download results log</button></div></div>');
   $('out').innerHTML=out.join('');
+
+  // v1.2.0 — plain-text report (the downloadable artifact)
+  const idLines=(tag,L)=>{
+    if(!L||!L.meta)return [];
+    const ls=[];
+    if(L.meta.verLine)ls.push('  source:  '+L.meta.verLine);
+    if(L.meta.runLine)ls.push('  params:  '+L.meta.runLine);
+    if(L.meta.coreLine)ls.push('  yield:   '+L.meta.coreLine);
+    return ls.length?['Ledger '+tag+' source identity:'].concat(ls):[
+      'Ledger '+tag+' source identity: (none parsed — pasted rows only)'];
+  };
+  const pad=(s,w)=>String(s).padStart(w);
+  const rep=[];
+  rep.push('═══════════════════════════════════════════════════════════');
+  rep.push('CYCLE-LEDGER BOOTSTRAP — RESULTS REPORT');
+  rep.push('═══════════════════════════════════════════════════════════');
+  rep.push(hdr);
+  rep.push('');
+  rep.push(...idLines('A',A));
+  if(Bl&&Bl.rows.length){rep.push('');rep.push(...idLines('B',Bl));}
+  rep.push('');
+  rep.push('Ledger·L     p05     p25  median     p75     p95   90%CIw   stop-share med (IQR)');
+  rep.push('───────────────────────────────────────────────────────────────────────────────');
+  const repRow=(tag,L,r)=>rep.push(tag+' · L='+String(L).padEnd(3)
+    +pad(r.p05.toFixed(2),8)+pad(r.p25.toFixed(2),8)+pad(r.p50.toFixed(2),8)
+    +pad(r.p75.toFixed(2),8)+pad(r.p95.toFixed(2),8)
+    +pad((r.p95-r.p05).toFixed(2)+'pp',9)
+    +'   '+r.s50.toFixed(0)+'% ('+r.s25.toFixed(0)+'–'+r.s75.toFixed(0)+')');
+  Ls.forEach(L=>repRow('A',L,resA[L]));
+  Ls.forEach(L=>{if(resB[L])repRow('B',L,resB[L]);});
+  rep.push('');
+  vTxt.forEach(v=>rep.push(v));
+  rep.push('');
+  rep.push(methodLine);
+  reportTxt=rep.join('\n')+'\n';
+  const fn='bootstrap_'+new Date().toISOString().slice(0,16).replace('T','_').replace(':','')+'.txt';
+  $('dl').onclick=()=>{
+    const blob=new Blob([reportTxt],{type:'text/plain'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=fn;
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+  };
 };
 </script>
 </body>
