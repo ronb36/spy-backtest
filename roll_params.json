@@ -13,5 +13,12 @@
   "oppTheta": null,
   "oppH": 6,
   "entryDteMin": null,
-  "graceDays": 1
+  "graceDays": 1,
+  "shortStrike": 755,
+  "shortExpiry": "2026-09-18",
+  "entryDate": "2026-08-03",
+  "entrySpy": 754.84,
+  "coverPrice": 0,
+  "sellPrice": 16.27,
+  "netPremium": 16.27
 }
