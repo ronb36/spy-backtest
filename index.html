@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.15.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.15.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -570,7 +570,7 @@ select.display-box { cursor:pointer; outline:none; }
     <br><span style="color:var(--muted);opacity:.6;">v5.11.0 · OPT ranks on CORE yield (SIM-ADJACENT — objective change, sim mechanics untouched) — the optimizer, heatmap grid, boundary analysis, and published optAnnYield now use core-roll yield (v5.10.1 metric) instead of headline yield, removing the regime-correlated endpoint transients from every parameter decision. Headline retained per row for reference. Configs with a null core (<3 closed core cycles) are unrankable and cannot win. STD runs unchanged — validation gate: STD log byte-identical to v5.10.1 except banner. NOTE: agent-side displays reading optAnnYield now show core yield (Model Rules alignment queued).</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.1 · Core-only display (DISPLAY ONLY) — core yield is the single yield shown in panels, log summary, and AI-brief context; Strategy Yield / Total Roll Credit cards replaced by Core Roll Yield / Core Roll Credit. Headline survives ONLY in the forensic accounting section (roll ledger, attribution, decomposition identity) as the auditable cross-check. Realized yield is sourced from the Live Trade Blotter, not the sim.</span>
     <br><span style="color:var(--muted);opacity:.6;">v5.11.2 · OPT log completeness (DISPLAY ONLY) — full ranked results table (all evals, core yield only, winner starred) emitted to the log after the Sweep Boundary Analysis block; makes every OPT cell diffable and reproducible from the log artifact without heatmap read-offs. Headline per cell stays in STD_debug only.</span>
-    <br><span style="color:var(--muted);opacity:.6;">v6.15.0 · AUDIT CLOSE ON EVERY CYCLE CLOSE — the S44 walk-forward writer gap (TICKET/WRITER PATH; sim untouched, STD certs by chain). FOUND BY THE FIRST LIVE CYCLE: tracks 8/9 read 0/20 after cycle 1 closed. Three defects, all mine, all logged: (1) the v6.13.0 P-L1/P-L2 readers were written against an ASSUMED live_trades schema — the real cover-only row carries status “flat” (not closed), note null (not ticket*), sell_price null, and roll_credit = the raw cover debit, so every filter missed and the P&amp;L formula had no numerator; (2) attribution was specced off the blotter TRIGGER field, which records the ACTION (“cover only”, “rolled”) not the REASON — S33 had ALREADY ruled “audit is the analytical source”, three sessions before I proposed the blotter and Ron approved it on my description; (3) the era filter keyed on trade_date (the OPEN date) when both P-L registrations measure the EXIT. ROOT CAUSE UNDER ALL THREE: writeAuditRecords had exactly ONE caller — the roll/entry ticket. confirmCoverOnly never wrote an audit record, so a cycle that closes WITHOUT a roll leaves the open snapshot row dangling — and because the close is a PATCH on “newest row with realized_close_date IS NULL”, the NEXT roll ticket would have silently patched cycle 1 with THAT roll’s date and reason. Not a missing row: a wrong one, waiting to happen. THIS RELEASE (writer only): writeAuditClose extracted as the SINGLE close writer — both paths (roll ticket, Cover Only) now run identical realized-field logic; confirmCoverOnly calls it after the blotter write, sourcing prior economics from the OPEN BLOTTER ROW (the booked fill) rather than STD, because the flat publish that follows SCRUBS the position block — read before scrub, an R8 absence-as-flat ordering trap; retryAuditWrite gains a closeOnly branch so a failed cover-only audit is recoverable like a failed roll audit. THE COVER KNOWS WHY IT COVERED (Ron's amendment, pre-deploy — folded into this release rather than shipped as a .1
+    <br><span style="color:var(--muted);opacity:.6;">v6.15.1 · WALK-FORWARD READER ON audit_snapshot — part 2 of the S44 registry fix (DISPLAY/NETWORK + one ticket guard; sim untouched). v6.15.0 shipped the writer; this ships the reader, and it is mostly DELETION. TRACKS 8/9 REPOINT from live_trades to audit_snapshot per the S33 ruling “audit is the analytical source” — a ruling that existed three sessions before the v6.13.0 tracks were specced against the blotter anyway. _wfCycleRows and _wfDeltaAudit are DELETED (not parked — v6.5.0/v6.10.0 precedent), replaced by _wfAuditCycles: era keys on realized_close_date (both P-L registrations measure the EXIT, so a cycle opened pre-pin and stopped in-era IS an era observation — the v6.13.0 trade_date filter had it backwards), attribution reads realized_close_trigger, P&amp;L reads realized_pnl. Three v6.13.0 defects die with the old helper: the ASSUMED blotter schema (real cover-only rows carry status ‘flat’, note null, sell_price null — every filter missed and the P&amp;L formula had no numerator), the ACTION-vs-REASON confusion in the trigger field, and the SUBSTRING CO-FIRE BUG — a ‘delta+decay’ string landed one cycle in BOTH pools, breaking the P-R2 registration (“exit lands in exactly one pool”) on the very first row. Canonical single-writer values now permit EXACT match. The Δ-audit is gone with no replacement, and that is an improvement: a canonical reason recorded by one writer at fire time is better evidence than a close-basis recompute that could only ever be advisory. ENTRY-MODE GUARD (row-4 corruption class, found LIVE this session): entry mode now SKIPS the close patch entirely — see the inline note. Row 2 (07/27) carries the same ‘entry’ scar and is deliberately NOT invented over: pre-era, P-L1 untouched, and a fabricated reason would be worse than an honest wrong label with a known cause — the reader surfaces it as a non-canonical amber count rather than silently dropping it. FIRE LEDGER (P-L3) STAYS on live_trades: it counts CASH EVENTS, which is exactly what the blotter is for. Readiness digest repointed in the same edit (v6.7.1 digest/section parity). CERT: (1) STD by chain — no sim path touched; note the 08-03 DM collection means the standing baseline is now the 2019 log (126 cycles · 8.0% · $55,514 · decay pool $1,887 · stop share 26.2%) and nothing certifies across that boundary; (2) P-R2 REGISTERED, adjudicated on first render: tracks 8/9 read 1/20 era cycles · stops 1 (100.0%) · triggers “delta ×1”, with P-L2 decay pool n=0 — cycle 1 lands in EXACTLY ONE pool, which is the whole registration; a 100% rate at n=1 is meaningless by construction and is precisely why adjudication waits for 20.</span><br><span style="color:var(--muted);opacity:.6;">v6.15.0 · AUDIT CLOSE ON EVERY CYCLE CLOSE — the S44 walk-forward writer gap (TICKET/WRITER PATH; sim untouched, STD certs by chain). FOUND BY THE FIRST LIVE CYCLE: tracks 8/9 read 0/20 after cycle 1 closed. Three defects, all mine, all logged: (1) the v6.13.0 P-L1/P-L2 readers were written against an ASSUMED live_trades schema — the real cover-only row carries status “flat” (not closed), note null (not ticket*), sell_price null, and roll_credit = the raw cover debit, so every filter missed and the P&amp;L formula had no numerator; (2) attribution was specced off the blotter TRIGGER field, which records the ACTION (“cover only”, “rolled”) not the REASON — S33 had ALREADY ruled “audit is the analytical source”, three sessions before I proposed the blotter and Ron approved it on my description; (3) the era filter keyed on trade_date (the OPEN date) when both P-L registrations measure the EXIT. ROOT CAUSE UNDER ALL THREE: writeAuditRecords had exactly ONE caller — the roll/entry ticket. confirmCoverOnly never wrote an audit record, so a cycle that closes WITHOUT a roll leaves the open snapshot row dangling — and because the close is a PATCH on “newest row with realized_close_date IS NULL”, the NEXT roll ticket would have silently patched cycle 1 with THAT roll’s date and reason. Not a missing row: a wrong one, waiting to happen. THIS RELEASE (writer only): writeAuditClose extracted as the SINGLE close writer — both paths (roll ticket, Cover Only) now run identical realized-field logic; confirmCoverOnly calls it after the blotter write, sourcing prior economics from the OPEN BLOTTER ROW (the booked fill) rather than STD, because the flat publish that follows SCRUBS the position block — read before scrub, an R8 absence-as-flat ordering trap; retryAuditWrite gains a closeOnly branch so a failed cover-only audit is recoverable like a failed roll audit. THE COVER KNOWS WHY IT COVERED (Ron's amendment, pre-deploy — folded into this release rather than shipped as a .1
  correcting a twenty-minute-old build): the close reason is DERIVED, not asked. openCoverOnlyModal now runs the roll ticket's
  v6.1.9 logic — the scan's fired trigger is auto-selected, non-firing buttons GREYED so the audit cannot record fiction,
  discretionary always available as an honest override. FOURTH GHOST READER OF THE SESSION, and the sharpest: v6.7.12 added
@@ -798,7 +798,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.15.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.15.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1641,13 +1641,18 @@ async function buildResReadiness() {
   try {
     const t1 = await _resCount('audit_snapshot');
     put('defh', (t1 || 0) >= 5, t1 == null, t1 == null ? 'ERROR' : t1 + ' audits (heur \u22655)');
-    const t2f = await _resFetch('live_trades', null, 2000); // v6.13.0 — one fetch serves fire + pl1 + pl2 (60s cache); era-scoped client-side (US-format dates)
-    if (t2f.err) { put('fire', false, true, 'ERROR'); put('pl1', false, true, 'ERROR'); put('pl2', false, true, 'ERROR'); }
+    const t2f = await _resFetch('live_trades', null, 2000); // v6.13.0 — fire ledger (P-L3) stays on the blotter: it counts CASH EVENTS, which is what the blotter is
+    if (t2f.err) { put('fire', false, true, 'ERROR'); }
     else {
       const tick = (t2f.rows || []).filter(r => r && r.note && String(r.note).indexOf('ticket') === 0);
       const eraFires = _wfEraSplit(tick, ['trade_date','ts']).era.length;
       put('fire', eraFires >= 10, false, eraFires + '/~10 era fires');
-      const cyc = _wfCycleRows(t2f.rows), att = cyc.filter(c => c.trig);
+    }
+    // v6.15.1 — pl1/pl2 read audit_snapshot (S33: audit is the analytical source); digest/section parity (v6.7.1 lesson)
+    const t2a = await _resFetch('audit_snapshot', null, 500);
+    if (t2a.err) { put('pl1', false, true, 'ERROR'); put('pl2', false, true, 'ERROR'); }
+    else {
+      const att = _wfAuditCycles(t2a.rows).filter(c => c.canon);
       put('pl1', att.length >= 20, false, att.length + '/20 era cycles');
       put('pl2', att.length >= 20, false, att.length + '/20 era cycles');
     }
@@ -1735,12 +1740,12 @@ const RES_TRACKS = [
   { id:'theta',  n:7, title:'θ arming gate',            table:'scan_snapshot',
     hyp:'ARMING GATE (adopted S39, as drafted): over next N=3 shadow would-fires, each must (a) be a cheap-cover/decay-near-miss state, (b) realize net >= 3x toll ($0.36/sh) on worst-case fills, (c) cadence <= 4/yr, (d) ZERO long-DTE ladder fires — one ladder fire = θ dead (v6.5.0-class removal). All four at N=3 → θ earns roll_params residence.',
     target:'0/3 fires · 0 ladder · shadow θ$0.12/H6 (measurement, not policy)', minN:3, tsHint:['ts','created_at'] },
-  { id:'pl1', n:8, title:'P-L1 stop-rate fingerprint', table:'live_trades', // v6.13.0 — S43 walk-forward registration; era-scoped
+  { id:'pl1', n:8, title:'P-L1 stop-rate fingerprint', table:'audit_snapshot', // v6.15.1 — repointed from live_trades (S33 doctrine: audit is the analytical source)
     hyp:'Live stop rate over the first 20 post-publish cycles lands in 22–30% (g1 fingerprint; in-sim 26.4%), vs incumbent live-era 19–21%. Attribution AUTOMATIC from the blotter trigger field (single writer, contemporaneous; delta-first co-fire parity with the sim convention); Δ-audit vs exit-day DM close is ADVISORY (close is a proxy for the intraday fire).',
-    target:'20 closed era cycles · stops within 22–30%', minN:20, tsHint:['trade_date','ts','created_at','date'] },
-  { id:'pl2', n:9, title:'P-L2 decay-pool richness', table:'live_trades', // v6.13.0 — S43 walk-forward registration; era-scoped
+    target:'20 closed era cycles · stops within 22–30%', minN:20, tsHint:['realized_close_date','created_at'] },
+  { id:'pl2', n:9, title:'P-L2 decay-pool richness', table:'audit_snapshot', // v6.15.1 — repointed; realized_pnl is the per-cycle number
     hyp:'Live decay-pool mean per cycle > $1,434 (in-sim register $1,752–$1,945 at the g1 publish). Same adjudication event as P-L1 — both registered at the S43 decay-8/grace-1 publish; judged at n=20, never on yield (certified g1 noise band ~22.9pp).',
-    target:'20 closed era cycles · decay mean > $1,434', minN:20, tsHint:['trade_date','ts','created_at','date'] },
+    target:'20 closed era cycles · decay mean > $1,434', minN:20, tsHint:['realized_close_date','created_at'] },
 ];
 const RES_DM_TABLES = ['spy_daily','vix_daily','yield_daily','option_days'];
 // ── v6.13.0 · WALK-FORWARD ERA ── PINNED constant, deliberately NOT json-sourced:
@@ -1759,38 +1764,26 @@ function _wfEraSplit(rows, hints) { // policy-scoped counters are era-scoped: pr
   });
   return { era, prior };
 }
-function _wfCycleRows(rows) { // closed SYSTEM-ERA cycles from live_trades (client-side: trade_date is US-format — server date filters impossible)
+function _wfAuditCycles(rows) { // v6.15.1 — CLOSED walk-forward cycles from audit_snapshot.
+  // Replaces v6.13.0's _wfCycleRows (live_trades) and _wfDeltaAudit, both deleted: they were built on an
+  // ASSUMED blotter schema (status 'closed' / note ticket* / sell_price) that the real cover-only row does
+  // not match, and on the blotter TRIGGER field, which records the ACTION not the REASON (S33 ruling).
+  // audit_snapshot needs none of it: realized_close_trigger is canonical, written by a single writer at
+  // fire time, and realized_pnl is already the per-cycle number. Era keys on the CLOSE — both P-L
+  // registrations measure the exit, so a cycle opened pre-pin and stopped in-era IS an era observation.
+  const CANON = ['decay','delta','dte','discretionary'];
   const out = [];
   (rows || []).forEach(r => {
-    if (!r || r.status !== 'closed') return;
-    if (!(r.note && String(r.note).indexOf('ticket') === 0)) return; // system-era rows only (v6.7.1 note=ticket* convention)
-    const iso = _wfIsoD(String(r.trade_date || ''));
-    if (!iso || !/^\d{4}-/.test(iso) || iso < WF_ERA_START) return;
-    const sp = +r.sell_price, cp = +r.cover_price, n = +(r.sell_contracts || r.cover_contracts || 0);
-    // Per-position cycle P&L = (sell − cover) × 100 × contracts — NEVER roll_credit (v5.5.1: credit lines are EVENT flows, not per-position P&L)
-    const pnl = (isFinite(sp) && isFinite(cp) && n > 0) ? (sp - cp) * 100 * n : null;
-    out.push({ row: r, iso, pnl, trig: String(r.trigger || '').toLowerCase() });
+    if (!r || !r.realized_close_date) return; // still open
+    const iso = String(r.realized_close_date).slice(0, 10);
+    if (iso < WF_ERA_START) return;
+    const trig = String(r.realized_close_trigger || '').toLowerCase().trim();
+    out.push({ row: r, iso, trig, canon: CANON.includes(trig) ? trig : null,
+               pnl: (r.realized_pnl != null && isFinite(+r.realized_pnl)) ? +r.realized_pnl : null,
+               hold: (r.realized_hold_days != null) ? +r.realized_hold_days : null });
   });
+  out.sort((a, b) => a.iso < b.iso ? -1 : 1);
   return out;
-}
-function _wfDeltaAudit(c) { // ADVISORY cross-check: defense-frame Δ at exit date from DM close via the sim's own callDelta.
-  // Close-basis is a PROXY for the intraday fire — a genuine 10am stop can fade below threshold by the close —
-  // so disagreement is a review flag, never an exclusion (spec softening, on the record in the v6.13.0 changelog).
-  try {
-    if (typeof DM === 'undefined' || !DM || !DM.spy || !DM.vix || !c.row.sell_expiry) return null;
-    const sRow = DM.spy.find(x => x && (x.date || x.day) === c.iso);
-    const vRow = DM.vix.find(x => x && (x.date || x.day) === c.iso);
-    const S = sRow ? +(sRow.close ?? sRow.value ?? sRow.c) : NaN;
-    const V = vRow ? +(vRow.close ?? vRow.value ?? vRow.c) : NaN;
-    const exp = _wfIsoD(String(c.row.sell_expiry));
-    const dte = Math.round((new Date(exp + 'T00:00:00Z') - new Date(c.iso + 'T00:00:00Z')) / 86400000);
-    if (!isFinite(S) || !isFinite(V) || !isFinite(dte) || dte < 0 || !isFinite(+c.row.sell_strike)) return null;
-    const defH = (typeof STD !== 'undefined' && STD && STD.defHorizon) ? STD.defHorizon : 0;
-    const frame = defH > 0 ? Math.min(defH, Math.max(dte, 1)) : Math.max(dte, 1); // v6.3.0 defense frame at published defH
-    const d = callDelta(S, +c.row.sell_strike, frame, V, 4.5);
-    const thr = (typeof STD !== 'undefined' && STD && STD.deltaThreshold) ? STD.deltaThreshold : 0.73;
-    return { delta: d, agrees: (d >= thr) === (c.trig.indexOf('delta') >= 0) };
-  } catch (e) { return null; }
 }
 let _resCache = {};   // table|order|limit → {rows, err, at}
 let _resAcTrack = null;
@@ -1942,28 +1935,26 @@ async function resRender(id) {
     const sp = _wfEraSplit(rows, t.tsHint);
     const st = _resScanStats(sp.era);
     counter = _resCounterHtml(st.menuScans, t.minN, st.menuScans + ' menu-states of ~10 (' + st.ddN + ' states of ' + st.rawN + ' era scans; menu-0 carries no re-rank verdict) · prior era: ' + sp.prior.length + ' scans archived');
-  } else if (id === 'pl1' || id === 'pl2') { // v6.13.0 — walk-forward P-L1/P-L2: closed SYSTEM-ERA cycles, era ≥ WF_ERA_START; NO auto-verdict — adjudication at n=20 (S43 registration)
-    const lf = await _resFetch('live_trades', null, 2000); // client-side era filter (US-format dates); 2000-row fetch per the dpairs precedent
-    if (lf.err) { sec.innerHTML = html + '<div style="color:var(--red);">✗ live_trades: ' + lf.err + '</div>' + _resAskBtn(id); return; }
-    const cyc = _wfCycleRows(lf.rows);
-    const att = cyc.filter(c => c.trig);
+  } else if (id === 'pl1' || id === 'pl2') { // v6.15.1 — walk-forward P-L1/P-L2 on audit_snapshot; NO auto-verdict — adjudication at n=20 (S43 registration)
+    const cyc = _wfAuditCycles(rows);
+    const att = cyc.filter(c => c.canon);
     const unattr = cyc.length - att.length;
-    const audits = att.map(c => _wfDeltaAudit(c)).filter(a => a);
-    const disagree = audits.filter(a => !a.agrees).length;
-    const hist = {}; att.forEach(c => { hist[c.trig] = (hist[c.trig] || 0) + 1; });
+    const hist = {}; att.forEach(c => { hist[c.canon] = (hist[c.canon] || 0) + 1; });
     const histStr = Object.entries(hist).map(([k, v]) => k + ' ×' + v).join(' · ') || 'none yet';
     if (id === 'pl1') {
-      const stops = att.filter(c => c.trig.indexOf('delta') >= 0).length;
+      const stops = att.filter(c => c.canon === 'delta').length; // exact match: canonical values, single writer — no substring double-counting
       const rate = att.length ? (100 * stops / att.length).toFixed(1) + '%' : '—';
       counter = _resCounterHtml(att.length, t.minN, att.length + ' of 20 closed era cycles · stops ' + stops + ' (' + rate + ') vs band 22–30% · triggers: ' + histStr);
     } else {
-      const dec = att.filter(c => c.trig.indexOf('decay') >= 0 && c.pnl != null);
+      const dec = att.filter(c => c.canon === 'decay' && c.pnl != null);
       const mean = dec.length ? dec.reduce((s, c) => s + c.pnl, 0) / dec.length : null;
-      counter = _resCounterHtml(att.length, t.minN, att.length + ' of 20 closed era cycles · decay pool n=' + dec.length + (mean != null ? ' · mean $' + mean.toFixed(0) : '') + ' vs floor $1,434 (register $1,752–$1,945)');
+      counter = _resCounterHtml(att.length, t.minN, att.length + ' of 20 closed era cycles · decay pool n=' + dec.length
+        + (mean != null ? ' · mean $' + mean.toFixed(0) : '') + ' vs floor $1,434 (register $1,752–$1,945 as measured at the g1 publish)');
     }
-    if (unattr > 0) counter += '<div style="color:var(--yellow);">⚠ ' + unattr + ' closed era row(s) missing trigger — excluded from the count until attributed</div>';
-    if (disagree > 0) counter += '<div style="color:var(--yellow);">⚠ Δ-audit ADVISORY: ' + disagree + ' of ' + audits.length + ' audited rows — close-basis defense-frame Δ disagrees with the recorded trigger (close is a proxy for the intraday fire; review, not exclusion)</div>';
-    counter += '<div style="color:var(--muted);">era ≥ ' + WF_ERA_START + ' · closed · note=ticket* · P&amp;L = (sell−cover)×100×contracts (never roll_credit)</div>';
+    const noPnl = att.filter(c => c.pnl == null).length;
+    if (unattr > 0) counter += '<div style="color:var(--yellow);">⚠ ' + unattr + ' era row(s) with a non-canonical close trigger — excluded from the count (pre-v6.15.0 rows may read \'entry\': the close was stamped by the NEXT ticket)</div>';
+    if (noPnl > 0)  counter += '<div style="color:var(--yellow);">⚠ ' + noPnl + ' attributed row(s) missing realized_pnl — counted in P-L1, excluded from the P-L2 pool</div>';
+    counter += '<div style="color:var(--muted);">era on realized_close_date ≥ ' + WF_ERA_START + ' · attribution from realized_close_trigger (canonical, single-writer at fire time) · P&amp;L from realized_pnl</div>';
   } else {
     counter = _resCounterHtml((total != null ? total : rows.length), t.minN, (total != null ? total : rows.length + '+') + ' rows vs target');
   }
@@ -7207,7 +7198,14 @@ async function writeAuditClose(reason, prior, coverPx, contracts) {
 
 async function writeAuditRecords(tradeId, info) {
   // 1) complete the open snapshot, if any (first audited trade: none — skip)
-  const openRows = await writeAuditClose(_tradeCloseReason, info.prior, info.cover, info.contracts) ? [1] : [];
+  // v6.15.1 GUARD (row-4 corruption class, found LIVE in S44): in ENTRY mode there is no prior cycle to
+  // close — _tradeCloseReason is hardcoded 'entry' — yet this patched the newest open row anyway.
+  // Cycle 1 closed via Cover Only (which wrote nothing pre-v6.15.0), so the 11:30 entry ticket stamped
+  // that row 'entry' with a null-prior hold/credit; Ron hand-patched it to delta / 4d / −$5,814.
+  // A close with NO ticket at all (expiry, assignment) would still mis-stamp — so entry mode SKIPS the
+  // close patch entirely. An honest OPEN row beats a wrong closed one.
+  const _entryMode = (typeof _tradeEntryMode !== 'undefined' && _tradeEntryMode) || _tradeCloseReason === 'entry';
+  const openRows = (!_entryMode && await writeAuditClose(_tradeCloseReason, info.prior, info.cover, info.contracts)) ? [1] : [];
   // 2) insert the new cycle's snapshot
   const rowObj = r => ({ decay: r.decay, delta: r.delta, floor: r.floor, anchor: r.lookahead, defh: r.defh ?? 0, ecap: r.entrycap ?? null, // v6.3.2/v6.4.1
     rolls: r.rolls, core: +r.yld.toFixed(2), dstop: r.stopN ?? 0, pure: r.pureN ?? 0 });
