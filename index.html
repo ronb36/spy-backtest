@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -553,7 +553,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.2 · defh ERA SPLIT (DISPLAY/NETWORK ONLY, sim untouched; closes the v6.13.0 deferral — Ron’s S45 go). The defh track (Research §1, defH=12 audit) was the last policy-scoped counter still counting across the walk-forward boundary: the digest read a bare _resCount(audit_snapshot) and the section fell to the generic total-rows counter — pre-era rows describe the incumbent machine, not the era being judged (Lucas critique, the v6.13.0 rationale). dpairs stays unsplit PERMANENTLY per the S44 ruling (market fact — delta gaps don’t care which policy holds the position). FIXES: (1) digest — defh now RIDES the conf track’s 500-row audit_snapshot fetch (one query saved; a fetch error marks BOTH ERROR) and counts _wfEraSplit(...).era with prior shown; the splitter prefers trade_date, the audit row’s own open date, so open era rows classify correctly; (2) section — new id===’defh’ branch, era count vs heur 5 with “prior era: N archived” in the house format; threshold 5 now matches the digest heuristic in BOTH surfaces (digest/section parity, v6.7.1 lesson; RES_TRACKS minN 1 was the mismatched generic path’s input and is bypassed, not edited). Era recoverability was never at risk — rows carry app_version/params in-row (the v6.13.0 deferral rationale); this release makes the COUNTER honest, nothing else. KNOWN LIMIT, carried: the 500-row fetch window is the count-500 fragility of queue item 5 — harmless at current table size, hardening queued. CERT: (1) STD by chain — no sim or run-header path touched; version header is the only permitted log diff; (2) script-region diff vs 5e335dc4 enumerates the two counter edits + APP_VERSION only; (3) live — Research §1 title/short reads “N era audits · M prior” with digest and section agreeing; expected era count ≈ 6 (5 closed + 1 open) at tonight’s ledger. Node parse + runtime smoke pre-deploy.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.3 · BLOTTER TRIGGER TRUTH + TWO-TICKET PAIRING (DISPLAY ONLY, sim untouched; both caught by Ron on the live blotter review). (1) TRIGGER COLUMN DEFECT: the label builder hardcoded by ROW TYPE — rowType===’roll’ always rendered “rolled” — while the ticket has WRITTEN the honest close reason into live_trades.trigger since v6.1.0 (_tradeCloseReason, canonical since v6.15.0); the stored reason only rendered on fallthrough types, which is why cover-only rows showed “TV decay 3%” while every roll row masked its reason behind the action. The data was right; the renderer was lying — and this display defect likely FED the S44 §7 “the blotter field records the ACTION” reading (the §7 RULING — audit is the analytical source — stands regardless). Fix: stored trigger wins; type labels are the fallback for rows with no stored reason (historical rebuild rows unchanged). (2) TWO-TICKET PAIRING (Ron’s spec): a cover-only row + a sell-only row on the same date and qty — the menu-0 decomposition (v6.7.15) — now render as ONE line: cover leg + sell leg + NET credit, trigger from the cover row (the close reason), muted “· 2 tickets” tag keeping the two-row record visible. DISPLAY-LAYER ONLY via pure _blotterPairDisplay(): underlying rows untouched (append-only doctrine; rows are the cert trail); adjacent-pair merge, structural predicate (leg complements; assigned/expired/long_call excluded); DEBUG MODE SHOWS RAW ROWS — the blotter is editable there and per-row deletes must target real ids. Aggregates (total cycles, win rate, credit) still compute from raw rows — deliberately unchanged. CERT: (1) STD by chain — no sim path touched; version header the only log diff; (2) node harness — pairing merges the 08/03 and 07/27 decompositions (net −$19,020 / −$12,138), leaves single-row rolls, assigned/expired, and non-adjacent rows alone; (3) live — roll rows show canonical reasons, the two decomposed days collapse to one line each. Node parse + runtime smoke pre-deploy.</span>
   </div>
 </div>
 
@@ -720,7 +720,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.18.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.18.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -7297,8 +7297,15 @@ function renderLiveBlotter(trades) {
   const fmtCredit = v => v == null ? '—'
     : `<span style="color:${v>=0?'var(--green)':'var(--red)'};font-weight:600;">${v>=0?'+':''}$${Math.abs(Math.round(v)).toLocaleString()}</span>`;
 
+  // v6.18.3 — same-day two-ticket pairing is DISPLAY-LAYER only (Ron's S45 spec): a
+  // cover-only row + a sell-only row on the same date and qty are ONE economic event
+  // executed as two tickets (the menu-0 decomposition, v6.7.15). Underlying rows are
+  // untouched (append-only doctrine; blotter rows are the cert trail). Debug mode
+  // shows RAW rows — the blotter is editable there and deletes must target real ids.
+  const disp = _debugMode ? sorted : _blotterPairDisplay(sorted);
+
   let rows = '';
-  sorted.forEach(t => {
+  disp.forEach(t => {
     const isOpen  = t.status === 'open';
     const rowType = t.row_type || '';
 
@@ -7318,13 +7325,20 @@ function renderLiveBlotter(trades) {
       ? `<span style="color:var(--accent);">${rowType === 'long_call' ? 'Long' : 'Sell'} ${t.sellExpiry||''} $${t.sellStrike} @ $${t.sellPrice||'—'}</span>`
       : '<span style="color:var(--muted);">—</span>';
 
-    // Trigger label
-    const triggerLabel = rowType === 'assigned' ? 'assigned' :
+    // Trigger label — v6.18.3: the STORED trigger (the honest close reason, written by
+    // the ticket since v6.1.0) wins; row-type labels are the FALLBACK for rows with no
+    // stored reason (historical rebuild rows). The old hardcode-first chain masked the
+    // reason behind the ACTION on every roll row — the display defect that fed the S44
+    // §7 "the field records the ACTION" reading.
+    const storedTrig = (t.trigger != null && String(t.trigger).trim()) ? String(t.trigger).trim() : null;
+    const triggerLabel = (storedTrig ? storedTrig :
+                         rowType === 'assigned' ? 'assigned' :
                          rowType === 'expired' || rowType === 'expired worthless' ? 'expired' :
                          rowType === 'roll' ? 'rolled' :
                          rowType === 'sell_only' ? 'sold to open' :
                          rowType === 'long_call' ? 'long call' :
-                         rowType === 'open' ? 'initial sell' : (t.trigger || '—');
+                         rowType === 'open' ? 'initial sell' : '—')
+      + (t._paired ? ' <span style="color:var(--muted);opacity:.7;">· 2 tickets</span>' : '');
 
     const openBadge = isOpen
       ? ' <span style="background:var(--accent);color:#fff;border-radius:3px;padding:1px 6px;font-size:9px;letter-spacing:.06em;">OPEN</span>'
@@ -7352,6 +7366,31 @@ function renderLiveBlotter(trades) {
     + '</tr></thead>'
     + '<tbody>' + rows + '</tbody>'
     + '</table>';
+}
+
+function _blotterPairDisplay(sorted) { // v6.18.3 — pure; input order preserved; merge only adjacent same-date leg-complements
+  const coverOnly = r => r && r.coverStrike && !r.sellStrike
+    && ['assigned','expired','expired worthless','long_call'].indexOf(r.row_type || '') === -1;
+  const sellOnly  = r => r && r.sellStrike && !r.coverStrike
+    && ['long_call'].indexOf(r.row_type || '') === -1;
+  const qtyOf = r => r.coverContracts || r.sellContracts || null;
+  const out = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const a = sorted[i], b = sorted[i + 1];
+    if (a && b && a.trade_date === b.trade_date && qtyOf(a) === qtyOf(b)
+        && ((coverOnly(a) && sellOnly(b)) || (sellOnly(a) && coverOnly(b)))) {
+      const c = coverOnly(a) ? a : b, s = coverOnly(a) ? b : a;
+      out.push({ ...s,
+        coverContracts: c.coverContracts, coverStrike: c.coverStrike,
+        coverExpiry: c.coverExpiry, coverPrice: c.coverPrice,
+        rollCredit: (c.rollCredit ?? 0) + (s.rollCredit ?? 0), // NET of the pair
+        trigger: c.trigger || s.trigger || null,               // close reason lives on the cover row
+        status: (c.status === 'open' || s.status === 'open') ? 'open' : s.status,
+        row_type: 'roll', _paired: true });
+      i++; // consume both
+    } else out.push(a);
+  }
+  return out;
 }
 
 function toggleLiveSort() {
