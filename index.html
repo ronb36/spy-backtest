@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -553,7 +553,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (130 entries, v5.2.0 → v6.18.0, migrated S45).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.1 · CHANGELOG MIGRATED TO CHANGELOG.md (DISPLAY ONLY, sim untouched; Ron’s S45 spec, clearing S44 queue item 7 — the in-file changelog had come to dominate greps). All 130 entries (v5.2.0 → v6.18.0) moved VERBATIM to CHANGELOG.md in the repo root: HTML entities decoded, hard-wraps unwrapped, styling stripped, content untouched — certified by byte-identical round-trip re-extraction of all 130 entries from the built markdown against the source extraction; zero duplicates; every version in the S44 md5 chain present. Source ordering was partially non-chronological (a v5.2.0–v5.11.2 block sat above the v6-era block); normalized newest-first in the markdown, entry text untouched. CHANGELOG.md is structured for all three components — Agent and Bootstrap sections are placeholders pending their own migration. CONVENTION FORWARD: the in-file changelog carries ONLY the current release’s entry plus the pointer line; each release prepends its entry to CHANGELOG.md and replaces this one. CERT: (1) STD by chain — no sim or run-header path touched; version header is the only permitted log diff; (2) parse + script-region diff vs 4a608f25 shows the APP_VERSION line only; (3) footer renders pointer + single entry. Node parse + runtime smoke pre-deploy.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.2 · defh ERA SPLIT (DISPLAY/NETWORK ONLY, sim untouched; closes the v6.13.0 deferral — Ron’s S45 go). The defh track (Research §1, defH=12 audit) was the last policy-scoped counter still counting across the walk-forward boundary: the digest read a bare _resCount(audit_snapshot) and the section fell to the generic total-rows counter — pre-era rows describe the incumbent machine, not the era being judged (Lucas critique, the v6.13.0 rationale). dpairs stays unsplit PERMANENTLY per the S44 ruling (market fact — delta gaps don’t care which policy holds the position). FIXES: (1) digest — defh now RIDES the conf track’s 500-row audit_snapshot fetch (one query saved; a fetch error marks BOTH ERROR) and counts _wfEraSplit(...).era with prior shown; the splitter prefers trade_date, the audit row’s own open date, so open era rows classify correctly; (2) section — new id===’defh’ branch, era count vs heur 5 with “prior era: N archived” in the house format; threshold 5 now matches the digest heuristic in BOTH surfaces (digest/section parity, v6.7.1 lesson; RES_TRACKS minN 1 was the mismatched generic path’s input and is bypassed, not edited). Era recoverability was never at risk — rows carry app_version/params in-row (the v6.13.0 deferral rationale); this release makes the COUNTER honest, nothing else. KNOWN LIMIT, carried: the 500-row fetch window is the count-500 fragility of queue item 5 — harmless at current table size, hardening queued. CERT: (1) STD by chain — no sim or run-header path touched; version header is the only permitted log diff; (2) script-region diff vs 5e335dc4 enumerates the two counter edits + APP_VERSION only; (3) live — Research §1 title/short reads “N era audits · M prior” with digest and section agreeing; expected era count ≈ 6 (5 closed + 1 open) at tonight’s ledger. Node parse + runtime smoke pre-deploy.</span>
   </div>
 </div>
 
@@ -720,7 +720,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.18.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.18.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1561,8 +1561,8 @@ async function buildResReadiness() {
   const out = {};
   const put = (id, ready, err, short) => { out[id] = { ready: !!ready, err: !!err, short: short }; };
   try {
-    const t1 = await _resCount('audit_snapshot');
-    put('defh', (t1 || 0) >= 5, t1 == null, t1 == null ? 'ERROR' : t1 + ' audits (heur \u22655)');
+    // v6.18.2 — defh ERA-SCOPED (v6.13.0 deferral closed) and rides the conf fetch below:
+    // one audit_snapshot read feeds both counters (digest/section parity, v6.7.1 lesson).
     const t2f = await _resFetch('live_trades', null, 2000); // v6.13.0 — fire ledger (P-L3) stays on the blotter: it counts CASH EVENTS, which is what the blotter is
     if (t2f.err) { put('fire', false, true, 'ERROR'); }
     else {
@@ -1572,8 +1572,10 @@ async function buildResReadiness() {
     }
     // v6.15.1 — pl1/pl2 read audit_snapshot (S33: audit is the analytical source); digest/section parity (v6.7.1 lesson)
     const t2a = await _resFetch('audit_snapshot', null, 500); // v6.15.2 — one conformance key; never "ready/not ready": a standing instrument has no finish line
-    if (t2a.err) { put('conf', false, true, 'ERROR'); }
+    if (t2a.err) { put('defh', false, true, 'ERROR'); put('conf', false, true, 'ERROR'); }
     else {
+      const spD = _wfEraSplit(t2a.rows, ['ts','created_at']); // trade_date preferred inside the splitter — the audit row's own open date
+      put('defh', spD.era.length >= 5, false, spD.era.length + ' era audits (heur \u22655) \u00b7 ' + spD.prior.length + ' prior');
       const att = _wfAuditCycles(t2a.rows).filter(c => c.canon);
       put('conf', att.length > 0, false, att.length + ' closed roll' + (att.length === 1 ? '' : 's'));
     }
@@ -1952,6 +1954,10 @@ async function resRender(id) {
       + 'friction is not measured at all). Ledger spans policy cohorts by design; published_params on each row recovers them.'
       + (nonCanon ? ' · <span style="color:var(--yellow);">' + nonCanon + ' row(s) non-canonical (pre-v6.15.1 \'entry\' stamp) — excluded</span>' : '')
       + '</div>';
+  } else if (id === 'defh') { // v6.18.2 — ERA-SCOPED (v6.13.0 deferral closed): rows carry app_version/params in-row so the
+    // era was always RECOVERABLE; the counter now SHOWS it. Threshold 5 matches the digest heuristic (digest/section parity, v6.7.1).
+    const spD = _wfEraSplit(rows, t.tsHint);
+    counter = _resCounterHtml(spD.era.length, 5, spD.era.length + ' era audit rows (heur \u22655) \u00b7 prior era: ' + spD.prior.length + ' archived');
   } else {
     counter = _resCounterHtml((total != null ? total : rows.length), t.minN, (total != null ? total : rows.length + '+') + ' rows vs target');
   }
