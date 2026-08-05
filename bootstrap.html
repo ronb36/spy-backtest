@@ -70,7 +70,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Cycle-Ledger Bootstrap <span class="mono" style="font-weight:400;font-size:14px;color:var(--dim)">v1.2.1</span></h1>
+  <h1>Cycle-Ledger Bootstrap <span class="mono" style="font-weight:400;font-size:14px;color:var(--dim)">v1.2.2</span></h1>
   <p class="sub">Circular moving-block bootstrap on Exit Attribution per-cycle rows.
   Evaluation instrument only — no policy machinery. Load a certified STD log file,
   or paste rows exactly as they appear in the log (timestamps optional).</p>
@@ -118,43 +118,24 @@
 
 <script>
 "use strict";
-/* Cycle-Ledger Bootstrap v1.2.1 — S44
-   v1.2.1 (S44): ET-LABELED TIMESTAMPS — the report header and download filename
-   used toISOString(), i.e. UTC, with no zone label. A 21:11 ET run stamped "00:11",
-   which was misread in-session as a past-midnight run (the reader had no way to know
-   — an unlabeled stamp is the defect, not the reader). Both sites now render
-   America/New_York via Intl.DateTimeFormat with an explicit ET suffix. DISPLAY ONLY:
-   the method functions (mulberry32 / bootstrapLedger / fingerprint / summarize) and
-   every number they produce are untouched — same seed, same streams, same results.
-   v1.2.1 (S44): yObs BECOMES A READER — root cause of the 8/2 mis-centered run
-     was the yA input's baked value="5.8" (incumbent-era default; field never
-     cross-checked against the loaded log — missed-reader family, silent-stale
-     variant). Now: "Core yield: X.X%/yr" is parsed from the log, auto-fills the
-     field, and the run gate BLOCKS on field≠log mismatch; manual entry allowed
-     only when the log carries no Core-yield line, and is tagged MANUAL/unverified
-     in the header and report. Also: downloadable plain-text results report
-     (client-side Blob; run header + source-log identity lines + full percentile
-     table + verdicts) so runs produce a diffable artifact, not a screenshot.
-     Source identity (backtester version line · Running-params line · Core-yield
-     line) parsed and embedded per ledger. Ledger A label "incumbent" retired.
-     NO METHOD CHANGE — bootstrap math, seeding, and verdicts identical to
-     v1.1.0; runs remain comparable across versions at equal seed and rows.
-   v1.1.0 (S43): file-load path ("Load STD log…" reads the full log via FileReader
-     and auto-parses); Run-gate status line (disabled Run is never silent);
-     paste hardening (normalize \u2028 \u2029 \r to \n before splitting).
-     NO METHOD CHANGE — bootstrap math, seeding, and verdicts identical to v1.0.0;
-     runs remain comparable across versions at equal seed and rows.
-   v1.0.0 (S42): initial build.
-   Method (locked in-session before build):
-   - Rows: "#i DATE pool Nd P&L +$X,XXX ITM +Y.Y% Δin 0.ZZ" (timestamps stripped)
-   - Circular moving-block bootstrap, block length L, on the ordered rows.
-   - Clock fill: concatenate blocks until sum(hold days) >= observed sum; truncate
-     the final block at the boundary (partial block allowed, whole cycles only).
-   - Yield functional: y_b = yObs * (PnL_b / PnL_obs) * (D_obs / D_b)
-     (linear in credit, corrected for resampled clock length).
-   - Stop share s_b = -sum(stopPnL_b)/sum(harvestPnL_b) reported as secondary (P-B3).
-   - PRNG: mulberry32(seed) — reproducible.
-*/
+/* Cycle-Ledger Bootstrap v1.2.2 — S45
+   Full version history: CHANGELOG.md in the repo root (migrated S45; in-file log
+   carries only the current release entry, per the S45 changelog convention).
+   v1.2.2 (S45): yObs READER AIMED AT A REAL LINE — the v1.2.1 reader's regex
+   ("Core yield: X.X%/yr") matched a line format no STD log has ever emitted, so
+   the reader could never fire and MANUAL was the only reachable path (found on
+   the v1.2.1 deploy cert; missed-reader family, log-format variant — "never
+   assert a schema, inspect a row"). Phantom pattern DELETED per house precedent
+   (pull dead code); reader now parses the actual summary line
+   "N cycles · X.X% core yield · ..." (negative yields accepted). Consequences,
+   all designed-behavior-now-reachable: field autofills from the log, the run
+   gate's field-vs-log mismatch check activates, reports tag yObs "(parsed from
+   log)" and embed the Core-yield identity line. NO METHOD CHANGE — parseLedger
+   meta extraction only; row regex, fingerprint, mulberry32, bootstrapLedger,
+   summarize untouched. CERT: re-run the 125-row cert ledger at seed 42 B 10k —
+   yObs autofills 8.7, fp 9a53a51e reproduces, L=6 band [-2.28,+20.58] med 8.67
+   byte-identical; the only report diffs are the version string, the yObs
+   provenance tag, and the added Core-yield identity line. */
 const $=id=>document.getElementById(id);
 let A=null,Bl=null,reportTxt=null;
 
@@ -169,7 +150,9 @@ function parseLedger(txt){
     if(!meta.verLine&&/^v[\d.]+\s+·\s+SPY Covered Call Backtest/.test(t))meta.verLine=t;
     if(!meta.runLine&&/^Running — /.test(t))meta.runLine=t;
     if(meta.coreLine===null){
-      const cy=t.match(/^Core yield:\s*([\d.]+)%\/yr\b/);
+      // v1.2.2 — parse the REAL summary line ("127 cycles · 7.4% core yield · ...");
+      // the v1.2.1 pattern "Core yield: X.X%/yr" matched no line any log has ever emitted
+      const cy=t.match(/^\d+\s+cycles\s+·\s+(-?[\d.]+)%\s+core\s+yield\b/);
       if(cy){meta.coreLine=t;meta.yObs=parseFloat(cy[1]);}
     }
     if(!t.includes('#'))return;
@@ -318,7 +301,7 @@ $('run').onclick=()=>{
   const stamp=etStamp(new Date(), false); // v1.2.1 — ET-labeled (was unlabeled UTC)
   const yTagA=A.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
   const yTagB=Bl&&Bl.meta&&Bl.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
-  const hdr='bootstrap v1.2.1 · '+stamp
+  const hdr='bootstrap v1.2.2 · '+stamp
     +' · seed '+seed+' · B '+B+' · L {3,6,10}\n'
     +'A: n '+A.sum.n+' · ΣP&L '+(A.sum.pnl<0?'−':'+')+'$'+Math.abs(A.sum.pnl).toLocaleString()
     +' · Σhold '+A.sum.days+'d · yObs '+(+$('yA').value).toFixed(1)+'% '+yTagA+' · fp '+fingerprint(A.rows)
