@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.8</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.9</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -553,7 +553,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.8 · breadth KILLED — registry 4 → 3 (DISPLAY/NETWORK ONLY, sim untouched; Ron’s S46 ruling on the second Export Data study: “5/8 kill offering no value”). THE READ, from the 117-row scan_snapshot export (2026-08-05_1854ET, complete:true), corrected to proper units (roll scans only, state-deduped — FLAT rows are ENTRY scans where the whole 400+ chain qualifies and never belonged in the average, the counter’s 432-menu “anomaly” dissolved): decay-trigger states mean menu 14.2 (n=6) vs HOLD 1.8 (n=12) — the S34 direction CONFIRMED on the observable half. But the REGISTERED contrast (decay vs delta) is STARVING: zero delta-state scans ever recorded, and the enum check proves it’s real absence, not instrument blindness (signal writes allTypes.join(+), ’delta’ fully possible) — both live delta stops fired in intraday windows between page-load scans and were acted on from agent pushes; delta states are FLEETING at scan cadence and the menu-0 ratchet regime starves the track indefinitely. Admission criterion applied: evidence structurally slow AND no parameter its completed verdict would move. FIFTH KILL of the original eight. Registry renumbered 1–3: htourn · theta · conf — every survivor with a live decision behind it (scoring horizon · θ deployment gate · the scorecard). RIDER, comment-only: pos_delta_sim annotated FULL-DTE frame at the write site (S46 finding, proven max-err 0.0005 vs full / 0.20 vs defense) — the trigger chain evaluates the DEFENSE frame; the unlabeled ambiguity can no longer propagate silently. Also recorded from the same export: θ gate 2 fires both 07-29, DORMANT BY REGIME (fire #3 requires a menu to exist) — the 2/3 counter sitting for months is the design working. REMOVED: RES_TRACKS breadth entry · digest put + error-path slot · section branch. CERT: (1) STD by chain; (2) Research tab renders 3 sections; (3) node parse + zero residual breadth references. Runtime smoke pre-deploy.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.9 · CONFORMANCE DIVERGENCE TRI-STATE (DISPLAY ONLY, sim untouched; Ron’s S45 spec — the section highlighted GREEN while live ran −91.4%25 vs sim 7.4%25: color meant “rows exist”, not “how it’s going”). The conf color now reads the |live − sim| core-yield gap in PERCENTAGE POINTS: RED >50pp (current state, Δ≈99pp) · YELLOW 25–50pp · GREEN ≤25pp · neutral/default when live is n/a (<3 core rolls) or sim is n/a — an honest neutral beats a green meaning row-count. ONE shared helper (_confGapColor) feeds all three surfaces — digest chip, section header, and the panel’s live-yield number itself — digest/section parity by construction (v6.7.1); the chip also gains the gap text (“5 closed rolls · Δ 98.8pp”) so the color is legible. Numerics exposed non-breakingly: _wfLiveYield gains pct, _wfSimRef gains yldPct (both branches, stamped fallback 8.0 included); put() gains an optional color override honored by applyResReadiness — no other track’s coloring changes. DELIBERATE SCOPE LIMIT: the Research TAB button still goes red only on instrument ERRORS — conf divergence colors the section, not the app chrome; a young ledger will sit red for months by design (the −91.4%25 is honest annualization violence, S45 §read) and the tab staying calm keeps red-tab meaning “something is broken”, not “the sample is small”. NO verdict machinery added — the standing-instrument doctrine holds; color is a readout, not a judgment. CERT: (1) STD by chain — no sim path touched; (2) node parse + tri-state harness (thresholds at 25/50 boundaries, n/a neutrality, parity of the three surfaces); (3) live — conf renders RED at the current gap with Δ text in the chip. Runtime smoke pre-deploy.</span>
   </div>
 </div>
 
@@ -720,7 +720,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.18.8'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.18.9'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1559,7 +1559,7 @@ async function buildResReadiness() {
   // Same honest units as v6.7.1; deterministic; interpretation stays with
   // the per-section Ask Claude.
   const out = {};
-  const put = (id, ready, err, short) => { out[id] = { ready: !!ready, err: !!err, short: short }; };
+  const put = (id, ready, err, short, color) => { out[id] = { ready: !!ready, err: !!err, short: short, color: color || null }; }; // v6.18.9 — color overrides the ready-based tint (conf divergence)
   try {
     // v6.18.4 — fire + wcshadow tracks KILLED (Ron's S45 registry admission criterion)
     // v6.15.1 — pl1/pl2 read audit_snapshot (S33: audit is the analytical source); digest/section parity (v6.7.1 lesson)
@@ -1567,7 +1567,10 @@ async function buildResReadiness() {
     if (t2a.err) { put('conf', false, true, 'ERROR'); }
     else {
       const att = _wfAuditCycles(t2a.rows).filter(c => c.canon);
-      put('conf', att.length > 0, false, att.length + ' closed roll' + (att.length === 1 ? '' : 's'));
+      const gc = _confGapColor(att); // v6.18.9 — divergence tri-state
+      put('conf', att.length > 0, false,
+          att.length + ' closed roll' + (att.length === 1 ? '' : 's') + (gc.gapTxt ? ' \u00b7 \u0394 ' + gc.gapTxt : ''),
+          gc.color);
     }
     // v6.18.7 — dpairs killed: ADJUDICATED CLOSED-CONFIRMED (S46 decomposition)
     const fs = await _resFetch('scan_snapshot', 'ts', 100); // v6.7.16 — 20-row window silently evicted history from T4/T6/T7 counters
@@ -1592,9 +1595,10 @@ async function applyResReadiness() {
     const st = r[t.id]; if (!st) return;
     if (st.ready && t.id !== 'health') ready++;
     const title = $('res-title-' + t.id);
-    if (title) title.style.color = st.err ? 'var(--red)' : st.ready ? 'var(--green)' : 'var(--text)';
+    const ov = st.color === 'red' ? 'var(--red)' : st.color === 'yellow' ? 'var(--yellow)' : st.color === 'green' ? 'var(--green)' : null; // v6.18.9
+    if (title) title.style.color = st.err ? 'var(--red)' : ov ? ov : st.ready ? 'var(--green)' : 'var(--text)';
     const stat = $('res-stat-' + t.id);
-    if (stat) { stat.textContent = st.short; stat.style.color = st.err ? 'var(--red)' : st.ready ? 'var(--green)' : 'var(--muted)'; }
+    if (stat) { stat.textContent = st.short; stat.style.color = st.err ? 'var(--red)' : ov ? ov : st.ready ? 'var(--green)' : 'var(--muted)'; }
   });
   const hd = $('res-status');
   if (hd) hd.textContent = ready + ' of ' + RES_TRACKS.length + ' ready'; // v6.13.0 — roster is 9; count derives from RES_TRACKS, never hardcoded again
@@ -1672,7 +1676,7 @@ function _wfLiveYield(att) { // v6.15.3 — LIVE core yield, computed with the s
     const days = Math.max(1, Math.round((new Date(last.iso + 'T00:00:00Z') - new Date(first.iso + 'T00:00:00Z')) / 86400000));
     const sum = core.reduce((s, c) => s + c.pnl, 0);
     const y = (sum / (basisSPY * shares)) * (365 / days) * 100;
-    return { txt: y.toFixed(1) + '%', note: core.length + ' core rolls · ' + days + 'd span · basis SPY $' + basisSPY.toFixed(2) + ' × ' + shares };
+    return { pct: y, txt: y.toFixed(1) + '%', note: core.length + ' core rolls · ' + days + 'd span · basis SPY $' + basisSPY.toFixed(2) + ' × ' + shares };
   } catch (e) { return { txt: '\u2014', note: 'unavailable' }; }
 }
 function _wfBasisSPY(iso) { // v6.15.3 — SPY close on the first-close date, from the DM (never current market)
@@ -1682,6 +1686,18 @@ function _wfBasisSPY(iso) { // v6.15.3 — SPY close on the first-close date, fr
     const v = r ? +(r.c ?? r.close ?? r.value) : NaN;
     return isFinite(v) && v > 0 ? v : null;
   } catch (e) { return null; }
+}
+function _confGapColor(att) { // v6.18.9 — conformance DIVERGENCE tri-state (Ron's spec): color reads the
+  // |live − sim| core-yield gap in PERCENTAGE POINTS, not data presence. red >50pp · yellow 25–50pp ·
+  // green ≤25pp · null (default styling) when live is n/a (<3 core rolls) or sim is n/a — an honest
+  // neutral beats a green that merely means "rows exist". One helper feeds digest chip, section header,
+  // and the panel's live number (digest/section parity by construction, v6.7.1).
+  try {
+    const LY = _wfLiveYield(att), S = _wfSimRef();
+    if (LY.pct == null || S.yldPct == null) return { color: null, gapTxt: null };
+    const gap = Math.abs(LY.pct - S.yldPct);
+    return { color: gap > 50 ? 'red' : gap > 25 ? 'yellow' : 'green', gapTxt: gap.toFixed(1) + 'pp' };
+  } catch (e) { return { color: null, gapTxt: null }; }
 }
 function _wfSimRef() { // v6.15.2 — the sim side of conformance, computed not hardcoded.
   // Prefers the run in memory (current DM); falls back to the stamped 08-03 reference with its date shown,
@@ -1700,13 +1716,14 @@ function _wfSimRef() { // v6.15.2 — the sim side of conformance, computed not 
         rate: (100 * st / cy.length).toFixed(1) + '%',
         mean: dp.length ? '$' + (dp.reduce((s, c) => s + c.pnl, 0) / dp.length).toFixed(0) : '\u2014',
         yld: (lastResult.coreYld != null) ? lastResult.coreYld.toFixed(1) + '%' : 'n/a', // v6.15.3 — the sim's OWN core yield, not recomputed here
+        yldPct: (lastResult.coreYld != null) ? lastResult.coreYld : null, // v6.18.9 — numeric for the divergence tri-state
         yldNote: (lastResult.coreCycleCount != null ? lastResult.coreCycleCount + ' core rolls' : '')
                + (lastResult.coreDays != null ? ' · ' + lastResult.coreDays + 'd span' : '')
                + (lastResult.coreBasisSPY != null ? ' · basis SPY $' + lastResult.coreBasisSPY.toFixed(2) : ''),
         src: 'from the run in memory (' + cy.length + ' cycles)' };
     }
   } catch (e) {}
-  return { rate: '26.2%', mean: '$1,887', yld: '8.0%', yldNote: '126 core rolls · basis SPY $564.86',
+  return { rate: '26.2%', mean: '$1,887', yld: '8.0%', yldPct: 8.0, yldNote: '126 core rolls · basis SPY $564.86',
            src: 'reference stamped 2026-08-03 DM (126 cycles) \u2014 run a backtest to refresh' };
 }
 function _wfAuditCycles(rows) { // v6.15.1 — CLOSED walk-forward cycles from audit_snapshot.
@@ -1937,11 +1954,13 @@ async function resRender(id) {
       + '<span style="color:var(--text);">live ' + live + (sub ? ' <span style="color:var(--muted);">' + sub + '</span>' : '')
       + ' <span style="color:var(--muted);">· sim ' + sim + '</span></span></div>';
     const LY = _wfLiveYield(att); // v6.15.3 — yield leads; the two below are its terms
+    const gcS = _confGapColor(att); // v6.18.9 — the live number itself carries the divergence color
+    const lyColor = gcS.color === 'red' ? 'var(--red)' : gcS.color === 'yellow' ? 'var(--yellow)' : gcS.color === 'green' ? 'var(--green)' : 'var(--accent)';
     counter = '<div style="font-family:var(--mono);font-size:10px;line-height:1.6;">'
       + '<div style="color:var(--text);margin-bottom:6px;">Closed rolls: <span style="color:var(--accent);">' + att.length + '</span></div>'
       + '<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">'
       + '<span style="color:var(--text);">core yield</span>'
-      + '<span style="color:var(--text);">live <span style="color:var(--accent);">' + LY.txt + '</span>'
+      + '<span style="color:var(--text);">live <span style="color:' + lyColor + ';">' + LY.txt + '</span>'
       + ' <span style="color:var(--muted);">· sim ' + (S.yld || 'n/a') + '</span></span></div>'
       + '<div style="color:var(--muted);font-size:9px;padding:2px 0 4px;">live: ' + LY.note + (S.yldNote ? ' · sim: ' + S.yldNote : '') + '</div>'
       + '<div style="color:var(--muted);font-size:9px;margin:2px 0 1px;">└ inputs</div>'
