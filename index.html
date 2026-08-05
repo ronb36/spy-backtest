@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.9</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.10</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -553,7 +553,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.9 · CONFORMANCE DIVERGENCE TRI-STATE (DISPLAY ONLY, sim untouched; Ron’s S45 spec — the section highlighted GREEN while live ran −91.4%25 vs sim 7.4%25: color meant “rows exist”, not “how it’s going”). The conf color now reads the |live − sim| core-yield gap in PERCENTAGE POINTS: RED >50pp (current state, Δ≈99pp) · YELLOW 25–50pp · GREEN ≤25pp · neutral/default when live is n/a (<3 core rolls) or sim is n/a — an honest neutral beats a green meaning row-count. ONE shared helper (_confGapColor) feeds all three surfaces — digest chip, section header, and the panel’s live-yield number itself — digest/section parity by construction (v6.7.1); the chip also gains the gap text (“5 closed rolls · Δ 98.8pp”) so the color is legible. Numerics exposed non-breakingly: _wfLiveYield gains pct, _wfSimRef gains yldPct (both branches, stamped fallback 8.0 included); put() gains an optional color override honored by applyResReadiness — no other track’s coloring changes. DELIBERATE SCOPE LIMIT: the Research TAB button still goes red only on instrument ERRORS — conf divergence colors the section, not the app chrome; a young ledger will sit red for months by design (the −91.4%25 is honest annualization violence, S45 §read) and the tab staying calm keeps red-tab meaning “something is broken”, not “the sample is small”. NO verdict machinery added — the standing-instrument doctrine holds; color is a readout, not a judgment. CERT: (1) STD by chain — no sim path touched; (2) node parse + tri-state harness (thresholds at 25/50 boundaries, n/a neutrality, parity of the three surfaces); (3) live — conf renders RED at the current gap with Δ text in the chip. Runtime smoke pre-deploy.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.10 · htourn PARITY FIX (DISPLAY/NETWORK ONLY, sim untouched; the 5/10-vs-3/~10 break Ron caught on the live tab — digest chip and expanded section disagreed on one screen). ROOT CAUSE, three layers: (1) the SECTION fetch was 20 rows — the v6.7.16 defect (“20-row window silently evicted history”) was fixed for the digest but never for the section path; recent rows are menu-0 so the section starved to 3 while the digest’s 100-row window saw 5. FIX: both paths now fetch ("ts", 500) — identical window spec, parity by construction (v6.7.1), and the wider section window also de-fragilizes conf’s and theta’s section reads. (2) BOTH counters overcounted by one: FLAT entry scans carry shadow_topk with NO position, contributing a bogus nan|nan “cycle” key. FIX: positionless topk rows excluded from tkCycles — an entry scan is not a cycle. TRUE COUNT: 4 (both surfaces). (3) DOCUMENTED, NOT FIXED: the pos-key proxy merges repeat contracts — era cycles 2 and 4 both held 1/15 $740, one key — so tkCycles can UNDERCOUNT true cycles; proper cycle segmentation is not worth the machinery for a “~10” heuristic target, and the tilde now provably earns its keep. Found via export-reproduction: both windows simulated offline from scan_snapshot_2026-08-05_1854ET.json before any edit — the mechanism was proven, not guessed. CERT: (1) STD by chain — no sim path touched; (2) node parse + reproduction harness (20-row window → 3, 100-row → 5, 500-row with FLAT filter → 4 on the exported table); (3) live — chip and section read the SAME number (4/10 at current data). Runtime smoke pre-deploy.</span>
   </div>
 </div>
 
@@ -720,7 +720,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.18.9'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.18.10'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1543,7 +1543,8 @@ function _resScanStats(sr) { // v6.7.4 — honest per-track units, DEDUPED by
     if (!seen.has(key)) { seen.add(key); dd.push(r); }
   });
   const menuScans = dd.filter(r => (r.n_qualifying || 0) > 0).length;
-  const tkCycles  = new Set(dd.filter(r => r.shadow_topk).map(r => (r.pos_strike || '?') + '|' + (r.pos_expiry || '?'))).size;
+  const tkCycles  = new Set(dd.filter(r => r.shadow_topk && r.pos_strike != null && r.pos_expiry) // v6.18.10 — FLAT entry scans carry topk with NO position; a nan|nan key is not a cycle (both counters overcounted by 1)
+    .map(r => r.pos_strike + '|' + r.pos_expiry)).size;
   const bySig = {}, bySigRaw = {};
   dd.forEach(r => { const s0 = r.signal || '?'; bySig[s0] = (bySig[s0] || 0) + 1; });
   sr.forEach(r => { const s0 = r.signal || '?'; bySigRaw[s0] = (bySigRaw[s0] || 0) + 1; });
@@ -1573,7 +1574,7 @@ async function buildResReadiness() {
           gc.color);
     }
     // v6.18.7 — dpairs killed: ADJUDICATED CLOSED-CONFIRMED (S46 decomposition)
-    const fs = await _resFetch('scan_snapshot', 'ts', 100); // v6.7.16 — 20-row window silently evicted history from T4/T6/T7 counters
+    const fs = await _resFetch('scan_snapshot', 'ts', 500); // v6.18.10 — SAME window spec as the section fetch (parity by construction); was 100 vs section 20, the two counters read different histories
     const sr = fs.rows || [];
     if (fs.err) { ['htourn','theta'].forEach(id => put(id, false, true, 'ERROR')); }
     else {
@@ -1913,7 +1914,7 @@ async function resRender(id) {
   if (!t || !sec) return;
   let html = '<div style="color:var(--muted);margin-bottom:6px;">' + t.hyp.replace(/</g,'&lt;') + '</div>'
            + '<div style="margin-bottom:6px;"><span style="color:var(--muted);">target:</span> ' + t.target + '</div>';
-  const f = await _resFetch(t.table, t.tsHint[0] || null, 20);
+  const f = await _resFetch(t.table, t.tsHint[0] || null, 500); // v6.18.10 — the v6.7.16 window lesson applied to the SECTION path: 20 rows starved htourn to 3 while the digest's window saw 5 (parity break Ron caught on the live tab)
   if (f.err) {
     sec.innerHTML = html + '<div style="color:var(--red);">✗ ' + t.table + ': ' + f.err + ' — INSTRUMENT SILENT or read policy missing</div>';
     return;
