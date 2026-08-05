@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.5</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.6</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -553,7 +553,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.5 · defh TRACK KILLED — registry 6 → 5 (DISPLAY/NETWORK ONLY, sim untouched; Ron’s S45 ruling, the registry admission criterion’s third kill tonight). WHAT IT WAS: the program’s first walk-forward validation of a published parameter — defH=12 (S36, in-sample argmax adopted live, the Lucas worry standing right there); every ticket locked sim predictions AT TRADE TIME (pred_close_trigger/pred_hold_days/pred_credit through the defense frame) against realized outcomes, so systematic divergence would have falsified the defense-frame calibration live. It EARNED its slot at registration. WHY IT DIES: its failure signals acquired sharper instruments — the delta/frame calibration mandate belongs to dpairs (model-vs-market Δ per observation, FRAME as regression variable, far better resolution than one datapoint per cycle); the economic question belongs to the conformance scorecard; what remained uniquely here (per-cycle hold-error bookkeeping) is thin. n=5 read at death: cycles 1–3 predicted decay → realized decay; nothing falsifying. THE WRITER STAYS: audit_snapshot rows keep writing per cycle close with locked predictions — they are the analytical source feeding conformance (S33 ruling) — only the registry SECTION dies. DIES WITH IT, unfixed by design: the tsHint defect caught on Ron’s S45 screenshot — defh’s tsHint[0]=’ts’ names a column audit_snapshot lacks, so the v6.7.0 order-by fallback went silently unordered and the section sampled row id 1 (07-21) as “latest”, rendering “last write: 15d ago” while cycle 5 wrote TODAY (missed-reader family, schema variant, logged against the builder; conf unaffected — its hint exists). IRONY, on the record: v6.18.2 era-split this counter and v6.18.5 retires it, same session — both stand; the admission criterion arrived between them. REMOVED: RES_TRACKS defh entry · digest defh split/put + error-path put (conf fetch now sole tenant) · the v6.18.2 section branch. Registry renumbered 1–5: dpairs · htourn · breadth · theta · conf. CERT: (1) STD by chain — no sim path touched, version header the only log diff; (2) Research tab renders 5 sections; (3) node parse + grep zero residual defh registry references (audit WRITER references untouched, deliberately). Runtime smoke pre-deploy.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.6 · EXPORT DATA — the registry’s analysis pipeline (DISPLAY/NETWORK ONLY, sim untouched; Ron’s S46 architecture, spec agreed at S45 close: “it took 3 kills to get to the right section to propose this idea”). Every research section gains an Export Data button downloading its track’s RAW Supabase table as a self-identifying JSON artifact — the bootstrap downloadable-report principle applied to the registry: runs produce a diffable artifact, not a screenshot; the tab stays deterministic counters, the LAB WORK happens on exported data. SPEC, all five points implemented: (1) pagination to EXHAUSTION — 1000-row pages, stable order=id.asc, loop until drained, deliberately BYPASSING _resFetch (no cache, no 500 cap — the count-500 fragility retired for the export path); (2) header carries rows_exported AND table_count AND a complete flag so truncation can NEVER hide (count failure → table_count null, honestly visible); (3) JSON not CSV — jsonb fields (shadow_topk, opp_shadow, params) at full fidelity; (4) ET-stamped filename table_YYYY-MM-DD_HHMMET.json via the en-CA/America/New_York pattern (UTC-STAMP doctrine — a new download site will not be that family’s next instance); (5) raw rows, no era filtering (raw layer immutable, S39; analysis transforms). Mapping: dpairs → delta_pairs · conf → audit_snapshot · htourn/breadth/theta → scan_snapshot (three sections share one table BY DESIGN — simple beats clever; one file serves all three studies). Busy-guarded (no concurrent exports); per-button progress (Counting… → Exporting… n/N → ✓ n rows); errors render on the button, no partial file is ever written. FIRST USE queued: export delta_pairs → the frame-vs-vol-input gap decomposition. CERT: (1) STD by chain — no sim path touched, version header the only log diff; (2) node parse + mock-fetch pagination harness (multi-page drain, exact-page boundary, count mismatch visibility, HTTP error abort); (3) live — five sections each show the button; a dpairs export downloads delta_pairs_*ET.json whose header self-reports complete:true. Runtime smoke pre-deploy.</span>
   </div>
 </div>
 
@@ -720,7 +720,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.18.5'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.18.6'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1763,6 +1763,68 @@ function _resAge(d) {
   const hr = ms / 3600000;
   return { txt: hr < 1 ? Math.round(ms/60000) + 'm ago' : hr < 48 ? hr.toFixed(1) + 'h ago' : Math.round(hr/24) + 'd ago', ms };
 }
+// v6.18.6 — EXPORT DATA (Ron's S46 architecture): per-track raw table export
+// for out-of-tab analysis. The bootstrap downloadable-report principle applied
+// to the registry: runs produce a diffable artifact, not a screenshot. Spec
+// (S45, agreed): pagination to EXHAUSTION (no silent truncation — rows_exported
+// vs table_count both in the header so a mismatch can never hide) · JSON not
+// CSV (jsonb fidelity) · ET-stamped filename (UTC-STAMP doctrine) · raw rows,
+// no era filter (raw layer immutable; analysis transforms). Bypasses _resFetch
+// deliberately: no cache, no 500 cap, stable order=id.asc.
+function _etExportStamp() {
+  const d = new Date();
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  const t = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false }).format(d).replace(':', '');
+  return day + '_' + t + 'ET';
+}
+let _resExportBusy = false;
+async function resExport(table, btnId) {
+  if (_resExportBusy) return;
+  _resExportBusy = true;
+  const btn = btnId ? document.getElementById(btnId) : null;
+  const btnLabel = btn ? btn.textContent : '';
+  const setBtn = s => { if (btn) btn.textContent = s; };
+  try {
+    setBtn('Counting\u2026');
+    const total = await _resCount(table);
+    const page = 1000, rows = [];
+    let offset = 0;
+    while (true) {
+      setBtn('Exporting\u2026 ' + rows.length + (total != null ? '/' + total : ''));
+      const res = await fetch(SB_URL + '/' + table + '?select=*&order=id.asc&limit=' + page + '&offset=' + offset, { headers: _sbHeaders });
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' at offset ' + offset);
+      const batch = await res.json();
+      rows.push(...batch);
+      if (batch.length < page) break;
+      offset += page;
+      if (offset >= 500000) break; // sanity ceiling; header mismatch will surface it
+    }
+    const stamp = _etExportStamp();
+    const payload = {
+      export: {
+        table: table,
+        rows_exported: rows.length,
+        table_count: total,             // null if count unavailable; mismatch is VISIBLE either way
+        complete: total != null ? rows.length === total : null,
+        exported_at: stamp,
+        app_version: APP_VERSION,
+        source: 'spy-backtest research export (raw rows, no filtering)'
+      },
+      rows: rows
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = table + '_' + stamp + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setBtn('\u2713 ' + rows.length + ' rows');
+    setTimeout(() => setBtn(btnLabel), 4000);
+  } catch (e) {
+    setBtn('\u26A0 ' + e.message);
+    setTimeout(() => setBtn(btnLabel), 6000);
+  } finally { _resExportBusy = false; }
+}
 async function _resFetch(table, orderCol, limit) {
   const key = table + '|' + (orderCol || '') + '|' + limit;
   if (_resCache[key] && Date.now() - _resCache[key].at < 60000) return _resCache[key];
@@ -1926,6 +1988,11 @@ async function resRender(id) {
   } else {
     html += counter + '<div style="color:var(--muted);margin:6px 0 3px;">latest:</div>' + _resSampleHtml(rows, t.tsHint);
   }
+  // v6.18.6 — Export Data button, every track (three sections share
+  // scan_snapshot by design: simple beats clever; same file serves all three)
+  html += '<button id="res-exp-' + id + '" onclick="resExport(\'' + t.table + '\', \'res-exp-' + id + '\')" '
+        + 'style="margin-top:8px;background:none;border:1px solid var(--border);color:var(--muted);'
+        + 'border-radius:6px;padding:5px 12px;font:inherit;cursor:pointer;">\u2B07 Export data</button>';
   sec.innerHTML = html;
 }
 function _confRaw() { // v6.15.2 — conformance raw-row toggle
