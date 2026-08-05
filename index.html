@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.7</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.8</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -553,7 +553,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.7 · dpairs KILLED — ADJUDICATED CLOSED-CONFIRMED; registry 5 → 4 (DISPLAY/NETWORK ONLY, sim untouched; Ron’s S46 ruling on the first Export Data study). THE FINDING, from the 154-row export (delta_pairs_2026-08-05_1350ET.json, complete:true): the sim-vs-market delta gap is the FRAME, not the vol input. delta_sim reproduced BYTE-EXACTLY (quirk-CDF · defense-T · r=4.5, max err 0.00000 — the agent mirrors the sim perfectly, √2 quirk included). Shapley decomposition over three factors (CDF transform / FRAME defT→fullT / VOL VIX→contract-IV), R² 0.94: live leg $775C gap +0.087 = FRAME +0.129 + CDF −0.012 + VOL −0.000 + resid −0.030. The VOL component — the only genuine-defect candidate — is EMPIRICALLY NEGLIGIBLE (mean −0.002, ~10 pct share; live-leg IV runs 0.46pp over VIX). Flat-VIX-as-vol is FINE at these tenors; NO sim-class recalibration indicated; the Lucas guardrail never gets tested. The frame gap is the defense frame DOING ITS DESIGNED JOB — model 0.73 and market 0.73 are different events by design (market reads ~0.80–0.85 when the model stop fires); the dual-delta display in scan and agent is the correct standing treatment. S44 P3: confirmed and quantified. SCOPE LIMIT, recorded for the revisit: VOL-negligible is a CALM-REGIME fact (VIX 16–17); in a vol spike with inverted term structure, per-contract IV can diverge exactly when stops fire — the named re-registration path is a regime-conditional monitor (first sustained VIX>25 → export → re-run the decomposition). Ron’s ruling: kill for now, revisit when the time comes — unrecoverable-data cost knowingly accepted; registry kept to needle-movers. REMOVED: RES_TRACKS dpairs entry · digest legs counter · section branch. THE WRITER dies separately in agent v1.7.17 (persist_delta_pair + 3 call sites; the · mkt display survives — it reads the Polygon snapshot, not the table). THE TABLE STAYS: 154 rows + the export artifact preserve everything through the adjudication (raw layer immutable). Registry renumbered 1–4: htourn · breadth · theta · conf. Fourth kill on the S45 admission criterion — and the first via its constructive half: exported data, real analysis, verdict, retirement. CERT: (1) STD by chain; (2) Research tab renders 4 sections; (3) node parse + zero residual dpairs references. Runtime smoke pre-deploy.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.8 · breadth KILLED — registry 4 → 3 (DISPLAY/NETWORK ONLY, sim untouched; Ron’s S46 ruling on the second Export Data study: “5/8 kill offering no value”). THE READ, from the 117-row scan_snapshot export (2026-08-05_1854ET, complete:true), corrected to proper units (roll scans only, state-deduped — FLAT rows are ENTRY scans where the whole 400+ chain qualifies and never belonged in the average, the counter’s 432-menu “anomaly” dissolved): decay-trigger states mean menu 14.2 (n=6) vs HOLD 1.8 (n=12) — the S34 direction CONFIRMED on the observable half. But the REGISTERED contrast (decay vs delta) is STARVING: zero delta-state scans ever recorded, and the enum check proves it’s real absence, not instrument blindness (signal writes allTypes.join(+), ’delta’ fully possible) — both live delta stops fired in intraday windows between page-load scans and were acted on from agent pushes; delta states are FLEETING at scan cadence and the menu-0 ratchet regime starves the track indefinitely. Admission criterion applied: evidence structurally slow AND no parameter its completed verdict would move. FIFTH KILL of the original eight. Registry renumbered 1–3: htourn · theta · conf — every survivor with a live decision behind it (scoring horizon · θ deployment gate · the scorecard). RIDER, comment-only: pos_delta_sim annotated FULL-DTE frame at the write site (S46 finding, proven max-err 0.0005 vs full / 0.20 vs defense) — the trigger chain evaluates the DEFENSE frame; the unlabeled ambiguity can no longer propagate silently. Also recorded from the same export: θ gate 2 fires both 07-29, DORMANT BY REGIME (fire #3 requires a menu to exist) — the 2/3 counter sitting for months is the design working. REMOVED: RES_TRACKS breadth entry · digest put + error-path slot · section branch. CERT: (1) STD by chain; (2) Research tab renders 3 sections; (3) node parse + zero residual breadth references. Runtime smoke pre-deploy.</span>
   </div>
 </div>
 
@@ -720,7 +720,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.18.7'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.18.8'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1572,11 +1572,10 @@ async function buildResReadiness() {
     // v6.18.7 — dpairs killed: ADJUDICATED CLOSED-CONFIRMED (S46 decomposition)
     const fs = await _resFetch('scan_snapshot', 'ts', 100); // v6.7.16 — 20-row window silently evicted history from T4/T6/T7 counters
     const sr = fs.rows || [];
-    if (fs.err) { ['htourn','breadth','theta'].forEach(id => put(id, false, true, 'ERROR')); }
+    if (fs.err) { ['htourn','theta'].forEach(id => put(id, false, true, 'ERROR')); }
     else {
       const st = _resScanStats(_wfEraSplit(sr, ['ts','created_at']).era); // v6.13.0 — era-scoped, matching the section counters (digest/section parity, v6.7.1 lesson)
       put('htourn', st.tkCycles >= 10, false, st.tkCycles + '/10 cycles');
-      put('breadth', st.sigVariety, false, st.sigVariety ? 'contrast \u2713' : 'needs 2 states');
       const fires = st.inst.filter(r => r.opp_shadow.would_fire).length;
       put('theta', fires >= 3, false, fires + '/3 fires \u00b7 ' + st.inst.length + ' states');
     }
@@ -1624,13 +1623,10 @@ const RES_TRACKS = [
   { id:'htourn', n:1, title:'Phase B H-tournament',     table:'scan_snapshot',
     hyp:'H=6 realized credit >= H-infinity picks over ~10+ cycles (shadow_topk per scan).',
     target:'~10+ cycles of shadow_topk', minN:10, tsHint:['ts','created_at'] },
-  { id:'breadth', n:2, title:'Menu-breadth hypothesis', table:'scan_snapshot',
-    hyp:'Decay-trigger scans present WIDE menus; delta-trigger scans present NARROW menus (S34).',
-    target:'signal x n_qualifying contrast as scans accrue', minN:10, tsHint:['ts','created_at'] },
-  { id:'theta',  n:3, title:'θ arming gate',            table:'scan_snapshot',
+  { id:'theta',  n:2, title:'θ arming gate',            table:'scan_snapshot',
     hyp:'ARMING GATE (adopted S39, as drafted): over next N=3 shadow would-fires, each must (a) be a cheap-cover/decay-near-miss state, (b) realize net >= 3x toll ($0.36/sh) on worst-case fills, (c) cadence <= 4/yr, (d) ZERO long-DTE ladder fires — one ladder fire = θ dead (v6.5.0-class removal). All four at N=3 → θ earns roll_params residence.',
     target:'0/3 fires · 0 ladder · shadow θ$0.12/H6 (measurement, not policy)', minN:3, tsHint:['ts','created_at'] },
-  { id:'conf', n:4, title:'Yield conformance — sim vs live', table:'audit_snapshot', // v6.15.3 — yield leads; stop rate and decay pool are its DECOMPOSITION, not parallel metrics
+  { id:'conf', n:3, title:'Yield conformance — sim vs live', table:'audit_snapshot', // v6.15.3 — yield leads; stop rate and decay pool are its DECOMPOSITION, not parallel metrics
     hyp:'How faithfully does the sim model convert into live P&L? YIELD is the objective; stop rate and decay-pool mean are the two terms that produce it (harvest minus stop tax). Standing instrument, not a test with a finish line — no target n, no verdict. Yield is the SLOWEST of the three to become readable (a small lumpy sum over a large basis), so its inputs are shown beneath it: when yield reads badly you can see immediately whether it is one stop against two harvests or a broken model.',
     target:'continuous · core yield, live vs sim (with its two inputs)', minN:0, tsHint:['realized_close_date','created_at'] },
 ];
@@ -1920,13 +1916,6 @@ async function resRender(id) {
     const fires = st.inst.filter(r => r.opp_shadow.would_fire);
     counter = _resCounterHtml(fires.length, t.minN, fires.length + ' of 3 shadow fires · denominator ' + st.inst.length + ' instrumented era states (' + st.rawN + ' scans) · 0 ladder verdicts recorded · prior era: ' + sp.prior.length + ' scans archived');
     if (st.inst.length === 0 && sp.era.length > 0) counter += '<div style="color:var(--yellow);">no opp_shadow rows yet among era scans (pre-v6.6.2 rows partition as null)</div>';
-  } else if (id === 'breadth') { // v6.7.4 — SIGNAL VARIETY on DEDUPED states · v6.13.0 era-scoped
-    const spB = _wfEraSplit(rows, t.tsHint);
-    const st = _resScanStats(spB.era);
-    const bySig = {};
-    st.dd.forEach(r => { const s0 = r.signal || '?'; (bySig[s0] = bySig[s0] || []).push(r.n_qualifying || 0); });
-    const lines = Object.entries(bySig).map(([s0, a]) => s0 + ': avg menu ' + (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1) + ' (n=' + a.length + ')').join(' · ');
-    counter = _resCounterHtml(st.sigVariety ? 2 : 1, 2, (lines || 'no signals') + ' · ' + st.ddN + ' states of ' + st.rawN + ' era scans · prior era: ' + spB.prior.length + ' archived' + (st.sigVariety ? '' : ' · needs ≥2 trigger states ×3+ for contrast'));
   } else if (id === 'htourn') { // v6.7.1 — unit is CYCLES · v6.13.0 era-scoped
     const spH = _wfEraSplit(rows, t.tsHint);
     const st = _resScanStats(spH.era);
@@ -6609,7 +6598,7 @@ async function runRollScan() {
         y3m: (DM && DM.yields && DM.yields.length && DM.yields[DM.yields.length-1].y3m != null)
              ? DM.yields[DM.yields.length-1].y3m : null,
         pos_strike: K, pos_expiry: STD.shortExpiry || null, pos_dte: dteNow,
-        pos_delta_sim: posDelta, pos_tv_decay: tvDecay,
+        pos_delta_sim: posDelta, pos_tv_decay: tvDecay, // FULL-DTE frame (S46 finding, proven max-err 0.0005) — the TRIGGER chain evaluates the DEFENSE frame; two honest sim deltas, different frames
         cover_mid: currentCallMid > 0 ? +currentCallMid.toFixed(2) : null,
         signal: scanFlat ? 'FLAT' : ((_scanTriggerInfo.allTypes && _scanTriggerInfo.allTypes.length)
                 ? _scanTriggerInfo.allTypes.join('+') : 'HOLD'),
