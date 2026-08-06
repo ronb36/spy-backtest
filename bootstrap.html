@@ -70,7 +70,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Cycle-Ledger Bootstrap <span class="mono" style="font-weight:400;font-size:14px;color:var(--dim)">v1.2.2</span></h1>
+  <h1>Cycle-Ledger Bootstrap <span id="bs-ver" class="mono" style="font-weight:400;font-size:14px;color:var(--dim)"></span></h1>
   <p class="sub">Circular moving-block bootstrap on Exit Attribution per-cycle rows.
   Evaluation instrument only — no policy machinery. Load a certified STD log file,
   or paste rows exactly as they appear in the log (timestamps optional).</p>
@@ -118,24 +118,21 @@
 
 <script>
 "use strict";
-/* Cycle-Ledger Bootstrap v1.2.2 — S45
+const BS_VERSION='v1.2.3'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
+document.addEventListener('DOMContentLoaded',()=>{const e=document.getElementById('bs-ver');if(e)e.textContent=BS_VERSION;});
+/* Cycle-Ledger Bootstrap v1.2.3 — S46
    Full version history: CHANGELOG.md in the repo root (migrated S45; in-file log
    carries only the current release entry, per the S45 changelog convention).
-   v1.2.2 (S45): yObs READER AIMED AT A REAL LINE — the v1.2.1 reader's regex
-   ("Core yield: X.X%/yr") matched a line format no STD log has ever emitted, so
-   the reader could never fire and MANUAL was the only reachable path (found on
-   the v1.2.1 deploy cert; missed-reader family, log-format variant — "never
-   assert a schema, inspect a row"). Phantom pattern DELETED per house precedent
-   (pull dead code); reader now parses the actual summary line
-   "N cycles · X.X% core yield · ..." (negative yields accepted). Consequences,
-   all designed-behavior-now-reachable: field autofills from the log, the run
-   gate's field-vs-log mismatch check activates, reports tag yObs "(parsed from
-   log)" and embed the Core-yield identity line. NO METHOD CHANGE — parseLedger
-   meta extraction only; row regex, fingerprint, mulberry32, bootstrapLedger,
-   summarize untouched. CERT: re-run the 125-row cert ledger at seed 42 B 10k —
-   yObs autofills 8.7, fp 9a53a51e reproduces, L=6 band [-2.28,+20.58] med 8.67
-   byte-identical; the only report diffs are the version string, the yObs
-   provenance tag, and the added Core-yield identity line. */
+   v1.2.3 (S46): SINGLE VERSION WRITER — the page carried three manual version
+   sites (H1 badge, this comment header, report header string); every release
+   risked a missed site, the class the backtester killed in v6.3.0. Now
+   const BS_VERSION feeds the badge (id="bs-ver", set on DOMContentLoaded) and
+   the report header (artifacts can never go stale). Manual sites 3 → 1: only
+   this comment remains manual, by nature — it IS the version entry, mirroring
+   v6.3.0's "badge + changelog remain manual" (and improving on it: this badge
+   is JS-fed). NO METHOD CHANGE: version plumbing only; cert is the band
+   fingerprint reproducing 9a53a51e byte-identically, the same standard
+   v1.2.1 and v1.2.2 each passed. */
 const $=id=>document.getElementById(id);
 let A=null,Bl=null,reportTxt=null;
 
@@ -301,7 +298,7 @@ $('run').onclick=()=>{
   const stamp=etStamp(new Date(), false); // v1.2.1 — ET-labeled (was unlabeled UTC)
   const yTagA=A.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
   const yTagB=Bl&&Bl.meta&&Bl.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
-  const hdr='bootstrap v1.2.2 · '+stamp
+  const hdr='bootstrap '+BS_VERSION+' · '+stamp // v1.2.3 — single writer: artifacts can never carry a stale version
     +' · seed '+seed+' · B '+B+' · L {3,6,10}\n'
     +'A: n '+A.sum.n+' · ΣP&L '+(A.sum.pnl<0?'−':'+')+'$'+Math.abs(A.sum.pnl).toLocaleString()
     +' · Σhold '+A.sum.days+'d · yObs '+(+$('yA').value).toFixed(1)+'% '+yTagA+' · fp '+fingerprint(A.rows)
