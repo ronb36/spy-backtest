@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.10</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.18.11</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -553,7 +553,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.10 · htourn PARITY FIX (DISPLAY/NETWORK ONLY, sim untouched; the 5/10-vs-3/~10 break Ron caught on the live tab — digest chip and expanded section disagreed on one screen). ROOT CAUSE, three layers: (1) the SECTION fetch was 20 rows — the v6.7.16 defect (“20-row window silently evicted history”) was fixed for the digest but never for the section path; recent rows are menu-0 so the section starved to 3 while the digest’s 100-row window saw 5. FIX: both paths now fetch ("ts", 500) — identical window spec, parity by construction (v6.7.1), and the wider section window also de-fragilizes conf’s and theta’s section reads. (2) BOTH counters overcounted by one: FLAT entry scans carry shadow_topk with NO position, contributing a bogus nan|nan “cycle” key. FIX: positionless topk rows excluded from tkCycles — an entry scan is not a cycle. TRUE COUNT: 4 (both surfaces). (3) DOCUMENTED, NOT FIXED: the pos-key proxy merges repeat contracts — era cycles 2 and 4 both held 1/15 $740, one key — so tkCycles can UNDERCOUNT true cycles; proper cycle segmentation is not worth the machinery for a “~10” heuristic target, and the tilde now provably earns its keep. Found via export-reproduction: both windows simulated offline from scan_snapshot_2026-08-05_1854ET.json before any edit — the mechanism was proven, not guessed. CERT: (1) STD by chain — no sim path touched; (2) node parse + reproduction harness (20-row window → 3, 100-row → 5, 500-row with FLAT filter → 4 on the exported table); (3) live — chip and section read the SAME number (4/10 at current data). Runtime smoke pre-deploy.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: <a href="https://github.com/ronb36/spy-backtest/blob/main/CHANGELOG.md" style="color:var(--muted);">CHANGELOG.md</a> (migrated S45; all components).</span><br><span style="color:var(--muted);opacity:.6;">v6.18.11 · COUNT-500 SWEEP CLOSED (DISPLAY/NETWORK ONLY, sim untouched; S45 carried item). Grep-certified inventory of every Supabase touch in the file: export pipeline (paginated to exhaustion + complete flag), all three _resFetch callers (“ts”,500 since v6.18.10), _resCount (header read), DM loader sbFetchAll (count-first parallel pagination, v5.2.3), and the deliberate limit-1/limit-2 point reads — ALL already hardened; all remaining SB_URL sites are writers. TWO RESIDUALS FIXED: (1) sbGetLiveTrades — the blotter reader — carried limit=1000 with NO completeness check: the exact silent-truncation shape that bit htourn, and asc order means the cap would drop the NEWEST rows. FIX: rows.length===1000 now THROWS, surfacing red in the blotter status + table body (truncation can never hide). Horizon was ~10yr at current fill rates — the guard is cheap insurance, not a live risk. (2) metadata fetch rode the server default window; explicit limit=1000 added (handful of keys — hygiene only). No default-window or uncapped-unguarded Supabase read remains in the file. CERT: STD by chain — no sim path touched; baseline must reproduce byte-identically.</span>
   </div>
 </div>
 
@@ -720,7 +720,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.18.10'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.18.11'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -5831,7 +5831,7 @@ async function loadData() {
     const [spyRows, vixRows, metaRows, yldRows] = await Promise.all([
       sbFetchAll('spy_daily', 'order=date.asc'),
       sbFetchAll('vix_daily', 'order=date.asc'),
-      sbFetch('metadata', 'select=key,value'),
+      sbFetch('metadata', 'select=key,value&limit=1000'), // v6.18.11 — explicit window (was riding the server default; table is a handful of keys, hygiene only)
       sbFetchAll('yield_daily', 'order=date.asc'),  // v6.1.13 — Treasuries (collector v2.3.4 Phase 1.6)
     ]);
 
@@ -7114,6 +7114,7 @@ async function sbGetLiveTrades() {
   );
   if (!res.ok) throw new Error('Supabase read failed: ' + res.status);
   const rows = await res.json();
+  if (rows.length === 1000) throw new Error('live_trades hit the 1000-row window — blotter would be silently truncated (raise the limit or paginate)'); // v6.18.11 — truncation can never hide (v6.7.16 / htourn lesson applied to the blotter reader; asc order means the cap drops the NEWEST rows)
   return rows.map(rowToTrade);
 }
 
