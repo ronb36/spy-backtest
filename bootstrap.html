@@ -113,26 +113,54 @@
     Ledger B's observed yield when B is parsed.</p>
   </div>
 
+  <div class="card"><!-- v1.3.0 — ledger-pack N-way mode: separate path, legacy A/B untouched -->
+    <h2>Ledger Pack — N-way calendar-block (v1.3.0)</h2>
+    <div class="row">
+      <button class="ghost" id="loadP">Load ledger pack…</button>
+      <input type="file" id="fileP" accept=".json,application/json">
+      <div><label>Resamples B</label><input type="number" id="nBP" value="10000"></div>
+      <div><label>Seed</label><input type="number" id="seedP" value="42"></div>
+      <button id="runP" disabled>Run pack bootstrap</button>
+      <span class="gatemsg" id="gateMsgP"></span>
+    </div>
+    <div class="parsebox" id="pboxP">— no pack loaded —</div>
+    <p class="note">Import a <span class="mono">ledger-pack/1</span> JSON from the backtester
+    (v6.19.0+ Export Ledger Pack). Co-resampling: ONE shared sequence of circular
+    calendar-day blocks (L ∈ {30, 61, 91} ≈ 1/2/3 months) applied to every entry per
+    resample — shared history cancels; the Δ distribution reflects only where machines
+    diverge. Core cycles only (initial excluded), attributed to blocks by exit date.
+    Outputs: win-frequency ranking + paired Δ vs entry #0 (incumbent). Adjudication
+    instrument only — the shortlist still walks through walk-forward.</p>
+  </div>
+
+  <div id="outP"></div>
   <div id="out"></div>
 </div>
 
 <script>
 "use strict";
-const BS_VERSION='v1.2.3'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
+const BS_VERSION='v1.3.0'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
 document.addEventListener('DOMContentLoaded',()=>{const e=document.getElementById('bs-ver');if(e)e.textContent=BS_VERSION;});
-/* Cycle-Ledger Bootstrap v1.2.3 — S46
-   Full version history: CHANGELOG.md in the repo root (migrated S45; in-file log
-   carries only the current release entry, per the S45 changelog convention).
-   v1.2.3 (S46): SINGLE VERSION WRITER — the page carried three manual version
-   sites (H1 badge, this comment header, report header string); every release
-   risked a missed site, the class the backtester killed in v6.3.0. Now
-   const BS_VERSION feeds the badge (id="bs-ver", set on DOMContentLoaded) and
-   the report header (artifacts can never go stale). Manual sites 3 → 1: only
-   this comment remains manual, by nature — it IS the version entry, mirroring
-   v6.3.0's "badge + changelog remain manual" (and improving on it: this badge
-   is JS-fed). NO METHOD CHANGE: version plumbing only; cert is the band
-   fingerprint reproducing 9a53a51e byte-identically, the same standard
-   v1.2.1 and v1.2.2 each passed. */
+/* Cycle-Ledger Bootstrap v1.3.0 — S47
+   Full version history: CHANGELOG.md in the project folder (S46 ruling; in-file
+   log carries only the current release entry, per the S45 convention).
+   v1.3.0 (S47): LEDGER-PACK N-WAY CALENDAR-BLOCK MODE — new import path for
+   ledger-pack/1 JSON from the backtester's capture pass (v6.19.0 companion).
+   METHOD ADDITION, not a change: the certified A/B cycle-indexed path is
+   byte-untouched (cert: band fp 9a53a51e must still reproduce, same seed/rows).
+   The pack mode co-resamples ONE shared sequence of circular calendar-day
+   blocks (L ∈ {30,61,91} — calendar days, not trading days: the pack carries
+   dates only; ~1/2/3 months) across ALL entries per resample, so shared
+   history cancels and the paired-Δ distribution reflects only divergent
+   segments — the correct instrument for competing configs whose cycle grids
+   differ (cycle-indexed pairing is undefined across grids). Core cycles only
+   (isInitial excluded), attributed by exit date; per-entry integrity check
+   recomputes the pack's djb2 ledger fingerprint on import (mismatch blocks
+   the run). Outputs: win-frequency ranking (strict argmax per resample,
+   lower id wins exact ties) + paired Δ vs entry #0 (incumbent, always) with
+   P(Δ>0) and Δ percentiles, across all three L; draw checksum printed for
+   byte-reproducibility. Adjudication instrument only — no policy machinery;
+   the shortlist still walks through walk-forward. */
 const $=id=>document.getElementById(id);
 let A=null,Bl=null,reportTxt=null;
 
@@ -405,6 +433,201 @@ $('run').onclick=()=>{
   const fn='bootstrap_'+etStamp(new Date(), true)+'.txt'; // v1.2.1 — ET-labeled filename
   $('dl').onclick=()=>{
     const blob=new Blob([reportTxt],{type:'text/plain'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=fn;
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+  };
+};
+
+// ═══ v1.3.0 — Ledger-Pack N-way calendar-block mode ═══════════════════════
+// Separate path end-to-end: legacy A/B machinery above is byte-untouched.
+let PK=null,reportTxtP=null;
+
+function fpPack(cycles){ // must match the backtester's _fpLedger exactly (djb2 over entry|exit|round(pnl))
+  let h=5381;
+  const s=(cycles||[]).map(c=>c.entryDate+'|'+c.exitDate+'|'+Math.round(c.pnl)).join(';');
+  for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;
+  return h.toString(16).padStart(8,'0');
+}
+function dayIdx(iso,t0){return Math.round((Date.parse(iso+'T00:00:00Z')-t0)/86400000);}
+
+function parsePack(txt){
+  let j;
+  try{j=JSON.parse(txt);}catch(e){return {err:'Not valid JSON: '+e.message};}
+  if(j.schema!=='ledger-pack/1')return {err:'Unknown schema "'+(j.schema||'?')+'" — expected ledger-pack/1'};
+  if(!Array.isArray(j.entries)||!j.entries.length)return {err:'Pack has no entries'};
+  const probs=[];
+  j.entries.forEach(e=>{
+    const fp=fpPack(e.cycles);
+    e._fpOk=(fp===e.fingerprint);
+    if(!e._fpOk)probs.push('#'+e.id+' '+e.label+': fp recompute '+fp+' ≠ pack '+e.fingerprint);
+    e._core=(e.cycles||[]).filter(c=>!c.isInitial);
+    if(e.stats?.coreYld==null)probs.push('#'+e.id+' '+e.label+': coreYld null — cannot anchor yield scaling');
+    if(!e._core.length)probs.push('#'+e.id+' '+e.label+': no core cycles');
+  });
+  if(j.entries[0]?.params?.published!==true)probs.push('entry #0 is not marked published:true — incumbent-first pack expected');
+  return {pack:j,probs};
+}
+
+function showPack(res){
+  const box=$('pboxP');
+  if(res.err){box.innerHTML='<span class="bad">'+res.err+'</span>';return null;}
+  const j=res.pack;
+  let h='schema <b>'+j.schema+'</b> · app <b>'+(j.app||'?')+'</b> · DM <b>'+(j.dmUpdated||'?')
+    +'</b> · sweep evals <b>'+(j.sweepEvals??'?')+'</b> · considered '+(j.considered??'?')
+    +' → distinct <b>'+(j.distinct??j.entries.length)+'</b>\n';
+  j.entries.forEach(e=>{
+    h+='#'+e.id+' '+e.label+(e.aliases&&e.aliases.length?' (+'+e.aliases.length+' alias)':'')
+      +' · fp '+e.fingerprint+(e._fpOk?' <span class="ok">✓</span>':' <span class="bad">✗ MISMATCH</span>')
+      +' · core '+(e.stats?.coreYld!=null?e.stats.coreYld.toFixed(1)+'%':'—')
+      +' · '+e._core.length+' core cycles\n';
+  });
+  if(res.probs.length)h+='<span class="'+(res.probs.some(p=>p.includes('fp recompute'))?'bad':'wn')+'">'
+    +res.probs.length+' issue(s): '+res.probs[0]+(res.probs.length>1?' (+'+(res.probs.length-1)+' more)':'')+'</span>';
+  box.innerHTML=h;
+  return res;
+}
+
+function gateP(){
+  let msg='';
+  if(!PK||!PK.pack)msg='Load a ledger pack first';
+  else if(PK.pack.entries.some(e=>!e._fpOk))msg='✗ fingerprint mismatch — pack integrity failed; re-export from the backtester';
+  else if(PK.pack.entries.some(e=>e.stats?.coreYld==null||!e._core.length))msg='✗ entry missing coreYld or core cycles — cannot run';
+  $('runP').disabled=!!msg;
+  $('gateMsgP').textContent=msg;
+}
+$('loadP').onclick=()=>$('fileP').click();
+$('fileP').onchange=()=>{
+  const f=$('fileP').files&&$('fileP').files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{PK=showPack(parsePack(String(rd.result)));gateP();};
+  rd.onerror=()=>{$('pboxP').innerHTML='<span class="bad">File read failed.</span>';};
+  rd.readAsText(f);$('fileP').value='';
+};
+gateP();
+
+$('runP').onclick=()=>{
+  const j=PK.pack,E=j.entries,B=Math.max(100,+$('nBP').value||10000),seed=+$('seedP').value||42;
+  const Ls=[30,61,91];
+  // Union calendar window across all entries' core cycles (exit-date attribution)
+  let minD=Infinity,maxD=-Infinity;
+  E.forEach(e=>e._core.forEach(c=>{const t=Date.parse(c.exitDate+'T00:00:00Z');
+    if(t<minD)minD=t;if(t>maxD)maxD=t;}));
+  const W=Math.round((maxD-minD)/86400000)+1;
+  // Per-entry prefix sums of P&L by calendar day index — O(1) wrapped block sums
+  const pref=E.map(e=>{
+    const a=new Float64Array(W+1);
+    e._core.forEach(c=>{a[dayIdx(c.exitDate,minD)+1]+=c.pnl;});
+    for(let i=1;i<=W;i++)a[i]+=a[i-1];
+    return a;
+  });
+  const Pobs=E.map((e,i)=>pref[i][W]);
+  const yObs=E.map(e=>e.stats.coreYld);
+  const blockSum=(pe,s,L)=>{const en=s+L;
+    return en<=W?pe[en]-pe[s]:(pe[W]-pe[s])+pe[en-W];}; // circular wrap
+  const res={}; // res[L] = {win:[], dq:[[p05,p50,p95,Pgt0] per entry], drawCk}
+  Ls.forEach((L,li)=>{
+    const nb=Math.ceil(W/L),rng=mulberry32(seed*1000+li+1); // stream disjoint from legacy (seed*100+L[+50])
+    const win=new Array(E.length).fill(0);
+    const dArr=E.map(()=>new Float64Array(B));
+    let ck=2166136261>>>0,ckN=0;
+    const ys=new Float64Array(E.length);
+    for(let b=0;b<B;b++){
+      ys.fill(0);
+      for(let k=0;k<nb;k++){
+        const s=Math.floor(rng()*W);
+        if(ckN<8){const st=String(s);for(let q=0;q<st.length;q++){ck^=st.charCodeAt(q);ck=Math.imul(ck,16777619);}ckN++;}
+        for(let e=0;e<E.length;e++)ys[e]+=blockSum(pref[e],s,L);
+      }
+      const tf=W/(nb*L); // constant per L — identical for every entry (shared clock)
+      let bi=0;
+      for(let e=0;e<E.length;e++){
+        ys[e]=yObs[e]*(ys[e]/Pobs[e])*tf;
+        if(ys[e]>ys[bi])bi=e; // strict argmax; exact ties → lower id
+        if(e>0)dArr[e][b]=ys[e]-ys[0];
+      }
+      win[bi]++;
+    }
+    const dq=dArr.map((a,e)=>{
+      if(e===0)return null;
+      const v=Array.from(a).sort((x,y)=>x-y);
+      const q=f=>v[Math.min(B-1,Math.floor(f*B))];
+      return {p05:q(.05),p50:q(.50),p95:q(.95),pgt:v.filter(x=>x>0).length/B};
+    });
+    res[L]={win,dq,drawCk:(ck>>>0).toString(16).padStart(8,'0'),nb};
+  });
+
+  // ── Render ──
+  const stamp=etStamp(new Date(),false);
+  const hdr='bootstrap '+BS_VERSION+' · pack mode · '+stamp
+    +' · seed '+seed+' · B '+B+' · L {30,61,91}cd · window '+W+'d'
+    +'\npack: app '+(j.app||'?')+' · DM '+(j.dmUpdated||'?')+' · distinct '+E.length
+    +' · draw ck {'+Ls.map(L=>res[L].drawCk).join(', ')+'}';
+  const out=['<div class="card"><h2>Pack run header — copy into the session record</h2>'
+    +'<div class="runhdr">'+hdr+'</div>'];
+
+  let wt='<table><tr><th>Entry</th><th>core yObs</th>';
+  Ls.forEach(L=>wt+='<th>win% L='+L+'</th>');wt+='</tr>';
+  E.forEach((e,i)=>{wt+='<tr><td>#'+e.id+' '+e.label+'</td><td>'+yObs[i].toFixed(1)+'%</td>';
+    Ls.forEach(L=>{const w=res[L].win[i]/B*100;
+      wt+='<td'+(w===Math.max(...res[L].win)/B*100?' style="font-weight:700"':'')+'>'+w.toFixed(1)+'</td>';});
+    wt+='</tr>';});
+  wt+='</table>';
+  out.push('<h2 style="margin-top:14px">Win frequency — share of '+B.toLocaleString()+' resampled worlds each machine ranks #1</h2>'+wt);
+
+  let dt='<table><tr><th>Δ vs #0 (pp)</th>';
+  Ls.forEach(L=>dt+='<th>L='+L+': p05 / med / p95 · P(Δ&gt;0)</th>');dt+='</tr>';
+  E.forEach((e,i)=>{if(i===0)return;dt+='<tr><td>#'+e.id+' '+e.label+'</td>';
+    Ls.forEach(L=>{const d=res[L].dq[i];
+      dt+='<td>'+d.p05.toFixed(2)+' / <b>'+d.p50.toFixed(2)+'</b> / '+d.p95.toFixed(2)
+        +' · '+(d.pgt*100).toFixed(0)+'%</td>';});
+    dt+='</tr>';});
+  dt+='</table>';
+  out.push('<h2>Paired Δ vs incumbent (#0) — shared draws, divergent segments only</h2>'+dt);
+
+  // Verdicts
+  const vTxt=[];
+  const inc=res[61].win[0]/B*100;
+  const chall=E.map((e,i)=>i===0?null:{i,w:res[61].win[i]/B*100,p:res[61].dq[i].pgt*100})
+    .filter(x=>x).sort((a,b)=>b.w-a.w);
+  const top=chall[0];
+  const v1='P-P1 — incumbent wins '+inc.toFixed(0)+'% of worlds at L=61'
+    +(top?'; strongest challenger #'+E[top.i].id+' ('+E[top.i].label+') wins '+top.w.toFixed(0)
+      +'% with P(Δ>0) '+top.p.toFixed(0)+'%':'')
+    +' → '+(top&&top.p>=90?'challenger CLEARS the paired bar — walk-forward candidate'
+      :top&&top.p>=60?'suggestive, NOT resolved — more tape or more cycles'
+      :'ranking is sampling luck at this depth — no motion');
+  vTxt.push(v1);out.push('<div class="verdict '+(top&&top.p>=90?'fail':'pass')+'">'+v1+'</div>');
+  const stab=E.every((e,i)=>i===0||Ls.every(L=>Math.abs(res[L].dq[i].pgt-res[61].dq[i].pgt)<=0.10));
+  const v2='P-P2 — P(Δ>0) drift across L {30,61,91}: '+(stab?'STABLE (≤10pp per entry)':'BLOCK-LENGTH FRAGILE — treat verdicts as unresolved');
+  vTxt.push(v2);out.push('<div class="verdict '+(stab?'pass':'fail')+'">'+v2+'</div>');
+  const mth='Method: circular calendar-day moving-block · ONE shared draw sequence per resample across all entries '
+    +'(paired) · exit-date attribution · core cycles only · y = coreYld·(P&L_b/P&L_obs)·(W/(nb·L)) · '
+    +'strict argmax (ties → lower id) · adjudication only, no policy machinery.';
+  out.push('<p class="note">'+mth+'</p>'
+    +'<div class="row" style="margin-top:10px"><button class="ghost" id="dlP">Download pack results log</button></div></div>');
+  $('outP').innerHTML=out.join('');
+
+  // Plain-text report
+  const rep=['═══════════════════════════════════════════════════════════',
+    'LEDGER-PACK BOOTSTRAP — N-WAY RESULTS REPORT',
+    '═══════════════════════════════════════════════════════════',hdr,'','Entries:'];
+  E.forEach((e,i)=>rep.push('  #'+e.id+' '+e.label+(e.aliases&&e.aliases.length?' (+'+e.aliases.length+' alias)':'')
+    +' · fp '+e.fingerprint+' · core '+yObs[i].toFixed(1)+'% · '+e._core.length+' core cycles'));
+  rep.push('','Win frequency (% of '+B+' worlds ranked #1):');
+  E.forEach((e,i)=>rep.push('  #'+e.id+' '+String(e.label).padEnd(24)
+    +Ls.map(L=>('L'+L+' '+(res[L].win[i]/B*100).toFixed(1)+'%').padStart(12)).join('')));
+  rep.push('','Paired Δ vs #0 (pp) — p05 / median / p95 · P(Δ>0):');
+  E.forEach((e,i)=>{if(i===0)return;
+    rep.push('  #'+e.id+' '+String(e.label).padEnd(24)
+      +Ls.map(L=>{const d=res[L].dq[i];return ('L'+L+' '+d.p05.toFixed(2)+'/'+d.p50.toFixed(2)+'/'
+        +d.p95.toFixed(2)+' '+(d.pgt*100).toFixed(0)+'%').padStart(28);}).join(''));});
+  rep.push('');vTxt.forEach(v=>rep.push(v));rep.push('',mth);
+  reportTxtP=rep.join('\n')+'\n';
+  const fn='bootstrap_pack_'+etStamp(new Date(),true)+'.txt';
+  $('dlP').onclick=()=>{
+    const blob=new Blob([reportTxtP],{type:'text/plain'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);a.download=fn;
     document.body.appendChild(a);a.click();
