@@ -81,7 +81,7 @@ select.display-box { cursor:pointer; outline:none; }
 .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:12px 14px; }
 .stat-label { font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:5px; }
 .stat-value { font-family:var(--mono); font-size:16px; font-weight:600; }
-#run-btn { font-size:22px !important; -webkit-text-size-adjust:100% !important; text-size-adjust:100% !important; text-align:center !important; width:100% !important; height:100% !important; display:flex !important; align-items:center !important; justify-content:center !important; } #run-eval-count { -webkit-text-size-adjust:100% !important; text-size-adjust:100% !important; } /* v6.5.2 — iOS font-boost opt-out: state-dependent sizing was Safari's content-driven boost multiplier, not any px writer (18px was pinned since v6.1.15); 22px un-boosted = starting point, tune by screenshot. v6.3.3 true both-axis centering retained */
+#run-btn { font-size:14px !important; -webkit-text-size-adjust:100% !important; text-size-adjust:100% !important; text-align:center !important; width:100% !important; height:100% !important; display:flex !important; align-items:center !important; justify-content:center !important; } #run-eval-count { -webkit-text-size-adjust:100% !important; text-size-adjust:100% !important; } /* v6.5.2 — iOS font-boost opt-out: state-dependent sizing was Safari's content-driven boost multiplier, not any px writer (18px was pinned since v6.1.15); 22px un-boosted (v6.5.2); v6.19.4 → 14px, Ron's screenshot tune: match stat-value scale at the 4×2 single-cell tile. v6.3.3 true both-axis centering retained */
 #run-publish-card { position:relative !important; align-items:center !important; justify-content:center !important; }
 #run-eval-count { position:absolute !important; bottom:6px !important; left:0 !important; right:0 !important; text-align:center !important; } /* v6.3.3 — counter pinned bottom-center, label stays dead-center */
 .stat-sub { font-size:10px; color:var(--muted); margin-top:2px; }
@@ -146,7 +146,7 @@ select.display-box { cursor:pointer; outline:none; }
 #debug-btn.active { border-color:var(--yellow);color:var(--yellow);background:rgba(234,179,8,.08); }
 
 .footer { font-size:11px; color:var(--muted); border-top:1px solid var(--border); padding-top:12px; margin-top:8px; line-height:1.6; }
-@media(max-width:700px) { .init-grid { grid-template-columns:repeat(3,1fr); } .summary-grid { grid-template-columns:repeat(2,1fr); } #controls-row { grid-template-columns:repeat(2,1fr); } #var-card-row { grid-template-columns:repeat(2,1fr); } #run-publish-card { grid-column:1/-1; } }
+@media(max-width:700px) { .init-grid { grid-template-columns:repeat(3,1fr); } .summary-grid { grid-template-columns:repeat(2,1fr); } #var-card-row { grid-template-columns:repeat(2,1fr); } #run-publish-card { grid-column:1/-1; } } /* v6.19.4 — controls-row rule removed with the wrapper; run tile still full-width on phones */
 </style>
 </head>
 <body>
@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.19.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.19.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -262,12 +262,7 @@ select.display-box { cursor:pointer; outline:none; }
         </div>
       </div>
       <!-- v6.19.3 — vcard-entrydte REMOVED (S48 ruling: full removal). entryDteMin lives in roll_params.json (null = coupled to DTE floor, v6.4.0 identity); sim rail untouched. -->
-    </div>
-
-
-    <!-- Rows 2-3 (v6.7.7 regroup): Entry DTE Min · Entry OTM Target · Entry DTE Anchor · Run full-width -->
-    <div id="controls-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;grid-auto-rows:104px;"><!-- v6.14.1: 4-col row 3 — anchor, run(span 3); otm card removed with the axis -->
-      <div class="stat-card var-card" id="vcard-lookahead" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
+      <div class="stat-card var-card" id="vcard-lookahead" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;"><!-- v6.19.4 — moved into var-card-row cell 7 (4×2 regrid, S48) -->
         <div onclick="toggleVar('lookahead')" style="cursor:inherit;">
           <div class="stat-label">Entry DTE Anchor <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">candidate</span></div>
           <div class="stat-value accent" id="vval-lookahead" style="font-size:14px;">45d</div>
@@ -281,8 +276,7 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-lookahead" value="7" min="1" max="60" step="1" onchange="updateSweepRange('lookahead')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      
-      <div id="run-publish-card" style="grid-column:2/5;height:104px;box-sizing:border-box;background:var(--surface);border:1px solid var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
+      <div id="run-publish-card" style="height:104px;box-sizing:border-box;background:var(--surface);border:1px solid var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;position:relative;"><!-- v6.19.4 — cell 8 of the 4×2 grid (was grid-column:2/5 in its own row); font stepped 22→14px to match stat-value scale -->
         <button class="btn" id="run-btn" onclick="handleRunOrPublish()" disabled
           style="font-family:var(--mono);font-weight:700;letter-spacing:.04em;width:100%;background:transparent;color:var(--accent);border:none;cursor:pointer;opacity:.4;padding:0;line-height:1.3;text-align:center;">
           Loading…
@@ -527,7 +521,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.19.3 · DTE DEMOTION — FULL CARD REMOVAL (S48; display-tier, sim region untouched). Supersedes v6.19.2 pre-cert (built-never-certified, logged): its static-card conversion drifted from the ratified removal ruling — builder miss caught on first render. Both cards (vcard-dte, vcard-entrydte) now REMOVED outright per the otmTarget v6.14.1 precedent; grid reflows to the six-axis optimizer surface (decay, delta, defh, grace, entrycap, lookahead — every axis evidence-bearing). dteFloor + entryDteMin remain configuration constants: JSON carries both (null entryDteMin = coupled, v6.4.0 identity), run-header PUBLISHED PARAMS prints them, both sim rails live as safety rails; all orphaned card writers null-guarded no-ops. Demotion evidence: zero dte-floor/expiry fires across five certified attributions; entryDteMin sweep range 7–21d never binds (min entry ever 43d, S46). OTM_TARGETS explicitly unchanged. CERT: STD triple must reproduce the 08-09 certified pair (127 · 8.5% · $59,376) byte-identically, timestamp-stripped.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.19.4 · 4×2 PANEL REGRID + SCAN TILE TUNE (S48, Ron's spec; display-tier, sim region untouched). The seven cards + run tile now fill one 4-column grid, two rows (was 6+1 with the tile spanning 3 cells): vcard-lookahead moved to cell 7, run-publish-card to cell 8, controls-row wrapper deleted (media-query rule with it; phone layout keeps the full-width tile). Run-btn font 22px → 14px — matches stat-value scale at the single-cell tile (v6.5.2 iOS boost opt-out retained). ✓ glyph dropped from the Scan Complete label (width at single-cell size; state dispatch routes on includes('Scan'), unaffected — verified before edit). Prior release v6.19.3 (DTE demotion, full card removal) certified 08-10 by STD chain; see CHANGELOG.md. CERT: STD triple must reproduce the certified pair (127 · 8.5% · $59,376) byte-identically, timestamp-stripped; visual check — 4×2 grid, tile text at card scale.</span>
   </div>
 </div>
 
@@ -694,7 +688,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.19.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.19.4'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1137,7 +1131,7 @@ async function handleRunOrPublish() {
     confirmSelectedPublish();
     return;
   }
-  // Scan (incl. '\u2713 Scan Complete' re-tap): STD+scan under published params.
+  // Scan (incl. 'Scan Complete' re-tap — \u2713 dropped v6.19.4): STD+scan under published params.
   if (currentLabel.includes('Scan')) {
     _pipeState = 'scanning';
     _mode = 'test';
@@ -6257,7 +6251,7 @@ async function runRollScan() {
     }
     // v6.7.6 (Ron's spec, correcting the v6.7.5 miss: SCAN progress — not the
     // OPT eval counter — belongs in the button). Completion flow rewrites the
-    // label ("\u2713 Scan Complete"), so no residue survives the scan.
+    // label ("Scan Complete" — \u2713 dropped v6.19.4), so no residue survives the scan.
     { const _mb = $('run-btn'); if (_mb) _mb.textContent = '\u27F3 ' + Math.min(b+BATCH, combos.length) + ' / ' + combos.length; }
     statusEl.textContent = ''; // v6.7.11 — the button carries the count; the countless placeholder duplicated it (Ron)
     await new Promise(r => setTimeout(r, 250));
@@ -6711,7 +6705,7 @@ async function runRollScan() {
 
 
   if (mainBtn && mainCard) {
-    mainBtn.textContent    = '\u2713 Scan Complete';
+    mainBtn.textContent    = 'Scan Complete'; // v6.19.4 — \u2713 dropped (Ron: width at single-cell size; state dispatch routes on includes('Scan'), unaffected)
     mainBtn.disabled       = false;
     mainBtn.style.opacity  = '1';
     mainBtn.style.cursor   = 'pointer';
