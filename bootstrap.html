@@ -113,8 +113,8 @@
     Ledger B's observed yield when B is parsed.</p>
   </div>
 
-  <div class="card"><!-- v1.3.0 — ledger-pack N-way mode: separate path, legacy A/B untouched -->
-    <h2>Ledger Pack — N-way calendar-block (v1.3.0)</h2>
+  <div class="card"><!-- ledger-pack N-way mode (v1.3.0+): separate path, legacy A/B untouched -->
+    <h2>Ledger Pack — N-way calendar-block</h2>
     <div class="row">
       <button class="ghost" id="loadP">Load ledger pack…</button>
       <input type="file" id="fileP" accept=".json,application/json">
@@ -139,28 +139,22 @@
 
 <script>
 "use strict";
-const BS_VERSION='v1.3.0'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
+const BS_VERSION='v1.3.1'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
 document.addEventListener('DOMContentLoaded',()=>{const e=document.getElementById('bs-ver');if(e)e.textContent=BS_VERSION;});
-/* Cycle-Ledger Bootstrap v1.3.0 — S47
+/* Cycle-Ledger Bootstrap v1.3.1 — S48
    Full version history: CHANGELOG.md in the project folder (S46 ruling; in-file
    log carries only the current release entry, per the S45 convention).
-   v1.3.0 (S47): LEDGER-PACK N-WAY CALENDAR-BLOCK MODE — new import path for
-   ledger-pack/1 JSON from the backtester's capture pass (v6.19.0 companion).
-   METHOD ADDITION, not a change: the certified A/B cycle-indexed path is
-   byte-untouched (cert: band fp 9a53a51e must still reproduce, same seed/rows).
-   The pack mode co-resamples ONE shared sequence of circular calendar-day
-   blocks (L ∈ {30,61,91} — calendar days, not trading days: the pack carries
-   dates only; ~1/2/3 months) across ALL entries per resample, so shared
-   history cancels and the paired-Δ distribution reflects only divergent
-   segments — the correct instrument for competing configs whose cycle grids
-   differ (cycle-indexed pairing is undefined across grids). Core cycles only
-   (isInitial excluded), attributed by exit date; per-entry integrity check
-   recomputes the pack's djb2 ledger fingerprint on import (mismatch blocks
-   the run). Outputs: win-frequency ranking (strict argmax per resample,
-   lower id wins exact ties) + paired Δ vs entry #0 (incumbent, always) with
-   P(Δ>0) and Δ percentiles, across all three L; draw checksum printed for
-   byte-reproducibility. Adjudication instrument only — no policy machinery;
-   the shortlist still walks through walk-forward. */
+   v1.3.1 (S48): P-P1 VERDICT SELECTS BY PAIRED P(Δ>0) — the "strongest
+   challenger" was chosen by win frequency (maiden-run wart: pointed at a
+   wide-spread lottery shape while a different entry cleared the 90% paired
+   bar). Doctrine: win-frequency is descriptive, paired-Δ decides. Selection
+   is now argmax P(Δ>0) at L=61, ties → lower id; win% retained in the
+   sentence as a descriptive stat. VERDICT TEXT ONLY — draws, resampling,
+   fingerprint gate, bands, win-frequency tables, and the legacy A/B path
+   are byte-untouched. Cert: re-import of the repaired maiden pack (seed 42,
+   B 10000) must reproduce draw ck {23e158e3, 748f97a4, 16c4a153} and all
+   band values; sole report diff is the P-P1 line. Legacy A/B certified
+   reference remains the 08-05 pair, band fp 22659242. */
 const $=id=>document.getElementById(id);
 let A=null,Bl=null,reportTxt=null;
 
@@ -590,11 +584,11 @@ $('runP').onclick=()=>{
   const vTxt=[];
   const inc=res[61].win[0]/B*100;
   const chall=E.map((e,i)=>i===0?null:{i,w:res[61].win[i]/B*100,p:res[61].dq[i].pgt*100})
-    .filter(x=>x).sort((a,b)=>b.w-a.w);
+    .filter(x=>x).sort((a,b)=>b.p-a.p||a.i-b.i); // v1.3.1: paired P(Δ>0) decides; ties → lower id; win% descriptive
   const top=chall[0];
   const v1='P-P1 — incumbent wins '+inc.toFixed(0)+'% of worlds at L=61'
-    +(top?'; strongest challenger #'+E[top.i].id+' ('+E[top.i].label+') wins '+top.w.toFixed(0)
-      +'% with P(Δ>0) '+top.p.toFixed(0)+'%':'')
+    +(top?'; strongest challenger #'+E[top.i].id+' ('+E[top.i].label+') P(Δ>0) '+top.p.toFixed(0)
+      +'% (paired), wins '+top.w.toFixed(0)+'% of worlds':'')
     +' → '+(top&&top.p>=90?'challenger CLEARS the paired bar — walk-forward candidate'
       :top&&top.p>=60?'suggestive, NOT resolved — more tape or more cycles'
       :'ranking is sampling luck at this depth — no motion');
