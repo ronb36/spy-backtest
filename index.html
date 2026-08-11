@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.20.7</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.21.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -521,7 +521,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.20.7 · §3 TEN-COLUMN IDENTITY ROW (Ron's spec, S49). START DATE · START BAL · CONTRIB · CC P&L · CC YIELD · SPY P&L · SPY YIELD · LAST TRADE · LAST BAL · ACCT YIELD, evenly spaced (fixed table layout). ONE window (start → balance as-of) and ONE TW capital for all three yields — the row FOOTS both ways: $ columns sum to last bal (SPY P&L = residual: appreciation + dividends + MM interest bundled) and CC 17.0% + SPY 47.3% = ACCT 64.3% exactly (CC shifts 17.3→17.0 moving off the trade window — additivity ruled worth it). Prior release v6.20.6 certified 08-11; see CHANGELOG.md. CERT: boot clean · pair carries · §3 ten columns even-spaced, yields foot.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.21.0 · orig_sell_date / orig_sell_price RETIRED (S50 ruling #4, activity-table prep). Dead pair — 176/176 null in the 08-11 export, writer wrote null always, reader mapped to camelCase fields with zero consumers (grep-verified). All 4 sites removed (writer ×2, reader ×2). Ships AHEAD of the SQL column drop so the insert path never POSTs a nonexistent column. Sim region untouched. Prior release v6.20.7 certified 08-11; see CHANGELOG.md. CERT: boot clean · pair carries · publish a ticket post-migration to certify the writer path.</span>
   </div>
 </div>
 
@@ -688,7 +688,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.20.7'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.21.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -7077,8 +7077,6 @@ function tradeToRow(t) {
     cover_strike:     t.cover_strike ?? t.coverStrike ?? null,
     cover_price:      t.cover_price ?? t.coverPrice ?? null,
     cover_contracts:  t.cover_contracts ?? t.coverContracts ?? null,
-    orig_sell_date:   pd(t.orig_sell_date || null),
-    orig_sell_price:  t.orig_sell_price ?? null,
     sell_expiry:      pd(t.sell_expiry || t.sellExpiry || null),
     sell_strike:      t.sell_strike ?? t.sellStrike ?? null,
     sell_price:       t.sell_price ?? t.sellPrice ?? null,
@@ -7105,8 +7103,6 @@ function rowToTrade(r) {
     coverStrike:     r.cover_strike,
     coverPrice:      r.cover_price,
     coverContracts:  r.cover_contracts,
-    origSellDate:    fd(r.orig_sell_date),
-    origSellPrice:   r.orig_sell_price,
     sellExpiry:      fd(r.sell_expiry),
     sellStrike:      r.sell_strike,
     sellPrice:       r.sell_price,
