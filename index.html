@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.24.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.24.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -468,7 +468,7 @@ select.display-box { cursor:pointer; outline:none; }
           </div>
         </div>
         <!-- Live summary stats -->
-        <div id="live-summary" style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:24px;flex-wrap:wrap;"></div>
+        <!-- v6.24.2 — live-summary chip banner REMOVED (Ron: duplicate of Performance panel + top blotter row; MTM readout went with it) -->
         <div class="tbl-wrap"><div id="live-trade-table"></div></div>
       </div>
       <!-- v6.22.0 — Statement Import (DRY RUN — zero POSTs this release; insert path arrives v6.22.1) -->
@@ -549,7 +549,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.24.1 · PERFORMANCE PANEL RESPEC (Ron): panel moved DIRECTLY BELOW THE TAB ROW (above the Sim Rolls/Live Rolls pills), compacted to roughly a third of its height — tighter cell padding (th 3px, td 4px), slim body padding — and the in-panel identity-row description REMOVED (doctrine prose belongs in the Foundation doc, not the interface; recorded there at session end). Grid, refresh, and export unchanged. Sim row (approved) carries to next session — DM boundary. Sim region untouched. Prior release v6.24.0 certified 08-11 (debug); see CHANGELOG.md. CERT (debug mode): boot clean · pair carries · panel sits under the tab row in both subviews at compact height with no description text.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.24.2 · LIVE BLOTTER CHIP BANNER REMOVED (Ron): Total Roll Credit / Win Rate / Total Cycles / Open Position duplicated the Performance panel and the top blotter row — markup, stats computations, banner populate, and the Polygon open-position MTM fetch all excised (the MTM mark/kept% readout was the one non-duplicate element and went with it; can ride the blotter header if wanted back). FALSIFICATION en route: v6.23.1's walk removal deleted const _isoD while the surviving MTM block still called it — ReferenceError v6.23.1→v6.24.1, swallowed by the MTM try/catch (silent-degrade masked a real defect; the v6.22.3 identifier probe covered only the import module). MTM was dead those three releases; this removal deletes the broken consumer. _isoD now has zero declarations and zero call sites. Sim region untouched. Prior release v6.24.1 certified 08-11 (debug); see CHANGELOG.md. CERT (debug mode): boot clean · pair carries · Live Rolls shows blotter table directly with no chip row.</span>
   </div>
 </div>
 
@@ -716,7 +716,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.24.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.24.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -7207,66 +7207,21 @@ let _liveBlotterAsc = false; // default newest first
 
 function renderLiveBlotter(trades) {
   const tableEl   = $('live-trade-table');
-  const summaryEl = $('live-summary');
   if (!tableEl) return;
 
   if (!trades || trades.length === 0) {
     tableEl.innerHTML = '<div style="padding:20px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No live trades logged yet.</div>';
-    if (summaryEl) summaryEl.style.display = 'none';
     return;
   }
 
-  // Summary stats
-  const credits    = trades.filter(t => t.rollCredit != null);
-  const totalCredit = credits.reduce((s, t) => s + (t.rollCredit || 0), 0);
-  const wins       = credits.filter(t => t.rollCredit > 0).length;
-  const winRate    = credits.length ? Math.round(100 * wins / credits.length) : 0;
-  const openTrade  = trades.find(t => t.status === 'open');
-
-  // v6.23.1 — ANN YIELD + TW notional RETIRED (S49 flag closed as RETIRE, not fix). The
-  // v6.1.2 stat divided by a notional built from the cumulative contract walk, which was
-  // FALSIFIED on real blotter rows (−6 by Aug 2026, S49) — this was the walk's last
-  // consumer, now pulled (VIX-gate precedent). §3's ledger-derived identity row is the
-  // single certified yield instrument; one number, one convention, one place.
+  // v6.24.2 — summary chip banner REMOVED (Ron): Total Roll Credit / Win Rate / Total
+  // Cycles / Open Position + MTM all duplicated the Performance panel and the top blotter
+  // row. Stats computations, banner populate, and the Polygon MTM fetch excised with it.
+  // v6.23.1 note stands: the falsified-walk ANN YIELD died here one release earlier.
 
   { const _b1 = $('blot-coveronly-btn'), _b2 = $('blot-addtrade-btn'); // v6.7.15 — blotter is a RECORD in normal mode; debug = editable (repair path)
     if (_b1) _b1.style.display = _debugMode ? '' : 'none';
     if (_b2) _b2.style.display = _debugMode ? '' : 'none'; }
-  if (summaryEl) {
-    summaryEl.style.display = 'flex';
-    const fmt = v => (v >= 0 ? '+' : '') + '$' + Math.abs(Math.round(v)).toLocaleString();
-    const openDisplay = openTrade
-      ? `<span style="font-family:var(--mono);font-size:11px;color:var(--green);">Short ${openTrade.sellContracts || openTrade.coverContracts || 6} &nbsp;${openTrade.sellExpiry} &nbsp;$${openTrade.sellStrike}C &nbsp;@ $${openTrade.sellPrice}</span><span id="live-mtm" style="font-family:var(--mono);font-size:11px;color:var(--muted);"></span>`
-      : '<span style="font-family:var(--mono);font-size:11px;color:var(--muted);">Flat</span>';
-    summaryEl.innerHTML = [
-      ['Total Roll Credit (all rows)', `<span class="${totalCredit>=0?'green':'red'}" style="font-family:var(--mono);font-size:15px;font-weight:600;">${fmt(totalCredit)}</span><div style="font-size:10px;color:var(--muted);">raw blotter \u03a3 \u00b7 \u00a73 core convention excludes long_call + window-initial sell</div>`],
-      ['Win Rate', `<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--green);">${winRate}%</span><div style="font-size:10px;color:var(--muted);">${wins} / ${credits.length} rolls</div>`],
-      ['Total Cycles', `<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--accent);">${trades.length}</span>`],
-      ['Open Position', openDisplay],
-    ].map(([label, val]) =>
-      `<div style="display:flex;flex-direction:column;gap:4px;"><div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);">${label}</div>${val}</div>`
-    ).join('');
-  }
-
-  // v6.1.2 — open-position MTM: live mark for the open short via Polygon
-  // snapshot (localStorage key only — never prompts; silent degrade on any miss).
-  if (openTrade && openTrade.sellStrike && openTrade.sellExpiry) {
-    (async () => {
-      try {
-        const key = localStorage.getItem('polygon_key') || '';
-        if (!key) return;
-        const snap = await fetchContractSnapshot(_isoD(openTrade.sellExpiry), openTrade.sellStrike, key);
-        const el = $('live-mtm');
-        if (!snap || !el) return;
-        const ct = openTrade.sellContracts || openTrade.coverContracts || 6;
-        const mtm = (openTrade.sellPrice - snap.mid) * ct * 100;
-        const kept = openTrade.sellPrice > 0 ? (1 - snap.mid / openTrade.sellPrice) * 100 : 0;
-        el.innerHTML = ' \u00b7 mark $' + snap.mid.toFixed(2) + ' \u00b7 <span style="color:' + (mtm >= 0 ? 'var(--green)' : 'var(--red)')
-          + ';">MTM ' + (mtm >= 0 ? '+' : '\u2212') + '$' + Math.abs(Math.round(mtm)).toLocaleString()
-          + ' (' + kept.toFixed(0) + '% kept)</span>';
-      } catch (e) { /* silent */ }
-    })();
-  }
 
   // Sort by trade_date — v6.1.2: reparse display MM/DD/YY to ISO so year
   // boundaries sort correctly (07/09/26 was filing between 07/09/25 and 07/10/25)
