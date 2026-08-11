@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.20.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.20.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -521,7 +521,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.20.2 · HOTFIX — v6.20.1 RESPEC CUT SWEPT THE RESEARCH HELPER LAYER (builder error, falsification logged S49): the grid-respec deletion span (_cwinYld → renderResearchTab) also removed _resCache/_resRowTs/_etDayDiff/_resAge/resExport/_resSampleHtml/_resFetch/_resCount/_resCounterHtml, breaking boot (Could not load data mart: _etDayDiff). Helper span RESTORED VERBATIM from the certified v6.19.4 base (md5 d35dd2ef) — zero logic changes to it. §3 grid respec itself unchanged from v6.20.1: live row · START · LAST TRADE · ROLLS · GROSS P&L · 12-MO TRAILING ANN.; sim row to follow. Prior release v6.20.0 certified 08-11 by STD triple; see CHANGELOG.md. CERT: boot clean (data mart loads) · STD triple must reproduce the certified pair (127 · 8.5% · $59,376) byte-identically, timestamp-stripped · visual — §3 one-row grid, §1/§2 render, Export works.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.20.3 · §3 CAPITAL-BASE RULING + WALK RETIRED (Ron, S49). 12-mo trailing return now measures against the CAPITAL BASE AT THE MEASUREMENT-PERIOD START: contracts at anchor × 100 shares × SPY at anchor (shares ≡ contracts, Ron's ruling; the base stays fixed as position size ratchets mid-period). Contract count read DIRECTLY off the latest ticket at/before the anchor (_cwinCtAt) — the cumulative sells−covers walk (_cwinWalk, v6.1.2 pattern) was FALSIFIED on the real blotter export (clean through the 2025 ramp, spiked to 12 and landed at −6 by Aug 2026; cross-date pairs + phantom-cover rows) and is retired from §3. Verified against real rows: anchor 2025-08-11 → 5 contracts ✓, today → 6 ✓. NOTE: the Trades-tab v6.1.2 ramp-aware yield still uses the old walk — flagged, separate item. Prior release v6.20.2 (hotfix) certified 08-11; see CHANGELOG.md. CERT: boot clean · STD triple reproduces the pair (127 · 8.5% · $59,376) · §3 TTM shows × 500 basis at the current anchor.</span>
   </div>
 </div>
 
@@ -688,7 +688,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.20.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.20.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1630,16 +1630,29 @@ function _wfBasisSPY(iso) { // v6.15.3 — SPY close on the first-close date, fr
 // replaces the conformance instrument — retired S48, revival ≈Q1–Q2 2027;
 // _wfAuditCycles/_wfLiveYield/_wfSimRef/_confGapColor pulled with it, and
 // _cwinYld with the v6.20.1 respec — v6.5.0 precedent) ─────────────────────
-// GRID, live row only to start (sim row to follow — when it does, live position
-// size governs the sim: ×C(t)/simN, S49 ruling). Credit convention: blotter
+// GRID, live row only to start (sim row to follow — live position size governs
+// the sim, S49 ruling; size source = ticket contract counts via _cwinCtAt, the
+// cumulative walk having been falsified on real rows). Credit convention: blotter
 // roll_credit · long_call excluded · window-initial sell excluded ONCE ·
 // window pinned by MIN(trade_date), self-maintaining. Read-only — no mutation
 // affordances (S48 spec).
-function _cwinWalk(trades) { // live contract count C(iso) — cumulative sells−covers, long_call excluded (v6.1.2 precedent)
-  const ev = (trades || []).filter(t => t.row_type !== 'long_call')
-    .map(t => ({ d: _wfIsoD(t.trade_date), dq: (t.sellContracts || 0) - (t.coverContracts || 0) }))
-    .filter(e => e.d).sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
-  return iso => { let c = 0; for (const e of ev) { if (e.d <= iso) c += e.dq; else break; } return Math.max(0, c); };
+function _cwinCtAt(trades, iso) { // v6.20.3 — contracts at date: DIRECT TICKET READ, not dead reckoning.
+  // The cumulative sells−covers walk was FALSIFIED on the real blotter (S49: clean through the 2025
+  // ramp, garbage from Feb 2026 — cross-date ticket pairs and phantom-cover roll rows spiked it to 12
+  // and landed it at −6 today). Every ticket carries the position size on its own legs (sell 5x/cover
+  // 5x … 6x today), so C(iso) = the contract count on the LATEST non-long_call row at or before iso.
+  // Verified against real rows: 2025-08-11 → 5 ✓ · today → 6 ✓ (walk said −6).
+  let best = null, bestKey = '';
+  (trades || []).forEach(t => {
+    if (!t || t.row_type === 'long_call') return;
+    const d = _wfIsoD(t.trade_date);
+    if (!d || d > iso) return;
+    const k = d + '|' + String(t.id);
+    if (k > bestKey) { bestKey = k; best = t; }
+  });
+  if (!best) return 0;
+  const c = best.sellContracts || best.coverContracts || 0;
+  return c > 0 ? c : 0;
 }
 function _cwinSpyOn(iso) { // first DM SPY close ON OR AFTER iso (anchor may be a weekend/holiday)
   try {
@@ -1659,7 +1672,7 @@ async function _cwinHtml() { // v6.20.1 — GRID respec (Ron, S49): live row onl
   let trades;
   try { trades = await sbGetLiveTrades(); }
   catch (e) { return '<div style="color:var(--red);">✗ live_trades: ' + e.message + '</div>'; }
-  const walk = _cwinWalk(trades);
+
   const liveAll = trades.filter(t => t.row_type !== 'long_call' && t.rollCredit != null)
     .map(t => ({ iso: _wfIsoD(t.trade_date), credit: t.rollCredit, id: t.id }))
     .filter(r => r.iso).sort((a, b) => a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : (a.id < b.id ? -1 : 1));
@@ -1672,7 +1685,7 @@ async function _cwinHtml() { // v6.20.1 — GRID respec (Ron, S49): live row onl
   const ttmStart = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
   const ttm = live.filter(r => r.iso >= ttmStart);
   const ttmSum = ttm.reduce((s, r) => s + r.credit, 0);
-  const ttmSpy = _cwinSpyOn(ttmStart), ttmCt = walk(ttmStart);
+  const ttmSpy = _cwinSpyOn(ttmStart), ttmCt = _cwinCtAt(trades, ttmStart); // v6.20.3 — capital base at measurement-period START (Ron's S49 ruling); shares ≡ contracts × 100
   let ttmTxt = 'n/a', ttmSub = '';
   if (ttmSpy && ttmCt) {
     const basis = ttmSpy * ttmCt * 100;
@@ -1702,7 +1715,7 @@ async function _cwinHtml() { // v6.20.1 — GRID respec (Ron, S49): live row onl
     + '<div style="color:var(--muted);font-size:9px;margin-top:6px;line-height:1.5;">'
     + 'Live blotter roll_credit · long_call excluded · window-initial sell excluded once · rolls = credit rows (cross-date '
     + 'cover/sell pairs count as two rows; credits net correctly). 12-mo trailing: Σ credit since ' + ttmStart
-    + ' ÷ (SPY at that anchor × live contracts at anchor × 100) — 365d window, annualized by construction. Sim row to follow.'
+    + ' ÷ capital base at the period START (contracts at anchor × 100 shares × SPY at anchor — shares ≡ contracts, Ron S49; base stays FIXED as size ratchets mid-period). Contracts read directly off the anchor ticket, not dead-reckoned. 365d window, annualized by construction. Sim row to follow.'
     + '</div>';
 }
 
