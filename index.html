@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.24.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.24.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -323,17 +323,10 @@ select.display-box { cursor:pointer; outline:none; }
       <button class="tab-btn" id="tab-btn-research" onclick="showTab('research')">🔬 Research</button>
     </div>
 
-    <!-- v6.7.8 — Trades virtual tab: Sim/Live toggle + Chart expand (panels below untouched) -->
-    <div id="trades-subnav" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
-      <button id="tsub-sim" onclick="setTradesView('sim')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;">Sim Rolls</button>
-      <button id="tsub-live" onclick="setTradesView('live')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Live Rolls</button>
-      <div style="flex:1;"></div>
-      <button id="tsub-chart" onclick="toggleTradesChart()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">📈 Chart</button>
-    </div>
-    <!-- v6.24.0 — Performance panel: relocated from Research §3 (reporting lives with the account;
-         Research returns to pure discovery). Visible in BOTH subviews — the sim-vs-live grid IS the instrument. -->
+    <!-- v6.24.1 — Performance panel: directly below the tab row (Ron respec), compact height,
+         no in-panel description (doctrine text lives in the Foundation doc). Visible in BOTH subviews. -->
     <div id="perf-panel" style="display:none">
-      <div class="chart-panel" style="margin-bottom:10px;">
+      <div class="chart-panel" style="margin-bottom:8px;">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span class="chart-title">📊 Performance — sim vs live</span>
           <div style="display:flex;gap:6px;align-items:center;">
@@ -342,8 +335,15 @@ select.display-box { cursor:pointer; outline:none; }
             <button id="perf-exp" onclick="resExport('live_trades', 'perf-exp')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⬇ Export data</button>
           </div>
         </div>
-        <div id="perf-body" style="padding:10px 16px;"></div>
+        <div id="perf-body" style="padding:2px 10px 6px;"></div>
       </div>
+    </div>
+    <!-- v6.7.8 — Trades virtual tab: Sim/Live toggle + Chart expand (panels below untouched) -->
+    <div id="trades-subnav" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+      <button id="tsub-sim" onclick="setTradesView('sim')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;">Sim Rolls</button>
+      <button id="tsub-live" onclick="setTradesView('live')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Live Rolls</button>
+      <div style="flex:1;"></div>
+      <button id="tsub-chart" onclick="toggleTradesChart()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">📈 Chart</button>
     </div>
     <!-- Log tab -->
     <!-- Chart tab -->
@@ -549,7 +549,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.24.0 · PERFORMANCE PANEL RELOCATED TO ACTIVITY (S50 doctrine ruling: Research is DISCOVERY, Activity is REPORTING). The sim-vs-live identity grid now lives in a dedicated 📊 Performance panel on the Activity tab, visible in BOTH subviews (the side-by-side IS the instrument — S48 spec) with ⟳ refresh and the Export button traveling with it; lazy-rendered once per load. Research registry returns to its two pure discovery tracks (htourn · θ gate) — cwin track, readiness probe, and dedicated resRender path all removed cleanly (header count auto-derives from RES_TRACKS, v6.13.0 rule). _cwinHtml unchanged and shared. SPY and Cash tabs will slot in as Activity siblings with decomposition columns in future sessions. NEXT (approved, queued): v6.24.1 sim row built in the new home (Path A, same capital series). Sim region untouched. Prior release v6.23.1 certified 08-11; see CHANGELOG.md. CERT (debug mode): boot clean · pair carries · panel renders the certified identity row on Activity in both subviews · Research reads "0 of 2 ready"-style count with two tracks · export works from the new button.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.24.1 · PERFORMANCE PANEL RESPEC (Ron): panel moved DIRECTLY BELOW THE TAB ROW (above the Sim Rolls/Live Rolls pills), compacted to roughly a third of its height — tighter cell padding (th 3px, td 4px), slim body padding — and the in-panel identity-row description REMOVED (doctrine prose belongs in the Foundation doc, not the interface; recorded there at session end). Grid, refresh, and export unchanged. Sim row (approved) carries to next session — DM boundary. Sim region untouched. Prior release v6.24.0 certified 08-11 (debug); see CHANGELOG.md. CERT (debug mode): boot clean · pair carries · panel sits under the tab row in both subviews at compact height with no description text.</span>
   </div>
 </div>
 
@@ -716,7 +716,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.24.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.24.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1736,24 +1736,17 @@ async function _cwinHtml() { // v6.20.7 — ten-column identity row (Ron's spec,
   const ccY = y(gross), spyY = y(spyPnl), acctY = y(gain);
   const pf = v => v != null ? v.toFixed(1) + '%' : 'n/a';
   const staleD = Math.round((Date.now() - new Date(L.d + 'T00:00:00Z')) / 86400000);
-  const th = 'text-align:right;padding:6px 6px;color:var(--muted);font-size:9px;letter-spacing:.04em;border-bottom:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;';
-  const td = 'text-align:right;padding:7px 6px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+  const th = 'text-align:right;padding:3px 5px;color:var(--muted);font-size:9px;letter-spacing:.04em;border-bottom:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;';
+  const td = 'text-align:right;padding:4px 5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
   const hdr = ['', 'START DATE', 'START BAL', 'CONTRIB', 'CC P&L', 'CC YIELD', 'SPY P&L', 'SPY YIELD', 'LAST TRADE', 'LAST BAL', 'ACCT YIELD'];
   const cells = ['<span style="color:var(--accent);">live</span>', S.d, money(S.amt), money(contrib), money(gross),
     '<span style="color:var(--accent);">' + pf(ccY) + '</span>', money(spyPnl),
     '<span style="color:var(--accent);">' + pf(spyY) + '</span>', lastIso,
     money(L.amt) + (staleD > 5 ? '<span style="color:#e0a020;font-size:8px;"> ⚙' + L.d.slice(5) + '</span>' : ''),
     '<span style="color:var(--accent);">' + pf(acctY) + '</span>'];
-  return '<table style="border-collapse:collapse;font-family:var(--mono);font-size:10px;width:100%;table-layout:fixed;">' // v6.20.7 — even spacing (fixed layout, equal columns)
+  return '<table style="border-collapse:collapse;font-family:var(--mono);font-size:10px;width:100%;table-layout:fixed;">' // v6.24.1 — compact (Ron respec): tighter cells, description paragraph removed (doctrine lives in the Foundation doc)
     + '<thead><tr>' + hdr.map((h, k) => '<th style="' + th + (k === 0 ? 'text-align:left;width:4%;' : '') + '">' + h + '</th>').join('') + '</tr></thead>'
-    + '<tbody><tr>' + cells.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : '') + '">' + c + '</td>').join('') + '</tr></tbody></table>'
-    + '<div style="color:var(--muted);font-size:9px;margin-top:6px;line-height:1.5;">'
-    + 'IDENTITY ROW, one window (' + S.d + ' → ' + L.d + ', ' + span + 'd) and one TW contributed capital (' + money(twc) + ') for all three yields, so it foots '
-    + 'both ways: start bal + contributions + CC P&L + SPY P&L = last bal, and CC YIELD + SPY YIELD = ACCT YIELD. SPY P&L is the residual — share appreciation + dividends '
-    + '+ MM interest + assignment-churn share P&L bundled. Capital series LEDGER-DERIVED (v6.23.0): ' + flows.length + ' external flows from statement import, each file tied to '
-    + 'Fidelity\u2019s running balance at $0.00; CWIN_CAPITAL constant retired. Last balance pinned as-of ' + L.d + ', amber-stamped when stale. '
-    + 'CC P&L = blotter roll credit · long_call excluded · window-initial sell excluded once. Sim row to follow on the SAME capital series.'
-    + '</div>';
+    + '<tbody><tr>' + cells.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : '') + '">' + c + '</td>').join('') + '</tr></tbody></table>';
 }
 let _resCache = {};   // table|order|limit → {rows, err, at}
 
