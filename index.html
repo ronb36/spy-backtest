@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.20.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.20.5</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -521,7 +521,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.20.4 · §3 ANN. P&L RESPEC (Ron, S49). GROSS P&L and 12-MO TRAILING ANN. collapsed into ONE column: ANN. P&L = gross roll credit ÷ (last−start days) × 365 — a dollar run-rate, no capital base in the formula (the S49 capital-base-at-period-start ruling stands for any future % column). Gross and span shown as the sub-note. _cwinCtAt/_cwinSpyOn pulled (unused after respec; v6.5.0 precedent) — rebuild from CHANGELOG when the sim row or a % column needs them; ticket-direct contract reads remain the ruled size source. Prior release v6.20.3 (capital-base ruling + walk retired) certified 08-11; see CHANGELOG.md. CERT: boot clean · STD triple reproduces the pair (127 · 8.5% · $59,376) · §3 shows one ANN. P&L column ≈ $50.8k/yr on current data.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.20.5 · §3 ANN YIELD ON TIME-WEIGHTED CONTRIBUTED CAPITAL (Ron's rulings, S49). Columns: FIRST TRADE · LAST TRADE · ROLLS · GROSS P&L · ANN YIELD = gross ÷ TW contributed capital ÷ span × 365 — the covered-call OVERLAY's yield on total account capital: premium-only numerator, full contributed stack denominator; excludes share appreciation, dividends ($3,925.03 SPY + MM interest, banked separately), per footer doctrine. CWIN_CAPITAL pinned in-app (WF_ERA_START precedent): 9 statement-verified events, net $295,370.42, reconciliation closed to $0.04 against live SPAXX (falsification #4 logged: the earlier 'missing $40k' was a builder cash-estimate error — statements were complete). Prior release v6.20.4 certified 08-11; see CHANGELOG.md. CERT: boot clean · STD triple reproduces the pair (127 · 8.5% · $59,376) · §3 shows ANN YIELD ≈17.3% with TW cap ≈$294k.</span>
   </div>
 </div>
 
@@ -688,7 +688,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.20.4'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.20.5'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1636,12 +1636,38 @@ function _wfBasisSPY(iso) { // v6.15.3 — SPY close on the first-close date, fr
 // roll_credit · long_call excluded · window-initial sell excluded ONCE ·
 // window pinned by MIN(trade_date), self-maintaining. Read-only — no mutation
 // affordances (S48 spec).
-async function _cwinHtml() { // v6.20.4 — ANN. P&L respec (Ron, S49): GROSS P&L + 12-MO TRAILING collapsed into one
-  // column: annualized run-rate = gross ÷ (last−start days) × 365, DOLLARS per year — no capital base in the
-  // formula (the S49 capital-base ruling stands for any future %-yield column; _cwinCtAt/_cwinSpyOn pulled with
-  // this respec, v6.5.0 precedent — rebuild from CHANGELOG when the sim row or a % column needs them).
-  // Conventions carried: blotter roll_credit · long_call excluded · window-initial sell excluded once ·
-  // window pinned by MIN(trade_date), self-maintaining.
+// ── v6.20.5 · CAPITAL SERIES — pinned constant, statement-verified (S49) ────────
+// Source: Fidelity activity files, full coverage 2025-06-01 → 2026-08-06. Reconciliation
+// closed to $0.04 against the live SPAXX balance (statements' 08-06 ending cash 79,939.85
+// vs 79,939.89). WF_ERA_START precedent: decision-controlled, NOT writable by the thing
+// being measured — append a row here when cash moves, on the record. Dividends are held
+// OUT of the yield (SPY $3,925.03 + MM interest through 08-06; equity effects tracked
+// separately per footer doctrine).
+const CWIN_CAPITAL = [ // {d, amt}: + in, − out
+  { d: '2025-06-02', amt:  70321.92 }, // FXAIX liquidation → starting capital
+  { d: '2025-06-10', amt:  55000.00 }, // Roth conversion
+  { d: '2025-06-17', amt:  55000.00 }, // Roth conversion
+  { d: '2025-06-30', amt:   5000.00 }, // Roth conversion
+  { d: '2025-07-01', amt: 125293.74 }, // Roth conversion
+  { d: '2025-09-16', amt:   2450.00 }, // Roth conversion
+  { d: '2025-12-31', amt:  -7695.24 }, // distribution
+  { d: '2026-02-20', amt:  -5000.00 }, // distribution
+  { d: '2026-03-31', amt:  -5000.00 }, // distribution
+];
+function _cwinTwCapital(startIso, endIso) { // time-weighted contributed capital over [start, end] inclusive, daily steps
+  const ev = CWIN_CAPITAL.slice().sort((a, b) => a.d < b.d ? -1 : 1);
+  let tot = 0, n = 0;
+  for (let t = new Date(startIso + 'T00:00:00Z'); t <= new Date(endIso + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + 1)) {
+    const ds = t.toISOString().slice(0, 10);
+    let cap = 0; ev.forEach(e => { if (e.d <= ds) cap += e.amt; });
+    tot += cap; n++;
+  }
+  return n ? tot / n : 0;
+}
+async function _cwinHtml() { // v6.20.5 — Ann Yield on TIME-WEIGHTED CONTRIBUTED CAPITAL (Ron's ruling, S49):
+  // the covered-call OVERLAY's yield on total account capital — premium-only numerator, full contributed
+  // stack denominator. Excludes share appreciation, dividends, MM interest (equity tracked separately).
+  // Ann Yield = gross ÷ TW capital ÷ (last−first days) × 365.
   let trades;
   try { trades = await sbGetLiveTrades(); }
   catch (e) { return '<div style="color:var(--red);">✗ live_trades: ' + e.message + '</div>'; }
@@ -1655,29 +1681,34 @@ async function _cwinHtml() { // v6.20.4 — ANN. P&L respec (Ron, S49): GROSS P&
   const gross = live.reduce((s, r) => s + r.credit, 0);
   const lastIso = live.length ? live[live.length - 1].iso : winStart;
   const days = Math.max(1, Math.round((new Date(lastIso + 'T00:00:00Z') - new Date(winStart + 'T00:00:00Z')) / 86400000));
-  const annPnl = gross * 365 / days;
+  const tw = _cwinTwCapital(winStart, lastIso);
+  const net = CWIN_CAPITAL.reduce((s, e) => s + e.amt, 0);
+  const yld = tw > 0 ? (gross / tw / days * 365 * 100) : null;
   const th = 'text-align:right;padding:6px 10px;color:var(--muted);font-size:9px;letter-spacing:.06em;border-bottom:1px solid var(--border);white-space:nowrap;';
   const td = 'text-align:right;padding:7px 10px;color:var(--text);white-space:nowrap;';
   return '<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-family:var(--mono);font-size:10px;min-width:100%;">'
     + '<thead><tr>'
     + '<th style="' + th + 'text-align:left;"></th>'
-    + '<th style="' + th + '">START</th>'
+    + '<th style="' + th + '">FIRST TRADE</th>'
     + '<th style="' + th + '">LAST TRADE</th>'
     + '<th style="' + th + '">ROLLS</th>'
-    + '<th style="' + th + '">ANN. P&L</th>'
+    + '<th style="' + th + '">GROSS P&L</th>'
+    + '<th style="' + th + '">ANN YIELD</th>'
     + '</tr></thead><tbody>'
     + '<tr>'
     + '<td style="' + td + 'text-align:left;color:var(--accent);">live</td>'
     + '<td style="' + td + '">' + winStart + '</td>'
     + '<td style="' + td + '">' + lastIso + '</td>'
     + '<td style="' + td + '">' + live.length + '</td>'
-    + '<td style="' + td + '"><span style="color:var(--accent);' + (annPnl < 0 ? 'color:var(--red);' : '') + '">' + money(annPnl) + '/yr</span>'
-    + ' <span style="color:var(--muted);font-size:9px;">' + money(gross) + ' · ' + days + 'd</span></td>'
+    + '<td style="' + td + (gross < 0 ? 'color:var(--red);' : '') + '">' + money(gross) + '</td>'
+    + '<td style="' + td + '"><span style="color:var(--accent);">' + (yld != null ? yld.toFixed(1) + '%' : 'n/a') + '</span>'
+    + ' <span style="color:var(--muted);font-size:9px;">TW cap ' + money(tw) + ' · ' + days + 'd</span></td>'
     + '</tr></tbody></table></div>'
     + '<div style="color:var(--muted);font-size:9px;margin-top:6px;line-height:1.5;">'
-    + 'ANN. P&L = gross roll credit ÷ (last−start days) × 365 — dollar run-rate, no capital base. Live blotter roll_credit · '
-    + 'long_call excluded · window-initial sell excluded once · rolls = credit rows (cross-date cover/sell pairs count as two '
-    + 'rows; credits net correctly). Sim row to follow.'
+    + 'ANN YIELD = gross roll credit ÷ TIME-WEIGHTED CONTRIBUTED CAPITAL ÷ span × 365 — the covered-call OVERLAY\'s '
+    + 'yield on total account capital (S49 ruling). Capital series statement-verified, reconciled to $0.04, pinned in-app '
+    + '(net contributed ' + money(net) + '); excludes share appreciation, dividends, MM interest — equity tracked separately. '
+    + 'Live blotter roll_credit · long_call excluded · window-initial sell excluded once · rolls = credit rows. Sim row to follow.'
     + '</div>';
 }
 
