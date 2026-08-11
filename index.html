@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.25.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.25.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -549,7 +549,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.25.1 · SIM OVERLAY WINDOW-ENTRY ANCHOR (Ron's boundary catch, same sitting). v6.25.0's first counted roll charged the cover of a PRE-WINDOW sim short (the 06/02 roll's $48.50 LEAP cover) — a debit the live account never held. Fixed: anchor = first cycle ENTERED ≥ window start; its opening sell EXCLUDED (exact mirror of live's window-initial-sell exclusion); rolls count from the next cycle, so every counted leg belongs to an in-window cycle with SPY assumed on the books. Sub-line states the anchoring. Underlying v6.25.0 sim overlay row otherwise unchanged (Path A, live-size scaling, ticket-direct). Sim ENGINE untouched. Prior release v6.25.0 built same sitting; see CHANGELOG.md. CERT (debug mode): boot clean · pair carries · sim CC shifts UP by roughly the removed boundary debit vs the 5:14 PM row ($13,768) · both rows foot.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.25.2 · SIM ROW OWNS ITS DATES (Ron). START DATE = the sim's anchor entry (first sim entry ≥ live start, scanning 6/2 → 6/3 → 6/4… — may or may not equal live's); LAST TRADE = the sim's own last in-window roll (already was). Yields remain on the SHARED window + TW capital so the identity foots — convention to revisit only if the anchor ever drifts materially from live start. With v6.25.1: anchor entry sell excluded, no pre-window cover, rolls from anchor+1. Sim ENGINE untouched. Prior release v6.25.1 built same sitting; see CHANGELOG.md. CERT (debug mode): boot clean · pair carries · sim row shows its own start + last dates · both rows foot.</span>
   </div>
 </div>
 
@@ -716,7 +716,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.25.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.25.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1772,7 +1772,8 @@ async function _cwinHtml() { // v6.20.7 — ten-column identity row (Ron's spec,
       simLast = d; simRolls++;
     }
     const simGain = simCC + spyPnl, simLastBal = S.amt + contrib + simGain;
-    simCells = ['<span style="color:var(--muted);">sim</span>', S.d, money(S.amt), money(contrib), money(simCC),
+    const simStart = k >= 0 ? cy[k].entryDate : '\u2014'; // v6.25.2 — the sim's OWN first date (anchor entry: 6/2, else 6/3, 6/4… — may differ from live)
+    simCells = ['<span style="color:var(--muted);">sim</span>', simStart, money(S.amt), money(contrib), money(simCC),
       pf(y(simCC)), money(spyPnl), pf(y(spyPnl)), simLast || '\u2014', money(simLastBal), pf(y(simGain))];
     simSub = '<div style="color:var(--muted);font-size:8px;margin-top:3px;">sim = run in memory \u00b7 window-entry anchored (opening sell excluded, no pre-window cover) \u00b7 ' + simRolls
       + ' rolls in window \u00b7 scaled to live size per roll date (ticket-direct) \u00b7 NOT the fixed-6 full-DM STD headline</div>';
