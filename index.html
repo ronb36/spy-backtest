@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.21.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.22.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -456,6 +456,19 @@ select.display-box { cursor:pointer; outline:none; }
         <div id="live-summary" style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:24px;flex-wrap:wrap;"></div>
         <div class="tbl-wrap"><div id="live-trade-table"></div></div>
       </div>
+      <!-- v6.22.0 — Statement Import (DRY RUN — zero POSTs this release; insert path arrives v6.22.1) -->
+      <div class="chart-panel" style="margin-top:12px;">
+        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="chart-title">⬇ Statement Import — DRY RUN</span>
+          <span id="imp-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
+        </div>
+        <div style="padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input type="file" id="imp-files" accept=".csv" multiple style="font-family:var(--mono);font-size:10px;color:var(--muted);">
+          <button onclick="impDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Dry Run</button>
+          <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">Parses Fidelity history CSVs · classifies · matches option legs to tickets · dedupes · tie-out. Nothing is written.</span>
+        </div>
+        <div id="imp-results" style="padding:0 16px 14px;"></div>
+      </div>
     </div>
 
     <!-- Logs tab -->
@@ -521,7 +534,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.21.0 · orig_sell_date / orig_sell_price RETIRED (S50 ruling #4, activity-table prep). Dead pair — 176/176 null in the 08-11 export, writer wrote null always, reader mapped to camelCase fields with zero consumers (grep-verified). All 4 sites removed (writer ×2, reader ×2). Ships AHEAD of the SQL column drop so the insert path never POSTs a nonexistent column. Sim region untouched. Prior release v6.20.7 certified 08-11; see CHANGELOG.md. CERT: boot clean · pair carries · publish a ticket post-migration to certify the writer path.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.22.0 · STATEMENT IMPORT — DRY RUN ONLY (S50 step 3). New panel on the Trades tab: parse Fidelity history CSVs (quoted-field state machine, header-located, disclaimer-immune) → deterministic classifier (unknown actions HARD-FLAG, never guessed) → cross-file overlap collapse (fingerprint incl. Cash Balance, so true split fills survive) → occ_seq within the ruled dedupe key → consume-once option-leg matcher vs blotter tickets (sell side / cover side) → per-file endpoint tie-out (open + Σamount vs close) → full preview table. ZERO POSTs in this module — sole network touch is the existing blotter READ. Insert path arrives v6.22.1. Sim region untouched. Prior release v6.21.0 certified 08-11; see CHANGELOG.md. CERT: boot clean · pair carries · dry run on all 3 statement files with residual $0.00 each.</span>
   </div>
 </div>
 
@@ -688,7 +701,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.21.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.22.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -7345,6 +7358,183 @@ function renderLiveBlotter(trades) {
     + '</tr></thead>'
     + '<tbody>' + rows + '</tbody>'
     + '</table>';
+}
+
+// ── v6.22.0 — Statement Import module (DRY RUN ONLY) ───────────────────────
+// S50 activity-table step 3. Parse → classify → cross-file collapse → occ_seq
+// → option-leg match vs tickets → per-file tie-out. ZERO POSTs anywhere here;
+// the insert path is v6.22.1. Unknown actions HARD-FLAG, never silently classed.
+
+function _impParseCsvText(text) { // quoted-field CSV state machine → array of arrays
+  const rows = []; let row = [], field = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i+1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i+1] === '\n') i++;
+      row.push(field); rows.push(row); row = []; field = '';
+    } else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+const _impNum = s => { const t = (s ?? '').toString().replace(/,/g, '').trim(); return t === '' ? null : Number(t); };
+const _impIso = s => { const m = (s || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + '-' + m[1] + '-' + m[2] : null; };
+const _impOptSym = s => { // " -SPY250627C611" → {expiry:'2025-06-27', strike:611} | null
+  const m = (s || '').trim().match(/^-?SPY(\d{2})(\d{2})(\d{2})C([\d.]+)$/);
+  return m ? { expiry: '20' + m[1] + '-' + m[2] + '-' + m[3], strike: Number(m[4]) } : null;
+};
+
+function _impClassify(action, symbol, amount, opt) {
+  if (opt) {
+    if (/^YOU SOLD OPENING/.test(action))  return 'opt_sell_open';
+    if (/^YOU BOUGHT CLOSING/.test(action)) return 'opt_buy_close';
+    if (/^ASSIGNED/.test(action))           return 'opt_assigned';
+    if (/^EXPIRED/.test(action))            return 'opt_expired';
+    return 'UNKNOWN'; // unrecognized option action — hard-flag
+  }
+  if (/^YOU SOLD ASSIGNED CALLS/.test(action)) return 'share_sell';
+  if (/^YOU BOUGHT/.test(action))              return 'share_buy';
+  if (/^YOU SOLD/.test(action))                return (symbol || '').trim() === 'FXAIX' ? 'fund_sale' : 'share_sell';
+  if (/^DIVIDEND RECEIVED/.test(action))       return (symbol || '').trim() === 'SPAXX' ? 'mm_interest' : 'dividend';
+  if (/^REINVESTMENT/.test(action))            return 'mm_sweep';
+  if (/^ROTH CONVERSION/.test(action))         return (amount ?? 0) >= 0 ? 'contribution' : 'withdrawal';
+  return 'UNKNOWN'; // hard-flag; new species get specced when first seen, never guessed
+}
+
+function _impParseFile(text, fname) { // → chronological parsed rows for one file
+  const raw = _impParseCsvText(text);
+  const hIdx = raw.findIndex(r => (r[0] || '').trim() === 'Run Date');
+  if (hIdx < 0) throw new Error(fname + ': no "Run Date" header found');
+  const hdr = raw[hIdx].map(h => h.trim());
+  const col = name => hdr.indexOf(name);
+  const ci = { date: col('Run Date'), action: col('Action'), symbol: col('Symbol'),
+    price: col('Price ($)'), qty: col('Quantity'), comm: col('Commission ($)'),
+    fees: col('Fees ($)'), amount: col('Amount ($)'), bal: col('Cash Balance ($)'),
+    settle: col('Settlement Date') };
+  const missing = Object.entries(ci).filter(([, v]) => v < 0).map(([k]) => k);
+  if (missing.length) throw new Error(fname + ': header missing column(s): ' + missing.join(', '));
+  const out = [];
+  for (let i = hIdx + 1; i < raw.length; i++) {
+    const r = raw[i]; const iso = _impIso(r[ci.date]);
+    if (!iso) continue; // blank line / disclaimer block / download footer
+    const action = (r[ci.action] || '').trim();
+    const symbol = (r[ci.symbol] || '').trim();
+    const amount = _impNum(r[ci.amount]);
+    const opt = _impOptSym(symbol);
+    out.push({ file: fname, date: iso, action_raw: action, symbol, opt,
+      price: _impNum(r[ci.price]), quantity: _impNum(r[ci.qty]),
+      commission: _impNum(r[ci.comm]), fees: _impNum(r[ci.fees]),
+      amount, cash_balance: _impNum(r[ci.bal]), settlement_date: _impIso(r[ci.settle]),
+      cls: _impClassify(action, symbol, amount, opt) });
+  }
+  out.reverse(); // Fidelity exports newest-first; work chronologically
+  return out;
+}
+
+function _impMatchOptions(rows, tickets) { // consume-once leg matcher vs blotter tickets
+  const usedSell = new Set(), usedCover = new Set();
+  const px = (a, b) => a == null || b == null || Math.abs(a - b) < 0.005;
+  for (const r of rows) {
+    if (!r.opt || r.cls === 'UNKNOWN' || r.disposition) continue;
+    const n = Math.abs(r.quantity || 0);
+    if (r.cls === 'opt_sell_open') {
+      const t = tickets.find(t => !usedSell.has(t.id) && t.trade_date === r.date &&
+        t.sell_expiry === r.opt.expiry && Number(t.sell_strike) === r.opt.strike &&
+        Number(t.sell_contracts) === n && px(t.sell_price, r.price));
+      if (t) { usedSell.add(t.id); r.disposition = 'matched \u2192 ' + t.id; }
+    } else { // buy_close / assigned / expired → the ticket's cover side
+      const t = tickets.find(t => !usedCover.has(t.id) && t.trade_date === r.date &&
+        t.cover_expiry === r.opt.expiry && Number(t.cover_strike) === r.opt.strike &&
+        Number(t.cover_contracts) === n &&
+        (r.cls !== 'opt_buy_close' || px(t.cover_price, r.price)));
+      if (t) { usedCover.add(t.id); r.disposition = 'matched \u2192 ' + t.id; }
+    }
+    if (!r.disposition) { r.disposition = 'FLAG needs_annotation'; r.flag = 'needs_annotation'; }
+  }
+}
+
+async function impDryRun() {
+  const st = $('imp-status'), host = $('imp-results');
+  const files = $('imp-files').files;
+  if (!files || !files.length) { st.textContent = 'no files selected'; return; }
+  st.textContent = 'parsing\u2026'; host.innerHTML = '';
+  try {
+    const parsed = [];
+    for (const f of files) parsed.push({ name: f.name, rows: _impParseFile(await f.text(), f.name) });
+    parsed.sort((a, b) => (a.rows[0]?.date || '').localeCompare(b.rows[0]?.date || ''));
+    const all = parsed.flatMap(p => p.rows);
+    // Cross-file overlap collapse: identical physical row (balance included) = same event.
+    // Genuine split fills differ in running Cash Balance, so they survive.
+    const seen = new Map();
+    for (const r of all) {
+      const fp = [r.date, r.action_raw, r.amount, r.cash_balance, r.quantity, r.price].join('|');
+      if (seen.has(fp)) r.disposition = 'skip (file overlap w/ ' + seen.get(fp) + ')';
+      else seen.set(fp, r.file);
+    }
+    // occ_seq within the ruled dedupe key (date, action_raw, amount), deterministic order
+    const grp = new Map();
+    for (const r of all) {
+      if (r.disposition && r.disposition.startsWith('skip')) continue;
+      const k = [r.date, r.action_raw, r.amount].join('|');
+      r.occ_seq = grp.get(k) || 0; grp.set(k, r.occ_seq + 1);
+    }
+    st.textContent = 'matching\u2026';
+    const tickets = await sbGetLiveTrades(); // READ only — the sole network touch in this module
+    _impMatchOptions(all, tickets);
+    for (const r of all) { // final dispositions for non-option rows
+      if (r.disposition) continue;
+      if (r.cls === 'UNKNOWN') { r.disposition = 'FLAG unknown_action'; r.flag = 'unknown_action'; }
+      else r.disposition = 'import';
+    }
+    // Per-file endpoint tie-out: open = first.bal − first.amount; Σamount; close = last.bal
+    let tieHtml = '';
+    for (const p of parsed) {
+      const rs = p.rows; if (!rs.length) { tieHtml += '<div>' + p.name + ': no data rows</div>'; continue; }
+      const first = rs[0], last = rs[rs.length - 1];
+      const open = (first.cash_balance ?? 0) - (first.amount ?? 0);
+      const sum = rs.reduce((s, r) => s + (r.amount ?? 0), 0);
+      const resid0 = open + sum - (last.cash_balance ?? 0);
+      const resid = Math.abs(resid0) < 0.005 ? 0 : resid0;
+      const ok = resid === 0;
+      tieHtml += '<div style="color:' + (ok ? 'var(--green)' : 'var(--red)') + ';">'
+        + (ok ? '\u2713' : '\u2717') + ' ' + p.name + ' \u00b7 ' + rs.length + ' rows \u00b7 '
+        + first.date + ' \u2192 ' + last.date
+        + ' \u00b7 open $' + open.toFixed(2) + ' + \u03a3$' + sum.toFixed(2)
+        + ' vs close $' + (last.cash_balance ?? 0).toFixed(2)
+        + ' \u00b7 residual $' + resid.toFixed(2) + '</div>';
+    }
+    const cnt = {}; for (const r of all) cnt[r.cls] = (cnt[r.cls] || 0) + 1;
+    const dsp = {}; for (const r of all) { const d = r.disposition.split(' ')[0].replace('\u2192', '').trim(); dsp[d] = (dsp[d] || 0) + 1; }
+    const wouldInsert = all.filter(r => r.disposition === 'import' || r.flag).length;
+    let html = '<div style="font-family:var(--mono);font-size:10px;line-height:1.7;">'
+      + '<div style="color:var(--text);margin:6px 0;">DRY RUN \u00b7 ' + all.length + ' rows parsed \u00b7 '
+      + wouldInsert + ' would insert (incl. flags) \u00b7 NOTHING WRITTEN</div>'
+      + tieHtml
+      + '<div style="color:var(--muted);margin-top:6px;">class: ' + Object.entries(cnt).map(([k, v]) => k + ' ' + v).join(' \u00b7 ') + '</div>'
+      + '<div style="color:var(--muted);">disposition: ' + Object.entries(dsp).map(([k, v]) => k + ' ' + v).join(' \u00b7 ') + '</div></div>';
+    html += '<div style="max-height:340px;overflow:auto;margin-top:8px;"><table style="border-collapse:collapse;font-family:var(--mono);font-size:9px;width:100%;">'
+      + '<tr style="color:var(--muted);text-align:left;"><th style="padding:2px 6px;">date</th><th>class</th><th>symbol</th><th style="text-align:right;">qty</th><th style="text-align:right;">price</th><th style="text-align:right;">amount</th><th style="text-align:right;">balance</th><th>seq</th><th>disposition</th></tr>';
+    for (const r of all) {
+      const c = r.flag ? 'var(--red)' : (r.disposition.startsWith('matched') ? 'var(--muted)' : (r.disposition.startsWith('skip') ? 'var(--muted)' : 'var(--text)'));
+      html += '<tr style="color:' + c + ';border-top:1px solid var(--border);">'
+        + '<td style="padding:2px 6px;white-space:nowrap;">' + r.date + '</td><td>' + r.cls + '</td><td>' + (r.symbol || '') + '</td>'
+        + '<td style="text-align:right;">' + (r.quantity ?? '') + '</td><td style="text-align:right;">' + (r.price ?? '') + '</td>'
+        + '<td style="text-align:right;">' + (r.amount == null ? '' : r.amount.toFixed(2)) + '</td>'
+        + '<td style="text-align:right;">' + (r.cash_balance == null ? '' : r.cash_balance.toFixed(2)) + '</td>'
+        + '<td>' + (r.occ_seq ?? '') + '</td><td style="white-space:nowrap;">' + r.disposition + '</td></tr>';
+    }
+    html += '</table></div>';
+    host.innerHTML = html;
+    st.textContent = '\u2713 dry run complete \u00b7 0 writes';
+  } catch (e) {
+    st.textContent = '\u2717 ' + e.message;
+    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--red);padding:8px 0;">' + e.message + '</div>';
+  }
 }
 
 function _blotterPairDisplay(sorted) { // v6.18.3 — pure; input order preserved; merge only adjacent same-date leg-complements
