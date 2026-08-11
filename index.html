@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.20.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.20.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -521,7 +521,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.20.0 · COMMON-WINDOW PERFORMANCE PANEL (S48 spec ratified, S49 build; display-tier, sim region untouched). Research §3 conformance instrument RETIRED (S48 ruling; revival ≈Q1–Q2 2027) and replaced in the same slot: per-year (2025/2026) + running annualized yield, sim vs live, ONE credit-convention formula both lines (S49 Option 1) — Σ roll credit ÷ (SPY at slice anchor × live contracts at anchor × 100), annualized over slice span. Window pinned by MIN(live_trades.trade_date), self-maintaining; sim = Roll Cycle Log credits from the run in memory, common-window truncated, scaled ×C(t)/simN — live position size governs (S49 ruling). Dead code pulled with the instrument (v6.5.0 precedent): _wfAuditCycles, _wfLiveYield, _wfSimRef, _confGapColor, _confRaw; _wfBasisSPY retained. audit_snapshot write paths untouched (S33). Prior release v6.19.4 (4×2 panel regrid) certified 08-10 by STD chain; see CHANGELOG.md. CERT: STD triple must reproduce the certified pair (127 · 8.5% · $59,376) byte-identically, timestamp-stripped — sim region untouched so the pair must carry; visual check — §3 renders three slice rows, §1/§2 unchanged.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.20.1 · §3 GRID RESPEC (Ron's layout, S49; display-tier, sim region untouched). The v6.20.0 slice panel replaced by a grid — live row only to start: START · LAST TRADE · ROLLS · GROSS P&L · 12-MO TRAILING ANN. (Σ credit over the trailing 365d ÷ SPY at the trailing anchor × live contracts at anchor × 100; 365d window so annualized by construction). Conventions carried: blotter roll_credit, long_call excluded, window-initial sell excluded once, MIN(trade_date) self-maintaining. Sim row to follow. _cwinYld pulled (unused after respec; v6.5.0 precedent) — _cwinWalk/_cwinSpyOn retained. Prior release v6.20.0 (common-window panel) certified 08-11 by STD triple; see CHANGELOG.md. CERT: STD triple must reproduce the certified pair (127 · 8.5% · $59,376) byte-identically, timestamp-stripped; visual — §3 renders the one-row grid.</span>
   </div>
 </div>
 
@@ -688,7 +688,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.20.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.20.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1596,7 +1596,7 @@ const RES_TRACKS = [
     target:'0/3 fires · 0 ladder · shadow θ$0.12/H6 (measurement, not policy)', minN:3, tsHint:['ts','created_at'] },
   { id:'cwin', n:3, title:'Common-window performance — sim vs live', table:'live_trades', // v6.20.0 — S48 spec, S49 build (replaces conformance, retired S48)
     hyp:'Per-year + running annualized yield, sim vs live, on ONE credit-convention formula (S49 Option 1). Window pinned by MIN(trade_date); sim truncated to match and scaled to live position size. 2025 = legacy vs sim (program accounting), 2026 = mixed, 2027+ = clean mechanism match as live policy and sim converge. Standing instrument — no target n, no verdict.',
-    target:'continuous · 2025 / 2026 / running · credit convention both lines', minN:0, tsHint:['trade_date'] },
+    target:'grid · live row (sim to follow) · credit convention', minN:0, tsHint:['trade_date'] }, // v6.20.1 — grid respec
 ];
 const RES_DM_TABLES = ['spy_daily','vix_daily','yield_daily','option_days'];
 // ── v6.13.0 · WALK-FORWARD ERA ── PINNED constant, deliberately NOT json-sourced:
@@ -1626,20 +1626,15 @@ function _wfBasisSPY(iso) { // v6.15.3 — SPY close on the first-close date, fr
     return isFinite(v) && v > 0 ? v : null;
   } catch (e) { return null; }
 }
-// ── v6.20.0 · Common-window performance panel (S48 spec, S49 build; replaces the
-// conformance instrument — retired S48, revival ≈Q1–Q2 2027; _wfAuditCycles/
-// _wfLiveYield/_wfSimRef/_confGapColor pulled with it, v6.5.0 precedent) ───────
-// CREDIT CONVENTION BOTH LINES (S49 ruling, Option 1): Σ per-row roll credit ÷
-// (SPY close at slice anchor × live contracts at anchor × 100), annualized over
-// the slice's first→last event span. Live = blotter roll_credit (long_call
-// excluded, window-initial sell excluded ONCE). Sim = per-roll credit rebuilt
-// from the run in memory (the Roll Cycle Log number: newLeg.entryPx − prior
-// cover), open leg's opening roll INCLUDED both sides, truncated to the common
-// window and SCALED ×C(t)/simN (S49 ruling: live position size governs the
-// sim). NOT the coreYld headline — that is cycle P&L over the full sim window;
-// this panel is exactly symmetric instead. Basis re-anchors per slice so the
-// 2025 ramp cannot poison the 2026 read. n/a below 3 rows per side per slice
-// (sim guard). Read-only — no mutation affordances (S48 spec).
+// ── v6.20.0/1 · Common-window performance — §3 (S48 spec, S49 build + grid respec;
+// replaces the conformance instrument — retired S48, revival ≈Q1–Q2 2027;
+// _wfAuditCycles/_wfLiveYield/_wfSimRef/_confGapColor pulled with it, and
+// _cwinYld with the v6.20.1 respec — v6.5.0 precedent) ─────────────────────
+// GRID, live row only to start (sim row to follow — when it does, live position
+// size governs the sim: ×C(t)/simN, S49 ruling). Credit convention: blotter
+// roll_credit · long_call excluded · window-initial sell excluded ONCE ·
+// window pinned by MIN(trade_date), self-maintaining. Read-only — no mutation
+// affordances (S48 spec).
 function _cwinWalk(trades) { // live contract count C(iso) — cumulative sells−covers, long_call excluded (v6.1.2 precedent)
   const ev = (trades || []).filter(t => t.row_type !== 'long_call')
     .map(t => ({ d: _wfIsoD(t.trade_date), dq: (t.sellContracts || 0) - (t.coverContracts || 0) }))
@@ -1655,21 +1650,12 @@ function _cwinSpyOn(iso) { // first DM SPY close ON OR AFTER iso (anchor may be 
     return isFinite(v) && v > 0 ? v : null;
   } catch (e) { return null; }
 }
-function _cwinYld(rows, anchorIso, walk) { // ONE function, both lines — symmetry by construction
-  const n = rows ? rows.length : 0;
-  if (n < 3) return { txt: 'n/a', note: n + ' row' + (n === 1 ? '' : 's') + ' — needs 3 (sim guard)' };
-  const spy = _cwinSpyOn(anchorIso);
-  if (!spy) return { txt: 'n/a', note: 'no DM SPY close ≥ ' + anchorIso };
-  const ct = walk(anchorIso);
-  if (!ct) return { txt: 'n/a', note: '0 live contracts at ' + anchorIso };
-  const first = rows[0].iso, last = rows[n - 1].iso;
-  const days = Math.max(1, Math.round((new Date(last + 'T00:00:00Z') - new Date(first + 'T00:00:00Z')) / 86400000));
-  const sum = rows.reduce((s, r) => s + r.credit, 0);
-  const y = (sum / (spy * ct * 100)) * (365 / days) * 100;
-  const money = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
-  return { pct: y, txt: y.toFixed(1) + '%', note: n + ' rows · ' + days + 'd · ' + money(sum) + ' · basis SPY $' + spy.toFixed(2) + ' × ' + (ct * 100) };
-}
-async function _cwinHtml() {
+async function _cwinHtml() { // v6.20.1 — GRID respec (Ron, S49): live row only to start; sim row to follow.
+  // Columns: start · last trade · rolls · gross P&L · 12-mo trailing annualized.
+  // Conventions carried from v6.20.0: blotter roll_credit · long_call excluded ·
+  // window-initial sell excluded once · TTM basis = SPY at first DM close ≥ (today−365d)
+  // × live contracts at that date × 100 (slice-anchor convention); the TTM window is
+  // 365d by construction so the return needs no annualization factor.
   let trades;
   try { trades = await sbGetLiveTrades(); }
   catch (e) { return '<div style="color:var(--red);">✗ live_trades: ' + e.message + '</div>'; }
@@ -1678,185 +1664,46 @@ async function _cwinHtml() {
     .map(t => ({ iso: _wfIsoD(t.trade_date), credit: t.rollCredit, id: t.id }))
     .filter(r => r.iso).sort((a, b) => a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : (a.id < b.id ? -1 : 1));
   if (!liveAll.length) return '<div style="color:var(--muted);">no credit rows in live_trades yet</div>';
-  const winStart = liveAll[0].iso; // MIN(trade_date) — pins the sim truncation (S48 spec, self-maintaining as tickets append)
-  const live = liveAll.slice(1);   // window-initial sell excluded once (the sim's initial-cycle exclusion, v5.10.1)
-  let sim = null, simSrc = 'run a backtest to populate the sim line';
-  try {
-    if (typeof lastResult === 'object' && lastResult && lastResult.cycles && lastResult.cycles.length > 1) {
-      const cy = lastResult.cycles, simN = ((lastResult.params && lastResult.params.shares) || 600) / 100;
-      const all = [];
-      for (let i = 1; i < cy.length; i++) { // roll i: cycles[i] sells, cycles[i−1] covers — the Roll Cycle Log credit
-        const iso = cy[i].entryDate, cr = (cy[i].entryPx - cy[i - 1].exitPx) * 100 * simN;
-        if (iso && isFinite(cr)) all.push({ iso: iso, credit: cr * (walk(iso) / simN) }); // ×C(t)/simN — live size governs (S49)
-      }
-      if (lastResult.pendingContract && lastResult.pendingContract.entryPx && lastResult.pendingContract.entryDate) {
-        // open leg's opening roll — included to mirror the live blotter's open row (its banked credit is in Σ)
-        const pc = lastResult.pendingContract, lastCy = cy[cy.length - 1];
-        const cr = (pc.entryPx - lastCy.exitPx) * 100 * simN;
-        if (isFinite(cr)) all.push({ iso: pc.entryDate, credit: cr * (walk(pc.entryDate) / simN) });
-      }
-      sim = all.filter(r => r.iso >= winStart).sort((a, b) => a.iso < b.iso ? -1 : 1);
-      simSrc = 'sim from the run in memory (' + sim.length + ' of ' + all.length + ' roll events in window · scaled ×C(t)/' + simN + ')';
-    }
-  } catch (e) { sim = null; simSrc = 'sim unavailable: ' + e.message; }
-  const slices = [
-    { label: '2025 <span style="color:var(--muted);font-size:9px;">(legacy vs sim — program accounting, not mechanism)</span>', a: winStart > '2025-01-01' ? winStart : '2025-01-01', y: '2025' },
-    { label: '2026 <span style="color:var(--muted);font-size:9px;">(mixed)</span>', a: '2026-01-01', y: '2026' },
-    { label: 'running <span style="color:var(--muted);font-size:9px;">(since ' + winStart + ')</span>', a: winStart, y: null },
-  ];
-  const inY = (rows, y) => y ? rows.filter(r => r.iso.slice(0, 4) === y) : rows;
-  let html = '<div style="font-family:var(--mono);font-size:10px;line-height:1.6;">';
-  slices.forEach(s => {
-    const L = _cwinYld(inY(live, s.y), s.a, walk);
-    const S = sim ? _cwinYld(inY(sim, s.y), s.a, walk) : { txt: '—', note: null };
-    html += '<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);">'
-      + '<span style="color:var(--text);">' + s.label + '</span>'
-      + '<span style="color:var(--text);">live <span style="color:var(--accent);">' + L.txt + '</span>'
-      + ' <span style="color:var(--muted);">· sim ' + S.txt + '</span></span></div>'
-      + '<div style="color:var(--muted);font-size:9px;padding:1px 0 4px;">live: ' + (L.note || '—') + (S.note ? ' · sim: ' + S.note : '') + '</div>';
-  });
-  html += '</div><div style="color:var(--muted);font-size:9px;margin-top:6px;line-height:1.5;">'
-    + 'CREDIT CONVENTION both lines (S49, Option 1): Σ roll credit ÷ (SPY at slice anchor × live contracts at anchor × 100), '
-    + 'annualized over first→last event in the slice. Window start = MIN(trade_date) = ' + winStart + ' — self-maintaining. '
-    + 'Live: blotter roll_credit, long_call excluded, window-initial sell excluded once. Sim: Roll Cycle Log credits incl. the '
-    + 'open leg\'s opening roll, common-window truncated, scaled ×C(t)/simN — LIVE SIZE GOVERNS. Basis re-anchors per slice '
-    + 'so the 2025 ramp cannot poison the 2026 read. NOT comparable to the coreYld headline (cycle P&L, full sim window). '
-    + 'Live credits are actual fills; the sim is frictionless. ' + simSrc + '.'
+  const winStart = liveAll[0].iso;  // MIN(trade_date) — self-maintaining
+  const live = liveAll.slice(1);    // window-initial sell excluded once (v5.10.1 convention)
+  const money = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
+  const gross = live.reduce((s, r) => s + r.credit, 0);
+  const lastIso = live.length ? live[live.length - 1].iso : winStart;
+  const ttmStart = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
+  const ttm = live.filter(r => r.iso >= ttmStart);
+  const ttmSum = ttm.reduce((s, r) => s + r.credit, 0);
+  const ttmSpy = _cwinSpyOn(ttmStart), ttmCt = walk(ttmStart);
+  let ttmTxt = 'n/a', ttmSub = '';
+  if (ttmSpy && ttmCt) {
+    const basis = ttmSpy * ttmCt * 100;
+    ttmTxt = (100 * ttmSum / basis).toFixed(1) + '%';
+    ttmSub = money(ttmSum) + ' ÷ SPY $' + ttmSpy.toFixed(2) + ' × ' + (ttmCt * 100);
+  } else { ttmSub = !ttmSpy ? 'no DM SPY close ≥ ' + ttmStart : '0 live contracts at ' + ttmStart; }
+  const th = 'text-align:right;padding:6px 10px;color:var(--muted);font-size:9px;letter-spacing:.06em;border-bottom:1px solid var(--border);white-space:nowrap;';
+  const td = 'text-align:right;padding:7px 10px;color:var(--text);white-space:nowrap;';
+  return '<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-family:var(--mono);font-size:10px;min-width:100%;">'
+    + '<thead><tr>'
+    + '<th style="' + th + 'text-align:left;"></th>'
+    + '<th style="' + th + '">START</th>'
+    + '<th style="' + th + '">LAST TRADE</th>'
+    + '<th style="' + th + '">ROLLS</th>'
+    + '<th style="' + th + '">GROSS P&L</th>'
+    + '<th style="' + th + '">12-MO TRAILING ANN.</th>'
+    + '</tr></thead><tbody>'
+    + '<tr>'
+    + '<td style="' + td + 'text-align:left;color:var(--accent);">live</td>'
+    + '<td style="' + td + '">' + winStart + '</td>'
+    + '<td style="' + td + '">' + lastIso + '</td>'
+    + '<td style="' + td + '">' + live.length + '</td>'
+    + '<td style="' + td + (gross < 0 ? 'color:var(--red);' : '') + '">' + money(gross) + '</td>'
+    + '<td style="' + td + '"><span style="color:var(--accent);">' + ttmTxt + '</span>'
+    + (ttmSub ? ' <span style="color:var(--muted);font-size:9px;">' + ttmSub + '</span>' : '') + '</td>'
+    + '</tr></tbody></table></div>'
+    + '<div style="color:var(--muted);font-size:9px;margin-top:6px;line-height:1.5;">'
+    + 'Live blotter roll_credit · long_call excluded · window-initial sell excluded once · rolls = credit rows (cross-date '
+    + 'cover/sell pairs count as two rows; credits net correctly). 12-mo trailing: Σ credit since ' + ttmStart
+    + ' ÷ (SPY at that anchor × live contracts at anchor × 100) — 365d window, annualized by construction. Sim row to follow.'
     + '</div>';
-  return html;
-}
-let _resCache = {};   // table|order|limit → {rows, err, at}
-
-function _resRowTs(row, hints) {
-  for (const h of (hints || []).concat(['ts','created_at','timestamp','date','day','trade_date'])) {
-    if (row && row[h]) { const d = new Date(row[h]); if (!isNaN(d)) return d; }
-  }
-  if (row && typeof row.id === 'string') { const m = row.id.match(/_(\d{13})$/); if (m) return new Date(+m[1]); }
-  return null;
-}
-// v6.7.16 — ET calendar-day age for DATE-ONLY feeds (Ron's Monday diagnosis:
-// UTC-midnight parse + fractional round showed Friday data as "4d ago" on
-// Monday afternoon — a false STALE every Monday before the 6 PM cron).
-function _etDayDiff(d) {
-  if (!d) return Infinity;
-  const et = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-  const a = new Date(et + 'T00:00:00Z'), b = new Date(d.toISOString().slice(0,10) + 'T00:00:00Z');
-  return Math.round((a - b) / 86400000);
-}
-function _resAge(d) {
-  if (!d) return { txt: 'unknown', ms: Infinity };
-  const ms = Date.now() - d.getTime();
-  const hr = ms / 3600000;
-  return { txt: hr < 1 ? Math.round(ms/60000) + 'm ago' : hr < 48 ? hr.toFixed(1) + 'h ago' : Math.round(hr/24) + 'd ago', ms };
-}
-// v6.18.6 — EXPORT DATA (Ron's S46 architecture): per-track raw table export
-// for out-of-tab analysis. The bootstrap downloadable-report principle applied
-// to the registry: runs produce a diffable artifact, not a screenshot. Spec
-// (S45, agreed): pagination to EXHAUSTION (no silent truncation — rows_exported
-// vs table_count both in the header so a mismatch can never hide) · JSON not
-// CSV (jsonb fidelity) · ET-stamped filename (UTC-STAMP doctrine) · raw rows,
-// no era filter (raw layer immutable; analysis transforms). Bypasses _resFetch
-// deliberately: no cache, no 500 cap, stable order=id.asc.
-function _etExportStamp() {
-  const d = new Date();
-  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
-  const t = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false }).format(d).replace(':', '');
-  return day + '_' + t + 'ET';
-}
-let _resExportBusy = false;
-async function resExport(table, btnId) {
-  if (_resExportBusy) return;
-  _resExportBusy = true;
-  const btn = btnId ? document.getElementById(btnId) : null;
-  const btnLabel = btn ? btn.textContent : '';
-  const setBtn = s => { if (btn) btn.textContent = s; };
-  try {
-    setBtn('Counting\u2026');
-    const total = await _resCount(table);
-    const page = 1000, rows = [];
-    let offset = 0;
-    while (true) {
-      setBtn('Exporting\u2026 ' + rows.length + (total != null ? '/' + total : ''));
-      const res = await fetch(SB_URL + '/' + table + '?select=*&order=id.asc&limit=' + page + '&offset=' + offset, { headers: _sbHeaders });
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' at offset ' + offset);
-      const batch = await res.json();
-      rows.push(...batch);
-      if (batch.length < page) break;
-      offset += page;
-      if (offset >= 500000) break; // sanity ceiling; header mismatch will surface it
-    }
-    const stamp = _etExportStamp();
-    const payload = {
-      export: {
-        table: table,
-        rows_exported: rows.length,
-        table_count: total,             // null if count unavailable; mismatch is VISIBLE either way
-        complete: total != null ? rows.length === total : null,
-        exported_at: stamp,
-        app_version: APP_VERSION,
-        source: 'spy-backtest research export (raw rows, no filtering)'
-      },
-      rows: rows
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = table + '_' + stamp + '.json';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    setBtn('\u2713 ' + rows.length + ' rows');
-    setTimeout(() => setBtn(btnLabel), 4000);
-  } catch (e) {
-    setBtn('\u26A0 ' + e.message);
-    setTimeout(() => setBtn(btnLabel), 6000);
-  } finally { _resExportBusy = false; }
-}
-async function _resFetch(table, orderCol, limit) {
-  const key = table + '|' + (orderCol || '') + '|' + limit;
-  if (_resCache[key] && Date.now() - _resCache[key].at < 60000) return _resCache[key];
-  let out;
-  try {
-    let url = SB_URL + '/' + table + '?select=*' + (orderCol ? '&order=' + orderCol + '.desc' : '') + '&limit=' + limit;
-    let res = await fetch(url, { headers: _sbHeaders });
-    if (!res.ok && orderCol) { // unknown order col → retry unordered
-      res = await fetch(SB_URL + '/' + table + '?select=*&limit=' + limit, { headers: _sbHeaders });
-    }
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    out = { rows: await res.json(), err: null, at: Date.now() };
-  } catch (e) { out = { rows: null, err: e.message, at: Date.now() }; }
-  _resCache[key] = out;
-  return out;
-}
-async function _resCount(table, filter) { // v6.7.1 — optional PostgREST filter (e.g. note=like.ticket*)
-  try {
-    const res = await fetch(SB_URL + '/' + table + '?select=id&limit=1' + (filter ? '&' + filter : ''), {
-      headers: { ..._sbHeaders, 'Prefer': 'count=exact' } });
-    const cr = res.headers.get('content-range'); // e.g. 0-0/514
-    if (cr && cr.includes('/')) { const n = parseInt(cr.split('/')[1]); if (!isNaN(n)) return n; }
-  } catch (e) {}
-  return null;
-}
-function _resTrunc(v) {
-  let s = typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
-  return s.length > 120 ? s.slice(0, 117) + '…' : s;
-}
-function _resSampleHtml(rows, hints) {
-  if (!rows || !rows.length) return '<div style="color:var(--muted);">no rows</div>';
-  return rows.slice(0, 1).map(r => { // v6.7.1 latest-1 (Ron: 3 consumed too much space)
-    const ts = _resRowTs(r, hints);
-    return '<div style="border:1px solid var(--border);border-radius:4px;padding:6px 8px;margin-bottom:4px;word-break:break-word;">'
-      + (ts ? '<div style="color:var(--accent);margin-bottom:2px;">' + ts.toISOString().replace('T',' ').slice(0,16) + ' UTC</div>' : '')
-      + Object.entries(r).filter(([k]) => k !== 'shadow_topk').map(([k, v]) =>
-          '<span style="color:var(--muted);">' + k + ':</span> ' + String(_resTrunc(v)).replace(/&/g,'&amp;').replace(/</g,'&lt;')
-        ).join(' · ')
-      + (('shadow_topk' in r) ? ' · <span style="color:var(--muted);">shadow_topk:</span> ' + (r.shadow_topk ? '[present]' : 'null') : '')
-      + '</div>';
-  }).join('');
-}
-function _resCounterHtml(n, minN, label) {
-  const enough = n >= minN;
-  return '<div style="margin:6px 0;padding:5px 8px;border-radius:4px;border:1px solid ' + (enough ? 'var(--green)' : 'var(--border)') + ';color:' + (enough ? 'var(--green)' : 'var(--yellow)') + ';">'
-    + (enough ? '✓ ' + label : 'Not enough data yet — ' + label) + '</div>';
 }
 
 function renderResearchTab() {
