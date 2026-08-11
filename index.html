@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.23.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.23.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -534,7 +534,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.23.0 · §3 CAPITAL SERIES LEDGER-DERIVED + CORRECTED IDENTITY ROW + ACTIVITY RENAMES. CWIN_CAPITAL constant RETIRED (VIX-gate precedent) — §3 now reads contribution/withdrawal rows from the statement import (9 external flows, net $363,048.50, each file tied to Fidelity's running balance at $0.00), with a hard guard if the ledger is empty. The pinned constant had missed the 02/09/2026 FIRSCO rollover +$138,000 (statement-confirmed); the ledger reader closes that omission class permanently — future cash events enter §3 by import, never by code edit. Corrected row (expected): CONTRIB $363,049 · SPY P&L ≈ $27,260 (was $165,260 — the "rich SPY residual" S49 flagged was mostly the missing contribution) · TW capital ≈ $351,705 · CC ≈14.2% · SPY ≈6.5% · ACCT ≈20.7%. Day-one capital = start balance (FXAIX conversion is internal, classed fund_sale). rowToTrade maps amount. RENAMES (display only, ids untouched): Trades tab → Activity · Sim → Sim Rolls · Live → Live Rolls · registry chip tickets → rows; SPY and Cash tabs prepped for future sessions. Sim region untouched. Prior release v6.22.3 certified 08-11; see CHANGELOG.md. CERT: boot clean · pair carries · identity row foots both ways on ledger numbers · flow list matches statements event-for-event.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.23.1 · WALK-BASED ANN YIELD RETIRED (S49 open flag #5 closed as RETIRE). The Live Rolls chip divided real credits by a TW notional built from the cumulative contract walk — FALSIFIED on real rows (−6, S49) — and was the walk's last consumer; pulled entirely (VIX-gate precedent). §3's ledger-derived identity row is now the single certified yield instrument. Credit chip relabeled "(all rows)" with a sub-note naming the §3 core-convention delta (long_call + window-initial sell), so the $59,583-vs-$59,487 gap self-explains. Chip row: Credit · Win Rate · Total Cycles · Open Position. NEXT (approved, queued): v6.24.0 performance grid relocates to Activity (Research returns to pure discovery), v6.24.1 sim row built in its new home. Sim region untouched. Prior release v6.23.0 certified 08-11; see CHANGELOG.md. CERT (debug-mode standing ruling, S50): boot clean · pair carries · chip row shows no Ann Yield · zero walk references remain.</span>
   </div>
 </div>
 
@@ -701,7 +701,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.23.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.23.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -7214,37 +7214,11 @@ function renderLiveBlotter(trades) {
   const winRate    = credits.length ? Math.round(100 * wins / credits.length) : 0;
   const openTrade  = trades.find(t => t.status === 'open');
 
-  // v6.1.2 — ramp-aware annualized yield: Total Roll Credit over the
-  // TIME-WEIGHTED notional. Per-day contracts walked from blotter rows
-  // (long_call hedges excluded), notional = contracts × 100 × last SPY close
-  // from the DM. Assumes the corresponding SPY is always held, no excess cash.
-  const _isoD = d => { const m = (d || '').match(/^(\d{2})\/(\d{2})\/(\d{2})$/); return m ? '20' + m[3] + '-' + m[1] + '-' + m[2] : (d || ''); };
-  let annYieldHtml = '<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--muted);">\u2014</span>';
-  try {
-    if (typeof DM === 'object' && DM && DM.spy && DM.spy.length) {
-      const walk = trades.filter(t => t.row_type !== 'long_call')
-        .map(t => ({ d: _isoD(t.trade_date), dq: (t.sellContracts || 0) - (t.coverContracts || 0) }))
-        .filter(w => w.d)
-        .sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
-      if (walk.length) {
-        const firstD = walk[0].d;
-        const todayD = new Date().toISOString().slice(0, 10);
-        const closes = DM.spy;
-        let wi = 0, ci = 0, ct = 0, lastClose = closes[0].c, sumN = 0, nDays = 0; // v6.1.4 — DM.spy bars are {date,o,h,l,c,v}
-        for (let t = new Date(firstD + 'T00:00:00Z'); t <= new Date(todayD + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + 1)) {
-          const ds = t.toISOString().slice(0, 10);
-          while (wi < walk.length && walk[wi].d <= ds) { ct += walk[wi].dq; wi++; }
-          while (ci < closes.length && closes[ci].date <= ds) { lastClose = closes[ci].c; ci++; }
-          sumN += Math.max(0, ct) * 100 * lastClose; nDays++;
-        }
-        const twan = nDays ? sumN / nDays : 0;
-        if (twan > 0 && nDays > 0) {
-          const yld = totalCredit / twan * 365 / nDays * 100;
-          annYieldHtml = `<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--green);">${yld.toFixed(1)}%</span><div style="font-size:10px;color:var(--muted);">TW notional $${Math.round(twan / 1000)}k \u00b7 ${nDays}d \u00b7 SPY held, no excess cash</div>`;
-        }
-      }
-    }
-  } catch (e) { /* leave dash */ }
+  // v6.23.1 — ANN YIELD + TW notional RETIRED (S49 flag closed as RETIRE, not fix). The
+  // v6.1.2 stat divided by a notional built from the cumulative contract walk, which was
+  // FALSIFIED on real blotter rows (−6 by Aug 2026, S49) — this was the walk's last
+  // consumer, now pulled (VIX-gate precedent). §3's ledger-derived identity row is the
+  // single certified yield instrument; one number, one convention, one place.
 
   { const _b1 = $('blot-coveronly-btn'), _b2 = $('blot-addtrade-btn'); // v6.7.15 — blotter is a RECORD in normal mode; debug = editable (repair path)
     if (_b1) _b1.style.display = _debugMode ? '' : 'none';
@@ -7256,9 +7230,8 @@ function renderLiveBlotter(trades) {
       ? `<span style="font-family:var(--mono);font-size:11px;color:var(--green);">Short ${openTrade.sellContracts || openTrade.coverContracts || 6} &nbsp;${openTrade.sellExpiry} &nbsp;$${openTrade.sellStrike}C &nbsp;@ $${openTrade.sellPrice}</span><span id="live-mtm" style="font-family:var(--mono);font-size:11px;color:var(--muted);"></span>`
       : '<span style="font-family:var(--mono);font-size:11px;color:var(--muted);">Flat</span>';
     summaryEl.innerHTML = [
-      ['Total Roll Credit', `<span class="${totalCredit>=0?'green':'red'}" style="font-family:var(--mono);font-size:15px;font-weight:600;">${fmt(totalCredit)}</span>`],
+      ['Total Roll Credit (all rows)', `<span class="${totalCredit>=0?'green':'red'}" style="font-family:var(--mono);font-size:15px;font-weight:600;">${fmt(totalCredit)}</span><div style="font-size:10px;color:var(--muted);">raw blotter \u03a3 \u00b7 \u00a73 core convention excludes long_call + window-initial sell</div>`],
       ['Win Rate', `<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--green);">${winRate}%</span><div style="font-size:10px;color:var(--muted);">${wins} / ${credits.length} rolls</div>`],
-      ['Ann Yield', annYieldHtml],
       ['Total Cycles', `<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--accent);">${trades.length}</span>`],
       ['Open Position', openDisplay],
     ].map(([label, val]) =>
