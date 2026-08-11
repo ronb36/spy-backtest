@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.22.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.23.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -314,7 +314,7 @@ select.display-box { cursor:pointer; outline:none; }
       </div>
     </div>
     <div class="tab-bar">
-      <button class="tab-btn active" id="tab-btn-trades" onclick="showTab('trades')">📒 Trades</button>
+      <button class="tab-btn active" id="tab-btn-trades" onclick="showTab('trades')">📒 Activity</button>
       <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Opt Results</button>
       <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
       <button class="tab-btn" id="tab-btn-runlog" onclick="showTab('runlog')">📄 Logs</button>
@@ -325,8 +325,8 @@ select.display-box { cursor:pointer; outline:none; }
 
     <!-- v6.7.8 — Trades virtual tab: Sim/Live toggle + Chart expand (panels below untouched) -->
     <div id="trades-subnav" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
-      <button id="tsub-sim" onclick="setTradesView('sim')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;">Sim</button>
-      <button id="tsub-live" onclick="setTradesView('live')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Live</button>
+      <button id="tsub-sim" onclick="setTradesView('sim')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;">Sim Rolls</button>
+      <button id="tsub-live" onclick="setTradesView('live')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Live Rolls</button>
       <div style="flex:1;"></div>
       <button id="tsub-chart" onclick="toggleTradesChart()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">📈 Chart</button>
     </div>
@@ -534,7 +534,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.22.3 · HOTFIX: _impState declared (v6.22.2 referenced it undeclared — dry run threw at runtime; node --check parse-clean and the smoke harness tested units, not the integration path — v6.20.1 lesson recurring at harness level, logged). Underlying v6.22.2 · INSERT PATH ENABLED + SYMBOL RECONCILIATION (S50 rulings). Per-leg matching RETIRED — split fills and the parallel-strike era (Feb–Apr 2026) made it structurally unmatchable; replaced with per-contract-symbol quantity conservation (Σ|csv legs| ≡ ticket sells + covers, long_call tickets counted both sides). RULED: SPY option legs are NEVER inserted — the blotter is the authoritative source for SPY option facts. Non-SPY option legs (HAL ex-div test) import as facts; P&L self-documents by symbol. Species ruled: ROLLOVER→contribution · NORMAL DISTR→withdrawal · REDEMPTION PAYOUT→redemption · EXERCISED→opt_exercised (balance-neutral memo, = file 8's −$141 residual; IMP_BALANCE_NEUTRAL set shared with tie-out). Option parse now ANY underlying (F4 fix — HAL legs no longer misclassify as shares). Insert: dedupe precheck vs existing csv_import keys + partial unique index backstop; payload NEVER writes roll_credit / sell_* / cover_* / status open (safety invariant); unknowns and flags never insert. EN ROUTE FINDING (statement-confirmed): 02/09/2026 FIRSCO rollover +$138,000 missing from CWIN_CAPITAL — §3 correction is the next release. Sim region untouched. Prior release v6.22.1 certified 08-11; see CHANGELOG.md. CERT: boot clean · pair carries · dry run 4× residual $0.00 · recon ✓ all contracts · insert + re-import idempotent · export inspect-a-row · $0.04 endpoint standard.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.23.0 · §3 CAPITAL SERIES LEDGER-DERIVED + CORRECTED IDENTITY ROW + ACTIVITY RENAMES. CWIN_CAPITAL constant RETIRED (VIX-gate precedent) — §3 now reads contribution/withdrawal rows from the statement import (9 external flows, net $363,048.50, each file tied to Fidelity's running balance at $0.00), with a hard guard if the ledger is empty. The pinned constant had missed the 02/09/2026 FIRSCO rollover +$138,000 (statement-confirmed); the ledger reader closes that omission class permanently — future cash events enter §3 by import, never by code edit. Corrected row (expected): CONTRIB $363,049 · SPY P&L ≈ $27,260 (was $165,260 — the "rich SPY residual" S49 flagged was mostly the missing contribution) · TW capital ≈ $351,705 · CC ≈14.2% · SPY ≈6.5% · ACCT ≈20.7%. Day-one capital = start balance (FXAIX conversion is internal, classed fund_sale). rowToTrade maps amount. RENAMES (display only, ids untouched): Trades tab → Activity · Sim → Sim Rolls · Live → Live Rolls · registry chip tickets → rows; SPY and Cash tabs prepped for future sessions. Sim region untouched. Prior release v6.22.3 certified 08-11; see CHANGELOG.md. CERT: boot clean · pair carries · identity row foots both ways on ledger numbers · flow list matches statements event-for-event.</span>
   </div>
 </div>
 
@@ -701,7 +701,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.22.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.23.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1548,7 +1548,7 @@ async function buildResReadiness() {
     // v6.20.0 — cwin readiness: blotter reachable + row count (conf block retired with the instrument)
     const cN = await _resCount('live_trades');
     if (cN == null) { put('cwin', false, true, 'ERROR'); }
-    else { put('cwin', cN > 0, false, cN + ' ticket' + (cN === 1 ? '' : 's')); }
+    else { put('cwin', cN > 0, false, cN + ' row' + (cN === 1 ? '' : 's')); }
     // v6.18.7 — dpairs killed: ADJUDICATED CLOSED-CONFIRMED (S46 decomposition)
     const fs = await _resFetch('scan_snapshot', 'ts', 500); // v6.18.10 — SAME window spec as the section fetch (parity by construction); was 100 vs section 20, the two counters read different histories
     const sr = fs.rows || [];
@@ -1656,23 +1656,27 @@ function _wfBasisSPY(iso) { // v6.15.3 — SPY close on the first-close date, fr
 // being measured — append a row here when cash moves, on the record. Dividends are held
 // OUT of the yield (SPY $3,925.03 + MM interest through 08-06; equity effects tracked
 // separately per footer doctrine).
-const CWIN_CAPITAL = [ // {d, amt}: + in, − out
-  { d: '2025-06-02', amt:  70321.92 }, // FXAIX liquidation → starting capital
-  { d: '2025-06-10', amt:  55000.00 }, // Roth conversion
-  { d: '2025-06-17', amt:  55000.00 }, // Roth conversion
-  { d: '2025-06-30', amt:   5000.00 }, // Roth conversion
-  { d: '2025-07-01', amt: 125293.74 }, // Roth conversion
-  { d: '2025-09-16', amt:   2450.00 }, // Roth conversion
-  { d: '2025-12-31', amt:  -7695.24 }, // distribution
-  { d: '2026-02-20', amt:  -5000.00 }, // distribution
-  { d: '2026-03-31', amt:  -5000.00 }, // distribution
-];
-function _cwinTwCapital(startIso, endIso) { // time-weighted contributed capital over [start, end] inclusive, daily steps
-  const ev = CWIN_CAPITAL.slice().sort((a, b) => a.d < b.d ? -1 : 1);
+// v6.23.0 — CWIN_CAPITAL RETIRED (VIX-gate precedent: pulled, not dormant). The capital
+// series is now LEDGER-DERIVED: contribution/withdrawal rows imported from Fidelity
+// statements (source=csv_import), each tied to the statement's own running balance at
+// $0.00 per file. The pinned constant missed the 02/09/2026 FIRSCO rollover (+$138,000,
+// statement-confirmed S50); a ledger reader cannot repeat that class of omission — new
+// cash events enter §3 by being imported, never by editing code. Dividends remain OUT
+// of yield (footer doctrine). Day-one capital = CWIN_START_BALANCE (the FXAIX conversion
+// is internal, correctly classed fund_sale in the ledger).
+function _cwinLedgerFlows(trades) { // mapped trades → sorted [{d: iso, amt}] external flows
+  return trades
+    .filter(t => t.source === 'csv_import' && (t.row_type === 'contribution' || t.row_type === 'withdrawal') && t.amount != null)
+    .map(t => ({ d: _wfIsoD(t.trade_date), amt: t.amount }))
+    .filter(e => e.d)
+    .sort((a, b) => a.d < b.d ? -1 : 1);
+}
+function _cwinTwCapital(startIso, endIso, flows) { // TW contributed capital: start balance + dated flows, daily steps
   let tot = 0, n = 0;
   for (let t = new Date(startIso + 'T00:00:00Z'); t <= new Date(endIso + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + 1)) {
     const ds = t.toISOString().slice(0, 10);
-    let cap = 0; ev.forEach(e => { if (e.d <= ds) cap += e.amt; });
+    let cap = CWIN_START_BALANCE.amt;
+    flows.forEach(e => { if (e.d <= ds) cap += e.amt; });
     tot += cap; n++;
   }
   return n ? tot / n : 0;
@@ -1698,11 +1702,13 @@ async function _cwinHtml() { // v6.20.7 — ten-column identity row (Ron's spec,
   const gross = live.reduce((s, r) => s + r.credit, 0);
   const lastIso = live.length ? live[live.length - 1].iso : liveAll[0].iso;
   const S = CWIN_START_BALANCE, L = CWIN_LAST_BALANCE;
-  const contrib = CWIN_CAPITAL.filter(e => e.d > S.d).reduce((s, e) => s + e.amt, 0);
+  const flows = _cwinLedgerFlows(trades); // v6.23.0 — ledger-derived; guard: absence can never hide
+  if (!flows.length) return '<div style="color:var(--red);">\u2717 ledger has no contribution/withdrawal rows \u2014 run the statement import (\u00a73 capital series is ledger-derived as of v6.23.0)</div>';
+  const contrib = flows.reduce((s, e) => s + e.amt, 0);
   const gain = L.amt - S.amt - contrib;
-  const spyPnl = gain - gross; // residual: appreciation + dividends + MM interest
+  const spyPnl = gain - gross; // residual: appreciation + dividends + MM interest + churn share P&L
   const span = Math.max(1, Math.round((new Date(L.d + 'T00:00:00Z') - new Date(S.d + 'T00:00:00Z')) / 86400000));
-  const twc = _cwinTwCapital(S.d, L.d);
+  const twc = _cwinTwCapital(S.d, L.d, flows);
   const y = v => twc > 0 ? (v / twc / span * 365 * 100) : null;
   const ccY = y(gross), spyY = y(spyPnl), acctY = y(gain);
   const pf = v => v != null ? v.toFixed(1) + '%' : 'n/a';
@@ -1721,7 +1727,8 @@ async function _cwinHtml() { // v6.20.7 — ten-column identity row (Ron's spec,
     + '<div style="color:var(--muted);font-size:9px;margin-top:6px;line-height:1.5;">'
     + 'IDENTITY ROW, one window (' + S.d + ' → ' + L.d + ', ' + span + 'd) and one TW contributed capital (' + money(twc) + ') for all three yields, so it foots '
     + 'both ways: start bal + contributions + CC P&L + SPY P&L = last bal, and CC YIELD + SPY YIELD = ACCT YIELD. SPY P&L is the residual — share appreciation + dividends '
-    + '+ MM interest bundled. Capital series statement-verified (reconciled to $0.04); last balance pinned as-of ' + L.d + ', amber-stamped when stale. '
+    + '+ MM interest + assignment-churn share P&L bundled. Capital series LEDGER-DERIVED (v6.23.0): ' + flows.length + ' external flows from statement import, each file tied to '
+    + 'Fidelity\u2019s running balance at $0.00; CWIN_CAPITAL constant retired. Last balance pinned as-of ' + L.d + ', amber-stamped when stale. '
     + 'CC P&L = blotter roll credit · long_call excluded · window-initial sell excluded once. Sim row to follow on the SAME capital series.'
     + '</div>';
 }
@@ -7123,6 +7130,7 @@ function rowToTrade(r) {
     rollCredit:      r.roll_credit,
     trigger:         r.trigger,
     source:          r.source, // v6.22.2 — imported facts distinguishable from tickets
+    amount:          r.amount, // v6.23.0 — ledger cash column (capital-series reader)
     note:            r.note
   };
 }
