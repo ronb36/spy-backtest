@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.20.6</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.20.7</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -521,7 +521,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.20.6 · §3 SEVEN-COLUMN GRID + ALIGNMENT (Ron's spec, S49). Columns: STARTING DATE · STARTING BAL ($70,348.68, statement) · LAST TRADE · LAST BAL ($520,144 PINNED as-of 2026-08-11, amber-stamped when >5d stale; v6.15.2 precedent) · CC ROLLS · ROLL YIELD (overlay: gross ÷ TW cap ÷ trade-window span × 365 ≈ 17.3%) · ACCT YIELD (total: (last − start − net contributions $225,049) ÷ TW cap ÷ start→as-of span × 365 ≈ 64.3% — premium + appreciation + dividends). Each yield over its own window with its own TW capital; gap between them = what SPY did. Table now natural-width so columns pack (alignment fix). OPEN ITEM logged: activity-table expansion (SPY lots · dividends · contributions → computed balances, cost basis, Fidelity tie-out). Sim row next, SAME capital series. Prior release v6.20.5 certified 08-11; see CHANGELOG.md. CERT: boot clean · pair carries · §3 seven columns, both yields render.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.20.7 · §3 TEN-COLUMN IDENTITY ROW (Ron's spec, S49). START DATE · START BAL · CONTRIB · CC P&L · CC YIELD · SPY P&L · SPY YIELD · LAST TRADE · LAST BAL · ACCT YIELD, evenly spaced (fixed table layout). ONE window (start → balance as-of) and ONE TW capital for all three yields — the row FOOTS both ways: $ columns sum to last bal (SPY P&L = residual: appreciation + dividends + MM interest bundled) and CC 17.0% + SPY 47.3% = ACCT 64.3% exactly (CC shifts 17.3→17.0 moving off the trade window — additivity ruled worth it). Prior release v6.20.6 certified 08-11; see CHANGELOG.md. CERT: boot clean · pair carries · §3 ten columns even-spaced, yields foot.</span>
   </div>
 </div>
 
@@ -688,7 +688,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.20.6'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.20.7'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1667,11 +1667,12 @@ function _cwinTwCapital(startIso, endIso) { // time-weighted contributed capital
 const CWIN_START_BALANCE = { d: '2025-06-02', amt: 70348.68 }; // v6.20.6 — actual account value at program start (statement: FXAIX proceeds + residual cash)
 const CWIN_LAST_BALANCE  = { d: '2026-08-11', amt: 520144.00 }; // v6.20.6 — PINNED with as-of date, stale-stamped in the UI (v6.15.2 sim-reference precedent);
 // update on the record when it matters. Open item (S49): activity-table expansion (SPY lots · dividends · contributions) makes this a computed value with a Fidelity tie-out.
-async function _cwinHtml() { // v6.20.6 — seven-column grid (Ron's spec, S49): Starting Date · Starting Balance ·
-  // Last Trade · Last Balance · CC Rolls · Roll Yield · Account Yield. Each yield over ITS OWN window with its
-  // own TW capital: Roll Yield over [first trade, last trade]; Account Yield over [start date, balance as-of].
-  // Account gain = last balance − starting balance − intervening net contributions (captures premium +
-  // appreciation + dividends). Roll Yield = the overlay alone. Same denominator convention; two numerators.
+async function _cwinHtml() { // v6.20.7 — ten-column identity row (Ron's spec, S49). ONE window for all three
+  // yields — [start date, balance as-of], one TW capital — so the decomposition FOOTS in both spaces:
+  //   $ : start bal + contributions + CC PnL + SPY PnL = last bal (SPY PnL is the residual: appreciation
+  //       + dividends + MM interest, bundled — stated in the sub-note)
+  //   % : CC Yield + SPY Yield = Acct Yield exactly
+  // Even spacing: table-layout fixed, full width.
   let trades;
   try { trades = await sbGetLiveTrades(); }
   catch (e) { return '<div style="color:var(--red);">✗ live_trades: ' + e.message + '</div>'; }
@@ -1679,52 +1680,36 @@ async function _cwinHtml() { // v6.20.6 — seven-column grid (Ron's spec, S49):
     .map(t => ({ iso: _wfIsoD(t.trade_date), credit: t.rollCredit, id: t.id }))
     .filter(r => r.iso).sort((a, b) => a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : (String(a.id) < String(b.id) ? -1 : 1));
   if (!liveAll.length) return '<div style="color:var(--muted);">no credit rows in live_trades yet</div>';
-  const firstTrade = liveAll[0].iso;
-  const live = liveAll.slice(1);
+  const live = liveAll.slice(1); // window-initial sell excluded once
   const money = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
   const gross = live.reduce((s, r) => s + r.credit, 0);
-  const lastIso = live.length ? live[live.length - 1].iso : firstTrade;
-  const dspan = (a, b) => Math.max(1, Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000));
-  // Roll Yield — overlay only, trade window
-  const rollDays = dspan(firstTrade, lastIso);
-  const twRoll = _cwinTwCapital(firstTrade, lastIso);
-  const rollYld = twRoll > 0 ? (gross / twRoll / rollDays * 365 * 100) : null;
-  // Account Yield — total gain, start→as-of window
+  const lastIso = live.length ? live[live.length - 1].iso : liveAll[0].iso;
   const S = CWIN_START_BALANCE, L = CWIN_LAST_BALANCE;
-  const contribAfter = CWIN_CAPITAL.filter(e => e.d > S.d).reduce((s, e) => s + e.amt, 0);
-  const gain = L.amt - S.amt - contribAfter;
-  const acctDays = dspan(S.d, L.d);
-  const twAcct = _cwinTwCapital(S.d, L.d);
-  const acctYld = twAcct > 0 ? (gain / twAcct / acctDays * 365 * 100) : null;
+  const contrib = CWIN_CAPITAL.filter(e => e.d > S.d).reduce((s, e) => s + e.amt, 0);
+  const gain = L.amt - S.amt - contrib;
+  const spyPnl = gain - gross; // residual: appreciation + dividends + MM interest
+  const span = Math.max(1, Math.round((new Date(L.d + 'T00:00:00Z') - new Date(S.d + 'T00:00:00Z')) / 86400000));
+  const twc = _cwinTwCapital(S.d, L.d);
+  const y = v => twc > 0 ? (v / twc / span * 365 * 100) : null;
+  const ccY = y(gross), spyY = y(spyPnl), acctY = y(gain);
+  const pf = v => v != null ? v.toFixed(1) + '%' : 'n/a';
   const staleD = Math.round((Date.now() - new Date(L.d + 'T00:00:00Z')) / 86400000);
-  const th = 'text-align:right;padding:6px 10px;color:var(--muted);font-size:9px;letter-spacing:.06em;border-bottom:1px solid var(--border);white-space:nowrap;';
-  const td = 'text-align:right;padding:7px 10px;color:var(--text);white-space:nowrap;';
-  return '<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-family:var(--mono);font-size:10px;">' // v6.20.6 — natural width: columns pack together (Ron: align Ann Yield with the rest)
-    + '<thead><tr>'
-    + '<th style="' + th + 'text-align:left;"></th>'
-    + '<th style="' + th + '">STARTING DATE</th>'
-    + '<th style="' + th + '">STARTING BAL</th>'
-    + '<th style="' + th + '">LAST TRADE</th>'
-    + '<th style="' + th + '">LAST BAL</th>'
-    + '<th style="' + th + '">CC ROLLS</th>'
-    + '<th style="' + th + '">ROLL YIELD</th>'
-    + '<th style="' + th + '">ACCT YIELD</th>'
-    + '</tr></thead><tbody>'
-    + '<tr>'
-    + '<td style="' + td + 'text-align:left;color:var(--accent);">live</td>'
-    + '<td style="' + td + '">' + S.d + '</td>'
-    + '<td style="' + td + '">' + money(S.amt) + '</td>'
-    + '<td style="' + td + '">' + lastIso + '</td>'
-    + '<td style="' + td + '">' + money(L.amt) + (staleD > 5 ? ' <span style="color:#e0a020;font-size:9px;">as-of ' + L.d + '</span>' : '') + '</td>'
-    + '<td style="' + td + '">' + live.length + '</td>'
-    + '<td style="' + td + '"><span style="color:var(--accent);">' + (rollYld != null ? rollYld.toFixed(1) + '%' : 'n/a') + '</span></td>'
-    + '<td style="' + td + '"><span style="color:var(--accent);">' + (acctYld != null ? acctYld.toFixed(1) + '%' : 'n/a') + '</span></td>'
-    + '</tr></tbody></table></div>'
+  const th = 'text-align:right;padding:6px 6px;color:var(--muted);font-size:9px;letter-spacing:.04em;border-bottom:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;';
+  const td = 'text-align:right;padding:7px 6px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+  const hdr = ['', 'START DATE', 'START BAL', 'CONTRIB', 'CC P&L', 'CC YIELD', 'SPY P&L', 'SPY YIELD', 'LAST TRADE', 'LAST BAL', 'ACCT YIELD'];
+  const cells = ['<span style="color:var(--accent);">live</span>', S.d, money(S.amt), money(contrib), money(gross),
+    '<span style="color:var(--accent);">' + pf(ccY) + '</span>', money(spyPnl),
+    '<span style="color:var(--accent);">' + pf(spyY) + '</span>', lastIso,
+    money(L.amt) + (staleD > 5 ? '<span style="color:#e0a020;font-size:8px;"> ⚙' + L.d.slice(5) + '</span>' : ''),
+    '<span style="color:var(--accent);">' + pf(acctY) + '</span>'];
+  return '<table style="border-collapse:collapse;font-family:var(--mono);font-size:10px;width:100%;table-layout:fixed;">' // v6.20.7 — even spacing (fixed layout, equal columns)
+    + '<thead><tr>' + hdr.map((h, k) => '<th style="' + th + (k === 0 ? 'text-align:left;width:4%;' : '') + '">' + h + '</th>').join('') + '</tr></thead>'
+    + '<tbody><tr>' + cells.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : '') + '">' + c + '</td>').join('') + '</tr></tbody></table>'
     + '<div style="color:var(--muted);font-size:9px;margin-top:6px;line-height:1.5;">'
-    + 'ROLL YIELD = gross roll credit (' + money(gross) + ') ÷ TW contributed capital (' + money(twRoll) + ') ÷ ' + rollDays + 'd × 365 — the overlay alone. '
-    + 'ACCT YIELD = (last bal − starting bal − net contributions ' + money(contribAfter) + ') ÷ TW capital (' + money(twAcct) + ') ÷ ' + acctDays + 'd × 365 '
-    + '= premium + share appreciation + dividends. Capital series statement-verified, reconciled to $0.04, pinned in-app; last balance pinned as-of ' + L.d + '. '
-    + 'Same denominator convention, two numerators — the gap between the yields is what SPY did. Sim row to follow on the SAME capital series.'
+    + 'IDENTITY ROW, one window (' + S.d + ' → ' + L.d + ', ' + span + 'd) and one TW contributed capital (' + money(twc) + ') for all three yields, so it foots '
+    + 'both ways: start bal + contributions + CC P&L + SPY P&L = last bal, and CC YIELD + SPY YIELD = ACCT YIELD. SPY P&L is the residual — share appreciation + dividends '
+    + '+ MM interest bundled. Capital series statement-verified (reconciled to $0.04); last balance pinned as-of ' + L.d + ', amber-stamped when stale. '
+    + 'CC P&L = blotter roll credit · long_call excluded · window-initial sell excluded once. Sim row to follow on the SAME capital series.'
     + '</div>';
 }
 let _resCache = {};   // table|order|limit → {rows, err, at}
