@@ -19,5 +19,8 @@
   "entrySpy": 771.25,
   "coverPrice": 28.96,
   "sellPrice": 39.72,
-  "netPremium": 10.76
+  "netPremium": 10.76,
+  "costBasis": 742.4833,
+  "sharesHeld": 600,
+  "basisAsOf": "2026-08-12"
 }
