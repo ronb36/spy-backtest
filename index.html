@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.26.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.26.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -551,7 +551,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.26.0 · LEDGER-DERIVED COST BASIS (S51, Ron approved). Statement Import gains ⟳ Cost Basis: FIFO walk over activity-table SPY share rows (raw select, NOT the rowToTrade shape; quantity≠0 drops dividends; 1000-row tripwire) → shares · basis · cost · open-lot count, with ⬆ Publish writing costBasis / sharesHeld / basisAsOf (ET stamp) into roll_params.json via a minimal dedicated PAT/sha/spread writer. Auto-recomputes after every Insert (the only moment basis can change); publish stays a deliberate tap. Statement-certified pre-build: $742.4833 × 600 = $445,489.99 = Fidelity Jul-2026 Cost column EXACT. Readers wired (enumerated): STD loader · footnote KNOWN list · position banner (share count now sharesHeld-first — Ron: banner pulls from json) · optimizer publish preserves via ...existing spread (no edit) · flat scrub does NOT delete (share facts survive flat, by construction). costBasis ≠ entrySpy (option-entry spot, TV anchor) — distinct fields, never conflate. Closed-lot P&L NOT tracked (ruling). Agent v1.7.24 pairs: costBasis at all four POSITION refresh sites + sharesHeld tripwire. Sim ENGINE untouched. Prior release v6.25.2 same file; see CHANGELOG.md. CERT (debug mode): boot clean · pair carries · ⟳ Cost Basis shows 600 / $742.4833 · publish → json shows the three fields · banner reads 600 from sharesHeld</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.26.1 · POSITION-FRAME BANNER (S51, Ron approved; display-only patch). Screen doctrine ruling: a position screen shows COST BASIS; quote/P&L screens carry the mark. Live Position line re-anchored: stock leg = sharesHeld × costBasis (json, ledger-derived; share count only when basis unpublished), call leg = contracts × sellPrice (the FILL). v6.4.10 mark-frame line retired — no live quotes, no DM closes, no † on the position line; stable between publishes. Market snapshot (VIX/3m, DM-nightly, †) unchanged; tooltip retargeted to snapshot refresh; _bannerLive plumbing retained for VIX. Matches agent v1.7.22 Position section frame — banner and push now agree. Marks live in Scan · agent pushes · performance grid. Build note: first cut deleted the live declaration still consumed by the snapshot/tooltip (S50 ReferenceError class) — caught by read-back before harness. Prior release v6.26.0 (ledger FIFO basis + publish) same session; see CHANGELOG.md. CERT: boot clean · pair carries (127 · 8.5% · $59,376) · position line reads 600 SPY @ $742.48 · Short 6 01/29/2027 $775C @ $39.72 · VIX snapshot + † intact</span>
   </div>
 </div>
 
@@ -720,7 +720,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.26.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.26.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -2808,39 +2808,28 @@ function updateInitPosition() {
   const el_entry   = $('init-entry-date');
   if (el_entry)   el_entry.textContent  = STD.entryDate ? fmtD(STD.entryDate) : '—';
 
-  // v6.4.10 — position line with CURRENT prices (Ron's spec): shares @ SPY px ·
-  // Short N expiry $strikeC @ call px. Prices are live scan quotes when a scan
-  // has run this session, else last DM close marked with †. Net credit dropped
-  // intentionally — the trade blotter is the source for credit.
-  const live  = (typeof _bannerLive === 'object' && _bannerLive) ? _bannerLive : { spy: null, cover: null };
-  const dmSpy = (DM.spy && DM.spy.length) ? DM.spy[DM.spy.length - 1].c : null;
-  const spyPx   = live.spy != null ? live.spy : dmSpy;
-  const spyMark = live.spy != null ? '' : '†';
-  let dmCover = null;
-  if (hasPosition && DM.options) {
-    try {
-      const t = buildScanTicker(STD.shortExpiry, parseFloat(STD.shortStrike));
-      const c = DM.options[t];
-      if (c && c.days && c.days.length) dmCover = c.days[c.days.length - 1].c;
-    } catch (e) {}
-  }
-  const covPx   = live.cover != null ? live.cover : dmCover;
-  const covMark = live.cover != null ? '' : '†';
-  let usedDagger = false;
-  const pxStr = (px, mark) => {
-    if (px == null) return '—';
-    if (mark) usedDagger = true;
-    return '$' + Number(px).toFixed(2) + mark;
-  };
+  // v6.26.1 — position line re-anchored to the POSITION frame (Ron's S51 screen
+  // doctrine: a position screen shows cost basis; quote/P&L screens carry the
+  // mark). Stock leg = sharesHeld × costBasis (ledger-derived, json); call leg =
+  // contracts × sellPrice (the FILL). No live quotes, no DM closes, no † on this
+  // line — it is stable between publishes. Marks live in Scan, the agent pushes,
+  // and the performance grid. The v6.4.10 mark-frame line is retired; the
+  // market snapshot (VIX/3m, DM-nightly, †) below is unchanged and keeps the
+  // dagger note + tap-to-refresh alive. Agent v1.7.22 Position section is the
+  // same frame — banner and push now agree.
+  const live  = (typeof _bannerLive === 'object' && _bannerLive) ? _bannerLive : { spy: null, cover: null, vix: null }; // still feeds the VIX snapshot + provenance tooltip below
+  let usedDagger = false; // snapshot dagger accounting (position line no longer daggers)
 
   const badge    = $('init-badge');
   const posLine  = $('init-position-line');
-  const spyLeg   = `${STD.sharesHeld || STD.shares || 600} SPY @ ${pxStr(spyPx, spyMark)}`; // v6.26.0 — ledger share count from json (Ron: banner pulls from json); contracts×100 fallback
+  const basisStr = STD.costBasis != null ? ' @ $' + Number(STD.costBasis).toFixed(2) : ''; // absent pre-publish → share count only, no fake price
+  const spyLeg   = `${STD.sharesHeld || STD.shares || 600} SPY${basisStr}`; // v6.26.0 sharesHeld-first; v6.26.1 basis not mark
   if (hasPosition) {
     if (badge) { badge.textContent = '📈 Long SPY + Short Call'; badge.style.opacity = '1'; }
     if (posLine) {
       const expStr  = fmtExpiry(STD.shortExpiry);
-      posLine.textContent = `${spyLeg} · Short ${contracts} ${expStr} $${STD.shortStrike}C @ ${pxStr(covPx, covMark)}`;
+      const fillStr = STD.sellPrice != null ? '$' + Number(STD.sellPrice).toFixed(2) : '—';
+      posLine.textContent = `${spyLeg} · Short ${contracts} ${expStr} $${STD.shortStrike}C @ ${fillStr}`;
       posLine.style.color = 'var(--text)';
     }
   } else {
@@ -2867,12 +2856,9 @@ function updateInitPosition() {
   // v6.4.12b — quote provenance in the banner tooltip (long-press on iPad)
   const panel = $('init-panel');
   if (panel) {
-    let prov = 'Tap to refresh quotes';
-    if (live.spy != null) {
-      const p = live.spySrc === 'agg' ? _spyBarProv() : (live.spySrc === 'underlying' ? 'option-snapshot underlying' : null);
-      if (p) prov += ' · SPY ' + p + ' (15-min delayed tier)';
-    } else prov += ' · SPY = DM close';
-    panel.title = prov;
+    // v6.26.1 — position line is basis/fill (no quotes), so SPY provenance is
+    // retired from the tooltip; the tap now only freshens the VIX snapshot.
+    panel.title = 'Tap to refresh market snapshot (VIX)' + (live.vix != null ? ' · VIX live' : ' · VIX = DM close');
   }
 
   $('init-panel').style.display = 'block';
