@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.25.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.26.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -480,8 +480,10 @@ select.display-box { cursor:pointer; outline:none; }
         <div style="padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
           <input type="file" id="imp-files" accept=".csv" multiple style="font-family:var(--mono);font-size:10px;color:var(--muted);">
           <button onclick="impDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Dry Run</button>
+          <button onclick="impComputeBasis()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⟳ Cost Basis</button><!-- v6.26.0 — ledger FIFO walk, no import needed -->
           <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">Parses Fidelity history CSVs · classifies · reconciles SPY option legs vs blotter · dedupes · tie-out. Dry run writes nothing; Insert appears after.</span>
         </div>
+        <div id="imp-basis" style="padding:0 16px 6px;font-family:var(--mono);font-size:9px;color:var(--muted);"></div><!-- v6.26.0 -->
         <div id="imp-results" style="padding:0 16px 14px;"></div>
       </div>
     </div>
@@ -549,7 +551,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.25.2 · SIM ROW OWNS ITS DATES (Ron). START DATE = the sim's anchor entry (first sim entry ≥ live start, scanning 6/2 → 6/3 → 6/4… — may or may not equal live's); LAST TRADE = the sim's own last in-window roll (already was). Yields remain on the SHARED window + TW capital so the identity foots — convention to revisit only if the anchor ever drifts materially from live start. With v6.25.1: anchor entry sell excluded, no pre-window cover, rolls from anchor+1. Sim ENGINE untouched. Prior release v6.25.1 built same sitting; see CHANGELOG.md. CERT (debug mode): boot clean · pair carries · sim row shows its own start + last dates · both rows foot.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.26.0 · LEDGER-DERIVED COST BASIS (S51, Ron approved). Statement Import gains ⟳ Cost Basis: FIFO walk over activity-table SPY share rows (raw select, NOT the rowToTrade shape; quantity≠0 drops dividends; 1000-row tripwire) → shares · basis · cost · open-lot count, with ⬆ Publish writing costBasis / sharesHeld / basisAsOf (ET stamp) into roll_params.json via a minimal dedicated PAT/sha/spread writer. Auto-recomputes after every Insert (the only moment basis can change); publish stays a deliberate tap. Statement-certified pre-build: $742.4833 × 600 = $445,489.99 = Fidelity Jul-2026 Cost column EXACT. Readers wired (enumerated): STD loader · footnote KNOWN list · position banner (share count now sharesHeld-first — Ron: banner pulls from json) · optimizer publish preserves via ...existing spread (no edit) · flat scrub does NOT delete (share facts survive flat, by construction). costBasis ≠ entrySpy (option-entry spot, TV anchor) — distinct fields, never conflate. Closed-lot P&L NOT tracked (ruling). Agent v1.7.24 pairs: costBasis at all four POSITION refresh sites + sharesHeld tripwire. Sim ENGINE untouched. Prior release v6.25.2 same file; see CHANGELOG.md. CERT (debug mode): boot clean · pair carries · ⟳ Cost Basis shows 600 / $742.4833 · publish → json shows the three fields · banner reads 600 from sharesHeld</span>
   </div>
 </div>
 
@@ -616,7 +618,7 @@ function renderJsonFootnote(raw) {
     const KNOWN = ['decayTrigger','dteFloor','deltaThreshold','dtePenaltyAnchor', // v6.14.2 — otmTarget OFF the list deliberately: while the json still carries the retired field the footnote shows it as ⚠ no card, which is the HONEST state (v6.7.10 ruling); the tell disappears when the field does
       'lastOptimized','contracts','shares','shortStrike','shortExpiry','entryDate','netPremium',
       'coverPrice','sellPrice','entrySpy','defHorizon','note','optProjYield','entryDeltaCap',
-      'entryDteMin','oppTheta','oppH','graceDays'];
+      'entryDteMin','oppTheta','oppH','graceDays','costBasis','sharesHeld','basisAsOf']; // v6.26.0 — import-writer fields
     Object.keys(raw).filter(k => !KNOWN.includes(k))
       .forEach(k => parts.push(k + ' ' + JSON.stringify(raw[k]) + ' \u26A0 no card'));
   }
@@ -677,6 +679,8 @@ async function loadRollParams() {
       coverPrice:     data.coverPrice != null ? data.coverPrice : null,
       sellPrice:      data.sellPrice  != null ? data.sellPrice  : null,
       entrySpy:       data.entrySpy   != null ? data.entrySpy   : null, // v6.2.1 — ticket writes it (v6.1.11), reader finally reads it
+      costBasis:      data.costBasis  != null ? data.costBasis  : null, // v6.26.0 — ledger-derived FIFO share basis (import writer); ≠ entrySpy (option-entry spot)
+      sharesHeld:     data.sharesHeld != null ? data.sharesHeld : null, // v6.26.0 — ledger share count; banner prefers it over derived contracts×100
     };
     // Update var-card display values
     const updates = {
@@ -716,7 +720,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.25.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.26.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -2831,7 +2835,7 @@ function updateInitPosition() {
 
   const badge    = $('init-badge');
   const posLine  = $('init-position-line');
-  const spyLeg   = `${STD.shares || 600} SPY @ ${pxStr(spyPx, spyMark)}`;
+  const spyLeg   = `${STD.sharesHeld || STD.shares || 600} SPY @ ${pxStr(spyPx, spyMark)}`; // v6.26.0 — ledger share count from json (Ron: banner pulls from json); contracts×100 fallback
   if (hasPosition) {
     if (badge) { badge.textContent = '📈 Long SPY + Short Call'; badge.style.opacity = '1'; }
     if (posLine) {
@@ -7602,7 +7606,94 @@ async function impInsert() {
     const vRes = await fetch(`${SB_URL}/live_trades?source=eq.csv_import&select=id&limit=1000`, { headers: _sbHeaders });
     const vN = (await vRes.json()).length;
     st.textContent = '\u2713 inserted ' + payload.length + ' \u00b7 csv_import rows in table: ' + vN + ' \u00b7 export + inspect a row to certify';
+    impComputeBasis(); // v6.26.0 — new share rows may change the basis; recompute at the only moment it can change
   } catch (e) { st.textContent = '\u2717 ' + e.message; }
+}
+
+// ── v6.26.0 — Ledger-derived SPY cost basis (FIFO) ─────────────────────────
+// S51: basis is COMPUTED from activity-table share rows and published to
+// roll_params.json (costBasis · sharesHeld · basisAsOf) for downstream
+// consumers (agent v1.7.24 reads costBasis at all four POSITION refresh
+// sites; banner sharesHeld). Statement-certified this session: $742.4833 ×
+// 600 = $445,489.99 vs Fidelity Jul-2026 Cost column, EXACT. Closed-lot
+// P&L intentionally NOT tracked (Ron's ruling) — the basis, nothing else.
+// NOTE: costBasis (share stack FIFO) ≠ entrySpy (SPY spot at OPTION entry,
+// the TV-decay anchor) — distinct fields, distinct consumers, never conflate.
+let _impBasisResult = null;
+
+function _impFifoBasis(rows) { // pure; chronological raw rows {trade_date, quantity, amount}
+  const lots = []; // {q, cps} — cps from actual amount (commissions in, fees out)
+  for (const r of rows) {
+    const q = Number(r.quantity), amt = Number(r.amount);
+    if (!q) continue;
+    if (q > 0) lots.push({ q: q, cps: -amt / q });
+    else {
+      let rem = -q;
+      while (rem > 0 && lots.length) {
+        const take = Math.min(lots[0].q, rem);
+        lots[0].q -= take; rem -= take;
+        if (lots[0].q === 0) lots.shift();
+      }
+      if (rem > 0) throw new Error('FIFO oversell: ' + rem + ' sh unmatched at ' + r.trade_date);
+    }
+  }
+  const shares = lots.reduce((s, l) => s + l.q, 0);
+  const cost   = lots.reduce((s, l) => s + l.q * l.cps, 0);
+  return { shares: shares, cost: cost, basis: shares ? cost / shares : null, lotN: lots.length };
+}
+
+async function impComputeBasis() {
+  const el = $('imp-basis'); if (!el) return;
+  try {
+    el.textContent = 'reading share ledger\u2026';
+    // RAW select — deliberately NOT sbGetLiveTrades (rowToTrade-mapped shape;
+    // S50 falsification #1). symbol=SPY returns only share + dividend rows
+    // (blotter option rows carry no symbol — verified on the live table,
+    // Ron's 08-12 export); quantity≠0 drops the dividend rows.
+    const res = await fetch(`${SB_URL}/live_trades?symbol=eq.SPY&quantity=neq.0&select=trade_date,quantity,amount&order=trade_date.asc,id.asc&limit=1000`, { headers: _sbHeaders });
+    if (!res.ok) throw new Error('ledger read failed: ' + res.status);
+    const rows = await res.json();
+    if (rows.length === 1000) throw new Error('share ledger hit the 1000-row window \u2014 raise the limit or paginate'); // v6.18.11 — truncation can never hide
+    if (!rows.length) throw new Error('no SPY share rows in activity table');
+    const b = _impFifoBasis(rows);
+    _impBasisResult = { costBasis: Number(b.basis.toFixed(4)), sharesHeld: b.shares };
+    el.innerHTML = 'ledger: ' + rows.length + ' share rows \u2192 <b style="color:var(--text);">' + b.shares + ' sh</b> \u00b7 basis <b style="color:var(--text);">$' + b.basis.toFixed(4) + '</b> \u00b7 cost $' + b.cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u00b7 ' + b.lotN + ' open lots &nbsp; ' +
+      '<button onclick="impPublishBasis()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:3px 10px;cursor:pointer;">\u2b06 Publish basis \u2192 roll_params.json</button>';
+  } catch (e) { _impBasisResult = null; el.textContent = '\u2717 basis: ' + e.message; }
+}
+
+async function impPublishBasis() {
+  // Minimal dedicated writer (publishRollParams PAT/sha/spread-existing pattern):
+  // touches ONLY costBasis · sharesHeld · basisAsOf; the optimizer publish's
+  // ...existing spread preserves them thereafter; the flat-state scrub does NOT
+  // delete them (share facts survive flat, correctly, by construction).
+  const el = $('imp-basis'); if (!el) return;
+  if (!_impBasisResult) { el.textContent = 'compute first (\u27f3 Cost Basis)'; return; }
+  try {
+    let pat = localStorage.getItem('gh_pat');
+    if (!pat) {
+      pat = window.prompt('GitHub PAT (Contents read+write) to publish basis:');
+      if (!pat) return;
+      localStorage.setItem('gh_pat', pat.trim());
+    }
+    pat = pat.trim();
+    const url = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + PARAMS_FILE;
+    const gh  = { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json' };
+    const sha = (await (await fetch(url, { headers: gh })).json()).sha;
+    if (!sha) throw new Error('no file SHA');
+    let existing = {};
+    try { const r = await fetch('https://ronb36.github.io/spy-backtest/roll_params.json?_=' + Date.now(), { cache: 'no-store' }); if (r.ok) existing = await r.json(); } catch (e) {}
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); // UTC-STAMP class: ET, never toISOString
+    const payload = { ...existing, costBasis: _impBasisResult.costBasis, sharesHeld: _impBasisResult.sharesHeld, basisAsOf: today };
+    const put = await fetch(url, { method: 'PUT',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, gh),
+      body: JSON.stringify({ message: 'Publish ledger cost basis \u2014 $' + _impBasisResult.costBasis + ' \u00d7 ' + _impBasisResult.sharesHeld + ' sh (' + today + ')',
+        content: b64(JSON.stringify(payload, null, 2) + '\n'), sha: sha }) });
+    if (!put.ok) throw new Error('GitHub ' + put.status);
+    STD.costBasis = _impBasisResult.costBasis; STD.sharesHeld = _impBasisResult.sharesHeld; // in-memory mirrors the publish (missed-reader class: the banner reads STD)
+    updateInitPosition(); // banner re-renders with the ledger share count
+    el.innerHTML = '\u2713 published costBasis $' + _impBasisResult.costBasis + ' \u00b7 sharesHeld ' + _impBasisResult.sharesHeld + ' \u00b7 ' + today;
+  } catch (e) { el.textContent = '\u2717 publish: ' + e.message; }
 }
 
 function _blotterPairDisplay(sorted) { // v6.18.3 — pure; input order preserved; merge only adjacent same-date leg-complements
