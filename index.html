@@ -158,7 +158,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.27.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.28.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -563,7 +563,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.27.0 · FLIP-RATE PROBE (S53 registered study, Ron approved). Research-tab, Debug-only measurement instrument — ZERO sim-path source changes. Architecture: runtime wrap of findNextContract during an armed probe run; every selection event records Frame B = the sim's own call (returned unchanged — B ≡ actual selection BY CONSTRUCTION) and Frame A = a second call with the full t−1 input vector (prior-day SPY close · prior-day VIX · chain keyed to prior date · position-leg buyback at its prior-day vw/c; expiry-settlement buyback 0 stays 0 by convention). A-frame side effects contained: logDbg suppressed + _gaps truncated around the A call. M1 = A/B pick flip (expiry or strike, incl. menu-existence flips). M2 = A-pick's sim-frame delta re-evaluated at B(fresh) inputs ≥ entryDeltaCap (0.69). CSV export + summary vs registered gates (proceed M1>10% or M2>2%; predictions M1 20% [10–35], M2 4% [1–8]; Ron's declared prior noted). Wrapper installs only for the probe run and restores in finally. Prior release v6.26.1; see CHANGELOG.md. CERT: boot clean · probe DISARMED STD pair carries (127 · 8.5% · $59,376) · probe ARMED STD pair IDENTICAL (wrapper transparency = the discriminating evidence) · probe row count = run selection events · Frame B column ≡ run's roll log picks</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.28.0 · FRESH-INPUT LIVE SCAN (S53, Ron approved; gated by the flip-rate probe verdict: M1 65.9% · M2 7.8% — both registered gates cleared; Ron's ruling: FRESH GOVERNS the ranking). Scan-tab only — ZERO sim-path changes; optimization never leaves the DM. Three changes: (1) deltaSim's VIX goes FRESH — fetchLiveVIX alongside the scan, DM-latest retained as loud fallback; the sim-frame entry cap now gates on live vol (the M2 mechanism). (2) AFTER-HOURS REPRICE — quoteless rows (no bid/ask; snapshot mid degraded to day-close) are repriced via the agent v1.7.28 pattern: latest same-day option minute bar paired with the SPY bar of the SAME minute (per-minute SPY cache) → implied vol (bisection, STANDARD BSM with true normal CDF — market-price space, deliberately NOT the S30 √2 sim-delta transform) → theo at fresh spot. pxSrc marks mid/theo-trade/dc-mid; failures keep the day-close mid, flagged. (3) DM-CLOSE SHADOW — the full ranking recomputed in the stale frame (DM last-close spot · DM VIX · DM chain premiums via direct DM.options index (— _dmExpiryIndex is simulate()-scoped, unavailable at scan time) · DM-dated DTE · position-leg buyback at its DM bar), same filters, same formulas; shadow #1 ≠ fresh #1 raises a loud frame-flip flag + standing log line — the live M1 observable. Registered prediction (S53): live shadow-flip rate on actual roll days ~65% [45–85]. Prior release v6.27.0; see CHANGELOG.md. CERT: boot clean · STD pair carries vs v6.27.0 on same DM (sim untouched) · flip-rate probe re-run byte-stable modulo DM growth (regression) · scan run shows fresh VIX line + shadow verdict line · quoteless-reprice path exercised (after-hours scan or mocked)</span>
   </div>
 </div>
 
@@ -732,7 +732,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.27.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.28.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -6205,6 +6205,73 @@ async function fetchLiveVIX(polygonKey) {
   } catch(e) { return null; }
 }
 
+// ── v6.28.0 · fresh-scan helpers ─────────────────────────────────────────────
+// STANDARD Black-Scholes in MARKET-PRICE space: true normal CDF (with the /√2
+// the S30 finding shows normalCDF omits). These price/imply against real market
+// quotes — they must NOT use the sim-delta √2 transform, which is a calibrated
+// threshold-space convention, not a pricing model. Scan-side only; no sim reads.
+// (Read-back catch: no global erf exists — normalCDF inlines A&S; same here.)
+function _erfAS(x) {
+  const a1=.254829592, a2=-.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=.3275911;
+  const s = x < 0 ? -1 : 1, v = Math.abs(x);
+  const t = 1 / (1 + p * v);
+  return s * (1 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-v*v));
+}
+function _phiTrue(x) { return 0.5 * (1 + _erfAS(x / Math.SQRT2)); }
+// q = SPY trailing dividend yield (~1.2%/yr, slow-moving; display-frame constant).
+// Harness catch (S53): without q the zero-vol floor S−K·e^{−rT} EXCEEDS real
+// long-dated call prices (533d ATM: floor ~$51 vs market ~$41) — every imply
+// slams the bisection floor and the theo reprices FAIL-HIGH, the agent-theo
+// defect class. Carry-adjusted floor sits back below market.
+const _SPY_DIV_Y = 1.2;
+function _bsCallPxMkt(S, K, dteDays, vol, r) {
+  const T = Math.max(dteDays, 1) / 365, sig = Math.max(vol, 0.01), rr = (r != null ? r : 4.5) / 100, q = _SPY_DIV_Y / 100;
+  if (S <= 0 || K <= 0) return null;
+  const d1 = (Math.log(S / K) + (rr - q + 0.5 * sig * sig) * T) / (sig * Math.sqrt(T));
+  const d2 = d1 - sig * Math.sqrt(T);
+  return S * Math.exp(-q * T) * _phiTrue(d1) - K * Math.exp(-rr * T) * _phiTrue(d2);
+}
+function _implyIvBisect(S, K, dteDays, px, r) {
+  if (!px || px <= Math.max(0, S - K)) return null; // no time value → no finite IV
+  let lo = 0.02, hi = 1.40;
+  if (_bsCallPxMkt(S, K, dteDays, hi, r) < px) return null;
+  if (_bsCallPxMkt(S, K, dteDays, lo, r) > px) return null; // below model floor — carry mismatch, decline
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    (_bsCallPxMkt(S, K, dteDays, mid, r) > px) ? hi = mid : lo = mid;
+  }
+  const iv = (lo + hi) / 2;
+  return (iv > 0.025 && iv < 1.35) ? iv : null; // bound-slam guard: floor/ceiling implies are model-mismatch, not vol
+}
+// Trade-anchored quoteless reprice (agent v1.7.28 pattern, temporal pairing):
+// latest same-day option minute bar × SPY bar of the SAME minute → imply IV →
+// theo at FRESH spot. Per-minute SPY bars cached across contracts (one scan may
+// reprice dozens after hours; same-minute lookups repeat heavily). Returns
+// {px, iv, barTs} or null on any failure — caller keeps the day-close mid.
+async function _tradeAnchoredReprice(expiryISO, strike, dte, spyFresh, polygonKey, spyBarCache) {
+  try {
+    const occ = buildScanTicker(expiryISO, strike);
+    const day = new Date().toISOString().slice(0, 10);
+    const r1 = await fetch('https://api.polygon.io/v2/aggs/ticker/' + occ + '/range/1/minute/'
+      + day + '/' + day + '?adjusted=true&sort=desc&limit=1&apiKey=' + polygonKey);
+    if (!r1.ok) return null;
+    const b = ((await r1.json()).results || [])[0];
+    if (!b || !(b.c > 0) || !(b.t > 0)) return null;
+    let spyBar = spyBarCache[b.t];
+    if (spyBar === undefined) {
+      const r2 = await fetch('https://api.polygon.io/v2/aggs/ticker/SPY/range/1/minute/'
+        + b.t + '/' + (b.t + 59999) + '?adjusted=true&sort=asc&limit=1&apiKey=' + polygonKey);
+      spyBar = r2.ok ? (((await r2.json()).results || [])[0] || null) : null;
+      spyBarCache[b.t] = spyBar;
+    }
+    if (!spyBar || !(spyBar.c > 0)) return null;
+    const iv = _implyIvBisect(spyBar.c, strike, dte, b.c, 4.5);
+    if (!iv) return null;
+    const px = _bsCallPxMkt(spyFresh, strike, dte, iv, 4.5);
+    return (px && px > 0) ? { px, iv, barTs: b.t } : null;
+  } catch (e) { return null; }
+}
+
 // v6.4.11 — banner quote refresh, independent of Scan and DM: fires once after
 // load and on banner tap. Sources: SPY last trade + short-call snapshot mid +
 // I:VIX snapshot. Any failure leaves that field on DM† (v6.4.10 semantics).
@@ -6395,6 +6462,33 @@ async function runRollScan() {
     return;
   }
 
+  // ── v6.28.0 · quoteless-row reprice (after-hours frame repair) ────────────
+  // Rows with no bid/ask carry a DAY-CLOSE mid (fetchContractSnapshot fallback)
+  // — silently the t−1 frame the flip-rate probe indicted. Reprice each via the
+  // trade-anchored pattern (same-day option bar × same-minute SPY bar → IV →
+  // theo at FRESH spot). Failures keep the day-close mid, marked 'dc-mid'.
+  {
+    const _quoteless = results.filter(r => !r.bid || !r.ask);
+    results.forEach(r => { r.pxSrc = (r.bid && r.ask) ? 'mid' : 'dc-mid'; });
+    if (_quoteless.length) {
+      statusEl.textContent = 'Repricing ' + _quoteless.length + ' quoteless rows (trade-anchored)...';
+      const _spyBarCache = {};
+      let _repriced = 0;
+      for (let q = 0; q < _quoteless.length; q += 5) {
+        const batch = _quoteless.slice(q, q + 5);
+        const got = await Promise.all(batch.map(r =>
+          _tradeAnchoredReprice(r.exp, r.strike, r.dte, spyNow, polygonKey, _spyBarCache)));
+        for (let k = 0; k < batch.length; k++) {
+          if (got[k]) { batch[k].mid = got[k].px; batch[k].pxSrc = 'theo-trade'; batch[k].ivTrade = got[k].iv; _repriced++; }
+        }
+        await new Promise(r => setTimeout(r, 250));
+      }
+      logMsg('  v6.28.0 reprice: ' + _repriced + '/' + _quoteless.length +
+        ' quoteless rows → trade-anchored theo at fresh spot (rest keep day-close mid, flagged dc-mid)',
+        _repriced === _quoteless.length ? 'ok' : 'err');
+    }
+  }
+
   // Filter: net credit > 0 AND delta ≤ threshold — same gates as OPT
   // v5.2.0 — dtePenalty added: identical scoring to findNextContract
   // v5.13.0 — OTM parity filter: findNextContract has always required
@@ -6409,7 +6503,14 @@ async function runRollScan() {
   // frame), completing candidate-policy parity with findNextContract.
   // The v5.13.1 sentence above is superseded; market delta is display-only.
   const _vixRows = (DM && DM.vix && DM.vix.length) ? DM.vix : null;
-  const scanVix  = _vixRows ? _vixRows[_vixRows.length - 1].c : 16;
+  const dmVix    = _vixRows ? _vixRows[_vixRows.length - 1].c : 16; // v6.28.0 — retained: shadow frame input
+  // v6.28.0 — FRESH GOVERNS (Ron's ruling, flip-rate probe verdict): the
+  // sim-frame delta — and therefore the entry cap gate — now consults live
+  // VIX. DM-latest is the loud fallback, never the silent default.
+  const _liveVix = await fetchLiveVIX(polygonKey);
+  const scanVix  = _liveVix != null ? _liveVix : dmVix;
+  if (_liveVix != null) logMsg('  v6.28.0 fresh VIX ' + _liveVix.toFixed(2) + ' → deltaSim/cap gate (DM ' + dmVix.toFixed(2) + ' held for shadow)', 'ok');
+  else logMsg('  ⚠ SCAN FALLBACK: live VIX unavailable — deltaSim on DM VIX ' + dmVix.toFixed(2) + ' (stale frame)', 'err');
   const scored = results.map(r => {
     const netCredit    = currentCallMid > 0 ? r.mid - currentCallMid : r.mid;
     const dtePenalty   = Math.min(1, r.dte / anchor);
@@ -6447,6 +6548,56 @@ async function runRollScan() {
     if (j !== i) _fragileKeys.add(r.exp + '_' + r.strike);
   });
   const _scoredByKey = {}; scored.forEach(r => { _scoredByKey[r.exp + '_' + r.strike] = r; });
+
+  // ── v6.28.0 · DM-CLOSE SHADOW (the live M1 observable) ────────────────────
+  // The full ranking recomputed in the STALE frame the scan used to trade:
+  // DM last-close spot · DM VIX · DM chain premiums · DM-dated DTE · position
+  // buyback at its DM bar. Same filters, same formulas. Shadow #1 ≠ fresh #1
+  // = a frame flip — exactly what the probe measured at 65.9% on trigger days.
+  // Registered prediction (S53): live flip rate on actual roll days ~65% [45–85].
+  // NOTE: _dmExpiryIndex is simulate()-scoped and empty at scan time — the
+  // shadow indexes DM.options directly.
+  let _shadowVerdict = null; // {flip, top} — consumed by status/render below
+  try {
+    const _dmSpyRows = (DM && DM.spy && DM.spy.length) ? DM.spy : null;
+    if (_dmSpyRows) {
+      const dmSpy  = _dmSpyRows[_dmSpyRows.length - 1].c;
+      const dmDate = _dmSpyRows[_dmSpyRows.length - 1].date;
+      const _dmBar = {}; // 'exp_strike' → latest DM day bar px (vw||c)
+      Object.values(DM.options).forEach(c => {
+        const dmc = buildDayMap(c)[dmDate];
+        if (dmc && (dmc.vw || dmc.c)) _dmBar[c.expiry + '_' + c.strike] = dmc.vw || dmc.c;
+      });
+      let dmCover = 0;
+      if (!scanFlat && currentCallMid > 0) {
+        dmCover = _dmBar[posExpiry + '_' + posStrike] || currentCallMid; // fallback: live cover, logged below
+      }
+      const _shadow = results.map(r => {
+        const px = _dmBar[r.exp + '_' + r.strike];
+        if (!px) return null; // not in DM chain on dmDate — no shadow row
+        const dteDm  = Math.round((new Date(r.exp + 'T00:00:00') - new Date(dmDate + 'T00:00:00')) / 86400000);
+        if (dteDm <= 0) return null;
+        const net    = (!scanFlat && currentCallMid > 0) ? px - dmCover : px;
+        const dSim   = callDelta(dmSpy, r.strike, dteDm, dmVix, 4.5);
+        const pen    = Math.min(1, dteDm / anchor);
+        const adj    = dmSpy > 0 ? (net / dmSpy) * (365 / dteDm) * 100 * pen : 0;
+        return { exp: r.exp, strike: r.strike, net, dSim, adj,
+                 ok: net > 0 && dSim < entryCap && r.strike > dmSpy };
+      }).filter(s => s && s.ok).sort((a, b) => b.adj - a.adj);
+      const sTop = _shadow[0] || null;
+      const fTop = scored[0] || null;
+      const flip = (!!sTop !== !!fTop) || (sTop && fTop && (sTop.exp !== fTop.exp || sTop.strike !== fTop.strike));
+      _shadowVerdict = { flip, top: sTop };
+      if (!scanFlat && currentCallMid > 0 && !_dmBar[posExpiry + '_' + posStrike])
+        logMsg('  shadow: position leg has no ' + dmDate + ' DM bar — buyback approximated at live cover', 'dbg');
+      logMsg('  v6.28.0 DM-shadow (' + dmDate + ' close, SPY $' + dmSpy.toFixed(2) + ', VIX ' + dmVix.toFixed(1) + '): #1 = '
+        + (sTop ? sTop.exp + ' $' + sTop.strike + ' (adj ' + sTop.adj.toFixed(1) + '%)' : 'no qualifying candidate')
+        + (flip ? '  ⚠ FRAME FLIP — stale frame picks differently' : '  ✓ matches fresh #1'), flip ? 'err' : 'ok');
+    } else {
+      logMsg('  v6.28.0 DM-shadow skipped: no DM SPY rows', 'dbg');
+    }
+  } catch (e) { logMsg('  v6.28.0 DM-shadow failed: ' + e.message + ' — fresh ranking unaffected', 'err'); }
+
 
   // ── Data edge check on best candidate ────────────────────────────────
   const edgeWarnings = [];
