@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.30.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.30.5</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -166,8 +166,7 @@ select.display-box { cursor:pointer; outline:none; }
       <span style="color:var(--muted);">Entry <span id="init-entry-date" style="color:var(--text);">—</span></span>
       <span style="color:var(--muted);">|</span>
       <span id="init-position-line" style="color:var(--text);">—</span>
-      <span style="color:var(--muted);">|</span>
-      <span id="init-mkt-snap" style="color:var(--muted);">—</span>
+      <span id="init-mkt-snap" style="color:var(--muted);margin-left:auto;">—</span><!-- v6.30.5 — right-justified: snapshot ends flush with the grid's right card edge; pipe dropped, the gap separates -->
     </div>
     <select id="init-date" style="display:none;"></select>
     <div id="init-strike" style="display:none;"></div>
@@ -560,7 +559,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.30.4 · SCAN PHASE MARKER + BANNER DAY-CHANGE (S53, Ron approved). (1) The live-scan phase logs 'Live scan phase: fetching N combos...' at start — an exported log now self-dates (marker present without verdict lines = export taken mid-scan; the 16:53/16:58 confusion class). On-screen the Run-button counter (N/442) was already the progress truth; the log just never repeated it. (2) Banner live SPY and Call gain day-change vs their DM references (prior close / leg's DM bar): 'SPY $772.46 −$3.88 · Call $38.24 −$3.63'. Change renders ONLY on live quotes — a starred quote IS the DM value, its change is identically zero, omitted rather than displayed as a fake +$0.00. Supersedes v6.30.3 (constants strip). Display-only, ZERO sim-path changes. CERT: scan log opens its live phase with the marker · banner shows signed day-change on live quotes, none on starred · STD pair carries.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.30.5 · BANNER ALIGNMENT (S53, Ron: cosmetic — banner content lines up with the panel grid). The market-snapshot group is right-justified (margin-left:auto): 'Entry ...' opens flush with the first card's left edge, '... 3m X.XX%*' closes flush with the last card's right edge; the second pipe separator dropped (the flex gap now separates the two uses). Boxes already shared edges (.panel 16px padding both); this aligns the CONTENT. flex-wrap preserved for narrow widths. Supersedes v6.30.4 (scan phase marker + banner day-change). Display-only. CERT: banner left/right content edges align with card edges · STD pair carries.</span>
   </div>
 </div>
 
@@ -744,7 +743,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.30.4'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.30.5'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
