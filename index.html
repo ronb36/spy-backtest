@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.30.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.30.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -560,7 +560,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.30.3 · CONSTANTS STRIP (S53, Ron approved; third existing-infrastructure find of the weekend — the v6.6.1 json-footnote already lived below the grid, narrowed at v6.7.5 to unknown-keys-only). The strip now always renders a CONSTANTS segment (muted): 'DTE floor 7d · entry DTE min = floor · json │ r 4.5% (3m X.XX%*) · code' — the S48-demoted axes get a display home again (generalizing the θ-card '· json' provenance convention), and the S33 rate tripwire relocates here from the banner (banner drops '(r 4.5%)'). Provenance tags honest: floor/entryDteMin json-fed live from STD; r is a code constant. entryDteMin null renders '= floor' (the v6.4.0 coupling identity, not an invented number). Unknown-keys warning role UNCHANGED (amber, appended when present; load-failure placeholder tell preserved). Re-render at DM-ready fills the 3m reference. Orphan vval-entrydte writer (S48 card removal leftover) trimmed. Display-only, ZERO sim-path changes. CERT: strip renders constants line post-load with 3m filled after DM · banner ends at 3m X.XX%* · unknown-key warning still fires on an unrecognized json field · STD pair carries.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.30.4 · SCAN PHASE MARKER + BANNER DAY-CHANGE (S53, Ron approved). (1) The live-scan phase logs 'Live scan phase: fetching N combos...' at start — an exported log now self-dates (marker present without verdict lines = export taken mid-scan; the 16:53/16:58 confusion class). On-screen the Run-button counter (N/442) was already the progress truth; the log just never repeated it. (2) Banner live SPY and Call gain day-change vs their DM references (prior close / leg's DM bar): 'SPY $772.46 −$3.88 · Call $38.24 −$3.63'. Change renders ONLY on live quotes — a starred quote IS the DM value, its change is identically zero, omitted rather than displayed as a fake +$0.00. Supersedes v6.30.3 (constants strip). Display-only, ZERO sim-path changes. CERT: scan log opens its live phase with the marker · banner shows signed day-change on live quotes, none on starred · STD pair carries.</span>
   </div>
 </div>
 
@@ -744,7 +744,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.30.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.30.4'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -3002,13 +3002,20 @@ function updateInitPosition() {
     const spyS  = live.spy   != null ? '' : (spyV != null ? star() : '');
     const cV    = live.cover != null ? live.cover : dmCall;
     const cS    = live.cover != null ? '' : (cV != null ? star() : '');
+    // v6.30.4 — day change vs the DM reference (prior close / leg's DM bar).
+    // Only when the quote is LIVE and a DM reference exists: a starred quote
+    // IS the DM value, so its "change" would be identically zero — omitted.
+    const _chg = (lv, dmv) => (lv != null && dmv != null)
+      ? ' ' + (lv - dmv >= 0 ? '+' : '\u2212') + '$' + Math.abs(lv - dmv).toFixed(2) : '';
+    const spyChg = _chg(live.spy, dmSpy);
+    const cChg   = _chg(live.cover, dmCall);
     const vx    = live.vix   != null ? live.vix   : dmVx;
     const vxS   = live.vix   != null ? '' : (vx != null ? star() : '');
     const _ly = (DM.yields && DM.yields.length) ? DM.yields[DM.yields.length - 1] : null;
     const y3 = (_ly && _ly.y3m != null) ? _ly.y3m : null;
     const parts = [];
-    parts.push('SPY ' + (spyV != null ? '$' + spyV.toFixed(2) + spyS : '—'));
-    if (hasPosition) parts.push('Call ' + (cV != null ? '$' + cV.toFixed(2) + cS : '—'));
+    parts.push('SPY ' + (spyV != null ? '$' + spyV.toFixed(2) + spyChg + spyS : '—'));
+    if (hasPosition) parts.push('Call ' + (cV != null ? '$' + cV.toFixed(2) + cChg + cS : '—'));
     parts.push('VIX ' + (vx != null ? vx.toFixed(2) + vxS : '—'));
     parts.push('3m ' + (y3 != null ? y3.toFixed(2) + '%' + star() : '—')); // v6.30.3 — r tripwire relocated to constants strip
     snapEl.textContent = parts.join(' · ');
@@ -6487,6 +6494,7 @@ async function runRollScan() {
   statusEl.textContent = 'SPY $' + spyNow.toFixed(2) +
     (currentCallMid > 0 ? ' | Cover $' + currentCallMid.toFixed(2) : '') +
     ' | Scanning ' + combos.length + ' contracts...';
+  logMsg('Live scan phase: fetching ' + combos.length + ' combos (progress on the Run button; scan lines land as stages complete)...'); // v6.30.4 — an exported log now self-dates: this line present without verdict lines = export taken mid-scan
 
   const BATCH = 5;
   const results = [];
