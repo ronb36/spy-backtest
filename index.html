@@ -35,7 +35,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--sans); }
 .ctrl { display:flex; flex-direction:column; gap:5px; }
 .ctrl .mono-label { margin-bottom:2px; }
 .display-box { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:6px 10px; font-family:var(--mono); font-size:12px; color:var(--text); height:34px; display:flex; align-items:center; }
-.init-badge { display:inline-flex; align-items:center; gap:4px; background:rgba(91,138,245,.12); border:1px solid rgba(91,138,245,.3); border-radius:3px; padding:2px 8px; font-family:var(--mono); font-size:9px; letter-spacing:.08em; color:var(--accent); margin-left:8px; }
 select.display-box { cursor:pointer; outline:none; }
 
 /* Controls */
@@ -158,19 +157,18 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.29.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.30.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
   <div class="panel panel-accent" id="init-panel" style="display:none;padding:10px 16px;cursor:pointer;" onclick="refreshBannerQuotes()" title="Tap to refresh quotes"><!-- v6.4.11 — tap = re-fetch SPY/cover/VIX -->
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;">
-      <span id="init-badge" class="init-badge" style="margin:0;">📈 Long SPY + Short Call</span>
       <span style="color:var(--muted);">Entry <span id="init-entry-date" style="color:var(--text);">—</span></span>
       <span style="color:var(--muted);">|</span>
       <span id="init-position-line" style="color:var(--text);">—</span>
       <span style="color:var(--muted);">|</span>
       <span id="init-mkt-snap" style="color:var(--muted);">—</span>
-      <span id="init-dagger-note" style="font-size:9px;color:var(--muted);opacity:.7;display:none;">† DM close — live after Scan</span>
+      <span id="init-dagger-note" style="font-size:9px;color:var(--muted);opacity:.7;display:none;">* DM frame — tap to refresh</span>
     </div>
     <select id="init-date" style="display:none;"></select>
     <div id="init-strike" style="display:none;"></div>
@@ -563,7 +561,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.29.1 · BOOT-ORDER FIX (S53, defect caught live on the v6.29.0 deploy screenshot — logged code-defect falsification). The force-Debug block ran synchronously mid-script: toggleDebug → showTab('log') → renderPerfPanel → live_trades fetch read _sbHeaders (const at ~line 7398) before its declaration — TDZ, red '✗ live_trades: Cannot access _sbHeaders' in the Activity panel. Contained to that panel; runs were unaffected (pair carried + Cell B reproduced under v6.29.0). Fix: chip display stays synchronous; the force sequence (toggleDebug + lock + button hide + boot log line) defers via setTimeout(0) to run after full script evaluation. No other changes. CERT: override boot shows NO red live_trades error + chip swap + Debug forced + boot log line · no-override boot unchanged. v6.29.0 · SANDBOX-FORCES-DEBUG (S53, Ron's design ruling: a sandbox run IS a study — full forensics by default, one toggle not two; motivated by the fwd-yield cells shipping without per-roll cumulative lines, leaving prediction 4 unadjudicable). Boot with any research override key (ovFwd, ovDebitCap, ovScratch, ovDecay, ...) now: forces Debug mode ON via the manual toggle's own code path (sweeps disarmed, Scan tab hidden, no scan_snapshot writes — sandbox runs never touch production surfaces), hides the Debug chip, shows the amber SANDBOX chip (tooltip lists armed overrides), logs '⚠ SANDBOX MODE — overrides force Debug logging'. _sandboxLock closes both exits: toggleDebug no-ops (Debug pinned ON) and sweep-card arming is refused with a loud line (the v6.0.x auto-disarm path in toggleVar would otherwise silently drop Debug). Display/mode logic only — ZERO sim-path changes. No-override boot byte-identical. CERT: no-override boot clean + STD pair carries · override boot shows chip swap + Debug ON + boot log line · Debug button no-ops under lock · sweep arm refused under lock. v6.28.0 · FRESH-INPUT LIVE SCAN (S53, Ron approved; gated by the flip-rate probe verdict: M1 65.9% · M2 7.8% — both registered gates cleared; Ron's ruling: FRESH GOVERNS the ranking). Scan-tab only — ZERO sim-path changes; optimization never leaves the DM. Three changes: (1) deltaSim's VIX goes FRESH — fetchLiveVIX alongside the scan, DM-latest retained as loud fallback; the sim-frame entry cap now gates on live vol (the M2 mechanism). (2) AFTER-HOURS REPRICE — quoteless rows (no bid/ask; snapshot mid degraded to day-close) are repriced via the agent v1.7.28 pattern: latest same-day option minute bar paired with the SPY bar of the SAME minute (per-minute SPY cache) → implied vol (bisection, STANDARD BSM with true normal CDF — market-price space, deliberately NOT the S30 √2 sim-delta transform) → theo at fresh spot. pxSrc marks mid/theo-trade/dc-mid; failures keep the day-close mid, flagged. (3) DM-CLOSE SHADOW — the full ranking recomputed in the stale frame (DM last-close spot · DM VIX · DM chain premiums via direct DM.options index (— _dmExpiryIndex is simulate()-scoped, unavailable at scan time) · DM-dated DTE · position-leg buyback at its DM bar), same filters, same formulas; shadow #1 ≠ fresh #1 raises a loud frame-flip flag + standing log line — the live M1 observable. Registered prediction (S53): live shadow-flip rate on actual roll days ~65% [45–85]. Prior release v6.27.0; see CHANGELOG.md. CERT: boot clean · STD pair carries vs v6.27.0 on same DM (sim untouched) · flip-rate probe re-run byte-stable modulo DM growth (regression) · scan run shows fresh VIX line + shadow verdict line · quoteless-reprice path exercised (after-hours scan or mocked)</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.30.0 · TWO-USE BANNER + FOOTER TRIM (S53, Ron's spec; display-only, ZERO sim-path changes). Banner splits into two explicit uses: LEFT = position record (entry date · shares @ basis · contracts/expiry/strike @ fill — historical facts, never starred; leading 'Long SPY + Short Call' badge retired as redundant with the position line). RIGHT = market snapshot, now carrying the two decision-relevant quotes alongside VIX + 3m: SPY (live minute-agg → option-underlying → DM close) and Call (the position leg's live snapshot mid → its latest DM day bar, cached per leg and invalidated on publish). NEW * CONVENTION (replaces †): source-based — starred = DM-frame value, unstarred = market-fetched this session; age-based starring deliberately rejected (a Friday close on Sunday IS current market truth; bar-age warnings stay loud in the scan log); 3m ALWAYS starred (CMT publishes T+1–2, no live source exists — the star is the truth about the series). Boot fetch (v6.4.11) and tap-to-refresh unchanged and now populate all four. Footer changelog TRIMMED to current-entry-only per the standing in-file convention (the three-entry stack was append drift, S53 session note); full history in CHANGELOG.md. CERT: boot clean · banner shows both groups with correct star placement (DM* pre-fetch → unstarred after boot fetch; 3m always *) · badge absent · flat state shows no Call segment · STD pair carries (display-only).</span>
   </div>
 </div>
 
@@ -732,7 +730,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.29.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.30.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -757,7 +755,8 @@ let _chatKey = 'gen';            // active chat context: opt | scan | mart | gen
 let _acScanVerdictDone = false;  // one scan verdict per scan run
 let _lastVerdict = { opt: null, scan: null }; // audited verdict texts
 let _scanCtxData = null;         // scan capture for chat context + audit snapshot
-let _bannerLive = { spy: null, cover: null, vix: null }; // v6.4.10/v6.4.11 — live quotes for the position banner; null = show DM close with †
+let _bannerLive = { spy: null, cover: null, vix: null }; // v6.4.10/v6.4.11 — live quotes for the position banner; null = show DM value with * (v6.30.0 convention)
+let _dmCallBarCache = { key: null, px: null }; // v6.30.0 — position leg's latest DM bar (banner Call fallback); keyed, invalidated on leg change
 let _spyQuoteMeta = { t: null };     // v6.4.12b — timestamp (ms) of the SPY minute bar behind the current quote
 function _spyBarProv() {             // v6.4.12b — provenance string: "bar 14:43 ET, 15m"
   if (!_spyQuoteMeta.t) return null;
@@ -2945,12 +2944,10 @@ function updateInitPosition() {
   const live  = (typeof _bannerLive === 'object' && _bannerLive) ? _bannerLive : { spy: null, cover: null, vix: null }; // still feeds the VIX snapshot + provenance tooltip below
   let usedDagger = false; // snapshot dagger accounting (position line no longer daggers)
 
-  const badge    = $('init-badge');
-  const posLine  = $('init-position-line');
+  const posLine  = $('init-position-line'); // v6.30.0 — badge retired (Ron: structure is evident from the position line itself)
   const basisStr = STD.costBasis != null ? ' @ $' + Number(STD.costBasis).toFixed(2) : ''; // absent pre-publish → share count only, no fake price
   const spyLeg   = `${STD.sharesHeld || STD.shares || 600} SPY${basisStr}`; // v6.26.0 sharesHeld-first; v6.26.1 basis not mark
   if (hasPosition) {
-    if (badge) { badge.textContent = '📈 Long SPY + Short Call'; badge.style.opacity = '1'; }
     if (posLine) {
       const expStr  = fmtExpiry(STD.shortExpiry);
       const fillStr = STD.sellPrice != null ? '$' + Number(STD.sellPrice).toFixed(2) : '—';
@@ -2958,23 +2955,49 @@ function updateInitPosition() {
       posLine.style.color = 'var(--text)';
     }
   } else {
-    if (badge) { badge.textContent = '📈 Long SPY Only'; badge.style.opacity = '1'; }
     if (posLine) { posLine.textContent = spyLeg + ' · No covered call'; posLine.style.color = 'var(--muted)'; }
   }
 
   // v6.4.10 — market snapshot: VIX + 3m CMT (both DM-nightly, always †) with the
   // r-frame gap tripwire (S33: visible, not remembered) relocated from the
   // retired fixed: strip.
+  // v6.30.0 — TWO-USE BANNER (Ron's S53 spec): left group = position record
+  // (historical facts, never starred); right group = market snapshot with the
+  // two decision-relevant quotes (SPY, Call = cover cost) added to VIX + 3m.
+  // * convention (replaces †): source-based — starred = DM-frame value,
+  // unstarred = market-fetched this session. Age-based starring deliberately
+  // rejected: a Friday close on Sunday IS the freshest market truth; the scan
+  // log keeps the loud bar-age warnings. 3m is ALWAYS starred (CMT publishes
+  // T+1–2; no live source exists).
   const snapEl = $('init-mkt-snap');
   if (snapEl) {
     const dmVx = (DM.vix && DM.vix.length) ? DM.vix[DM.vix.length - 1].c : null;
-    const vx    = live.vix != null ? live.vix : dmVx; // v6.4.11 — live VIX when the indices fetch succeeds
-    const vxDag = live.vix != null ? '' : '†';
+    const dmSpy = (DM.spy && DM.spy.length) ? DM.spy[DM.spy.length - 1].c : null;
+    let dmCall = null;
+    if (hasPosition && DM.options) {
+      const _k = STD.shortExpiry + '_' + STD.shortStrike;
+      if (_dmCallBarCache.key !== _k) {
+        _dmCallBarCache.key = _k; _dmCallBarCache.px = null;
+        const c = Object.values(DM.options).find(o => o.expiry === STD.shortExpiry && +o.strike === +STD.shortStrike);
+        if (c && c.days && c.days.length) { const b = c.days[c.days.length - 1]; _dmCallBarCache.px = b.vw || b.c || null; }
+      }
+      dmCall = _dmCallBarCache.px;
+    }
+    const star = () => { usedDagger = true; return '*'; };
+    const spyV  = live.spy   != null ? live.spy   : dmSpy;
+    const spyS  = live.spy   != null ? '' : (spyV != null ? star() : '');
+    const cV    = live.cover != null ? live.cover : dmCall;
+    const cS    = live.cover != null ? '' : (cV != null ? star() : '');
+    const vx    = live.vix   != null ? live.vix   : dmVx;
+    const vxS   = live.vix   != null ? '' : (vx != null ? star() : '');
     const _ly = (DM.yields && DM.yields.length) ? DM.yields[DM.yields.length - 1] : null;
     const y3 = (_ly && _ly.y3m != null) ? _ly.y3m : null;
-    const vStr = vx != null ? (vxDag ? (usedDagger = true, vx.toFixed(2) + vxDag) : vx.toFixed(2)) : '—';
-    const yStr = y3 != null ? (usedDagger = true, y3.toFixed(2) + '%† (r 4.5%)') : '—';
-    snapEl.textContent = 'VIX ' + vStr + ' · 3m ' + yStr;
+    const parts = [];
+    parts.push('SPY ' + (spyV != null ? '$' + spyV.toFixed(2) + spyS : '—'));
+    if (hasPosition) parts.push('Call ' + (cV != null ? '$' + cV.toFixed(2) + cS : '—'));
+    parts.push('VIX ' + (vx != null ? vx.toFixed(2) + vxS : '—'));
+    parts.push('3m ' + (y3 != null ? y3.toFixed(2) + '%' + star() + ' (r 4.5%)' : '—'));
+    snapEl.textContent = parts.join(' · ');
   }
   const dagEl = $('init-dagger-note');
   if (dagEl) dagEl.style.display = usedDagger ? '' : 'none';
@@ -2983,7 +3006,7 @@ function updateInitPosition() {
   if (panel) {
     // v6.26.1 — position line is basis/fill (no quotes), so SPY provenance is
     // retired from the tooltip; the tap now only freshens the VIX snapshot.
-    panel.title = 'Tap to refresh market snapshot (VIX)' + (live.vix != null ? ' · VIX live' : ' · VIX = DM close');
+    panel.title = 'Tap to refresh market snapshot (SPY/Call/VIX)' + (live.spy != null || live.vix != null ? ' · live' : ' · * = DM frame'); // v6.30.0
   }
 
   $('init-panel').style.display = 'block';
