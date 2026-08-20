@@ -560,7 +560,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.31.2 · PHONE RUN-CARD PLACEMENT (S54, Ron's iPhone sighting): the ≤700px query's #run-publish-card grid-column:1/-1 rule (v6.19.4) exiled the Run/scan card to its own 3rd row — the query's 2-col row rule is dead (inline repeat(4,1fr) wins) so phones render 4 columns, but the full-width card rule still applied. Rule removed; as cell 8 of the 4×2 grid the card fills row 2's empty 4th slot on every width. CSS-only.</span><br><span style="color:var(--muted);opacity:.6;">v6.31.1 · STALE-RESULTS CLEAR (S54, Ron's sighting minutes after the live Cycle-7 roll): a re-scan left the PRIOR scan's Best card — Trade button included — rendered through the entire live phase, an executable-looking verdict priced against a position no longer held. Fix: summary card + candidate table cleared at live-phase start with a "⟳ Scanning — prior results cleared" placeholder; results repopulate on completion. Display-only; scan logic, reprice waterfall, and STD path untouched.</span><br><span style="color:var(--muted);opacity:.6;">v6.31.0 · SCAN REPRICE WATERFALL (S54, Ron's ruling: candidate scan accuracy requires theo; sim stays DM EOD). Live-phase pricing for BOTH legs now runs one waterfall: live NBBO mid → same-day trade-anchored theo (any-age anchor, age tagged) → carry-IV theo (IV implied from the contract's prior-session DM bar × same-date DM SPY bar, repriced to fresh spot — new rung) → day-close mid LOUD. Cover leg repriced through the identical path (the 08-18 false-HOLD: stale cover $38.24 vs true book ~$34.88). Provenance tags on cover, PASS rows, and the ★ Best line. STD sim path byte-untouched. Universe fence stays at DM edge per Ron's ruling (no expansion — the ratchet just relocates to any new edge).</span><br><span style="color:var(--muted);opacity:.6;">v6.30.6 · FRAME ALIGNMENT (S53, Ron's clarified spec — v6.30.5 attacked the wrong element and is REVERTED here: text/pipe restored exactly as pre-v6.30.5). The misalignment was frame-depth: the banner's blue outline sat flush with the page container while the trigger-card outlines sit 17px inset (16px panel padding + 1px border) inside a near-invisible parent border. Fix: banner box gets margin-left/right 17px so its outline lands on the card rail — banner frame, card frames, and the constants strip now share vertical lines. Display-only. CERT: banner outline aligns with first/last card outlines · text unchanged from v6.30.4 form · STD pair carries.</span>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.32.0 · TRIGGER METRICS + CANONICAL LABEL (S55, Ron's ruling: the mislabeled 8/3–8/4 exits are a GLITCH, not an enhancement). Root cause: the blotter's Trigger column prints a stored free-text string, and both live delta stops were written as 'cover only'/'decay' — the exit-attribution source for pool statistics carried two wrong labels. Data half fixed in place (both rows → 'delta'; prices/dates/quantities untouched). Code half: live_trades gains nullable trigger_value/trigger_threshold; BOTH ticket paths (roll + cover-only) write the metric pair beside the label, resolved by _trigMetrics() from the scan's own fire-test values — decayVal/deltaVal/dteNow were already computed for the decision and simply discarded. Blotter renders the pair in the sim debug log's own form ('delta 0.744 ≥ 0.740', 'decay 10.3% ≥ 8%', 'dte 6d ≤ 7d'); historical rows carry nulls and render bare. Canonical token parsed off any appended free-text detail (the 7/27 'TV decay 3%' pattern survives). Display+write only; STD sim path, scan logic, and reprice waterfall untouched.</span><br><span style="color:var(--muted);opacity:.6;">v6.31.2 · PHONE RUN-CARD PLACEMENT (S54, Ron's iPhone sighting): the ≤700px query's #run-publish-card grid-column:1/-1 rule (v6.19.4) exiled the Run/scan card to its own 3rd row — the query's 2-col row rule is dead (inline repeat(4,1fr) wins) so phones render 4 columns, but the full-width card rule still applied. Rule removed; as cell 8 of the 4×2 grid the card fills row 2's empty 4th slot on every width. CSS-only.</span><br><span style="color:var(--muted);opacity:.6;">v6.31.1 · STALE-RESULTS CLEAR (S54, Ron's sighting minutes after the live Cycle-7 roll): a re-scan left the PRIOR scan's Best card — Trade button included — rendered through the entire live phase, an executable-looking verdict priced against a position no longer held. Fix: summary card + candidate table cleared at live-phase start with a "⟳ Scanning — prior results cleared" placeholder; results repopulate on completion. Display-only; scan logic, reprice waterfall, and STD path untouched.</span><br><span style="color:var(--muted);opacity:.6;">v6.31.0 · SCAN REPRICE WATERFALL (S54, Ron's ruling: candidate scan accuracy requires theo; sim stays DM EOD). Live-phase pricing for BOTH legs now runs one waterfall: live NBBO mid → same-day trade-anchored theo (any-age anchor, age tagged) → carry-IV theo (IV implied from the contract's prior-session DM bar × same-date DM SPY bar, repriced to fresh spot — new rung) → day-close mid LOUD. Cover leg repriced through the identical path (the 08-18 false-HOLD: stale cover $38.24 vs true book ~$34.88). Provenance tags on cover, PASS rows, and the ★ Best line. STD sim path byte-untouched. Universe fence stays at DM edge per Ron's ruling (no expansion — the ratchet just relocates to any new edge).</span><br><span style="color:var(--muted);opacity:.6;">v6.30.6 · FRAME ALIGNMENT (S53, Ron's clarified spec — v6.30.5 attacked the wrong element and is REVERTED here: text/pipe restored exactly as pre-v6.30.5). The misalignment was frame-depth: the banner's blue outline sat flush with the page container while the trigger-card outlines sit 17px inset (16px panel padding + 1px border) inside a near-invisible parent border. Fix: banner box gets margin-left/right 17px so its outline lands on the card rail — banner frame, card frames, and the constants strip now share vertical lines. Display-only. CERT: banner outline aligns with first/last card outlines · text unchanged from v6.30.4 form · STD pair carries.</span>
   </div>
 </div>
 
@@ -744,7 +744,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.31.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.32.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -6954,6 +6954,15 @@ async function runRollScan() {
   _scanCtxData = {
     ts: new Date().toISOString(), spy: spyNow, cover: currentCallMid,
     trigger: (typeof _scanTriggerInfo === 'object' && _scanTriggerInfo && _scanTriggerInfo.type) || null,
+    // v6.32.0 — trigger METRICS beside the label (S55, Ron's spec: "actual vs
+    // threshold"). Values are already computed above for the fire test; they were
+    // simply discarded. Thresholds come from STD, the same source the test used,
+    // so the stored pair always reconciles with the decision that produced it.
+    trigVals: (typeof _scanTriggerInfo === 'object' && _scanTriggerInfo) ? {
+      decay: _scanTriggerInfo.decayVal, delta: _scanTriggerInfo.deltaVal,
+      dte:   (STD.shortExpiry ? Math.round((new Date(STD.shortExpiry + 'T12:00:00Z') - new Date()) / 86400000) : null)
+    } : {},
+    trigThres: { decay: (STD.decayTrigger || null), delta: (STD.deltaThreshold || null), dte: (STD.dteFloor || null) },
     allTypes: (typeof _scanTriggerInfo === 'object' && _scanTriggerInfo && _scanTriggerInfo.allTypes) || [], // v6.15.0 — CO-FIRE list beside the delta-first primary: the precedence is a CHOICE and P-L1's band depends on it, so alternatives survive for re-audit
     signal: (typeof _scanTriggerInfo === 'object' && _scanTriggerInfo && _scanTriggerInfo.allTypes && _scanTriggerInfo.allTypes.length) ? _scanTriggerInfo.allTypes.join('+') : 'HOLD', // v6.15.0 — the field v6.7.12's Cover Only prefill has read since it shipped; it NEVER EXISTED here, so the prefill silently no-opped
     top: scored.slice(0, 5).map(r => ({ exp: r.exp, strike: r.strike, mid: +r.mid.toFixed(2),
@@ -7321,6 +7330,25 @@ function openTradeModal(strike, exp, dte, delta, otm) {
 
 let _ttEnabled = null; // v6.1.9 — selectable close reasons for the open ticket
 
+function _trigMetrics(reason) { // v6.32.0 — (value, threshold) for a canonical close reason
+  const c = (typeof _scanCtxData === 'object' && _scanCtxData) ? _scanCtxData : null;
+  const key = String(reason || '').trim().split(' ')[0].toLowerCase();
+  if (!c || !c.trigVals || !['decay', 'delta', 'dte'].includes(key)) return { v: null, t: null };
+  const v = c.trigVals[key], t = (c.trigThres || {})[key];
+  return { v: (v == null || !isFinite(v)) ? null : +(+v).toFixed(key === 'delta' ? 3 : 2),
+           t: (t == null || !isFinite(t)) ? null : +t };
+}
+
+function fmtTrigMetric(reason, v, t) { // v6.32.0 — 'delta 0.744 ≥ 0.740' / 'decay 10.3% ≥ 8%'
+  const key = String(reason || '').trim().split(' ')[0].toLowerCase();
+  if (v == null || t == null) return null;
+  const op = (key === 'dte') ? '\u2264' : '\u2265';
+  if (key === 'delta') return `${(+v).toFixed(3)} ${op} ${(+t).toFixed(3)}`;
+  if (key === 'decay') return `${(+v).toFixed(1)}% ${op} ${(+t).toFixed(0)}%`;
+  if (key === 'dte')   return `${Math.round(v)}d ${op} ${Math.round(t)}d`;
+  return null;
+}
+
 function setCoCloseReason(t) { // v6.15.0 — mirrors setTradeTrigger for the Cover Only path
   if (_coTtEnabled && !_coTtEnabled.includes(t)) return; // greyed = unselectable (audit can't record fiction)
   _coCloseReason = t;
@@ -7468,7 +7496,9 @@ async function confirmTrade() {
         sellPrice:      parseFloat(sell.toFixed(2)),
         rollCredit:     parseFloat(((sell - cover) * (contracts||1) * 100).toFixed(2)),
         trigger:        _tradeCloseReason || 'roll via scan', // v6.1.0 — close-reason selector
-        note:           'ticket v6.1.10'
+        triggerValue:     _trigMetrics(_tradeCloseReason).v,  // v6.32.0 — metrics beside the label
+        triggerThreshold: _trigMetrics(_tradeCloseReason).t,
+        note:           'ticket v6.32.0'
       };
       await appendLiveTrade(liveEntry);
 
@@ -7545,7 +7575,9 @@ function tradeToRow(t) {
     sell_price:       t.sell_price ?? t.sellPrice ?? null,
     sell_contracts:   t.sell_contracts ?? t.sellContracts ?? null,
     roll_credit:      t.roll_credit ?? t.rollCredit ?? null,
-    trigger:          t.trigger || null,
+    trigger:           t.trigger || null,
+    trigger_value:     t.trigger_value ?? t.triggerValue ?? null,       // v6.32.0
+    trigger_threshold: t.trigger_threshold ?? t.triggerThreshold ?? null, // v6.32.0
     note:             t.note || null
   };
 }
@@ -7572,6 +7604,8 @@ function rowToTrade(r) {
     sellContracts:   r.sell_contracts,
     rollCredit:      r.roll_credit,
     trigger:         r.trigger,
+    triggerValue:     r.trigger_value,      // v6.32.0
+    triggerThreshold: r.trigger_threshold,  // v6.32.0
     source:          r.source, // v6.22.2 — imported facts distinguishable from tickets
     amount:          r.amount, // v6.23.0 — ledger cash column (capital-series reader)
     note:            r.note
@@ -7714,6 +7748,12 @@ function renderLiveBlotter(trades) {
                          rowType === 'open' ? 'initial sell' : '—')
       + (t._paired ? ' <span style="color:var(--muted);opacity:.7;">· 2 tickets</span>' : '');
 
+    // v6.32.0 — metric pair beside the label, in the sim debug log's own form
+    // ('delta 0.744 ≥ 0.740'). Historical rows carry nulls and render bare.
+    const _tm = fmtTrigMetric(storedTrig, t.triggerValue, t.triggerThreshold);
+    const triggerCell = triggerLabel + (_tm
+      ? ` <span style="color:var(--muted);opacity:.75;">${_tm}</span>` : '');
+
     const openBadge = isOpen
       ? ' <span style="background:var(--accent);color:#fff;border-radius:3px;padding:1px 6px;font-size:9px;letter-spacing:.06em;">OPEN</span>'
       : '';
@@ -7727,7 +7767,7 @@ function renderLiveBlotter(trades) {
       + `<td>${coverCell}</td>`
       + `<td>${sellCell}</td>`
       + `<td>${fmtCredit(t.rollCredit)}</td>`
-      + `<td style="color:var(--muted);font-size:10px;">${triggerLabel}</td>`
+      + `<td style="color:var(--muted);font-size:10px;">${triggerCell}</td>`
       + (_debugMode ? `<td><button onclick="deleteLiveTrade('${t.id}')" style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">✕</button></td>` : '<td></td>') // v6.7.15 — deletes are a debug affordance
       + '</tr>';
   });
@@ -8321,7 +8361,9 @@ async function confirmCoverOnly() {
       coverPrice:     parseFloat(price.toFixed(2)),
       sellPrice:      null,
       rollCredit:     parseFloat(totalDebit.toFixed(2)),
-      trigger:        _coCloseReason + (trigger ? ' · ' + trigger : '') // v6.15.0 — CANONICAL first (parity with the roll ticket's _tradeCloseReason); free text is appended detail
+      trigger:        _coCloseReason + (trigger ? ' · ' + trigger : ''), // v6.15.0 — CANONICAL first (parity with the roll ticket's _tradeCloseReason); free text is appended detail
+      triggerValue:     _trigMetrics(_coCloseReason).v,   // v6.32.0
+      triggerThreshold: _trigMetrics(_coCloseReason).t
     };
     await appendLiveTrade(trade);
 
