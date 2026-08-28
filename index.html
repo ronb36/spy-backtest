@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.32.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.33.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -470,6 +470,9 @@ select.display-box { cursor:pointer; outline:none; }
           <span class="chart-title">📒 Live Trade Blotter</span>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <span id="live-blotter-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
+            <!-- v6.33.0 — Cycles/Tickets toggle (S57, Ron's ruling: the row is the CYCLE; ticket view survives as the cash/reconciliation frame; Debug forces Tickets) -->
+            <button id="blot-view-cycles" onclick="setBlotterView('cycles')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--accent);border:1px solid var(--accent);border-radius:3px;color:#fff;padding:3px 10px;cursor:pointer;">Cycles</button>
+            <button id="blot-view-tickets" onclick="setBlotterView('tickets')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">Tickets</button>
             <!-- v6.1.1: Load History retired — table rebuilt from Fidelity source (S33); stale seed removed -->
             <button onclick="loadLiveBlotter()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⟳ Refresh</button>
             <button id="blot-coveronly-btn" onclick="openCoverOnlyModal()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--red);border-radius:3px;color:var(--red);padding:3px 10px;cursor:pointer;">✕ Cover Only</button>
@@ -560,7 +563,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.32.1 · TICKET PATH SYMMETRY (S57, Ron's ruling: a ticket is the ONLY thing that changes the position, so it is the only place that refreshes it — no scan-press re-read, no polling; params likewise refresh only at boot and at OPT→Publish, which already merges into STD at 4181). Sighted live 08-28 after the Cycle-8 cover-only: the roll/entry ticket mirrors STD and calls updateInitPosition() (7475), the cover-only path mirrored the scrub and never repainted, so the banner kept rendering the bought-back $765C. (1) updateInitPosition() added after the cover-only STD scrub. (2) The modal’s unconditional 900ms auto-close now yields to a roll-path-parity early return on any ⚠ branch, so ‘roll_params NOT published (no PAT)’, ‘publish failed’ and ‘audit close failed’ stay on screen — and the status read no longer assigns textContent onto itself, which was silently destroying the audit Retry button’s innerHTML. Footer trimmed to current-entry-only per standing rule. Display + in-memory state only; STD sim path, scan logic, reprice waterfall and both GitHub payloads byte-untouched.</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.33.0 · CYCLE-VIEW BLOTTER (S57, Ron’s ruling: the row is the CYCLE — a Sell opens it, its own Cover closes it — not the ticket; contract spec is a leading column, each leg is date @ price). A ticket row straddles two cycles, so Roll Credit answered a cash question with an outcome column: the 08-28 cover-only rendered −$25,338 on a −$3,246 cycle. LIVE: render-time re-pair by contract identity, most-recent-open (never adjacency); Cycles default, Tickets toggle keeps the cash/reconciliation frame; Debug forces Tickets (raw editable rows); orphan covers render amber, never dropped; long_call is not a cycle. SIM: renderCycleTable iterates r.cycles directly — the engine was cycle-keyed all along; the naked-gap split, init and ended-flat special cases collapse; Ann Yield is the engine’s own c.annYld (cycle frame); hold-days rendered from c.daysHeld (open item 18 delivered as a side effect). live_trades untouched — display transform only, append-only doctrine intact, engine byte-untouched. Base v6.32.1 (e6265e6f).</span></div>
 </div>
 
 <script>
@@ -743,7 +746,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.32.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.33.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -5062,148 +5065,73 @@ function renderSummary(r) {
 
 // ── Render: Roll Log (blotter) ─────────────────────────────────────────────
 function renderCycleTable(r) {
-  const contracts = STD.contracts != null ? STD.contracts : Math.round((STD.shares || 600) / 100); // v5.2.1 — contracts primary, no hardcode
-
-  // Format ISO date string → MM/DD/YYYY
+  // v6.33.0 — CYCLE-KEYED (S57, Ron's ruling): iterates r.cycles directly — the
+  // engine was cycle-keyed all along (entryDate/exitDate/entryPx/exitPx/pnl/
+  // daysHeld/annYld/reason per closed cycle); only this table was organized
+  // around r.rolls. The naked-gap two-row split, the init special case and the
+  // ended-flat special case all collapse: a gap is a badge on the next cycle's
+  // row, the initial cycle is row 0 with a tag, ended-flat is simply no OPEN
+  // row. Ann Yield is the engine's own c.annYld (cycle frame) — the certified
+  // instrument, not a reconstruction. Ticket cash (roll credit) lives in the
+  // Live blotter's Tickets view; a cycle row carries outcome, not cash flow.
   const fmtDate = iso => {
     if (!iso) return '—';
     const [y, m, d] = iso.slice(0, 10).split('-');
-    return `${m}/${d}/${y}`;
+    return `${m}/${d}/${y.slice(2)}`;
   };
+  const fmtPnl = v => v == null ? '<span class="muted">—</span>'
+    : `<span style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;">${v >= 0 ? '+' : '−'}$${Math.abs(Math.round(v)).toLocaleString()}</span>`;
 
-  // Format a leg string: Sell/Cover MM/DD/YYYY $Strike @ $px
-  const legStr = (action, expiry, strike, px) =>
-    `${action} ${fmtDate(expiry)} $${strike} @ $${fmt(px)}`;
-
-  // Initial row from first cycle
-  const initCycle = r.cycles[0];
-  const initRow = initCycle ? `<tr style="border-bottom:2px solid var(--border);">
-    <td class="muted" style="font-size:10px;">${fmtDate(initCycle.entryDate)}</td>
-    <td class="muted">—</td>
-    <td class="accent">${legStr('Sell', initCycle.expiry, initCycle.strike, initCycle.entryPx)}</td>
-    <td class="green" style="font-weight:600;">${fmtD(initCycle.entryPx*100*contracts)}</td>
-    <td class="muted">—</td>
-    <td class="muted">—</td>
-    <td class="muted" style="font-size:10px;">initial · yield-selected</td>
-  </tr>` : '';
-
-  // Build rows — detect naked gaps (close-only + delayed re-entry)
-  const rows = r.rolls.map((c, i) => {
-    const closedCycle  = r.cycles[i];
-    const coverPx      = closedCycle ? closedCycle.exitPx : null;
-    const coverStrike  = closedCycle ? closedCycle.strike : null;
-    const coverExpiry  = closedCycle ? closedCycle.expiry : null;
-    const closeDate    = closedCycle ? closedCycle.exitDate : null;
-    const newPx        = c.entryPx || 0;
-    const newLegStr    = newPx > 0 ? legStr('Sell', c.expiry, c.strike, newPx) : '—';
-    const rollCredit   = coverPx !== null ? (newPx - coverPx) * 100 * contracts : null;
-    const cClass       = rollCredit===null?'muted':rollCredit>=0?'green':'red';
-    const newDTE       = Math.round((new Date(c.expiry+'T00:00:00') - new Date(c.entryDate+'T00:00:00')) / 86400000);
-    const rollYld      = (rollCredit!==null && newDTE>0 && c.entrySPY)
-      ? ((newPx-(coverPx||0))/c.entrySPY)*(365/newDTE)*100 : null;
-    const yClass       = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
-    const approx       = c.approx?'<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>':'';
-    // v5.14.1 — Cycle P&L column: the closed cycle's realized leg P&L (the
-    // metric the headline Win Rate counts). Roll Credit is cash-flow view;
-    // this is the economic-outcome view — both now visible per row.
-    const cyclePnl     = closedCycle && closedCycle.pnl != null ? closedCycle.pnl : null;
-    const pClass       = cyclePnl===null?'muted':cyclePnl>0?'green':'red';
-    const pnlCell      = `<td class="${pClass}" style="font-weight:600;">${cyclePnl!==null?fmtD(cyclePnl):'—'}</td>`;
-    // v6.5.0 — gate removed: gap holds are always no-credit-candidate holds.
-    const holdLabel    = 'no credit candidate — held long';
-    const coverStr     = coverStrike ? legStr('Cover', coverExpiry, coverStrike, coverPx) : '—';
-
-    // Detect gap: close date and re-entry date differ by more than 1 day
-    const gapDays = closeDate && c.entryDate
-      ? Math.round((new Date(c.entryDate+'T00:00:00') - new Date(closeDate+'T00:00:00')) / 86400000)
-      : 0;
-
-    if (gapDays > 1) {
-      // Split into two rows: close-only row + re-entry row
-      const nakedBadge = `<span style="background:var(--yellow);color:#000;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">No Covered Call for ${gapDays}d</span>`;
-      const closeRow = `<tr style="opacity:0.85;">
-        <td class="muted" style="font-size:10px;">${fmtDate(closeDate)}${approx}</td>
-        <td class="red">${coverStr}</td>
-        <td class="muted">—${nakedBadge}</td>
-        <td class="muted">—</td>
-        ${pnlCell}
-        <td class="muted">—</td>
-        <td class="muted" style="font-size:10px;">${closedCycle?.reason || ''} · ${holdLabel}</td>
-      </tr>`;
-      const reentryRow = `<tr>
-        <td class="muted" style="font-size:10px;">${fmtDate(c.entryDate)}</td>
-        <td class="muted">—</td>
-        <td class="accent">${newLegStr}</td>
-        <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
-        <td class="muted">—</td>
-        <td class="muted">—</td>
-        <td class="muted" style="font-size:10px;">re-entry after ${gapDays}d hold</td><!-- v6.5.0 — _gateOn reader removed with the gate -->
-      </tr>`;
-      return closeRow + reentryRow;
-    }
-
-    // Normal same-day roll — single row
-    return `<tr>
-      <td class="muted" style="font-size:10px;">${fmtDate(closeDate || c.entryDate)}${approx}</td>
-      <td class="red">${coverStr}</td>
-      <td class="accent">${newLegStr}</td>
-      <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
-      ${pnlCell}
-      <td class="${gapDays>=1?'muted':yClass}">${gapDays>=1?'—':(rollYld!==null?fmt(rollYld,1)+'%':'—')}</td>
-      <td class="muted" style="font-size:10px;">${c.reason}${gapDays>=1?' · re-entry after '+gapDays+'d hold':''}</td>
+  let prevExit = null;
+  const rows = (r.cycles || []).map(c => {
+    const approx = c.approx ? '<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>' : '';
+    const gapDays = (prevExit && c.entryDate)
+      ? Math.round((new Date(c.entryDate + 'T00:00:00') - new Date(prevExit + 'T00:00:00')) / 86400000) : 0;
+    prevExit = c.exitDate;
+    const gapBadge = gapDays > 1
+      ? `<span style="background:var(--yellow);color:#000;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">No Covered Call for ${gapDays}d</span>` : '';
+    const closedCell = c.isExp
+      ? `<span class="muted" style="white-space:nowrap;">${fmtDate(c.exitDate)} · settled @ $${fmt(c.exitPx)}</span>`
+      : `<span class="red" style="white-space:nowrap;">${fmtDate(c.exitDate)} @ $${fmt(c.exitPx)}</span>`;
+    const yClass = c.annYld == null ? 'muted' : c.annYld >= 5 ? 'green' : c.annYld >= 0 ? 'yellow' : 'red';
+    const trig = (c.isInitial ? 'initial · ' : '') + (c.reason || '—');
+    return `<tr${c.isInitial ? ' style="border-bottom:2px solid var(--border);"' : ''}>
+      <td style="white-space:nowrap;">${fmtDate(c.expiry)} $${c.strike}C</td>
+      <td class="accent" style="white-space:nowrap;">${fmtDate(c.entryDate)} @ $${fmt(c.entryPx)}${gapBadge}</td>
+      <td>${closedCell}${approx}</td>
+      <td>${fmtPnl(c.pnl)}</td>
+      <td class="${yClass}">${c.annYld != null ? fmt(c.annYld, 1) + '%' : '—'}</td>
+      <td class="muted">${c.daysHeld != null ? c.daysHeld + 'd' : '—'}</td>
+      <td class="muted" style="font-size:10px;">${trig}</td>
     </tr>`;
   }).join('');
 
   let openRow = '';
   if (r.pendingContract) {
-    const pc          = r.pendingContract;
-    const lastClosed  = r.cycles[r.rolls.length];
-    const coverPx     = lastClosed ? lastClosed.exitPx : null;
-    const coverStrike = lastClosed ? lastClosed.strike : null;
-    const coverExpiry = lastClosed ? lastClosed.expiry : null;
-    const newPx       = pc.entryPx || 0;
-    const newLegStr   = newPx > 0 ? legStr('Sell', pc.expiry, pc.strike, newPx) : '—';
-    const rollCredit  = coverPx !== null && newPx > 0 ? (newPx - coverPx) * 100 * contracts : null;
-    const cClass      = rollCredit===null?'muted':rollCredit>=0?'green':'red';
-    const newDTE      = Math.round((new Date(pc.expiry+'T00:00:00') - new Date(pc.entryDate+'T00:00:00')) / 86400000);
-    const rollYld     = (rollCredit!==null && newDTE>0 && pc.entrySPY)
-      ? ((newPx-(coverPx||0))/pc.entrySPY)*(365/newDTE)*100 : null;
-    const yClass      = rollYld===null?'muted':rollYld>=5?'green':rollYld>=0?'yellow':'red';
-    const rollDate    = lastClosed ? lastClosed.exitDate : pc.entryDate;
-    const openBadge   = `<span style="background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">OPEN</span>`;
-    const coverStr    = coverStrike ? legStr('Cover', coverExpiry, coverStrike, coverPx) : '—';
+    const pc = r.pendingContract;
+    const lastExit = r.cycles.length ? r.cycles[r.cycles.length - 1].exitDate : null;
+    const gapDays = (lastExit && pc.entryDate)
+      ? Math.round((new Date(pc.entryDate + 'T00:00:00') - new Date(lastExit + 'T00:00:00')) / 86400000) : 0;
+    const gapBadge = gapDays > 1
+      ? `<span style="background:var(--yellow);color:#000;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">No Covered Call for ${gapDays}d</span>` : '';
+    const openBadge = `<span style="background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">OPEN</span>`;
     openRow = `<tr style="border-top:2px solid var(--accent);opacity:0.85;">
-      <td class="muted" style="font-size:10px;">${fmtDate(rollDate)}${openBadge}</td>
-      <td class="red">${coverStr}</td>
-      <td class="accent">${newLegStr}</td>
-      <td class="${cClass}" style="font-weight:600;">${rollCredit!==null?fmtD(rollCredit):'—'}</td>
-      <td class="${lastClosed && lastClosed.pnl!=null ? (lastClosed.pnl>0?'green':'red') : 'muted'}" style="font-weight:600;">${lastClosed && lastClosed.pnl!=null ? fmtD(lastClosed.pnl) : '—'}</td>
-      <td class="${yClass}">${rollYld!==null?fmt(rollYld,1)+'%':'—'}</td>
-      <td class="muted" style="font-size:10px;">${pc.reason || 'open position'}</td>
-    </tr>`;
-  } else if (r.cycles.length > r.rolls.length) {
-    // Sim ended flat (VIX-gate close, no re-entry) — the final cycle's cover
-    // has no following sell, so render it as a close-only row. Its cash is
-    // subtracted in rollCreditTotal (Final cover ledger line).
-    const lastClosed = r.cycles[r.cycles.length - 1];
-    const flatBadge  = `<span style="background:var(--yellow);color:#000;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">Long SPY Only</span>`;
-    openRow = `<tr style="border-top:2px solid var(--border);opacity:0.85;">
-      <td class="muted" style="font-size:10px;">${fmtDate(lastClosed.exitDate)}${flatBadge}</td>
-      <td class="red">${legStr('Cover', lastClosed.expiry, lastClosed.strike, lastClosed.exitPx)}</td>
+      <td style="white-space:nowrap;">${fmtDate(pc.expiry)} $${pc.strike}C</td>
+      <td class="accent" style="white-space:nowrap;">${fmtDate(pc.entryDate)} @ $${fmt(pc.entryPx)}${gapBadge}</td>
+      <td>${openBadge}</td>
       <td class="muted">—</td>
-      <td class="red" style="font-weight:600;">${fmtD(-lastClosed.exitPx*100*contracts)}</td>
-      <td class="${lastClosed.pnl!=null ? (lastClosed.pnl>0?'green':'red') : 'muted'}" style="font-weight:600;">${lastClosed.pnl!=null ? fmtD(lastClosed.pnl) : '—'}</td>
       <td class="muted">—</td>
-      <td class="muted" style="font-size:10px;">${lastClosed.reason || ''} · no re-entry</td>
+      <td class="muted">—</td>
+      <td class="muted" style="font-size:10px;">open position</td>
     </tr>`;
   }
 
   $('cycle-table').innerHTML = `<table class="tbl">
     <thead><tr>
-      <th>Date</th><th>Cover (Close)</th><th>New Leg (Open)</th>
-      <th>Roll Credit</th><th>Cycle P&L</th><th>Ann Yield</th><th>Trigger</th>
+      <th>Contract</th><th>Opened</th><th>Closed</th>
+      <th>Cycle P&L</th><th>Ann Yield</th><th>Hold</th><th>Trigger</th>
     </tr></thead>
-    <tbody>${initRow}${rows}${openRow}</tbody>
+    <tbody>${rows}${openRow}</tbody>
   </table>`;
 }
 
@@ -7671,8 +7599,142 @@ async function loadLiveBlotter() {
 // v6.1.1 — loadHistoricalTrades + embedded 163-row seed RETIRED (superseded by the Fidelity rebuild, S33)
 
 let _liveBlotterAsc = false; // default newest first
+let _blotterView = 'cycles'; // v6.33.0 — S57 ruling: the row is the CYCLE. Ticket view survives as the cash/reconciliation frame; Debug FORCES tickets (raw editable rows, deletes target real ids).
 
-function renderLiveBlotter(trades) {
+function setBlotterView(v) { _blotterView = v; if (_liveTradesCache) renderLiveBlotter(_liveTradesCache); }
+
+function _paintBlotterViewToggle(effView) { // v6.33.0
+  const pill = (id, on) => { const b = $(id); if (!b) return;
+    b.style.background = on ? 'var(--accent)' : 'var(--surface2)';
+    b.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
+    b.style.color = on ? '#fff' : 'var(--muted)'; };
+  const cb = $('blot-view-cycles'), tb = $('blot-view-tickets');
+  if (cb) cb.style.display = _debugMode ? 'none' : '';
+  if (tb) tb.style.display = _debugMode ? 'none' : '';
+  pill('blot-view-cycles', effView === 'cycles');
+  pill('blot-view-tickets', effView !== 'cycles');
+}
+
+// v6.33.0 — CYCLE PAIRING (S57 spec): render-time re-pair of ticket legs by
+// CONTRACT IDENTITY, most-recent-open — never row adjacency. Pure function of
+// the ticket rows; live_trades untouched (append-only doctrine). Within one
+// roll ticket the cover applies FIRST, then the sell (close N, open N+1 — the
+// ticket's own economics). The 08/03 two-ticket day pairs truthfully by
+// construction: its cover closes the $740C cycle, its sell opens the $755C.
+function _pairLiveCycles(trades) {
+  const toIso = d => { const m = (d || '').match(/^(\d{2})\/(\d{2})\/(\d{2})$/); return m ? '20' + m[3] + '-' + m[1] + '-' + m[2] : (d || ''); };
+  const asc = [...trades].sort((a, b) => (toIso(a.trade_date) < toIso(b.trade_date) ? -1 : 1));
+  const cycles = [], open = [], other = [];
+  asc.forEach(t => {
+    const rt = t.row_type || '';
+    if (rt === 'long_call') { other.push(t); return; } // P3 — not a cycle; CC P&L excludes it (§7, unchanged)
+    const isTerm = rt === 'assigned' || rt === 'expired' || rt === 'expired worthless';
+    if (t.coverStrike || isTerm) {
+      const k = String(t.coverStrike) + '|' + (t.coverExpiry || '');
+      let idx = -1;
+      for (let i = open.length - 1; i >= 0; i--) if (open[i].key === k) { idx = i; break; } // most-recent-open
+      const closeBits = {
+        closeDate: t.trade_date,
+        coverPrice: t.coverPrice != null ? parseFloat(t.coverPrice) : null,
+        closeType: isTerm ? (rt === 'assigned' ? 'assigned' : 'expired') : 'cover',
+        trigger: t.trigger, triggerValue: t.triggerValue, triggerThreshold: t.triggerThreshold
+      };
+      if (idx >= 0) cycles.push(Object.assign(open.splice(idx, 1)[0], closeBits));
+      else cycles.push(Object.assign({ orphan: true, strike: t.coverStrike, expiry: t.coverExpiry, // P2 — amber, never dropped
+        qty: t.coverContracts, openDate: null, sellPrice: null }, closeBits));
+    }
+    if (t.sellStrike) open.push({ key: String(t.sellStrike) + '|' + (t.sellExpiry || ''),
+      strike: t.sellStrike, expiry: t.sellExpiry, qty: t.sellContracts || t.coverContracts,
+      openDate: t.trade_date, sellPrice: t.sellPrice != null ? parseFloat(t.sellPrice) : null });
+  });
+  return { cycles, open, other, toIso };
+}
+
+function renderLiveCycles(trades) { // v6.33.0
+  const tableEl = $('live-trade-table');
+  if (!tableEl) return;
+  if (!trades || trades.length === 0) {
+    tableEl.innerHTML = '<div style="padding:20px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No live trades logged yet.</div>';
+    return;
+  }
+  const { cycles, open, other, toIso } = _pairLiveCycles(trades);
+  const holdDays = (a, b) => { const ia = toIso(a), ib = toIso(b);
+    return (ia && ib) ? Math.round((new Date(ib + 'T00:00:00') - new Date(ia + 'T00:00:00')) / 86400000) : null; };
+  const todayUS = (() => { const d = new Date(); return String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getFullYear()).slice(2); })();
+  const fmtPnl = v => v == null ? '<span class="muted">—</span>'
+    : `<span style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;">${v >= 0 ? '+' : '−'}$${Math.abs(Math.round(v)).toLocaleString()}</span>`;
+  const contractCell = c => `<span style="white-space:nowrap;">${c.expiry || '—'} $${c.strike}C</span>`;
+  const legCell = (date, px, color) => (date == null) ? '<span class="muted">—</span>'
+    : `<span style="color:${color};white-space:nowrap;">${date}${px != null ? ' @ $' + (+px).toFixed(2) : ''}</span>`;
+
+  const cycleRow = c => {
+    const pxEff = c.coverPrice != null ? c.coverPrice : (c.closeType === 'expired' ? 0 : null);
+    const pnl = (c.sellPrice != null && pxEff != null) ? (c.sellPrice - pxEff) * 100 * (c.qty || 0) : null;
+    const hold = holdDays(c.openDate, c.closeDate);
+    const storedTrig = (c.trigger != null && String(c.trigger).trim()) ? String(c.trigger).trim() : null;
+    const label = storedTrig || (c.closeType === 'assigned' ? 'assigned' : c.closeType === 'expired' ? 'expired' : '—');
+    const tm = fmtTrigMetric(storedTrig, c.triggerValue, c.triggerThreshold);
+    const closedCell = c.closeType === 'cover'
+      ? legCell(c.closeDate, c.coverPrice, 'var(--red)')
+      : `<span class="muted" style="white-space:nowrap;">${c.closeDate} · ${c.closeType}${c.coverPrice != null ? ' @ $' + (+c.coverPrice).toFixed(2) : ''}</span>`;
+    const orphanStyle = c.orphan ? 'color:var(--yellow);' : '';
+    return `<tr style="${orphanStyle}">`
+      + `<td>${contractCell(c)}</td>`
+      + `<td class="muted">${c.qty || '—'}</td>`
+      + `<td>${c.orphan ? '<span style="color:var(--yellow);">— unpaired cover</span>' : legCell(c.openDate, c.sellPrice, 'var(--accent)')}</td>`
+      + `<td>${closedCell}</td>`
+      + `<td>${fmtPnl(pnl)}</td>`
+      + `<td class="muted">${hold != null ? hold + 'd' : '—'}</td>`
+      + `<td class="muted" style="font-size:10px;">${label}${tm ? ` <span style="color:var(--muted);opacity:.75;">${tm}</span>` : ''}</td>`
+      + '</tr>';
+  };
+  const openRow = c => {
+    const run = holdDays(c.openDate, todayUS);
+    return `<tr style="background:rgba(91,138,245,.06);">`
+      + `<td>${contractCell(c)}</td>`
+      + `<td class="muted">${c.qty || '—'}</td>`
+      + `<td>${legCell(c.openDate, c.sellPrice, 'var(--accent)')}</td>`
+      + `<td><span style="background:var(--accent);color:#fff;border-radius:3px;padding:1px 6px;font-size:9px;letter-spacing:.06em;">OPEN</span></td>`
+      + `<td class="muted">—</td>`
+      + `<td class="muted">${run != null ? run + 'd' : '—'}</td>`
+      + `<td class="muted" style="font-size:10px;">open position</td>`
+      + '</tr>';
+  };
+  const otherRow = t => `<tr>`
+      + `<td><span style="white-space:nowrap;">${t.sellExpiry || '—'} $${t.sellStrike}C</span></td>`
+      + `<td class="muted">${t.sellContracts || '—'}</td>`
+      + `<td>${legCell(t.trade_date, t.sellPrice != null ? parseFloat(t.sellPrice) : null, 'var(--accent)')}</td>`
+      + `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`
+      + `<td class="muted" style="font-size:10px;">long call — not a cycle</td>`
+      + '</tr>';
+
+  const closedSorted = [...cycles].sort((a, b) => (toIso(a.closeDate) < toIso(b.closeDate) ? -1 : 1));
+  if (!_liveBlotterAsc) closedSorted.reverse();
+  const openSorted = [...open].sort((a, b) => (toIso(a.openDate) < toIso(b.openDate) ? -1 : 1));
+  if (!_liveBlotterAsc) openSorted.reverse();
+  const body = _liveBlotterAsc
+    ? closedSorted.map(cycleRow).join('') + other.map(otherRow).join('') + openSorted.map(openRow).join('')
+    : openSorted.map(openRow).join('') + closedSorted.map(cycleRow).join('') + other.map(otherRow).join('');
+
+  const sortArrow = _liveBlotterAsc ? ' ↑' : ' ↓';
+  tableEl.innerHTML = '<table class="tbl">'
+    + '<thead><tr>'
+    + '<th>Contract</th><th>Qty</th>'
+    + `<th style="cursor:pointer;" onclick="toggleLiveSort()">Opened${sortArrow}</th>`
+    + '<th>Closed</th><th>Cycle P&L</th><th>Hold</th><th>Trigger</th>'
+    + '</tr></thead>'
+    + '<tbody>' + body + '</tbody>'
+    + '</table>';
+}
+
+function renderLiveBlotter(trades) { // v6.33.0 — dispatcher: Debug forces Tickets (raw rows)
+  const effView = _debugMode ? 'tickets' : _blotterView;
+  _paintBlotterViewToggle(effView);
+  if (effView === 'cycles') return renderLiveCycles(trades);
+  renderLiveTickets(trades);
+}
+
+function renderLiveTickets(trades) {
   const tableEl   = $('live-trade-table');
   if (!tableEl) return;
 
