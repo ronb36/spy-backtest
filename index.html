@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.32.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.32.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -558,10 +558,9 @@ select.display-box { cursor:pointer; outline:none; }
 
   <div class="footer">
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
-    Option prices are EOD VWAP/close. P&amp;L reflects premium collected net of buybacks.
+    Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: CHANGELOG.md, maintained in the project folder (moved out of the repo at S46; all components; repo copy is a frozen snapshot through v6.18.10).</span><br><span style="color:var(--muted);opacity:.6;">v6.32.0 · TRIGGER METRICS + CANONICAL LABEL (S55, Ron's ruling: the mislabeled 8/3–8/4 exits are a GLITCH, not an enhancement). Root cause: the blotter's Trigger column prints a stored free-text string, and both live delta stops were written as 'cover only'/'decay' — the exit-attribution source for pool statistics carried two wrong labels. Data half fixed in place (both rows → 'delta'; prices/dates/quantities untouched). Code half: live_trades gains nullable trigger_value/trigger_threshold; BOTH ticket paths (roll + cover-only) write the metric pair beside the label, resolved by _trigMetrics() from the scan's own fire-test values — decayVal/deltaVal/dteNow were already computed for the decision and simply discarded. Blotter renders the pair in the sim debug log's own form ('delta 0.744 ≥ 0.740', 'decay 10.3% ≥ 8%', 'dte 6d ≤ 7d'); historical rows carry nulls and render bare. Canonical token parsed off any appended free-text detail (the 7/27 'TV decay 3%' pattern survives). Display+write only; STD sim path, scan logic, and reprice waterfall untouched.</span><br><span style="color:var(--muted);opacity:.6;">v6.31.2 · PHONE RUN-CARD PLACEMENT (S54, Ron's iPhone sighting): the ≤700px query's #run-publish-card grid-column:1/-1 rule (v6.19.4) exiled the Run/scan card to its own 3rd row — the query's 2-col row rule is dead (inline repeat(4,1fr) wins) so phones render 4 columns, but the full-width card rule still applied. Rule removed; as cell 8 of the 4×2 grid the card fills row 2's empty 4th slot on every width. CSS-only.</span><br><span style="color:var(--muted);opacity:.6;">v6.31.1 · STALE-RESULTS CLEAR (S54, Ron's sighting minutes after the live Cycle-7 roll): a re-scan left the PRIOR scan's Best card — Trade button included — rendered through the entire live phase, an executable-looking verdict priced against a position no longer held. Fix: summary card + candidate table cleared at live-phase start with a "⟳ Scanning — prior results cleared" placeholder; results repopulate on completion. Display-only; scan logic, reprice waterfall, and STD path untouched.</span><br><span style="color:var(--muted);opacity:.6;">v6.31.0 · SCAN REPRICE WATERFALL (S54, Ron's ruling: candidate scan accuracy requires theo; sim stays DM EOD). Live-phase pricing for BOTH legs now runs one waterfall: live NBBO mid → same-day trade-anchored theo (any-age anchor, age tagged) → carry-IV theo (IV implied from the contract's prior-session DM bar × same-date DM SPY bar, repriced to fresh spot — new rung) → day-close mid LOUD. Cover leg repriced through the identical path (the 08-18 false-HOLD: stale cover $38.24 vs true book ~$34.88). Provenance tags on cover, PASS rows, and the ★ Best line. STD sim path byte-untouched. Universe fence stays at DM edge per Ron's ruling (no expansion — the ratchet just relocates to any new edge).</span><br><span style="color:var(--muted);opacity:.6;">v6.30.6 · FRAME ALIGNMENT (S53, Ron's clarified spec — v6.30.5 attacked the wrong element and is REVERTED here: text/pipe restored exactly as pre-v6.30.5). The misalignment was frame-depth: the banner's blue outline sat flush with the page container while the trigger-card outlines sit 17px inset (16px panel padding + 1px border) inside a near-invisible parent border. Fix: banner box gets margin-left/right 17px so its outline lands on the card rail — banner frame, card frames, and the constants strip now share vertical lines. Display-only. CERT: banner outline aligns with first/last card outlines · text unchanged from v6.30.4 form · STD pair carries.</span>
-  </div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.32.1 · TICKET PATH SYMMETRY (S57, Ron's ruling: a ticket is the ONLY thing that changes the position, so it is the only place that refreshes it — no scan-press re-read, no polling; params likewise refresh only at boot and at OPT→Publish, which already merges into STD at 4181). Sighted live 08-28 after the Cycle-8 cover-only: the roll/entry ticket mirrors STD and calls updateInitPosition() (7475), the cover-only path mirrored the scrub and never repainted, so the banner kept rendering the bought-back $765C. (1) updateInitPosition() added after the cover-only STD scrub. (2) The modal’s unconditional 900ms auto-close now yields to a roll-path-parity early return on any ⚠ branch, so ‘roll_params NOT published (no PAT)’, ‘publish failed’ and ‘audit close failed’ stay on screen — and the status read no longer assigns textContent onto itself, which was silently destroying the audit Retry button’s innerHTML. Footer trimmed to current-entry-only per standing rule. Display + in-memory state only; STD sim path, scan logic, reprice waterfall and both GitHub payloads byte-untouched.</span></div>
 </div>
 
 <script>
@@ -744,7 +743,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.32.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.32.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -8404,15 +8403,25 @@ async function confirmCoverOnly() {
           body: JSON.stringify({ message: 'Cover only \u2014 FLAT \u00b7 ' + today, content: b64(JSON.stringify(payload, null, 2) + '\n'), sha: sha }) });
         if (!put.ok) throw new Error('GitHub ' + put.status);
         STD.flat = true; delete STD.shortStrike; delete STD.shortExpiry; delete STD.sellPrice; delete STD.entryDate; // v6.7.14 — in-memory mirrors the scrub
+        updateInitPosition(); // v6.32.1 (S57, Ron's ruling: a ticket is the ONLY thing that changes the position, so it is the only place that refreshes it). The roll/entry ticket mirrored STD and repainted (7475); this path mirrored and did NOT, so the banner kept rendering the dead short until some other caller happened to fire. Sighted live 08-28 after the Cycle-8 cover.
       } else {
         statusEl.textContent = '\u26a0 Row saved; roll_params NOT published (no PAT)'; statusEl.style.color = '#e0a020';
       }
     } catch (ghe) {
       statusEl.textContent = '\u26a0 Row saved; roll_params publish failed: ' + ghe.message; statusEl.style.color = '#e0a020';
     }
-    statusEl.textContent = statusEl.textContent || '\u2713 Published';
-    if (!statusEl.textContent.startsWith('\u26a0')) { statusEl.textContent = '\u2713 Published'; statusEl.style.color = 'var(--green)'; }
+    // v6.32.1 — READ the status before writing it. The prior form assigned
+    // statusEl.textContent back onto itself, which destroys innerHTML — so the
+    // audit-failure Retry button (8381) was wiped before the user could reach it.
+    const _coWarned = (statusEl.textContent || '').startsWith('\u26a0');
+    if (!_coWarned) { statusEl.textContent = '\u2713 Published'; statusEl.style.color = 'var(--green)'; }
     btn.textContent = '✓ Done';
+    // v6.32.1 — roll-path parity (7525): on a warning branch the modal STAYS OPEN.
+    // The unconditional 900ms auto-close destroyed every amber notice this path can
+    // raise — 'roll_params NOT published (no PAT)', 'publish failed', 'audit close
+    // failed' — after nine tenths of a second, leaving a booked cover row and a
+    // stale position block with nothing on screen saying so.
+    if (_coWarned) { loadLiveBlotter(); return; }
     setTimeout(() => { closeCoverOnlyModal(); loadLiveBlotter(); showTab('live'); }, 900);
   } catch(e) {
     statusEl.textContent = '✗ ' + e.message;
