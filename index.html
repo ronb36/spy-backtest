@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.33.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.33.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -563,7 +563,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.33.1 · UNIFIED CYCLE COLUMNS (S57, Ron: SIM and LIVE formatted identically — Opened is the LEADING column and the sort, then Contract · Qty · Open $ · Closed · Close $ · Cycle P&L · Ann Yield · Hold · Trigger). Live gains Ann Yield using the ENGINE’S OWN definition ((net/entrySPY)·365/days); entrySPY resolves as the DM close for the open date — the agent’s entrySpy resolution rule and the sim’s frame (spy_daily.c) — never an invented denominator; missing DM date renders —. Sim gains the Qty column (STD contracts). Live sorts on Opened (toggle preserved); sim stays chronological. Display-only on v6.33.0’s pairing; engine and live_trades byte-untouched. Base v6.33.0 (7dd5e8d0).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.33.2 · CYCLES IN DEBUG (S57 amendment, Ron: the v6.33.0 Debug-forces-Tickets ruling was wrong in practice — certs run in Debug by doctrine, so the cycle view would have been invisible on every cert day. The protected constraint is narrower: EDITS happen on raw ticket rows, and a cycle row exposes no delete, so the delete affordance belongs to Tickets view inherently. Change: Cycles default and toggle functional in BOTH modes; Debug now governs only what Tickets view shows (raw unpaired rows, ✕ deletes, repair buttons — repair-button paint moved to the dispatcher as single writer). Display-only. Base v6.33.1 (7f461dd1).</span></div>
 </div>
 
 <script>
@@ -746,7 +746,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.33.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.33.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -7610,9 +7610,11 @@ function _paintBlotterViewToggle(effView) { // v6.33.0
     b.style.background = on ? 'var(--accent)' : 'var(--surface2)';
     b.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
     b.style.color = on ? '#fff' : 'var(--muted)'; };
-  const cb = $('blot-view-cycles'), tb = $('blot-view-tickets');
-  if (cb) cb.style.display = _debugMode ? 'none' : '';
-  if (tb) tb.style.display = _debugMode ? 'none' : '';
+  // v6.33.2 — toggle lives in BOTH modes (S57 amendment: certs run in Debug by
+  // doctrine, so Debug-forces-Tickets meant the old layout on every cert day.
+  // The protected constraint is narrower: EDITS happen on raw ticket rows. A
+  // cycle row exposes no delete — the affordance belongs to Tickets view
+  // inherently, not to Debug.)
   pill('blot-view-cycles', effView === 'cycles');
   pill('blot-view-tickets', effView !== 'cycles');
 }
@@ -7744,10 +7746,12 @@ function renderLiveCycles(trades) { // v6.33.0 · v6.33.1 unified columns (S57: 
     + '</table>';
 }
 
-function renderLiveBlotter(trades) { // v6.33.0 — dispatcher: Debug forces Tickets (raw rows)
-  const effView = _debugMode ? 'tickets' : _blotterView;
-  _paintBlotterViewToggle(effView);
-  if (effView === 'cycles') return renderLiveCycles(trades);
+function renderLiveBlotter(trades) { // v6.33.2 — dispatcher: Cycles default in BOTH modes; Debug affects what Tickets view shows, not which view shows
+  _paintBlotterViewToggle(_blotterView);
+  { const _b1 = $('blot-coveronly-btn'), _b2 = $('blot-addtrade-btn'); // single writer (moved from renderLiveTickets): repair affordances are Debug-gated regardless of view
+    if (_b1) _b1.style.display = _debugMode ? '' : 'none';
+    if (_b2) _b2.style.display = _debugMode ? '' : 'none'; }
+  if (_blotterView === 'cycles') return renderLiveCycles(trades);
   renderLiveTickets(trades);
 }
 
@@ -7764,10 +7768,6 @@ function renderLiveTickets(trades) {
   // Cycles / Open Position + MTM all duplicated the Performance panel and the top blotter
   // row. Stats computations, banner populate, and the Polygon MTM fetch excised with it.
   // v6.23.1 note stands: the falsified-walk ANN YIELD died here one release earlier.
-
-  { const _b1 = $('blot-coveronly-btn'), _b2 = $('blot-addtrade-btn'); // v6.7.15 — blotter is a RECORD in normal mode; debug = editable (repair path)
-    if (_b1) _b1.style.display = _debugMode ? '' : 'none';
-    if (_b2) _b2.style.display = _debugMode ? '' : 'none'; }
 
   // Sort by trade_date — v6.1.2: reparse display MM/DD/YY to ISO so year
   // boundaries sort correctly (07/09/26 was filing between 07/09/25 and 07/10/25)
