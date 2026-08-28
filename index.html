@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.33.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.33.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -563,7 +563,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.33.2 · CYCLES IN DEBUG (S57 amendment, Ron: the v6.33.0 Debug-forces-Tickets ruling was wrong in practice — certs run in Debug by doctrine, so the cycle view would have been invisible on every cert day. The protected constraint is narrower: EDITS happen on raw ticket rows, and a cycle row exposes no delete, so the delete affordance belongs to Tickets view inherently. Change: Cycles default and toggle functional in BOTH modes; Debug now governs only what Tickets view shows (raw unpaired rows, ✕ deletes, repair buttons — repair-button paint moved to the dispatcher as single writer). Display-only. Base v6.33.1 (7f461dd1).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.33.3 · TICKET-SHAPED CYCLE ROWS (S57, Ron): Qty moves to the SECOND column (reads like a trade ticket) · Ann Yield column DELETED from both cycle tables — P&L judges the cycle, and annualizing 1–3d holds printed noise (−611% on a 1-day stop) · SIM sorts NEWEST ON TOP matching live (rows built chronologically so gap badges compute correctly, then reversed; OPEN row leads with accent band). The v6.33.1 live Ann-Yield DM-close machinery is removed with the column. Display-only. Base v6.33.2 (a3851c60).</span></div>
 </div>
 
 <script>
@@ -746,7 +746,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.33.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.33.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -5065,11 +5065,10 @@ function renderSummary(r) {
 
 // ── Render: Roll Log (blotter) ─────────────────────────────────────────────
 function renderCycleTable(r) {
-  // v6.33.0 cycle-keyed · v6.33.1 UNIFIED COLUMNS (S57, Ron: SIM and LIVE render
-  // identically — Opened leads and sorts · Contract · Qty · Open $ · Closed ·
-  // Close $ · Cycle P&L · Ann Yield · Hold · Trigger). Iterates r.cycles directly;
-  // Ann Yield/Hold are the engine's own c.annYld/c.daysHeld. Sim renders
-  // chronological by Opened (ascending ledger order); initial cycle is row 0.
+  // v6.33.0 cycle-keyed · v6.33.3 (S57, Ron): SIM and LIVE identical — Opened ·
+  // Qty · Contract · Open $ · Closed · Close $ · Cycle P&L · Hold · Trigger,
+  // NEWEST ON TOP (rows built chronologically for the gap computation, then
+  // reversed; OPEN row leads). Ann Yield column deleted — P&L judges the cycle.
   const contracts = STD.contracts != null ? STD.contracts : Math.round((STD.shares || 600) / 100);
   const fmtDate = iso => {
     if (!iso) return '—';
@@ -5078,11 +5077,9 @@ function renderCycleTable(r) {
   };
   const fmtPnl = v => v == null ? '<span class="muted">—</span>'
     : `<span style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;">${v >= 0 ? '+' : '−'}$${Math.abs(Math.round(v)).toLocaleString()}</span>`;
-  const yCell = y => y == null ? '<td class="muted">—</td>'
-    : `<td class="${y >= 5 ? 'green' : y >= 0 ? 'yellow' : 'red'}">${fmt(y, 1)}%</td>`;
 
   let prevExit = null;
-  const rows = (r.cycles || []).map(c => {
+  const rowList = (r.cycles || []).map(c => {
     const approx = c.approx ? '<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>' : '';
     const gapDays = (prevExit && c.entryDate)
       ? Math.round((new Date(c.entryDate + 'T00:00:00') - new Date(prevExit + 'T00:00:00')) / 86400000) : 0;
@@ -5091,19 +5088,19 @@ function renderCycleTable(r) {
       ? `<span style="background:var(--yellow);color:#000;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">No CC ${gapDays}d</span>` : '';
     const settleTag = c.isExp ? ' <span class="muted" style="font-size:9px;">settled</span>' : '';
     const trig = (c.isInitial ? 'initial · ' : '') + (c.reason || '—');
-    return `<tr${c.isInitial ? ' style="border-bottom:2px solid var(--border);"' : ''}>
+    return `<tr>
       <td style="white-space:nowrap;">${fmtDate(c.entryDate)}${gapBadge}</td>
-      <td style="white-space:nowrap;">${fmtDate(c.expiry)} $${c.strike}C</td>
       <td class="muted">${contracts}</td>
+      <td style="white-space:nowrap;">${fmtDate(c.expiry)} $${c.strike}C</td>
       <td class="accent">$${fmt(c.entryPx)}</td>
       <td style="white-space:nowrap;" class="${c.isExp ? 'muted' : ''}">${fmtDate(c.exitDate)}${settleTag}${approx}</td>
       <td class="red">$${fmt(c.exitPx)}</td>
       <td>${fmtPnl(c.pnl)}</td>
-      ${yCell(c.annYld)}
       <td class="muted">${c.daysHeld != null ? c.daysHeld + 'd' : '—'}</td>
       <td class="muted" style="font-size:10px;">${trig}</td>
     </tr>`;
-  }).join('');
+  });
+  rowList.reverse(); // newest on top; gap badges were computed in chronological order above
 
   let openRow = '';
   if (r.pendingContract) {
@@ -5113,13 +5110,12 @@ function renderCycleTable(r) {
       ? Math.round((new Date(pc.entryDate + 'T00:00:00') - new Date(lastExit + 'T00:00:00')) / 86400000) : 0;
     const gapBadge = gapDays > 1
       ? `<span style="background:var(--yellow);color:#000;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">No CC ${gapDays}d</span>` : '';
-    openRow = `<tr style="border-top:2px solid var(--accent);opacity:0.85;">
+    openRow = `<tr style="border-bottom:2px solid var(--accent);opacity:0.85;background:rgba(91,138,245,.06);">
       <td style="white-space:nowrap;">${fmtDate(pc.entryDate)}${gapBadge}</td>
-      <td style="white-space:nowrap;">${fmtDate(pc.expiry)} $${pc.strike}C</td>
       <td class="muted">${contracts}</td>
+      <td style="white-space:nowrap;">${fmtDate(pc.expiry)} $${pc.strike}C</td>
       <td class="accent">$${fmt(pc.entryPx)}</td>
       <td><span style="background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;letter-spacing:.06em;">OPEN</span></td>
-      <td class="muted">—</td>
       <td class="muted">—</td>
       <td class="muted">—</td>
       <td class="muted">—</td>
@@ -5129,11 +5125,11 @@ function renderCycleTable(r) {
 
   $('cycle-table').innerHTML = `<table class="tbl">
     <thead><tr>
-      <th>Opened</th><th>Contract</th><th>Qty</th><th>Open $</th>
+      <th>Opened</th><th>Qty</th><th>Contract</th><th>Open $</th>
       <th>Closed</th><th>Close $</th>
-      <th>Cycle P&L</th><th>Ann Yield</th><th>Hold</th><th>Trigger</th>
+      <th>Cycle P&L</th><th>Hold</th><th>Trigger</th>
     </tr></thead>
-    <tbody>${rows}${openRow}</tbody>
+    <tbody>${openRow}${rowList.join('')}</tbody>
   </table>`;
 }
 
@@ -7654,7 +7650,7 @@ function _pairLiveCycles(trades) {
   return { cycles, open, other, toIso };
 }
 
-function renderLiveCycles(trades) { // v6.33.0 · v6.33.1 unified columns (S57: Opened leads + sorts · Contract · Qty · Open $ · Closed · Close $ · P&L · Ann Yield · Hold · Trigger — SIM and LIVE identical)
+function renderLiveCycles(trades) { // v6.33.1 unified · v6.33.3 (S57, Ron): Qty SECOND (reads like a trade ticket) · Ann Yield DELETED (P&L judges the cycle; annualizing 1–3d holds printed noise like −611%)
   const tableEl = $('live-trade-table');
   if (!tableEl) return;
   if (!trades || trades.length === 0) {
@@ -7665,19 +7661,8 @@ function renderLiveCycles(trades) { // v6.33.0 · v6.33.1 unified columns (S57: 
   const holdDays = (a, b) => { const ia = toIso(a), ib = toIso(b);
     return (ia && ib) ? Math.round((new Date(ib + 'T00:00:00') - new Date(ia + 'T00:00:00')) / 86400000) : null; };
   const todayUS = (() => { const d = new Date(); return String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getFullYear()).slice(2); })();
-  // v6.33.1 — live Ann Yield, ENGINE'S OWN definition ((net/entrySPY)·365/days·100).
-  // entrySPY = DM close for the open date — the agent's entrySpy resolution rule and
-  // the sim's frame (spy_daily.c). No per-row entry spot is stored on tickets; the DM
-  // close is the certified stand-in, not an invented denominator. Missing date → —.
-  const _dmSpy = (() => { const m = {}; ((typeof DM === 'object' && DM && DM.spy) || []).forEach(r => { m[String(r.date).slice(0,10)] = r.c; }); return m; })();
-  const annYldLive = (net, openDate, days) => {
-    const spy = _dmSpy[toIso(openDate)];
-    return (net != null && spy > 0 && days != null) ? (net / spy) * (365 / Math.max(1, days)) * 100 : null;
-  };
   const fmtPnl = v => v == null ? '<span class="muted">—</span>'
     : `<span style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;">${v >= 0 ? '+' : '−'}$${Math.abs(Math.round(v)).toLocaleString()}</span>`;
-  const yCell = y => y == null ? '<td class="muted">—</td>'
-    : `<td class="${y >= 5 ? 'green' : y >= 0 ? 'yellow' : 'red'}">${fmt(y, 1)}%</td>`;
   const px = v => v != null ? '$' + (+v).toFixed(2) : '—';
 
   const cycleRow = c => {
@@ -7685,20 +7670,18 @@ function renderLiveCycles(trades) { // v6.33.0 · v6.33.1 unified columns (S57: 
     const netPx = (c.sellPrice != null && pxEff != null) ? c.sellPrice - pxEff : null;
     const pnl = netPx != null ? netPx * 100 * (c.qty || 0) : null;
     const hold = holdDays(c.openDate, c.closeDate);
-    const ay = annYldLive(netPx, c.openDate, hold);
     const storedTrig = (c.trigger != null && String(c.trigger).trim()) ? String(c.trigger).trim() : null;
     const label = storedTrig || (c.closeType === 'assigned' ? 'assigned' : c.closeType === 'expired' ? 'expired' : '—');
     const tm = fmtTrigMetric(storedTrig, c.triggerValue, c.triggerThreshold);
     const closeTag = c.closeType !== 'cover' ? ` <span class="muted" style="font-size:9px;">${c.closeType}</span>` : '';
     return `<tr${c.orphan ? ' style="color:var(--yellow);"' : ''}>`
       + `<td style="white-space:nowrap;">${c.orphan ? '<span style="color:var(--yellow);">— unpaired</span>' : (c.openDate || '—')}</td>`
-      + `<td style="white-space:nowrap;">${c.expiry || '—'} $${c.strike}C</td>`
       + `<td class="muted">${c.qty || '—'}</td>`
+      + `<td style="white-space:nowrap;">${c.expiry || '—'} $${c.strike}C</td>`
       + `<td class="accent">${c.orphan ? '—' : px(c.sellPrice)}</td>`
       + `<td style="white-space:nowrap;" class="${c.closeType === 'cover' ? '' : 'muted'}">${c.closeDate || '—'}${closeTag}</td>`
       + `<td class="red">${px(c.coverPrice)}</td>`
       + `<td>${fmtPnl(pnl)}</td>`
-      + yCell(ay)
       + `<td class="muted">${hold != null ? hold + 'd' : '—'}</td>`
       + `<td class="muted" style="font-size:10px;">${label}${tm ? ` <span style="color:var(--muted);opacity:.75;">${tm}</span>` : ''}</td>`
       + '</tr>';
@@ -7707,11 +7690,10 @@ function renderLiveCycles(trades) { // v6.33.0 · v6.33.1 unified columns (S57: 
     const run = holdDays(c.openDate, todayUS);
     return `<tr style="background:rgba(91,138,245,.06);">`
       + `<td style="white-space:nowrap;">${c.openDate || '—'}</td>`
-      + `<td style="white-space:nowrap;">${c.expiry || '—'} $${c.strike}C</td>`
       + `<td class="muted">${c.qty || '—'}</td>`
+      + `<td style="white-space:nowrap;">${c.expiry || '—'} $${c.strike}C</td>`
       + `<td class="accent">${px(c.sellPrice)}</td>`
       + `<td><span style="background:var(--accent);color:#fff;border-radius:3px;padding:1px 6px;font-size:9px;letter-spacing:.06em;">OPEN</span></td>`
-      + `<td class="muted">—</td>`
       + `<td class="muted">—</td>`
       + `<td class="muted">—</td>`
       + `<td class="muted">${run != null ? run + 'd' : '—'}</td>`
@@ -7720,14 +7702,13 @@ function renderLiveCycles(trades) { // v6.33.0 · v6.33.1 unified columns (S57: 
   };
   const otherRow = t => `<tr>`
       + `<td style="white-space:nowrap;">${t.trade_date || '—'}</td>`
-      + `<td style="white-space:nowrap;">${t.sellExpiry || '—'} $${t.sellStrike}C</td>`
       + `<td class="muted">${t.sellContracts || '—'}</td>`
+      + `<td style="white-space:nowrap;">${t.sellExpiry || '—'} $${t.sellStrike}C</td>`
       + `<td class="accent">${t.sellPrice != null ? px(parseFloat(t.sellPrice)) : '—'}</td>`
-      + `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`
+      + `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`
       + `<td class="muted" style="font-size:10px;">long call — not a cycle</td>`
       + '</tr>';
 
-  // v6.33.1 — Opened IS the sort (Ron). One list, one key; orphans key on closeDate.
   const rowsAll = [
     ...cycles.map(c => ({ k: toIso(c.openDate || c.closeDate), h: cycleRow(c) })),
     ...open.map(c => ({ k: toIso(c.openDate), h: openRow(c) })),
@@ -7739,8 +7720,8 @@ function renderLiveCycles(trades) { // v6.33.0 · v6.33.1 unified columns (S57: 
   tableEl.innerHTML = '<table class="tbl">'
     + '<thead><tr>'
     + `<th style="cursor:pointer;" onclick="toggleLiveSort()">Opened${sortArrow}</th>`
-    + '<th>Contract</th><th>Qty</th><th>Open $</th><th>Closed</th><th>Close $</th>'
-    + '<th>Cycle P&L</th><th>Ann Yield</th><th>Hold</th><th>Trigger</th>'
+    + '<th>Qty</th><th>Contract</th><th>Open $</th><th>Closed</th><th>Close $</th>'
+    + '<th>Cycle P&L</th><th>Hold</th><th>Trigger</th>'
     + '</tr></thead>'
     + '<tbody>' + rowsAll.map(r => r.h).join('') + '</tbody>'
     + '</table>';
