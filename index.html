@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.34.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.34.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -556,7 +556,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.34.1 · SCAN STATUS MOVED INTO THE CARD (S58, Ron). The scan wrote progress prose to a #scan-status line above the results table while the card carried only "N / N" — two progress surfaces at opposite ends of the iPad, and the eye that watches the card never saw the prose. MOVE, NOT MIRROR: #scan-status and its CSS are deleted (retired-never-dormant; vcard-dte v6.19.3, vcard-opptheta v6.34.0), and one writer, setScanStatus, feeds the card sub-line #run-eval-count — idle through a scan, and given room by v6.34.0’s double-wide card. All nine writes shortened at the source to fit one line: "Live prices…", "Repricing 412 quoteless…", "SPY $765.74 · cover $13.21 · 412 contracts", and the terminal verdict as "412 cand · 412 quotes · 11 exp · ⚠ edge". The ⚠ edge flag is preserved; it is why the line is worth reading. COLOUR: progress text stays white; an error recolours the CARD (#c0392b), not the text — red on accent-blue is unreadable. ORDERING HAZARD FOUND BY GREP: setRunButtonState(‘idle’/’scan’) CLEARS #run-eval-count (v6.1.5, so no stale sweep diff survives), and all four scan error paths called it AFTER writing status — which would have wiped the message just written. Error paths now write status LAST; that ordering is load-bearing. DISPLAY-ONLY: no sim path, no trigger, no scoring touched. Base v6.34.0 (153abd25).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.34.2 · A PUBLISHED TICKET NO LONGER TRIGGERS A SCAN (S58, Ron). Both ticket paths — the roll ticket and the audit-write retry — fired runRollScan() on a timer after publishing. That scan could not say anything: the new leg had been sold at fair value moments earlier, so no candidate clears a net credit against buying it back. On the 08-31 roll it returned 0 candidates and painted the card green with "Scan Complete · 0 candidates", which reads as a failure rather than as "nothing to ask yet". A ticket updates the POSITION; it does not ask a question of the menu. Both calls removed — Re-scan is the trigger. THE PART THAT HAD TO TRAVEL WITH IT: v6.31.1 clears the prior scan’s Best card and table AT SCAN START, so deleting the scan would have left the old verdict on screen — priced against the leg just covered, Trade button live — which is precisely the 08-18 sighting v6.31.1 was built to close, reopened through the back door. New clearScanSurface() retires the menu, empties the card sub-line and returns the card to its resting Scan state; the publish path calls it where the scan used to be. Noted but NOT changed (Ron): Cover Only still does not scan, though flat is the state where an entry hunt would actually help. DISPLAY/STATE-LAYER ONLY: no sim path, no trigger, no scoring, no write path touched. Base v6.34.1 (e69305c3), certified this session — debug STD 131 cycles · $62,210 · checksum footing both ways · no θ-shadow line.</span></div>
 </div>
 
 <script>
@@ -719,7 +719,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.34.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.34.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -880,6 +880,31 @@ function setRunButtonState(state, opts = {}) {
 // status, which would have wiped the message it just wrote. The error paths
 // below now write the status LAST. Ordering is load-bearing here; do not
 // reorder these back.
+// v6.34.2 — POST-TICKET RESET (Ron, S58). A published ticket updates the
+// POSITION; it does not ask a question of the menu. Both ticket paths used to
+// fire runRollScan() on a timer, which ran a scan that could not say anything:
+// the new leg was sold at fair value moments earlier, so nothing clears a net
+// credit against buying it back. Today that painted "Scan Complete · 0
+// candidates" in green, which reads as a failure rather than as "nothing to
+// ask yet". Both calls are removed; the Re-scan button remains the trigger.
+//
+// WHY THIS FUNCTION HAD TO EXIST TO REMOVE THEM: v6.31.1 clears the prior
+// scan's Best card and table AT SCAN START. Delete the scan and nothing
+// clears — the previous verdict stays on screen, priced against the leg you
+// just covered, with its Trade button live. That is exactly the 08-18 sighting
+// v6.31.1 was built to close, and removing the scan would have reopened it
+// through the back door. So the publish path clears the surface itself.
+function clearScanSurface(reason) {
+  const summaryEl = $('roll-best-summary-wrap');
+  const tableEl   = $('roll-table-container');
+  if (summaryEl) summaryEl.innerHTML =
+    '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px 4px;">'
+    + reason + '</div>';
+  if (tableEl) tableEl.innerHTML = '';
+  setScanStatus('');                              // card sub-line back to empty
+  setRunButtonState('scan', { dmReady: true });   // resting "\uD83D\uDD0D Scan"
+}
+
 function setScanStatus(text, kind) {
   const c = $('run-eval-count'), card = $('run-publish-card');
   if (!c) return;
@@ -7348,7 +7373,13 @@ async function confirmTrade() {
       statusEl.style.color = 'var(--yellow)';
     }
 
-    setTimeout(() => { closeTradeModal(); runRollScan(); }, 1200);
+    // v6.34.2 — was: runRollScan(). The position strip is already updated
+    // above (STD writes + updateInitPosition + _bannerLive.cover = null); all
+    // that remains is to retire the menu the old position was priced against.
+    setTimeout(() => {
+      closeTradeModal();
+      clearScanSurface('Position updated \u2014 prior candidates retired (priced against the covered leg). Re-scan when you want a fresh menu.');
+    }, 1200);
 
   } catch(e) {
     statusEl.textContent = '\u2717 ' + e.message;
@@ -8217,7 +8248,10 @@ async function retryAuditWrite() {
     }
     _pendingAudit = null;
     if (st) { st.textContent = '\u2713 audit written'; st.style.color = 'var(--green)'; }
-    setTimeout(() => { closeTradeModal(); runRollScan(); }, 900);
+    setTimeout(() => { // v6.34.2 — was: runRollScan(); the retry writes audit rows, it does not change the menu's answer
+      closeTradeModal();
+      clearScanSurface('Position updated \u2014 prior candidates retired (priced against the covered leg). Re-scan when you want a fresh menu.');
+    }, 900);
   } catch (e) {
     if (st) { st.innerHTML = '\u26a0 still failing: ' + e.message.replace(/</g, '&lt;')
       + ' <button onclick="retryAuditWrite()" style="font-family:var(--mono);font-size:9px;padding:3px 10px;border-radius:3px;border:1px solid var(--yellow);background:transparent;color:var(--yellow);cursor:pointer;">Retry</button>'; st.style.color = 'var(--yellow)'; }
