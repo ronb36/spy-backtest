@@ -157,7 +157,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.33.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.34.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -180,7 +180,7 @@ select.display-box { cursor:pointer; outline:none; }
     <input type="checkbox" id="debug-toggle" checked style="display:none;">
 
     <!-- Row 1: sweepable param cards -->
-    <div id="var-card-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;grid-auto-rows:104px;"><!-- v6.8.0: 4-col rows 1-2 — decay, delta, defh, grace / dte, opptheta, entrycap, entrydte -->
+    <div id="var-card-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;grid-auto-rows:104px;"><!-- v6.8.0: 4-col rows 1-2 · v6.34.0 — decay, delta, defh, grace / entrycap, lookahead, run-publish(span 2). Row content is now exactly the six certified optimizer axes plus the action card. -->
       <div class="stat-card var-card" id="vcard-decay" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;">
         <div onclick="toggleVar('decay')" style="cursor:inherit;">
           <div class="stat-label">Exit Decay <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">trigger</span></div>
@@ -239,11 +239,7 @@ select.display-box { cursor:pointer; outline:none; }
         </div>
       </div>
 <!-- v6.19.3 — vcard-dte REMOVED (S48 ruling: full removal per otmTarget v6.14.1 precedent; v6.19.2's static-card conversion superseded pre-cert). dteFloor lives in roll_params.json + run-header PUBLISHED PARAMS; sim rail untouched. -->
-<div class="stat-card static-card" id="vcard-opptheta" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden;"><!-- v6.7.5 â display only; JSON-set, never sweepable (v6.6.0 doctrine) -->
-        <div class="stat-label">Exit Theta Opportunity <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">trigger</span></div>
-        <div class="stat-value" id="vval-opptheta" style="font-size:14px;">—</div>
-        <div class="stat-sub" id="vsub-opptheta">H — · json</div>
-      </div>
+<!-- v6.34.0 — vcard-opptheta REMOVED (S58 ruling: θ retired, never left dormant; vcard-dte v6.19.3 precedent). The freed cell is closed by run-publish-card spanning 2. -->
 <div class="stat-card var-card" id="vcard-entrycap" style="position:relative;height:104px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;cursor:pointer;overflow:hidden;"><!-- v6.4.1 -->
         <div onclick="toggleVar('entrycap')" style="cursor:inherit;">
           <div class="stat-label">Entry Delta Cap <span style="font-size:7px;opacity:.6;letter-spacing:.05em;">candidate</span></div>
@@ -273,7 +269,7 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="number" id="vstep-lookahead" value="7" min="1" max="60" step="1" onchange="updateSweepRange('lookahead')" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:30px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:9px;padding:2px;text-align:center;">
         </div>
       </div>
-      <div id="run-publish-card" style="height:104px;box-sizing:border-box;background:var(--surface);border:1px solid var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;position:relative;"><!-- v6.19.4 — cell 8 of the 4×2 grid (was grid-column:2/5 in its own row); font stepped 22→14px to match stat-value scale -->
+      <div id="run-publish-card" style="grid-column:span 2;height:104px;box-sizing:border-box;background:var(--surface);border:1px solid var(--accent);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;position:relative;"><!-- v6.19.4 — cell 8 of the 4×2 grid; font stepped 22→14px to match stat-value scale · v6.34.0 — SPANS 2 (Ron, S58): the θ card's removal freed row-2 cell 6, so the action card widens to close the row rather than leave a hole -->
         <button class="btn" id="run-btn" onclick="handleRunOrPublish()" disabled
           style="font-family:var(--mono);font-weight:700;letter-spacing:.04em;width:100%;background:transparent;color:var(--accent);border:none;cursor:pointer;opacity:.4;padding:0;line-height:1.3;text-align:center;">
           Loading…
@@ -563,7 +559,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.33.3 · TICKET-SHAPED CYCLE ROWS (S57, Ron): Qty moves to the SECOND column (reads like a trade ticket) · Ann Yield column DELETED from both cycle tables — P&L judges the cycle, and annualizing 1–3d holds printed noise (−611% on a 1-day stop) · SIM sorts NEWEST ON TOP matching live (rows built chronologically so gap badges compute correctly, then reversed; OPEN row leads with accent band). The v6.33.1 live Ann-Yield DM-close machinery is removed with the column. Display-only. Base v6.33.2 (a3851c60).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.34.0 · θ OPPORTUNITY TRIGGER REMOVED (S58, Ron). The S39 arming gate reached its full N=3 sample over 118 instrumented era states and FAILED 3 of 4 pre-registered criteria (S57 adjudication); retired, never left dormant — the v6.5.0 VIX-gate precedent. Nineteen sites across six surfaces: the Off card (run-publish-card now spans 2 to close the freed cell, leaving the row as exactly the six certified optimizer axes) · STD defaults, loader reads and updateThetaCard · evaluateOppGap and the sim trigger, oppPick override and run-header echo · the 'opp' exit-attribution pool · the scan shadow, its scan_snapshot field and status segment · the Research track. SIM-TOUCHING BUT IDENTITY-POINT: every θ path was gated on oppTheta != null and roll_params never armed it, so the STD log is expected BYTE-IDENTICAL — that identity IS the cert (Ron’s S58 ruling); discrimination comes from the scan log, the card row and Research going 2 tracks to 1. oppTheta/oppH stay OFF the footnote KNOWN list: while roll_params.json still carries them they print as ⚠ no card, the honest state, and the tell clears when the fields do. scan_snapshot.opp_shadow keeps its historical rows and writes null hereafter. Base v6.33.3 (afc9869e).</span></div>
 </div>
 
 <script>
@@ -606,21 +602,19 @@ let STD = {
   defHorizon:     0,    // v6.3.0 — defense horizon (days); 0 = off ≡ full DTE (embedded null)
   entryDeltaCap:  null, // v6.4.0 — candidate-side Δ cap; null = follow deltaThreshold (embedded identity)
   entryDteMin:    null, // v6.4.0 — candidate-side min DTE; null = follow dteFloor (embedded identity)
-  oppTheta:       null, // v6.6.0 — θ opportunity trigger, $/share friction hurdle; null = OFF (identity point)
-  oppH:           6,    // v6.6.0 — θ horizon in days (read only when oppTheta != null); ~6d = measured hold physics
-};
+}; // v6.34.0 — oppTheta/oppH dropped with the θ trigger (S58)
 
 // (v5.2.2 — _debugOverrides removed: the card-edit input UI was deleted in
 // v4.1.1, leaving this state with no writer. Debug mode = verbose log only.)
 
-// v6.6.1 — JSON-only fields footnote writer. Renders the LOADED values of every
-// roll_params field that has no card (currently oppTheta + oppH), plus any
-// unknown key the JSON carries (all-readers rule, display side, future-proofed).
-// Amber when θ is armed — null-vs-0 is load-bearing (0 = free-fire toll, NOT off).
+// v6.6.1 — JSON-only fields footnote writer. Renders any unknown key the JSON
+// carries (all-readers rule, display side, future-proofed) plus the constants
+// segment. v6.34.0 — no field-with-a-value case remains: θ was the last
+// carded-elsewhere pair, and it is gone.
 // Known list = every field with a card, banner, or intentional non-display home.
 function renderJsonFootnote(raw) {
-  // v6.7.5 — \u03b8 display promoted to its card (updateThetaCard); footnote is now
-  // unknown-keys-only and hides itself when empty. The "awaiting roll_params.json"
+  // v6.7.5 — footnote is unknown-keys-only and hides itself when empty (the
+  // \u03b8 display it once carried is retired). The "awaiting roll_params.json"
   // placeholder (initial HTML) still serves as the load-failure tell: this
   // function only runs after a successful load.
   const el = document.getElementById('json-footnote'); if (!el) return;
@@ -630,12 +624,13 @@ function renderJsonFootnote(raw) {
     const KNOWN = ['decayTrigger','dteFloor','deltaThreshold','dtePenaltyAnchor', // v6.14.2 — otmTarget OFF the list deliberately: while the json still carries the retired field the footnote shows it as ⚠ no card, which is the HONEST state (v6.7.10 ruling); the tell disappears when the field does
       'lastOptimized','contracts','shares','shortStrike','shortExpiry','entryDate','netPremium',
       'coverPrice','sellPrice','entrySpy','defHorizon','note','optProjYield','entryDeltaCap',
-      'entryDteMin','oppTheta','oppH','graceDays','costBasis','sharesHeld','basisAsOf']; // v6.26.0 — import-writer fields
+      'entryDteMin','graceDays','costBasis','sharesHeld','basisAsOf']; // v6.26.0 — import-writer fields
+      // v6.34.0 — oppTheta/oppH OFF this list deliberately (θ retired): while roll_params.json still carries them the footnote prints them as ⚠ no card, which is the HONEST state per the otmTarget v6.14.2 ruling. The tell clears when the fields do.
     Object.keys(raw).filter(k => !KNOWN.includes(k))
       .forEach(k => parts.push(k + ' ' + JSON.stringify(raw[k]) + ' \u26A0 no card'));
   }
-  // v6.30.3 — CONSTANTS SEGMENT (Ron's spec; generalizes the θ-card '· json'
-  // convention to the S48-demoted axes, which lost their cards and with them
+  // v6.30.3 — CONSTANTS SEGMENT (Ron's spec; generalizes the '· json'
+  // provenance convention to the S48-demoted axes, which lost their cards and with them
   // any display home). Always renders post-load. Provenance tags are honest:
   // floor/entryDteMin are json-fed; r is a CODE constant (the S33 rate
   // tripwire, relocated from the banner) shown beside the live 3m CMT so the
@@ -655,23 +650,7 @@ function renderJsonFootnote(raw) {
   }
 }
 
-// v6.7.5 — \u03b8 card writer (single writer, both call sites: loader + post-publish).
-// Amber when armed — null-vs-0 stays load-bearing (0 = free-fire toll, NOT off).
-function updateThetaCard() {
-  const v = document.getElementById('vval-opptheta');
-  const s = document.getElementById('vsub-opptheta');
-  if (!v) return;
-  const armed = STD.oppTheta != null;
-  if (armed) {
-    v.textContent = '\u26A0 $' + Number(STD.oppTheta).toFixed(2) + '/sh';
-    v.style.color = '#e0a020';
-    if (s) { s.textContent = 'ARMED \u00B7 H ' + STD.oppH + 'd'; s.style.color = '#e0a020'; }
-  } else {
-    v.textContent = 'Off';
-    v.style.color = '';
-    if (s) { s.textContent = 'H ' + STD.oppH + 'd \u00B7 json'; s.style.color = ''; } // v6.7.8 — shortened
-  }
-}
+// v6.34.0 — updateThetaCard REMOVED with its card (S58): both call sites (loader, post-publish) deleted.
 
 async function loadRollParams() {
   try {
@@ -693,9 +672,7 @@ async function loadRollParams() {
       defHorizon:     data.defHorizon || 0, // v6.3.0 — absent in pre-v6.3.0 params → 0 (off)
       entryDeltaCap:  data.entryDeltaCap ?? null, // v6.4.0 — null = coupled to deltaThreshold
       entryDteMin:    data.entryDteMin ?? null,   // v6.4.0 — null = coupled to dteFloor
-      oppTheta:       data.oppTheta ?? null,      // v6.6.0 — absent = θ OFF (identity)
       graceDays:      data.graceDays ?? null,     // v6.8.3 — null = not yet published (sim defaults 3; card shows hardcode honesty sub)
-      oppH:           data.oppH ?? 6,             // v6.6.0 — θ horizon days
       // Live position fields — contracts is primary, shares always derived
       contracts:      data.contracts ?? (data.shares ? Math.round(data.shares / 100) : 6),
       shares:         (data.contracts ?? (data.shares ? Math.round(data.shares / 100) : 6)) * 100,
@@ -722,7 +699,6 @@ async function loadRollParams() {
     Object.entries(updates).forEach(([id, val]) => {
       const el = document.getElementById(id); if (el && !_sweepVars[id.replace('vval-','')]) el.textContent = val;
     });
-    updateThetaCard(); // v6.7.5 — \u03b8 card (amber when armed; not in the plain-text map)
     // Also update _sweepRanges std display
     _sweepRanges.decay.std   = STD.decayTrigger + '%';
     _sweepRanges.dte.std     = STD.dteFloor + 'd';
@@ -746,7 +722,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.33.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.34.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -794,7 +770,7 @@ let _pendingAudit = null;        // failed audit write payload for Retry
 let lastResult = null; // cached for price chart roll markers
 let _dmExpiryIndex = {}; // expiry → [contracts] index, rebuilt at start of each simulate()
 let _expFriGate = null;
-let _simSpyWin  = null;  // v6.12.0 — the sim's effective SPY window (set per-simulate; null → full DM). Read by post-hoc display decompositions (VIX regime split) so their basis/dayCount match the run they describe.  // v6.11.0 — expiry-Friday filter (sandbox research key ovExpfri; 1–4 = only that Friday-of-month cohort eligible, null = identity). Set per-simulate() from params; read ONLY by findNextContract + evaluateOppGap (sim paths) — the live scan's candidate machinery has its own expiry code and never reads this.
+let _simSpyWin  = null;  // v6.12.0 — the sim's effective SPY window (set per-simulate; null → full DM). Read by post-hoc display decompositions (VIX regime split) so their basis/dayCount match the run they describe.  // v6.11.0 — expiry-Friday filter (sandbox research key ovExpfri; 1–4 = only that Friday-of-month cohort eligible, null = identity). Set per-simulate() from params; read ONLY by findNextContract (sim path; v6.34.0 — evaluateOppGap was the second reader and retired with the θ trigger) — the live scan's candidate machinery has its own expiry code and never reads this.
 
 // ── Utility ───────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -1584,8 +1560,7 @@ function _resScanStats(sr) { // v6.7.4 — honest per-track units, DEDUPED by
   sr.forEach(r => { const s0 = r.signal || '?'; bySigRaw[s0] = (bySigRaw[s0] || 0) + 1; });
   const sigVariety = Object.values(bySig).filter(n => n >= 3).length >= 2;
   const sigLines = Object.entries(bySig).map(([k, n]) => k + ' \u00d7' + n + (bySigRaw[k] > n ? ' (' + bySigRaw[k] + ' raw)' : '')).join(' \u00b7 ') || 'no scans';
-  const inst = dd.filter(r => r.opp_shadow);
-  return { menuScans, tkCycles, sigVariety, sigLines, inst, bySig, dd, rawN: sr.length, ddN: dd.length };
+  return { menuScans, tkCycles, sigVariety, sigLines, bySig, dd, rawN: sr.length, ddN: dd.length }; // v6.34.0 — inst dropped with the θ track
 }
 async function buildResReadiness() {
   // v6.7.2 — per-track readiness evaluation (Ron's redesign: digest strip +
@@ -1601,12 +1576,10 @@ async function buildResReadiness() {
     // v6.18.7 — dpairs killed: ADJUDICATED CLOSED-CONFIRMED (S46 decomposition)
     const fs = await _resFetch('scan_snapshot', 'ts', 500); // v6.18.10 — SAME window spec as the section fetch (parity by construction); was 100 vs section 20, the two counters read different histories
     const sr = fs.rows || [];
-    if (fs.err) { ['htourn','theta'].forEach(id => put(id, false, true, 'ERROR')); }
+    if (fs.err) { ['htourn'].forEach(id => put(id, false, true, 'ERROR')); }
     else {
       const st = _resScanStats(_wfEraSplit(sr, ['ts','created_at']).era); // v6.13.0 — era-scoped, matching the section counters (digest/section parity, v6.7.1 lesson)
       put('htourn', st.tkCycles >= 10, false, st.tkCycles + '/10 cycles');
-      const fires = st.inst.filter(r => r.opp_shadow.would_fire).length;
-      put('theta', fires >= 3, false, fires + '/3 fires \u00b7 ' + st.inst.length + ' states');
     }
     // v6.7.17 — DM health moved to the Data Mart tab (its own surface; zero queries — in-memory DM)
   } catch (e) {
@@ -1763,9 +1736,7 @@ const RES_TRACKS = [
   { id:'htourn', n:1, title:'Phase B H-tournament',     table:'scan_snapshot',
     hyp:'H=6 realized credit >= H-infinity picks over ~10+ cycles (shadow_topk per scan).',
     target:'~10+ cycles of shadow_topk', minN:10, tsHint:['ts','created_at'] },
-  { id:'theta',  n:2, title:'θ arming gate',            table:'scan_snapshot',
-    hyp:'ARMING GATE (adopted S39, as drafted): over next N=3 shadow would-fires, each must (a) be a cheap-cover/decay-near-miss state, (b) realize net >= 3x toll ($0.36/sh) on worst-case fills, (c) cadence <= 4/yr, (d) ZERO long-DTE ladder fires — one ladder fire = θ dead (v6.5.0-class removal). All four at N=3 → θ earns roll_params residence.',
-    target:'0/3 fires · 0 ladder · shadow θ$0.12/H6 (measurement, not policy)', minN:3, tsHint:['ts','created_at'] },
+  // v6.34.0 — track 2 'θ arming gate' RETIRED (S58): the gate reached its full N=3 sample and failed 3 of 4 pre-registered criteria (S57). A registry entry is a live question; this one is answered.
   // v6.24.0 — cwin track RELOCATED to the Activity tab's Performance panel (S50 ruling:
   // Research is discovery, Activity is reporting). Registry is discovery-only again.
 ];
@@ -2111,13 +2082,7 @@ async function resRender(id) {
     + ' · <span style="color:var(--muted);">last write:</span> ' + (rows.length ? age.txt : '<span style="color:var(--red);">NEVER — INSTRUMENT SILENT</span>') + '</div>';
   // Track-specific counters (deterministic; interpretation stays with Claude)
   let counter = '';
-  if (id === 'theta') { // v6.7.4 — fires + denominator count DISTINCT market states · v6.13.0 era-scoped
-    const sp = _wfEraSplit(rows, t.tsHint);
-    const st = _resScanStats(sp.era);
-    const fires = st.inst.filter(r => r.opp_shadow.would_fire);
-    counter = _resCounterHtml(fires.length, t.minN, fires.length + ' of 3 shadow fires · denominator ' + st.inst.length + ' instrumented era states (' + st.rawN + ' scans) · 0 ladder verdicts recorded · prior era: ' + sp.prior.length + ' scans archived');
-    if (st.inst.length === 0 && sp.era.length > 0) counter += '<div style="color:var(--yellow);">no opp_shadow rows yet among era scans (pre-v6.6.2 rows partition as null)</div>';
-  } else if (id === 'htourn') { // v6.7.1 — unit is CYCLES · v6.13.0 era-scoped
+  if (id === 'htourn') { // v6.7.1 — unit is CYCLES · v6.13.0 era-scoped
     const spH = _wfEraSplit(rows, t.tsHint);
     const st = _resScanStats(spH.era);
     counter = _resCounterHtml(st.tkCycles, t.minN, st.tkCycles + ' of ~10 era cycles with shadow_topk (' + st.ddN + ' states of ' + st.rawN + ' scans) · prior era: ' + spH.prior.length + ' scans archived');
@@ -2874,46 +2839,13 @@ function findNextContract(afterDate, currentSPY, dtePenaltyAnchor, dteFloor, exc
   return null;
 }
 
-// ── v6.6.0 θ opportunity trigger evaluation (design locked S35, built S38) ──
-// Rule: roll when max over qualifying menu of [value(cand,H) − value(hold,H)]
-// exceeds θ, where value(x,H) = TV_x · capture(min(H,DTE_x)/DTE_x) in $/share
-// and capture(f) = 1 − √(1−f) (TV ∝ √T decay model). Roll target = the argmax
-// candidate (coherence: never fire on X and buy Y). Cover cost cancels: closing
-// at fair value costs exactly the position's worth — the decision compares
-// FORWARD harvests; θ prices the real spread friction (fire #1 measured
-// $0.12/sh). Mirrors findNextContract's qualifying filters exactly: OTM only,
-// self-exclude, sim-frame Δ < entryDeltaCap, trigger-date price required,
-// DTE ≥ entryDteMin, net credit > 0 vs buyback at the hold's FULL price
-// (intrinsic must be funded but is not earnable — hence valueHold uses
-// intrinsic-stripped TV while the credit filter uses full holdPx).
-// Called ONLY when oppTheta != null — zero cost and zero behavior at identity.
-function evaluateOppGap(afterDate, currentSPY, realVix, holdStrike, excludeKey, holdPx, holdDte, oppH, entryDeltaCap, entryDteMin) {
-  const cap = (h, d) => d > 0 ? 1 - Math.sqrt(Math.max(0, 1 - Math.min(h, d) / d)) : 0;
-  const holdTV    = Math.max(0, holdPx - Math.max(0, currentSPY - holdStrike));
-  const valueHold = holdTV * cap(oppH, holdDte);
-  const afterD = new Date(afterDate + 'T00:00:00');
-  const afterKey = afterDate.trim().slice(0, 10);
-  let best = null, bestGap = -Infinity;
-  for (const exp of getMartExpiries()) {
-    if (exp <= afterDate) continue;
-    if (_expFriGate != null && fridayOrdinal(exp) !== _expFriGate) continue; // v6.11.0 — expiry-Friday cohort filter (mirrors findNextContract; all-readers)
-    const dteC = Math.round((new Date(exp + 'T00:00:00') - afterD) / 86400000);
-    if (dteC < entryDteMin) continue;
-    for (const c of (_dmExpiryIndex[exp] || [])) {
-      if (c.strike <= currentSPY) continue;
-      if (excludeKey && (c.expiry + '_' + c.strike) === excludeKey) continue;
-      if (entryDeltaCap > 0 && callDelta(currentSPY, c.strike, dteC, realVix, 4.5) >= entryDeltaCap) continue;
-      const day = buildDayMap(c)[afterKey];
-      if (!day) continue;
-      const px = day.vw || day.c;
-      if (!px || px <= 0) continue;
-      if (px - holdPx <= 0) continue;
-      const gap = px * cap(oppH, dteC) - valueHold;
-      if (gap > bestGap) { bestGap = gap; best = c; }
-    }
-  }
-  return best ? { gap: bestGap, contract: best } : null;
-}
+// ── v6.34.0 — evaluateOppGap REMOVED with the θ opportunity trigger (S58 ruling).
+// The arming gate registered in S39 was adjudicated in S57 against the full
+// 157-row scan_snapshot export and FAILED 3 of its 4 pre-registered criteria at
+// the full N=3 sample. Retired, never left dormant — the v6.5.0 VIX-gate
+// precedent. The whole trigger was gated on oppTheta != null and roll_params
+// never armed it, so its removal is an identity-point deletion: no cycle in the
+// 130-cycle ledger was ever produced by this code path.
 
 // ── Init position display ──────────────────────────────────────────────────
 function populateInitDates() {
@@ -3065,11 +2997,6 @@ async function simulate(p) {
   // the incumbent; pinning entry explicitly is what decouples).
   const entryCap_    = (p.entryDeltaCap ?? deltaThreshold);
   const entryDteMin_ = (p.entryDteMin   ?? dteFloor);
-  // v6.6.0 — θ opportunity trigger (S35 design lock, S38 build). null = OFF:
-  // every θ code path below is gated on oppTheta_ != null, so an absent/null
-  // field is byte-identical to v6.5.2 (identity point; new machinery ships off).
-  const oppTheta_ = (p.oppTheta ?? null); // $/share friction hurdle
-  const oppH_     = (p.oppH ?? 6);        // horizon (days)
   // v6.11.0 — expiry-Friday cohort filter (sandbox research key only; validated
   // upstream in runSimulation). Set UNCONDITIONALLY every run so a prior
   // sandbox run can never leak the gate into a later plain run. null = identity.
@@ -3255,7 +3182,7 @@ async function simulate(p) {
     // v5.4.0 — triggers evaluate INDEPENDENTLY (delta never masked by decay).
     // When multiple triggers co-fire, delta leads the reason string.
     // v6.5.0 — the VIX gate branch that motivated this note is gone.
-    let roll = false, reason = '', deltaFired = false, oppPick = null; // v6.6.0 — oppPick = θ argmax candidate
+    let roll = false, reason = '', deltaFired = false; // v6.34.0 — oppPick retired with the θ trigger
     if (isExp) {
       roll = true; reason = 'expired';
     } else if (daysHeldSoFar >= graceDays_) { // v6.8.0 — grace gate (was literal 3)
@@ -3279,18 +3206,6 @@ async function simulate(p) {
       if (deltaReason || decayReason || dteReason) {
         roll   = true;
         reason = [deltaReason, decayReason, dteReason].filter(Boolean).join(' · ');
-      }
-      // v6.6.0 — θ opportunity trigger: evaluated ONLY when enabled, only when
-      // no incumbent trigger fired (additive; delta/decay/DTE take precedence
-      // in the reason string), inside the same grace gate (graceDays_, v6.8.0).
-      if (!roll && oppTheta_ != null && callPx !== null) {
-        const _og = evaluateOppGap(date, spy, vix, entryStrike,
-          curC.expiry + '_' + curC.strike, callPx, dte, oppH_, entryCap_, entryDteMin_);
-        if (_og && _og.gap > oppTheta_) {
-          roll    = true;
-          oppPick = _og.contract;
-          reason  = `opp gap $${_og.gap.toFixed(2)}`;
-        }
       }
     }
 
@@ -3352,8 +3267,8 @@ async function simulate(p) {
 
     // ── Find next contract ──
     _scratchArmed = !!deltaFired; // v6.18.0 — armed ONLY when the delta stop fired (co-fires included, delta-first parity)
-    const next = oppPick || findNextContract(date, spy, dtePenaltyAnchor, entryDteMin_,
-      curC.expiry+'_'+curC.strike, entryCap_, isExp ? 0 : exitPx, vix); // v6.6.0 — θ-fired rolls buy their justifying argmax candidate // v6.4.0 — candidate side uses entry params (≡ trigger twins when unset)
+    const next = findNextContract(date, spy, dtePenaltyAnchor, entryDteMin_,
+      curC.expiry+'_'+curC.strike, entryCap_, isExp ? 0 : exitPx, vix); // v6.34.0 — the oppPick override went with the θ trigger // v6.4.0 — candidate side uses entry params (≡ trigger twins when unset)
     if (!next) {
       // v5.4.2 — no net-credit candidate exists at current SPY level: hold
       // long SPY and re-scan daily via the recovery path (de-gated, v6.5.0).
@@ -3645,7 +3560,7 @@ if (params.fwdRank) logMsg(`⚠ SANDBOX VARIANT — FORWARD-YIELD RANKING, debit
   + `— NOT PUBLISHED, not a baseline. The sim has NO CASH CONSTRAINT: debits are always affordable here `
   + `and assignment cannot occur, so this run can show whether the STRATEGY is better but NEVER whether it is `
   + `EXECUTABLE in the account.`, 'warn'); // v6.17.0
-logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.fwdRank ? 'FWD-RANK cap $' + (params.debitCap ?? 0).toFixed(2) + ' · ' : ''}${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold} · ${params.dtePenaltyAnchor}d penalty anchor · grace ${params.graceDays ?? 3}d${(params.defHorizon || 0) > 0 ? ` · defH ${params.defHorizon}d` : ''}${params.oppTheta != null ? ` · θ$${params.oppTheta}/H${params.oppH ?? 6}d` : ''}${params.expiryFriday != null ? ` · expF${params.expiryFriday}` : ''}${params.skipMonths != null ? ` · skip ${params.skipMonths}mo` : ''}`);
+logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.fwdRank ? 'FWD-RANK cap $' + (params.debitCap ?? 0).toFixed(2) + ' · ' : ''}${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold} · ${params.dtePenaltyAnchor}d penalty anchor · grace ${params.graceDays ?? 3}d${(params.defHorizon || 0) > 0 ? ` · defH ${params.defHorizon}d` : ''}${params.expiryFriday != null ? ` · expF${params.expiryFriday}` : ''}${params.skipMonths != null ? ` · skip ${params.skipMonths}mo` : ''}`);
   if (_ovKeys.length) logMsg(`⚠ RESEARCH OVERRIDE (URL): ${_ovKeys.map(f => f + '=' + _ov[f]).join(' · ')} — NOT PUBLISHED · not a baseline`, 'err'); // v6.7.19 tripwire
   // v6.11.0 — expiry cohort census: printed ONLY when ovExpfri was supplied
   // (valid or not) so plain STD logs stay byte-identical to baseline. Verifies
@@ -3871,7 +3786,6 @@ function logExitAttribution(result) {
     if (r.includes('delta'))    return 'delta-stop';   // incl. co-fires — Δstop total(pure) convention
     if (r.includes('tv decay')) return 'decay';
     if (r.includes('dte'))      return 'dte-floor';
-    if (r.includes('opp gap'))  return 'opp';           // θ trigger (dormant at null)
     return 'other';
   };
   const agg = {}; let pureStops = 0;
@@ -3890,7 +3804,7 @@ function logExitAttribution(result) {
   const money = v => (v < 0 ? '-$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US');
   logMsg(`── Exit Attribution (post-hoc aggregation of cycle records; core cycles — initial excluded) ──`, '');
   logMsg(`  pool          n   win%    meanP&L   meanHold   meanITM@exit`, '');
-  const ORDER = ['decay', 'delta-stop', 'dte-floor', 'expiry', 'opp', 'other'];
+  const ORDER = ['decay', 'delta-stop', 'dte-floor', 'expiry', 'other']; // v6.34.0 — 'opp' pool retired with the θ trigger; the sim can no longer emit that reason string
   let nSum = 0, pnlSum = 0;
   for (const t of ORDER) {
     const a = agg[t]; if (!a || !a.n) continue;
@@ -4202,8 +4116,7 @@ async function publishRollParams(p) {
       const el = document.getElementById(id);
       if (el && !_sweepVars[id.replace('vval-','')]) el.textContent = val;
     });
-    updateThetaCard(); // v6.7.5 — second writer (\u03b8 never published, but consistency per all-readers)
-    renderJsonFootnote(); // v6.6.1 — refresh footnote post-publish (θ fields unpublished, but state stays honest)
+    renderJsonFootnote(); // v6.6.1 — refresh footnote post-publish (state stays honest) · v6.34.0 — the paired updateThetaCard() call went with the θ card
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
     _pendingPublish = null;
     logMsg('\u2713 Published roll_params.json — ' + payload.optProjYield + '% proj. yield · ' + today, 'ok');
@@ -4696,7 +4609,7 @@ function _evalRobustGrid(v1, v2, a1, a2, _unused) {
 // anywhere showed the winner — the log was the only reader; the legacy p-*
 // "Optimized Parameters" row this was assumed to feed was removed from the DOM
 // long ago, its JS writers surviving as if(el) no-ops). On OPT completion every
-// SWEPT card's value area shows the winner in θ-amber (#e0a020) with an
+// SWEPT card's value area shows the winner in amber (#e0a020) with an
 // "OPT winner · unpublished" sub — found ≠ published, doubly so for grace,
 // which Publish deliberately does not carry. toggleVar's off-state restore
 // (STD value + 'Click to optimize' + color reset) is the cleanup path, and
@@ -6959,45 +6872,12 @@ async function runRollScan() {
                 : '  ✗ P1 IDENTITY FAILURE: H=∞ ranking diverges from live — shadow defect, do not trust block', p1ok ? 'ok' : 'err');
   }
 
-  // ── v6.6.2 · θ opportunity SHADOW (MEASUREMENT, not policy) ──────────────
-  // Computes the S38 gap rule against the LIVE qualifying menu at hardcoded
-  // shadow constants θ=$0.12/H=6 (ledger friction / hold clock). Runs on every
-  // scan regardless of roll_params.oppTheta (null still = trigger OFF; the
-  // shadow is walk-forward track 7's instrument, not the trigger). Same
-  // arithmetic as evaluateOppGap on live mids: candidates are OTM by filter so
-  // mid = TV; hold TV is intrinsic-stripped. would_fire is the RAW gap-vs-toll
-  // verdict; incumbent_fired rides alongside (Ron's ruling: never collapse
-  // "θ alone" vs "θ and decay both saw it" at write time).
-  const _OPP_SH_THETA = 0.12, _OPP_SH_H = 6;
-  let _oppShadow = null;
-  if (scanFlat) { logMsg('  \u03B8-shadow: no hold leg (flat) \u2014 instrument idle', ''); }
-  else {
-    const _cap = (h, d) => d > 0 ? 1 - Math.sqrt(Math.max(0, 1 - Math.min(h, d) / d)) : 0;
-    const _shK = STD.shortStrike ? parseFloat(STD.shortStrike) : null;
-    const _shDte = STD.shortExpiry
-      ? Math.round((new Date(STD.shortExpiry + 'T12:00:00Z') - new Date()) / 86400000) : null;
-    const _incFired = !!(_scanTriggerInfo.allTypes && _scanTriggerInfo.allTypes.length);
-    if (_shK != null && _shDte != null && _shDte > 0 && currentCallMid > 0 && scored.length > 0) {
-      const _holdTV  = Math.max(0, currentCallMid - Math.max(0, spyNow - _shK));
-      const _holdVal = _holdTV * _cap(_OPP_SH_H, _shDte);
-      let _bC = null, _bVal = -Infinity;
-      scored.forEach(r => { const v = r.mid * _cap(_OPP_SH_H, r.dte); if (v > _bVal) { _bVal = v; _bC = r; } });
-      const _gap = _bVal - _holdVal;
-      _oppShadow = { theta: _OPP_SH_THETA, h: _OPP_SH_H, gap: +_gap.toFixed(4),
-        hold_value: +_holdVal.toFixed(4), best_value: +_bVal.toFixed(4),
-        best_expiry: _bC.exp, best_strike: _bC.strike,
-        would_fire: _gap > _OPP_SH_THETA, incumbent_fired: _incFired };
-      logMsg('  \u03B8-shadow: gap $' + _gap.toFixed(2) + ' vs toll $' + _OPP_SH_THETA.toFixed(2) + ' \u2014 ' +
-        (_oppShadow.would_fire ? 'WOULD FIRE \u2192 $' + _bC.strike + 'C ' + _bC.exp : 'no fire') +
-        (_incFired ? ' (incumbent ' + _scanTriggerInfo.allTypes.join('+') + ' also fired)' : ''),
-        _oppShadow.would_fire ? 'ok' : '');
-    } else {
-      _oppShadow = { theta: _OPP_SH_THETA, h: _OPP_SH_H, gap: null, hold_value: null,
-        best_value: null, best_expiry: null, best_strike: null,
-        would_fire: false, incumbent_fired: _incFired };
-      logMsg('  \u03B8-shadow: no qualifying menu \u2014 no fire', '');
-    }
-  }
+  // ── v6.34.0 — θ opportunity SHADOW REMOVED (S58 ruling) ───────────────────
+  // Track 7's instrument completed its job: the S39 arming gate reached its
+  // full N=3 sample over 118 instrumented era states and failed 3 of 4 criteria
+  // (S57 adjudication). An instrument whose registered question is answered is
+  // retired, not left running. scan_snapshot.opp_shadow keeps its historical
+  // rows — append-only doctrine, raw layer immutable — and writes null hereafter.
 
   // ── v6.2.0 · scan_snapshot write (PERSISTENCE ONLY — fire-and-forget) ──
   // Every scan writes one append-only row: menu-breadth hypothesis + ranker
@@ -7037,7 +6917,6 @@ async function runRollScan() {
         best_adj_yield: best ? +best.rollAdjYield.toFixed(2) : null,
         at_expiry_edge: best ? (best.exp === expList[expList.length - 1]) : null,
         shadow_topk: _shadowTopk, p1_identity: _shadowP1,
-        opp_shadow: _oppShadow, // v6.6.2 — θ shadow instrument (track 7)
       };
       const res = await fetch(SB_URL + '/scan_snapshot', {
         method: 'POST',
@@ -7068,10 +6947,7 @@ async function runRollScan() {
 
   statusEl.textContent = scored.length + ' qualifying candidate' + (scored.length !== 1 ? 's' : '') +
     ' from ' + results.length + ' quotes across ' + expList.length + ' expiries' +
-    (allUiWarnings.length ? ' · ⚠ data edge detected' : '') +
-    (_oppShadow ? ' · \u03B8-shadow: ' + (_oppShadow.gap != null
-      ? 'gap $' + _oppShadow.gap.toFixed(2) + (_oppShadow.would_fire ? ' \u26A0 WOULD FIRE' : ' (no fire)')
-      : 'no menu') : ''); // v6.6.2 — shadow verdict on-screen (measurement, not policy)
+    (allUiWarnings.length ? ' · ⚠ data edge detected' : ''); // v6.34.0 — θ-shadow verdict segment removed with the instrument
   statusEl.className = scored.length > 0 ? 'scan-status ok' : 'scan-status err';
 }
 
