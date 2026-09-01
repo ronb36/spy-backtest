@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.34.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.34.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -556,7 +556,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.34.3 · PERFORMANCE PANEL: TRADE BASIS + CYCLE STATS (S58, Ron). Two findings drove one rebuild. FIRST, the panel showed ONE NUMBER SIX WAYS: of eleven columns, four were carried into the sim row verbatim (START BAL, CONTRIB, SPY P&L, SPY YIELD) and could never differ; LAST BAL was CC P&L plus three shared constants; ACCT YIELD was exactly SPY YIELD + CC YIELD. The entire live-vs-sim comparison rested on CC P&L alone. Shared quantities now state themselves ONCE above the table; LAST BAL and ACCT YIELD dropped as affine restatements (Ron). SECOND, TRADE BASIS replaces roll basis, matching the v6.33.x blotter correction: a roll credit is new-sell minus prior-cover — two different contracts, charging a buyback that is SUNK at choice time — while a trade is one contract sold and later covered. The two bases TELESCOPE: Σroll − Σtrade = sell(last open) − sell(first), verified in harness. So the TOTAL barely moves while the per-cycle DISTRIBUTION changes completely, which is precisely why win% and mean/cycle only mean something on this basis. A win is now “covered for less than sold” — the decay-vs-stop distinction, tying to the exit-attribution pools. Table carries only what can differ: CYCLES · WIN% · MEAN P&L · CC P&L · CC YIELD · LAST CLOSE. Live pairing REUSES _pairLiveCycles (the blotter’s corrected pairing) rather than a second implementation. Sim window rule simplifies to “opened AND closed inside the window” — v6.25.1’s anchor-and-skip existed only because a ROLL can charge a pre-window cover; a TRADE cannot. Open contracts and orphan closes are both disclosed in the sub-note, never silently dropped. MEASUREMENT ONLY — the ranker still scores newPremium − buyback. Forward-yield ranking is FALSIFIED on the record (harvest mass collapses with premium size while the stop tax stays ~constant; the credit filter is load-bearing). Basis of accounting is not the objective function. DISPLAY-ONLY: change is confined to _cwinHtml and the version writers — verified line-level, zero changed lines elsewhere. No sim path, no trigger, no scoring, no write path. Base v6.34.2 (f305dc0f).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.34.4 · PERFORMANCE PANEL: POOL SPLIT, START DATE, SIM FIRST (S58, Ron). Adds START at the left (bracketing the existing LAST CLOSE) and the DECAY%/DECAY P&L, DELTA%/DELTA P&L columns after MEAN P&L; the SIM row now renders ABOVE live, since the sim is the reference the live row is read against. WHY THE POOL COLUMNS MATTER: on the certified run the two pools have near-equal and OPPOSITE daily rates — decay +$413/day (+$1,940 over 4.7d) against delta-stop −$460/day (−$3,544 over 7.7d). The blended +$86/day exists only because decay occurs 73% of the time, so the edge is a FREQUENCY MIX, not a magnitude advantage, and break-even sits at a 35.4% stop share against the sim’s 26.7% — 8.7 points of margin and nothing else. That mix was not on this panel at all until now. CLASSIFICATION HONESTY: live cycles take their pool from live_trades.trigger, which CSV-imported pre-model rows do not carry. Pool SHARES are therefore computed over the CLASSIFIED subset only — dividing by all cycles would silently understate both pools — and any unclassified remainder is disclosed in amber with its count, stating plainly that the live mix is not yet comparable to sim. Unclassified P&L still counts in CC P&L and MEAN; nothing is dropped. Sim pools use the same reason-string classifier shape as the exit-attribution table. DISPLAY-ONLY: change confined to _cwinHtml and the version writers. Base v6.34.3 (306882b4).</span></div>
 </div>
 
 <script>
@@ -719,7 +719,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.34.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.34.4'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1925,13 +1925,19 @@ async function _cwinHtml() {
   const liveClosed = liveCyc.filter(c => inWin(c.closeDate)).map(c => {
     const pxEff = c.coverPrice != null ? c.coverPrice : (c.closeType === 'expired' ? 0 : null);
     const net   = (c.sellPrice != null && pxEff != null) ? c.sellPrice - pxEff : null;
-    return { pnl: net != null ? net * 100 * (c.qty || 0) : null, orphan: !!c.orphan, iso: toIso(c.closeDate) };
+    // v6.34.4 — trigger travels with the cycle so the pool split is computable.
+    // CSV-imported pre-model cycles carry none; they classify as UNCLASSIFIED and
+    // are disclosed, never folded into either pool.
+    const tg = (c.trigger != null && String(c.trigger).trim()) ? String(c.trigger).trim().toLowerCase() : null;
+    return { pnl: net != null ? net * 100 * (c.qty || 0) : null, orphan: !!c.orphan,
+             iso: toIso(c.closeDate), pool: /decay/.test(tg||'') ? 'decay' : /delta/.test(tg||'') ? 'delta' : null };
   }).filter(c => c.pnl != null);
   if (!liveClosed.length) return '<div style="color:var(--muted);">no closed cycles in the window yet</div>';
   const orphanN = liveClosed.filter(c => c.orphan).length; // v6.34.3 — counted, never silently dropped
   const gross   = liveClosed.reduce((s, c) => s + c.pnl, 0);
   const liveWin = liveClosed.filter(c => c.pnl > 0).length;
-  const lastIso = liveClosed[liveClosed.length - 1].iso;
+  const lastIso  = liveClosed[liveClosed.length - 1].iso;
+  const firstIso = liveClosed[0].iso;
   const spyPnl  = gain - gross; // residual: appreciation + dividends + MM interest + churn share P&L
 
   // ── SIM overlay, trade basis (Path A: the run in MEMORY — S49) ────────────
@@ -1939,7 +1945,8 @@ async function _cwinHtml() {
   // is touched. Rescaled to the LIVE contract size at each cycle's ENTRY date
   // (the size the contract was actually sold at), per the S49 ticket-direct
   // ruling. Explicitly NOT the fixed-6 full-DM STD headline.
-  let simN = null, simWin = 0, simCC = 0, simLast = null;
+  let simN = null, simWin = 0, simCC = 0, simLast = null, simFirst = null;
+  const simPool = { decay: [], delta: [] };
   if (typeof lastResult === 'object' && lastResult && lastResult.cycles && lastResult.cycles.length) {
     const szTix = trades.filter(t => t.source !== 'csv_import' && t.sellContracts != null)
       .map(t => ({ d: _wfIsoD(t.trade_date), n: Number(t.sellContracts) }))
@@ -1955,6 +1962,10 @@ async function _cwinHtml() {
       if (c.entryPx == null || c.exitPx == null) continue;
       const p = (c.entryPx - c.exitPx) * 100 * liveSize(c.entryDate);
       simCC += p; simN++; if (p > 0) simWin++; simLast = c.exitDate;
+      if (simFirst == null) simFirst = c.exitDate;
+      const r = (c.reason || '').toLowerCase(); // v6.34.4 — same classifier shape as the exit-attribution pools
+      if (r.includes('decay')) simPool.decay.push(p);
+      else if (r.includes('delta')) simPool.delta.push(p);
     }
   }
 
@@ -1972,18 +1983,46 @@ async function _cwinHtml() {
   // ── the comparison: only columns that can actually differ ────────────────
   const th = 'text-align:right;padding:3px 6px;color:var(--muted);font-size:9px;letter-spacing:.04em;border-bottom:1px solid var(--border);';
   const td = 'text-align:right;padding:4px 6px;color:var(--text);white-space:nowrap;';
-  const hdr = ['', 'CYCLES', 'WIN%', 'MEAN P&L', 'CC P&L', 'CC YIELD', 'LAST CLOSE'];
-  const wr = (w, n) => n > 0 ? Math.round(w / n * 100) + '%' : '\u2014';
+  // v6.34.4 (Ron, S58) — START added at the left, the DECAY/DELTA pool split
+  // added after MEAN, and the SIM row moved ABOVE live (the sim is the
+  // reference the live row is read against; the reference reads first).
+  // The pool columns are why the panel exists: the two pools have nearly
+  // equal and opposite daily rates (+$413/day decay vs -$460/day stop on the
+  // certified run), so the edge is a FREQUENCY MIX, not a magnitude edge, and
+  // break-even sits at a 35.4% stop share against the sim's 26.7%. The mix is
+  // the quantity to watch, and until now it was not on this panel at all.
+  const hdr = ['', 'START', 'CYCLES', 'WIN%', 'MEAN P&L',
+               'DECAY%', 'DECAY P&L', 'DELTA%', 'DELTA P&L',
+               'CC P&L', 'CC YIELD', 'LAST CLOSE'];
+  const wr   = (w, n) => n > 0 ? Math.round(w / n * 100) + '%' : '\u2014';
+  const mean = a => a.length ? money(a.reduce((s, v) => s + v, 0) / a.length) : '\u2014';
+  const shr  = (k, n) => n > 0 ? Math.round(k / n * 100) + '%' : '\u2014';
+
+  const lDecay = liveClosed.filter(c => c.pool === 'decay').map(c => c.pnl);
+  const lDelta = liveClosed.filter(c => c.pool === 'delta').map(c => c.pnl);
+  const lCls   = lDecay.length + lDelta.length;          // classified denominator
+  const lUncl  = liveClosed.length - lCls;
+  // v6.34.4 — pool SHARES are taken over the CLASSIFIED subset, never over all
+  // cycles: dividing by a denominator that includes unclassified rows would
+  // silently understate both pools and make the live row incomparable to sim.
   const liveCells = ['<span style="color:var(--accent);">live</span>',
-    String(liveClosed.length), wr(liveWin, liveClosed.length),
-    money(gross / liveClosed.length), money(gross),
-    '<span style="color:var(--accent);">' + pf(y(gross)) + '</span>', lastIso];
+    firstIso, String(liveClosed.length), wr(liveWin, liveClosed.length),
+    money(gross / liveClosed.length),
+    shr(lDecay.length, lCls), mean(lDecay),
+    shr(lDelta.length, lCls), mean(lDelta),
+    money(gross), '<span style="color:var(--accent);">' + pf(y(gross)) + '</span>', lastIso];
+
+  const sD = simPool.decay, sT = simPool.delta, sCls = sD.length + sT.length;
   const simCells = simN == null
     ? ['<span style="color:var(--muted);">sim</span>',
-       '<span style="color:var(--muted);">\u2014 no run in memory (Path A) \u00b7 press Run to populate</span>', '', '', '', '', '']
+       '<span style="color:var(--muted);">\u2014 no run in memory (Path A) \u00b7 press Run to populate</span>',
+       '', '', '', '', '', '', '', '', '', '']
     : ['<span style="color:var(--muted);">sim</span>',
-       String(simN), wr(simWin, simN),
-       simN ? money(simCC / simN) : '\u2014', money(simCC), pf(y(simCC)), simLast || '\u2014'];
+       simFirst || '\u2014', String(simN), wr(simWin, simN),
+       simN ? money(simCC / simN) : '\u2014',
+       shr(sD.length, sCls), mean(sD),
+       shr(sT.length, sCls), mean(sT),
+       money(simCC), pf(y(simCC)), simLast || '\u2014'];
 
   const sub = '<div style="color:var(--muted);font-size:8px;margin-top:4px;line-height:1.6;">'
     + 'TRADE BASIS (v6.34.3): each cycle is one contract sold and later covered \u2014 sell \u2212 cover \u00d7 100 \u00d7 qty. '
@@ -1991,14 +2030,16 @@ async function _cwinHtml() {
     + 'A win is a contract covered for less than it was sold.'
     + '<br>sim = run in memory \u00b7 cycles opened AND closed inside the window \u00b7 scaled to live size at each entry date (ticket-direct) \u00b7 NOT the fixed-6 full-DM STD headline.'
     + (liveOpen && liveOpen.length ? '<br>' + liveOpen.length + ' open contract' + (liveOpen.length !== 1 ? 's' : '') + ' excluded \u2014 closed cycles only (unrealized MTM is not a result).' : '')
+    + '<br>DECAY%/DELTA% are shares of the CLASSIFIED cycles, not of all cycles \u2014 the two pools have near-equal and opposite daily rates, so the MIX is the edge (break-even sits near a 35% stop share).'
+    + (lUncl ? '<br><span style="color:#e0a020;">\u26a0 ' + lUncl + ' of ' + liveClosed.length + ' live cycles UNCLASSIFIED (no trigger recorded \u2014 CSV-imported pre-model rows). Their P&L is in CC P&L and MEAN; they are excluded from both pool shares, so the live mix is measured on ' + lCls + ' cycle' + (lCls !== 1 ? 's' : '') + ' only and is NOT yet comparable to sim.</span>' : '')
     + (orphanN ? '<br><span style="color:#e0a020;">\u26a0 ' + orphanN + ' orphan close' + (orphanN !== 1 ? 's' : '') + ' in window (cover with no matching open) \u2014 counted, never dropped.</span>' : '')
     + '</div>';
 
   return ctx
     + '<table style="border-collapse:collapse;font-family:var(--mono);font-size:10px;width:100%;table-layout:fixed;">'
-    + '<thead><tr>' + hdr.map((h, k) => '<th style="' + th + (k === 0 ? 'text-align:left;width:5%;' : '') + '">' + h + '</th>').join('') + '</tr></thead>'
-    + '<tbody><tr>' + liveCells.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : '') + '">' + c + '</td>').join('') + '</tr>'
-    + '<tr>' + simCells.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : (k === 1 && simCells[2] === '' ? 'text-align:left;white-space:nowrap;' : '')) + '">' + c + '</td>').join('') + '</tr></tbody></table>'
+    + '<thead><tr>' + hdr.map((h, k) => '<th style="' + th + (k === 0 ? 'text-align:left;width:4%;' : '') + '">' + h + '</th>').join('') + '</tr></thead>'
+    + '<tbody><tr>' + simCells.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : (k === 1 && simCells[2] === '' ? 'text-align:left;white-space:nowrap;' : '')) + '">' + c + '</td>').join('') + '</tr>'
+    + '<tr>' + liveCells.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : '') + '">' + c + '</td>').join('') + '</tr></tbody></table>' // v6.34.4 — sim first (Ron)
     + sub;
 }
 let _resCache = {};   // table|order|limit → {rows, err, at}
