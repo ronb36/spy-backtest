@@ -17,10 +17,10 @@
   "sharesHeld": 600,
   "basisAsOf": "2026-08-12",
   "shortStrike": 775,
-  "shortExpiry": "2026-10-30",
-  "entryDate": "2026-09-03",
-  "entrySpy": 772.91,
-  "coverPrice": 0,
-  "sellPrice": 15.97,
-  "netPremium": 15.97
+  "shortExpiry": "2027-02-26",
+  "entryDate": "2026-09-04",
+  "entrySpy": 770.26,
+  "coverPrice": 14.24,
+  "sellPrice": 35,
+  "netPremium": 20.76
 }
