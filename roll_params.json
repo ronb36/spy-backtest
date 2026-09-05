@@ -9,8 +9,6 @@
   "note": "Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.",
   "optProjYield": 8.5,
   "entryDeltaCap": 0.69,
-  "oppTheta": null,
-  "oppH": 6,
   "entryDteMin": null,
   "graceDays": 1,
   "costBasis": 742.4833,
