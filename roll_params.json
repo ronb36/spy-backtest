@@ -1,8 +1,8 @@
 {
   "decayTrigger": 0.08,
   "dteFloor": 7,
-  "deltaThreshold": 0.69,
-  "dtePenaltyAnchor": 124,
+  "deltaThreshold": 0.70,
+  "dtePenaltyAnchor": 123,
   "lastOptimized": "2026-09-05",
   "contracts": 6,
   "defHorizon": 10,
