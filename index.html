@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.36.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.37.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -556,7 +556,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.36.0 · POINT-IN-TIME UNIVERSE PROMOTED TO THE BASE (S60, Ron). v6.35.0 shipped the mask behind the sandbox key ovPit=1; this release makes it the DEFAULT and the model. Absent key = armed. FORCING REASON: sandbox REFUSES SWEEP ARMING, so step 5 of the S60 order — re-optimising all six axes on the corrected surface — was unreachable while the mask lived behind a URL key. THE RULE (unchanged from v6.35.0): a contract is visible at trade date T iff some day D ≤ T had it on the OTM ladder with D ≤ expiry ≤ D+180 — the sim sees only what a current STD scan can see. Derived at run time from DM.spy and data_universe.json; nothing stored, nothing deleted. ovPit=0 DISARMS and is DELIBERATELY RETAINED. Rationale: the pre-fix universe stays reachable, so the v6.35.0 attribution pair remains re-runnable and a future DM rebuild has an ORACLE — a rebuilt DM is correct iff an ungated run on it reproduces a gated run on the old one. A disarmed run now announces itself LOUDLY as the pre-fix universe and not comparable to a published baseline. BOOT IS NOW A HARD FAILURE: if data_universe.json cannot be fetched the universe cannot be derived, so the Run button is blocked with a stated reason rather than every run dying inside buildPitMask. CERTIFIED PAIR (v6.35.0, DM 2026-09-05, one session, no collection boundary crossed) — uncapped 134 cycles / $61,122 / 8.5% / entry-DTE median 242d (range 43–361d) / stop share 26.9%; capped 153 cycles / $52,284 / 7.2% / median 144d (range 39–178d) / stop share 18.3%. Checksums foot both ways in both runs. THE BUILDER’S PRE-REGISTRATION WAS TWO-THIRDS FALSIFIED: yield fell 15%, not the predicted “more than a third”; the DTE median landed at 144d, not the predicted 90–120d; only the stop-share prediction held. Root cause — reasoning from the ≤180d SELECTED subset, which §10 explicitly warns does not estimate a capped sim. Selection ≠ intervention, committed against the document that names it. THREE INTERVENTIONAL CONFIRMATIONS: (1) the DTE Trajectory drift annotation was measuring THE DATA’S EDGE — 311d→179d uncapped becomes 148d→149d capped, dead flat; (2) the stop tax is INVARIANT PER EVENT — harvest fell 38% ($1,930→$1,199) while stop severity moved 2% (−$3,557→−$3,484); (3) the edge got SAFER — break-even is a 35.4% stop share, and margin roughly doubled from 8.5pp to 17.1pp for 1.3pp of yield. CONSEQUENCE, RECORDED: §5’s certified baseline (DM 2026-08-21, 130 cycles / 8.46% / $59,917) describes the UNCAPPED model and is VOID. Nothing is a certified baseline until a new pair is cut on the corrected surface. THE LIVE SCAN IS UNTOUCHED, DELIBERATELY: the mask sits in findNextContract (sim path). Live is already fenced by reality — every contract in today’s DM is genuinely listed and tradeable, including strikes generated off earlier days’ spot — so masking live would remove REAL candidates. CERT GAP, STATED: the v6.35.0 pair discriminates armed from unarmed on one build; it does NOT prove the unarmed path byte-identical to v6.34.5, which would need a v6.34.5 run on this DM. Inertness rests on code review of a single boolean gate. Base v6.35.0 (4a5e1fd8).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.37.0 · THE SUNK COVER LEAVES THE RANKER — SIM AND LIVE TOGETHER (S60 step 3, Ron). The buyback is SUNK at choice time and COMMON to every candidate on the board, but adjYield subtracted that constant and THEN divided by a per-candidate DTE — short candidates absorbed the whole cover over 57 days, long ones spread it over 175. A constant over varying denominators is not constant. That was a DURATION SUBSIDY wearing the costume of risk management (Ron, S59), and it is the mechanism that walked the book out the curve. Numerator is now the PREMIUM ALONE. ADMISSION IS UNCHANGED: the net-credit filter still governs which candidates are ELIGIBLE; it no longer governs ORDER. Debit rolls are still never executed. SIX SITES, ONE BASIS — the roster was built from the row, not from the approved item: sim ranker (findNextContract) · live scan rollAdjYield · wcAdjYield worst-case shadow (or the rank-fragility flag compares two different objectives) · DM-close frame-flip shadow (or the flip metric stops measuring a FRAME and starts measuring a formula difference) · PASS-row display (or the log prints a score the ranking never used) · score_H hold-horizon shadow (whose P1 claim is H=∞ ≡ the live formula). The Research grid at 5525 is deliberately untouched — it has scored px/spy with no cover since inception, so that instrument was showing the cover-free ranking all along. LIVE MOVES NOW, NO PARITY BREAK (Ron): the current 175-DTE book is expected to be the last long-dated position and should roll off within the week. RETIRED, NOT LEFT DORMANT: the v6.16.1 FORWARD-YIELD SHADOW (declaration, per-roll line, ledger, logShadowSummary and its call site) — it re-ranked the menu on premium alone to price what the sunk cover cost, which IS the base ranker now, so it would have measured the run against itself and printed gap 0.0pp forever. The v6.17.0 _fwdGate/_debitCapGate variant and the ovFwd/ovDebitCap keys retire with it. ovSunk=1 INVERTS the retired gate and restores the pre-fix subsidised numerator, kept for the same reason ovPit=0 was: the S60 attribution pairs stay re-runnable and a challenger can still be scored against the model the published policy was actually fit on. MEASURED BEFORE PROMOTION (v6.36.0, DM 2026-09-05, ovFwd variant on the capped surface): 176 cycles / $18,660 / 2.6% / entry-DTE median 87d / stop share 21.6%, against the subsidised base 153 / $52,284 / 7.2% / 144d / 18.3%. The §10 REGISTERED NULL — a cover-free ranker with NO RISK TERM underperforms — is CONFIRMED: −$33,624, and the margin over the break-even stop share collapses from 7.3pp to 2.1pp. THIS IS NOT THE RANKER’S VERDICT (Ron): those parameters were fit on the subsidised surface, so reading 2.6% as the corrected ranker’s performance evaluates an intervention through a lens fitted to the pre-intervention world. Step 5 re-optimises all six axes; the ranker’s objective (annualised yield) is itself still open. BUILDER FALSIFICATION, LOGGED: predicted stop share would FALL; it ROSE 18.3%→21.6%. The prediction came from the band table’s 8–13% short-book stop shares, but those cycles were SELECTED — post-stop re-entries the incumbent ranker chose short for its own reasons, not a sample of ranking everything short. Selection ≠ intervention, third instance this session. Consequence: the band table does NOT predict behaviour under a ranker change (it forecast $368/cycle at 60–119d; the intervention delivered $106), so step 4’s risk term CANNOT be fitted to it and must be fitted jointly across a sweep, walk-forward from the start. Base v6.36.0 (6ed4c628).</span></div>
 </div>
 
 <script>
@@ -734,7 +734,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.36.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.37.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -2945,15 +2945,6 @@ function findNextContract(afterDate, currentSPY, dtePenaltyAnchor, dteFloor, exc
   });
 
   let bestContract = null, bestYield = -Infinity;
-  // v6.16.1 — FORWARD-YIELD SHADOW (measurement only; selection is NOT affected).
-  // The live ranker scores adjYield on netCredit = newPremium − buyback. At the moment of choosing
-  // the NEXT contract the buyback is already spent — a SUNK COST in the numerator — and only
-  // big-premium long-dated contracts can cover it, which is the mechanism that produces 248d @ 5.8%
-  // where a flat entry takes 53d @ 11.1%. The shadow scores each candidate on FORWARD yield only
-  // (newPremium / SPY × 365/DTE × the same DTE penalty), i.e. the contract's own merit, and
-  // records the debit that choosing it would have required. Debit-side candidates are included here
-  // and ONLY here — nothing below reads these vars.
-  let shBest = null, shYield = -Infinity, shSeen = 0, shDebitCands = 0;
   let _scratchBest = null; // v6.18.0 — shortest-dated funding candidate, used only when scratch is armed
 
   for (const exp of allExp) {
@@ -3005,32 +2996,26 @@ function findNextContract(afterDate, currentSPY, dtePenaltyAnchor, dteFloor, exc
       // anywhere, the caller holds long SPY and re-scans daily. (Previously:
       // "debit rolls allowed, negative yield sorts them below credit rolls" —
       // which meant forced situations executed the least-bad debit.)
-      // v6.16.1 shadow — evaluated BEFORE the credit filter so debit candidates are visible to it.
-      // Identical penalty, identical annualization; only the numerator differs (no sunk buyback).
-      {
-        const _pen = Math.min(1, dte / dtePenaltyAnchor);
-        const _fwd = (entryPx / currentSPY) * (365 / dte) * 100 * _pen;
-        shSeen++;
-        if (netCredit <= 0) shDebitCands++;
-        if (_fwd > shYield) {
-          shYield = _fwd;
-          shBest = { exp, strike: c.strike, dte, px: entryPx, fwd: _fwd,
-                     net: netCredit, debit: netCredit < 0 ? -netCredit : 0 };
-        }
-      }
-      // v6.17.0 — admission. Incumbent: credit only. Variant: a debit up to the cap is admissible,
-      // because the buyback is SUNK at this point and forbidding debits deletes the near-dated menu.
-      if (_fwdGate) { if (netCredit < -_debitCapGate) { debitSkips++; continue; } }
-      else          { if (netCredit <= 0)             { debitSkips++; continue; } }
-      const rawYield   = (netCredit / currentSPY) * (365 / dte) * 100;
+      // v6.37.0 — the v6.16.1 Forward-Yield Shadow is RETIRED here and at its
+      // summary. It re-ranked the menu on premium alone to price what the sunk
+      // cover cost; that IS the base ranker now, so it measured the run against
+      // itself and would print gap 0.0pp on every roll forever.
+      // ADMISSION UNCHANGED — the net-credit filter still governs eligibility;
+      // only the RANKING BASIS moved. Debit rolls are never executed.
+      if (netCredit <= 0) { debitSkips++; continue; }
+      // v6.37.0 — RANKING NUMERATOR IS THE PREMIUM ALONE. The buyback is SUNK and
+      // COMMON to every candidate; subtracting a constant and THEN dividing by a
+      // per-candidate dte is not constant — short candidates absorb the whole cover
+      // over 57 days, long ones spread it over 175. A DURATION SUBSIDY, not risk
+      // management (Ron, S59). ovSunk=1 restores the pre-fix basis.
+      const _rankPx    = _sunkGate ? netCredit : entryPx;
+      const rawYield   = (_rankPx / currentSPY) * (365 / dte) * 100;
       const dtePenalty = Math.min(1, dte / dtePenaltyAnchor);
       const adjYield   = rawYield * dtePenalty;
       // v6.17.0 — RANKING BASIS. Incumbent scores newPremium − buyback (a sunk cost in the
       // numerator, which is what walks the position out the curve). Variant scores the contract's
       // own forward yield — identical formula, identical penalty, numerator = premium alone.
-      const scoreYield = _fwdGate
-        ? (entryPx / currentSPY) * (365 / dte) * 100 * dtePenalty
-        : adjYield;
+      const scoreYield = adjYield; // v6.37.0 — one basis; the _fwdGate fork retired into the base
       const candDelta_ = callDelta(currentSPY, c.strike, dte, realVix, 4.5); // v5.14.0 — display matches filter frame
       const candOTM_   = ((c.strike - currentSPY) / currentSPY * 100).toFixed(1);
       logDbg("  Candidate " + exp + " $" + c.strike + " (" + candOTM_ + "% OTM): px=$" + entryPx.toFixed(2) + " net=$" + netCredit.toFixed(2) + " DTE=" + dte + " Δ=" + candDelta_.toFixed(3) + " raw=" + rawYield.toFixed(1) + "% adj=" + adjYield.toFixed(1) + "%");
@@ -3057,22 +3042,6 @@ function findNextContract(afterDate, currentSPY, dtePenaltyAnchor, dteFloor, exc
     const bestDelta_ = callDelta(currentSPY, bestContract.strike, bestDTE_, realVix, 4.5); // v5.14.0 — display matches filter frame
     const bestOTM_ = ((bestContract.strike - currentSPY) / currentSPY * 100).toFixed(1);
     logDbg("  → Best: " + bestContract.expiry + " $" + bestContract.strike + " (" + bestOTM_ + "% OTM) Δ=" + bestDelta_.toFixed(3) + " adj.yld=" + bestYield.toFixed(1) + "%");
-    // v6.16.1 — FORWARD-YIELD SHADOW line + ledger. Pure measurement: bestContract is already fixed.
-    if (shBest) {
-      const gap = shBest.fwd - bestYield;
-      logDbg('  ⋯ Shadow(fwd-yield, ignores sunk buyback): ' + shBest.exp + ' $' + shBest.strike
-        + ' DTE=' + shBest.dte + ' fwd=' + shBest.fwd.toFixed(1) + '% vs chosen ' + bestDTE_ + 'd @ '
-        + bestYield.toFixed(1) + '% · gap ' + gap.toFixed(1) + 'pp · '
-        + (shBest.debit > 0 ? 'would need DEBIT $' + shBest.debit.toFixed(2) + '/sh'
-                            : 'credit-feasible')
-        + ' · ' + shDebitCands + '/' + shSeen + ' cands were debits');
-      if (typeof _shadowLedger !== 'undefined' && _shadowLedger) _shadowLedger.push({
-        date: afterDate, buyback: buybackPx || 0,
-        chosenDte: bestDTE_, chosenYld: bestYield,
-        shadowDte: shBest.dte, shadowYld: shBest.fwd, shadowStrike: shBest.strike, shadowExp: shBest.exp,
-        debitPerSh: shBest.debit, gap: shBest.fwd - bestYield,
-        binds: shBest.debit > 0, seen: shSeen, debitCands: shDebitCands });
-    }
     return bestContract;
   }
   return null;
@@ -3219,9 +3188,7 @@ function updateInitPosition() {
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
   _scratchGate  = p.scratchRoll ?? null; // v6.18.0 — embedded identity
-  _fwdGate      = p.fwdRank ?? null;   // v6.17.0 — embedded identity: absent = null = incumbent behavior
-  _debitCapGate = p.debitCap ?? 0;
-  _shadowLedger = []; // v6.16.1 — forward-yield shadow rows, reset per run (OPT runs overwrite freely; only the STD path logs it)
+  _sunkGate = p.sunkCover ?? null;   // v6.37.0 — set UNCONDITIONALLY; absent = null = base
   const { decayTrigger, dteFloor, deltaThreshold, dtePenaltyAnchor = 45, shares, defHorizon = 0 } = p; // v6.14.0 — otmFixed removed from the sim: no consumer remained // v6.5.0 — vixGate removed (retired on evidence, S33; inert at 0 since) // v6.3.0 — defense horizon; 0 = off ≡ full DTE
   // v6.8.0 — grace parameterized: the trigger min-hold gate, hardcoded `>= 3`
   // since inception (surfaced S41 — modeled but never named, never swept, on
@@ -3814,11 +3781,11 @@ async function runSimulation() {
   + `UNCHANGED. NOT PUBLISHED, not a baseline. Judge this on the DTE TRAJECTORY as well as yield — its purpose is escaping `
   + `the far-dated ratchet, and the sim can neither be assigned nor run out of cash, so the benefit it targets is invisible `
   + `to core yield.`, 'warn'); // v6.18.0
-if (params.fwdRank) logMsg(`⚠ SANDBOX VARIANT — FORWARD-YIELD RANKING, debit cap $${(params.debitCap ?? 0).toFixed(2)}/sh `
+if (params.sunkCover) logMsg(`⚠ SANDBOX VARIANT — PRE-FIX SUNK-COVER RANKING (duration subsidy restored) `
   + `— NOT PUBLISHED, not a baseline. The sim has NO CASH CONSTRAINT: debits are always affordable here `
   + `and assignment cannot occur, so this run can show whether the STRATEGY is better but NEVER whether it is `
   + `EXECUTABLE in the account.`, 'warn'); // v6.17.0
-logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.fwdRank ? 'FWD-RANK cap $' + (params.debitCap ?? 0).toFixed(2) + ' · ' : ''}${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold} · ${params.dtePenaltyAnchor}d penalty anchor · grace ${params.graceDays ?? 3}d${(params.defHorizon || 0) > 0 ? ` · defH ${params.defHorizon}d` : ''}${params.expiryFriday != null ? ` · expF${params.expiryFriday}` : ''}${params.skipMonths != null ? ` · skip ${params.skipMonths}mo` : ''}`);
+logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.sunkCover ? 'SUNK-COVER · ' : ''}${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold} · ${params.dtePenaltyAnchor}d penalty anchor · grace ${params.graceDays ?? 3}d${(params.defHorizon || 0) > 0 ? ` · defH ${params.defHorizon}d` : ''}${params.expiryFriday != null ? ` · expF${params.expiryFriday}` : ''}${params.skipMonths != null ? ` · skip ${params.skipMonths}mo` : ''}`);
   if (_ovKeys.length) logMsg(`⚠ RESEARCH OVERRIDE (URL): ${_ovKeys.map(f => f + '=' + _ov[f]).join(' · ')} — NOT PUBLISHED · not a baseline`, 'err'); // v6.7.19 tripwire
   // v6.11.0 — expiry cohort census: printed ONLY when ovExpfri was supplied
   // (valid or not) so plain STD logs stay byte-identical to baseline. Verifies
@@ -3870,7 +3837,6 @@ logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.fwdRank ?
   }
   logHeadroomTable(result);  // v5.11.4 — headroom look, both STD paths
   logExitAttribution(result); // v6.7.18 — exit attribution, STD only (this call site never runs in OPT)
-  logShadowSummary();         // v6.16.1 — forward-yield shadow, same STD-only call site
   /* v5.15.4 auto-analysis retired; Ask Claude is on-demand */
   
   
@@ -3996,7 +3962,7 @@ const EXIT_ATTR_CYCLE_ROWS = true; // per-cycle forensic rows (spec default ON)
 // Takes an optional search string for harness testability.
 function researchOverrides(search) {
   const q = new URLSearchParams(search != null ? search : location.search);
-  const map = { ovDecay: 'decayTrigger', ovDelta: 'deltaThreshold', ovDefh: 'defHorizon', ovGrace: 'graceDays', ovFwd: 'fwdRank', ovDebitCap: 'debitCap', ovScratch: 'scratchRoll', ovDte: 'dteFloor', ovEntrydte: 'entryDteMin', ovExpfri: 'expiryFriday', ovSkipm: 'skipMonths', ovPit: 'pointInTime' }; // v6.8.0/v6.8.2 — ovOtm deliberately omitted (percent-vs-fraction unit ambiguity; use the card) // v6.11.0 — ovExpfri 1–4: expiry-Friday cohort filter (sandbox-only, no card/axis) // v6.12.0 — ovSkipm 1–12: start-skip jitter (sandbox-only)
+  const map = { ovDecay: 'decayTrigger', ovDelta: 'deltaThreshold', ovDefh: 'defHorizon', ovGrace: 'graceDays', ovSunk: 'sunkCover', ovScratch: 'scratchRoll', ovDte: 'dteFloor', ovEntrydte: 'entryDteMin', ovExpfri: 'expiryFriday', ovSkipm: 'skipMonths', ovPit: 'pointInTime' }; // v6.8.0/v6.8.2 — ovOtm deliberately omitted (percent-vs-fraction unit ambiguity; use the card) // v6.11.0 — ovExpfri 1–4: expiry-Friday cohort filter (sandbox-only, no card/axis) // v6.12.0 — ovSkipm 1–12: start-skip jitter (sandbox-only)
   const ov = {};
   for (const k of Object.keys(map)) {
     if (!q.has(k)) continue;
@@ -4127,12 +4093,13 @@ function logExitAttribution(result) {
   }
 }
 
-// ── v6.17.0 · FORWARD-YIELD RANKING VARIANT (SIM CHANGE, sandbox-only) ──
-// Module-level gates on the v6.11.0 _expFriGate pattern: set UNCONDITIONALLY per simulate()
-// from p, so nothing leaks between runs and absence is exact identity.
-//   _fwdGate      null/0 = OFF (incumbent netCredit ranking, byte-identical)
-//   _debitCapGate $/share of debit tolerated when _fwdGate is on (0 = credit-only, still forward-ranked)
-let _fwdGate = null, _debitCapGate = 0;
+// ── v6.37.0 · SUNK-COVER RANKING (SIM CHANGE, sandbox-only) ──
+// Inverts the retired v6.17.0 _fwdGate: premium-alone ranking is the BASE, and this
+// gate restores the pre-fix numerator (netCredit = premium − sunk buyback). Retained
+// so the S60 attribution pair stays re-runnable and a challenger can be scored
+// against the model the published policy was actually fit on.
+//   _sunkGate  null/0 = OFF (base: rank on premium alone) · 1 = pre-fix subsidy
+let _sunkGate = null;
 // ── v6.18.0 · SCRATCH ROLL ON DELTA STOPS (SIM CHANGE, sandbox-only) ──
 // Ron's S44 question: after a delta stop, take the SHORTEST-DATED contract that still funds the
 // cover (the near edge of the feasible set) instead of the richest one. CONDITIONAL by design —
@@ -4142,37 +4109,6 @@ let _fwdGate = null, _debitCapGate = 0;
 // cash. Read the DTE trajectory and the yield cost together, not the yield alone.
 let _scratchGate = null;   // null/0 = OFF (incumbent, byte-identical)
 let _scratchArmed = false; // set per call site: true only on a delta-fired roll
-let _shadowLedger = null; // v6.16.1 — forward-yield shadow rows, reset per sim run
-
-function logShadowSummary() { // v6.16.1 — what the no-debit rule costs, measured not argued
-  const L = _shadowLedger || [];
-  const rolls = L.filter(r => r.buyback > 0); // ROLLS only: flat entries have no sunk cost, nothing to shadow
-  if (!rolls.length) { logMsg('── Forward-Yield Shadow — no rolls with a buyback in this run ──', ''); return; }
-  const med = a => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
-  const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
-  const binds = rolls.filter(r => r.binds);
-  const contractsN = (typeof lastResult === 'object' && lastResult && lastResult.params && lastResult.params.shares)
-    ? lastResult.params.shares / 100 : 6; // v6.16.1 — the RUN's share count, never a literal
-  logMsg('── Forward-Yield Shadow (MEASUREMENT ONLY — selection unchanged) ──', '');
-  logMsg('  The ranker scores newPremium − buyback. At choice time the buyback is SUNK, and only large', '');
-  logMsg('  long-dated premiums can cover it — which is why rolls land far out. The shadow re-ranks the', '');
-  logMsg('  SAME menu on forward yield alone (the flat-entry objective) and prices the debit that implies.', '');
-  logMsg(`  rolls with a buyback: ${rolls.length} · credit filter BINDS on ${binds.length} (${(100 * binds.length / rolls.length).toFixed(0)}%)`, '');
-  logMsg(`  chosen : med DTE ${med(rolls.map(r => r.chosenDte))}d · med adjYld ${med(rolls.map(r => r.chosenYld)).toFixed(1)}%`, '');
-  logMsg(`  shadow : med DTE ${med(rolls.map(r => r.shadowDte))}d · med fwdYld ${med(rolls.map(r => r.shadowYld)).toFixed(1)}%`, '');
-  logMsg(`  gap    : med ${med(rolls.map(r => r.gap)).toFixed(1)}pp · mean ${mean(rolls.map(r => r.gap)).toFixed(1)}pp`, '');
-  if (binds.length) {
-    const d = binds.map(r => r.debitPerSh * 100 * contractsN);
-    const s = d.slice().sort((x, y) => x - y);
-    logMsg(`  debit required (${contractsN} contracts): med $${med(d).toFixed(0)} · mean $${mean(d).toFixed(0)}`
-      + ` · p90 $${s[Math.floor(s.length * 0.9)].toFixed(0)} · max $${s[s.length - 1].toFixed(0)}`, '');
-    const bb = binds.map(r => r.buyback * 100 * contractsN);
-    logMsg(`  debit as % of the buyback it accompanies: med ${med(binds.map(r => 100 * r.debitPerSh / r.buyback)).toFixed(0)}%`
-      + ` · (median buyback $${med(bb).toFixed(0)})`, '');
-  }
-  logMsg('  CAVEAT: a yield gap is NOT a P&L gap. A near-dated menu rolls more often and stops more often;', '');
-  logMsg('  whether the tape rewards that is a question only a full sim variant can answer, not this block.', '');
-}
 
 function _dteAtEntry(c) { // v6.16.0 — DTE the cycle was ENTERED at; data was always in the cycle record, never printed
   try {
@@ -6752,7 +6688,9 @@ async function runRollScan() {
   const scored = results.map(r => {
     const netCredit    = currentCallMid > 0 ? r.mid - currentCallMid : r.mid;
     const dtePenalty   = Math.min(1, r.dte / anchor);
-    const rollAdjYield = spyNow > 0 ? (netCredit / spyNow) * (365 / r.dte) * 100 * dtePenalty : 0;
+    // v6.37.0 — PARITY WITH findNextContract: rank on the candidate premium alone.
+    // netCredit still governs ADMISSION below; it no longer governs ORDER.
+    const rollAdjYield = spyNow > 0 ? (r.mid / spyNow) * (365 / r.dte) * 100 * dtePenalty : 0;
     const otmPct       = ((r.strike - spyNow) / spyNow) * 100;
     const delta        = r.delta !== null ? Math.abs(r.delta) : 0.30;
     const deltaSim     = callDelta(spyNow, r.strike, r.dte, scanVix, 4.5);
@@ -6767,7 +6705,9 @@ async function runRollScan() {
     // (sim-parity: mid is the live analog of the sim's close); worst-case is a
     // SHADOW ordering used only to flag spread-fragile ranks.
     const netWC        = (r.bid || 0) - (coverBook && currentCallMid > 0 ? coverBook.ask : 0);
-    const wcAdjYield   = spyNow > 0 ? (netWC / spyNow) * (365 / r.dte) * 100 * dtePenalty : 0;
+    // v6.37.0 — worst-case shadow follows the same basis (bid, not bid−ask-cover),
+    // or the fragility flag would compare two different objectives and false-flag.
+    const wcAdjYield   = spyNow > 0 ? ((r.bid || 0) / spyNow) * (365 / r.dte) * 100 * dtePenalty : 0;
     const spr          = (r.bid && r.ask) ? r.ask - r.bid : null;
     return Object.assign({}, r, { netCredit, rollAdjYield, otmPct, delta, deltaSim, deltaOk, isOTM, netWC, wcAdjYield, spr });
   })
@@ -6818,7 +6758,9 @@ async function runRollScan() {
         const net    = (!scanFlat && currentCallMid > 0) ? px - dmCover : px;
         const dSim   = callDelta(dmSpy, r.strike, dteDm, dmVix, 4.5);
         const pen    = Math.min(1, dteDm / anchor);
-        const adj    = dmSpy > 0 ? (net / dmSpy) * (365 / dteDm) * 100 * pen : 0;
+        // v6.37.0 — same basis as the live ranker, or the flip metric stops
+        // measuring a FRAME and starts measuring a formula difference.
+        const adj    = dmSpy > 0 ? (px / dmSpy) * (365 / dteDm) * 100 * pen : 0;
         return { exp: r.exp, strike: r.strike, net, dSim, adj,
                  ok: net > 0 && dSim < entryCap && r.strike > dmSpy };
       }).filter(s => s && s.ok).sort((a, b) => b.adj - a.adj);
@@ -6910,7 +6852,8 @@ async function runRollScan() {
 
     if (scoredKeys.has(key)) {
       // PASS — qualifying candidate (v5.2.0 — same formula as table: spyNow + dtePenalty)
-      const adjYield = (netCredit / spyNow) * (365 / r.dte) * 100 * Math.min(1, r.dte / anchor);
+      // v6.37.0 — prints the score the ranking ACTUALLY used (premium basis).
+      const adjYield = (r.mid / spyNow) * (365 / r.dte) * 100 * Math.min(1, r.dte / anchor);
       const isBest = scored.length > 0 && r.exp === scored[0].exp && r.strike === scored[0].strike;
       const _sr = _scoredByKey[key]; // v6.4.13 — spread + fragility from the scored row
       logMsg('    $' + r.strike + 'C — PASS: net +$' + netCredit.toFixed(2) +
@@ -7103,7 +7046,7 @@ async function runRollScan() {
 
   // ── v6.1.12 · Phase A holdRatio shadow (LOG ONLY — ranking above is final) ──
   // Re-scores the SAME qualifying candidate list at hold horizons H (days).
-  // score_H = (netCredit·capture/SPY)·(365/min(H,DTE))·min(1,DTE/anchor),
+  // score_H = (mid·capture/SPY)·(365/min(H,DTE))·min(1,DTE/anchor),   // v6.37.0 basis
   // capture = 1−√(1−min(H,DTE)/DTE). H=∞ ⇒ capture=1, horizon=DTE ≡ live
   // formula (identity benchmark, P1). h-as-RATIO was killed at the algebra
   // gate: capture(h) candidate-independent ⇒ rank-invariant at every h.
@@ -7113,14 +7056,15 @@ async function runRollScan() {
     const H_SET = [Infinity, 30, 14, 7, 6, 3];
     const hLabel = H => H === Infinity ? 'H=∞ (identity)' : 'H=' + H + 'd';
     logMsg('── Shadow: hold-horizon re-scoring (v6.1.12, log-only) ──────────────────', '');
-    logMsg('  score_H = netCredit·capture/SPY · 365/min(H,DTE) · min(1,DTE/' + anchor + ') · capture=1−√(1−min(H,DTE)/DTE)', 'dbg');
+    logMsg('  score_H = mid·capture/SPY · 365/min(H,DTE) · min(1,DTE/' + anchor + ') · capture=1−√(1−min(H,DTE)/DTE)', 'dbg');
     const liveOrder = scored.map(r => r.exp + '_' + r.strike);
     let p1ok = null;
     for (const H of H_SET) {
       const ranked = scored.map(r => {
         const horizon = Math.min(H, r.dte);
         const capture = H === Infinity ? 1 : 1 - Math.sqrt(Math.max(0, 1 - horizon / r.dte));
-        const score   = (r.netCredit * capture / spyNow) * (365 / horizon) * 100 * Math.min(1, r.dte / anchor);
+        // v6.37.0 — premium basis, preserving the P1 identity (H=∞ ≡ live formula).
+        const score   = (r.mid * capture / spyNow) * (365 / horizon) * 100 * Math.min(1, r.dte / anchor);
         return { key: r.exp + '_' + r.strike, exp: r.exp, strike: r.strike, dte: r.dte, score };
       }).sort((a, b) => b.score - a.score);
       if (H === Infinity) {
