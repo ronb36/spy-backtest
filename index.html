@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.39.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.40.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -556,7 +556,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.39.1 · THE P_stop PROBE — THE CALIBRATION-FREE DISCRIMINATION TEST (S61, Ron). v6.39.0 shipped the risk term at λ=0 and UNCALIBRATED, and the two barrier forms tried so far bracket the observed 39.3% stop rate in OPPOSITE directions — horizon form 2× HIGH, gambler’s ruin 5× LOW. Rather than guess a third form, §11 item 4’s test: across the realised cycles, did the ones that STOPPED carry higher modelled P_stop AT ENTRY than the ones that DECAYED? LEVEL IS IRRELEVANT BECAUSE λ IS A FREE SCALE — only ORDERING is under test, so the probe needs no calibration and no fitting. DISPLAY ONLY: pure post-hoc aggregation of existing cycle records (entryDate, expiry, strike, entrySPY, entryVix, entryDelta, reason, all recorded at the close-cycle site), exactly the headroomStats precedent — THE SIM REGION IS BYTE-IDENTICAL and λ stays 0. P_stop comes from the SHIPPED riskPStop, so the probe measures the DEPLOYED form rather than a re-derivation, and S* is emitted beside it as the parity check for any out-of-tab port. thr IS READ FROM result.params.deltaThreshold, NOT from module _riskStopThr: the module value is set per simulate() and the probe runs after the run completes — the same stale-state trap the v6.39.0 scope bug was. ONE ROW PER CYCLE, comma-delimited, reason LAST because reason strings carry · separators and spaces but never commas. THE DISTRIBUTION PRINTS FIRST, and it is the gating read: v6.39.0’s own header records the ranker as a CORNER SOLUTION (entry delta 0.55–0.65 on 162 of 163 cycles, entry DTE 110–150 on 147), so if P_stop carries no spread across realised cycles the test returns null for a BORING reason (no variance) rather than an interesting one (no signal). Those two must not be confused, and the quartiles are what tells them apart. DEBUG-GATED via logDbg — self-gating, OPT-suppressed, and it keeps 160+ rows out of the production scan log. WHAT THE VERDICT DECIDES: signal ⇒ λ gets scaled and the decisive comparison (creditFilter OFF + λ&gt;0 against creditFilter ON + λ=0) becomes runnable; no signal ⇒ the barrier model measures something unrelated to what fires the stop, item 4 is abandoned rather than retuned, and creditFilter stays ON as the crude-but-measured control. Base v6.39.0 (77fa4fbf).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.40.0 · THE RISK TERM IS RETIRED (S61, Ron’s ruling). MEASURED AND ABANDONED, not deferred. v6.39.1’s probe ran the §11 item 4 test on all 163 core cycles: does modelled P_stop AT ENTRY separate cycles that later delta-stopped from cycles that decayed? IT DOES NOT. AUC 0.484 [0.395, 0.570] for the shipped barrier form; 0.486 for gambler’s ruin; 0.504 for a two-barrier form at the median 4-day hold; 0.484 for ENTRY DELTA ITSELF. Quartile stop-rates are non-monotone (30/54/39/34%), the two era halves point OPPOSITE ways (0.572 and 0.403), and a logistic on all five entry observables reaches only 0.582 IN-SAMPLE WITH FIVE FREE PARAMETERS on n=163 — an upper bound no out-of-sample number would beat. THE DECISIVE NUMBER IS ρ = +1.000: P_stop and entry delta induce THE SAME ORDERING on this ledger, so the term could only ever re-express a cap the ranker already applies at 0.69. Nothing observable at entry separates the pools — what fires the stop is the PATH AFTER ENTRY, not the contract chosen — so there is no selection-time risk job available to do. RULING (Ron): pull all of it rather than leave λ=0 dormant. Removed at TWENTY SITES in six regions — json read, module state (_riskLambda/_riskStopCost/_riskStopThr), the three functions riskSStar / riskPStop / riskAdjPx, the sim ranker, the param binding, and four live-scan sites (ranker, worst-case shadow, DM-close frame-flip shadow, PASS-row display). The v6.39.1 probe goes with them: its question is closed. THIS IS A DELETION AT EXACT IDENTITY — roll_params carried riskLambda 0, so every riskAdjPx call was already returning px unchanged, and the STD ledger must not move by a cent. AN IDENTICAL LOG IS THE CORRECT CERT HERE and not a failure to discriminate: the discriminating artifact is the code diff plus a symbol sweep showing zero risk* references surviving against an unmoved ledger. If the ledger DOES move, the json was not what it was read to be and the release is void. creditFilter IS KEPT (Ron) and is ADDED TO THE KNOWN JSON-KEY LIST (§11 item 9b) — riskLambda and riskStopCost are deliberately NOT added, so a leftover key now prints ⚠ no card per the v6.14.2 otmTarget ruling, which is the tripwire that would have caught both the S60 “riskLamba” typo and the S61 silent creditFilter OFF. §11 item 9c (λ as a sweep axis) is MOOT and drops. Base v6.39.1 (545e2484).</span></div>
 </div>
 
 <script>
@@ -621,7 +621,7 @@ function renderJsonFootnote(raw) {
     const KNOWN = ['decayTrigger','dteFloor','deltaThreshold','dtePenaltyAnchor', // v6.14.2 — otmTarget OFF the list deliberately: while the json still carries the retired field the footnote shows it as ⚠ no card, which is the HONEST state (v6.7.10 ruling); the tell disappears when the field does
       'lastOptimized','contracts','shares','shortStrike','shortExpiry','entryDate','netPremium',
       'coverPrice','sellPrice','entrySpy','defHorizon','note','optProjYield','entryDeltaCap',
-      'entryDteMin','graceDays','costBasis','sharesHeld','basisAsOf']; // v6.26.0 — import-writer fields
+      'entryDteMin','graceDays','costBasis','sharesHeld','basisAsOf','creditFilter']; // v6.26.0 — import-writer fields // v6.40.0 — creditFilter added (§11 item 9b); riskLambda/riskStopCost deliberately NOT added, so a leftover key prints ⚠ no card per the v6.14.2 otmTarget ruling
       // v6.34.0 — oppTheta/oppH OFF this list deliberately (θ retired): while roll_params.json still carries them the footnote prints them as ⚠ no card, which is the HONEST state per the otmTarget v6.14.2 ruling. The tell clears when the fields do.
     Object.keys(raw).filter(k => !KNOWN.includes(k))
       .forEach(k => parts.push(k + ' ' + JSON.stringify(raw[k]) + ' \u26A0 no card'));
@@ -685,8 +685,6 @@ async function loadRollParams() {
       entryDeltaCap:  data.entryDeltaCap ?? null, // v6.4.0 — null = coupled to deltaThreshold
       entryDteMin:    data.entryDteMin ?? null,   // v6.4.0 — null = coupled to dteFloor
       creditFilter:   data.creditFilter ?? true,  // v6.39.0 — net-credit admission; default ON
-      riskLambda:     data.riskLambda   ?? 0,     // v6.39.0 — 0 = identity, term off
-      riskStopCost:   data.riskStopCost ?? 4.94,  // v6.39.0 — $/share, measured invariant
       graceDays:      data.graceDays ?? null,     // v6.8.3 — null = not yet published (sim defaults 3; card shows hardcode honesty sub)
       // Live position fields — contracts is primary, shares always derived
       contracts:      data.contracts ?? (data.shares ? Math.round(data.shares / 100) : 6),
@@ -737,7 +735,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.39.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.40.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -2841,60 +2839,6 @@ function normalCDF(x) {
   const y = 1 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-v*v);
   return 0.5 * (1 + s * y);
 }
-// ── v6.39.0 · RISK TERM (S60) ──────────────────────────────────────────────
-// E[P&L] = P(decay first)·harvest − P(stop first)·stop_cost. adjYield modelled
-// only the left half; the sunk cover was doing the right half BY ACCIDENT, and
-// the net-credit filter was doing it a second time. This prices it explicitly.
-//   score numerator = px − λ · P_stop · C          (λ=0 ⇒ byte-identical)
-// P_stop is an UPPER-BARRIER FIRST PASSAGE on the spot level S* at which the
-// candidate's delta reaches the stop threshold, by the reflection principle
-// with zero drift:  P = 2·Φ( −ln(S*/S) / (σ√T) ).
-// HORIZON IS DTE, NOT defH (measured S60): at H=defH=10d, P_stop is 0.000 for
-// 75% of a real board — the term would be inert for almost every candidate. At
-// H=DTE it spans 0→0.85 on every board tested, calm and stressed.
-// NOT A REBUILT SUBSIDY: it is not constant across candidates, and
-// corr(P_stop, DTE) is only +0.15..+0.27 across four boards — the variation is
-// driven by MONEYNESS, which is exactly the axis the ranker is blind on (it is
-// a pure corner solution in strike). Collinearity with the anchor is therefore
-// weak, and the registered test (re-sweep the anchor after this lands; if its
-// surface flattens the term absorbed its job) stays meaningful.
-// C IS A SCALAR, IN DOLLARS PER SHARE to match px. Measured invariant across
-// entry DTE (−$2,902 / −$3,113 / −$2,669 per 6-contract cycle) and across entry
-// delta (−$3,009 / −$2,882) — i.e. ~$4.94/sh. λ absorbs any residual scaling.
-let _riskLambda = 0, _riskStopCost = 4.94;
-// THE STOP THRESHOLD, module-level and set per simulate(). findNextContract's
-// `deltaThreshold` parameter receives entryCap_ at every call site (3359, 3423,
-// 3566) — it is the ENTRY CAP. Solving S* against that would price the barrier
-// at the wrong level entirely. Set UNCONDITIONALLY, same leak-proofing as the
-// other gates.
-let _riskStopThr = 0.74;
-
-// Spot at which this contract's delta reaches `thr`, in the SIM'S OWN DELTA
-// FRAME (callDelta, normalCDF defect included) — never textbook BS, or S* would
-// not correspond to the level the trigger actually fires at.
-function riskSStar(K, dte, vix, thr) {
-  let lo = 1, hi = Math.max(K, 1) * 4;
-  for (let i = 0; i < 60; i++) {
-    const m = (lo + hi) / 2;
-    if (callDelta(m, K, dte, vix, 4.5) < thr) lo = m; else hi = m;
-  }
-  return (lo + hi) / 2;
-}
-function riskPStop(S, K, dte, vix, thr) {
-  if (!(S > 0) || !(K > 0) || !(dte > 0)) return 0;
-  const sig = Math.max((vix || 15), 5) / 100;
-  const T   = Math.max(dte, 1) / 365;
-  const Ss  = riskSStar(K, dte, vix, thr);
-  if (!(Ss > 0)) return 0;
-  const z = Math.log(Ss / S) / (sig * Math.sqrt(T));
-  return Math.min(1, Math.max(0, 2 * normalCDF(-z)));
-}
-// The numerator every ranking site uses. λ=0 returns px unchanged.
-function riskAdjPx(px, S, K, dte, vix, thr) {
-  if (!_riskLambda) return px;
-  return px - _riskLambda * riskPStop(S, K, dte, vix, thr) * _riskStopCost;
-}
-
 function callDelta(S, K, dte, vix, tnx) {
   const T = Math.max(dte, 1) / 365;
   const sig = Math.max((vix || 15), 5) / 100;
@@ -3077,8 +3021,7 @@ function findNextContract(afterDate, currentSPY, dtePenaltyAnchor, dteFloor, exc
       // per-candidate dte is not constant — short candidates absorb the whole cover
       // over 57 days, long ones spread it over 175. A DURATION SUBSIDY, not risk
       // management (Ron, S59). ovSunk=1 restores the pre-fix basis.
-      const _rankPx    = riskAdjPx(_sunkGate ? netCredit : entryPx,
-                                   currentSPY, c.strike, dte, realVix, _riskStopThr); // v6.39.0
+      const _rankPx    = _sunkGate ? netCredit : entryPx; // v6.40.0 — risk term retired; premium alone
       const rawYield   = (_rankPx / currentSPY) * (365 / dte) * 100;
       const dtePenalty = Math.min(1, dte / dtePenaltyAnchor);
       const adjYield   = rawYield * dtePenalty;
@@ -3292,9 +3235,6 @@ async function simulate(p) {
   // term can demonstrably replace it — that comparison is the whole point of the
   // two flags existing together.
   _creditFilter = (p.creditFilter ?? true) !== false;
-  _riskLambda   = +(p.riskLambda ?? 0) || 0;
-  _riskStopCost = +(p.riskStopCost ?? 4.94) || 4.94;
-  _riskStopThr  = +(p.deltaThreshold) || 0.74; // v6.39.0 — the STOP, not the entry cap
   // Clear stale entryPx/entryDate/entrySPY stamped onto shared DM contract objects
   // by the pendingContract capture of a prior simulate() call — without this flush
   // a later run's OPEN row could inherit a previous run's entry price.
@@ -3918,7 +3858,6 @@ logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.sunkCover
   }
   logHeadroomTable(result);  // v5.11.4 — headroom look, both STD paths
   logExitAttribution(result); // v6.7.18 — exit attribution, STD only (this call site never runs in OPT)
-  logPStopProbe(result);      // v6.39.1 — P_stop probe, debug-gated (§11 item 4)
   /* v5.15.4 auto-analysis retired; Ask Claude is on-demand */
   
   
@@ -4024,80 +3963,6 @@ function logHeadroomTable(result) {
     const di = (b.dIn / b.n).toFixed(2);
     const mp = Math.round(b.pnl / b.n);
     logMsg(`  ${b.label.padEnd(8)} ${String(b.n).padStart(3)}   ${String(ds).padStart(3)}%   ${String(wr).padStart(3)}%   ${hd.padStart(5)}    ${di}    ${mp >= 0 ? '+' : '-'}$${Math.abs(mp).toLocaleString()}`, '');
-  });
-}
-
-// ── v6.39.1 — P_stop PROBE (DISPLAY ONLY, S61) ─────────────────────────────
-// §11 item 4's calibration-free discrimination test. Does modelled P_stop AT
-// ENTRY separate cycles that later delta-stopped from cycles that decayed?
-// Level is irrelevant — λ is a free scale — so only ORDERING is under test.
-//
-// Post-hoc aggregation of existing cycle records, the headroomStats precedent:
-// entryDate, expiry, strike, entrySPY, entryVix, entryDelta and reason are all
-// written at the close-cycle site. Nothing here touches the sim.
-//
-// P_stop is the SHIPPED riskPStop — the probe measures the deployed form, not a
-// re-derivation. S* is emitted alongside as the parity check for an out-of-tab
-// port of callDelta/normalCDF.
-//
-// thr comes from result.params.deltaThreshold and NOT from module _riskStopThr,
-// which is set per simulate() and would be a stale read at log time.
-//
-// Debug-gated by logDbg (self-gating, OPT-suppressed): 160+ rows do not belong
-// in a production scan log. Download the log for analysis.
-function logPStopProbe(result) {
-  const thr = result?.params?.deltaThreshold;
-  if (thr == null || !result?.cycles?.length) return;
-  const rows = [];
-  let skipped = 0;
-  result.cycles.forEach((c, idx) => {
-    if (c.entryDelta == null || !c.entrySPY || !c.entryVix || !c.strike ||
-        !c.entryDate || !c.expiry) { skipped++; return; }
-    const dteE = Math.round((new Date(c.expiry + 'T00:00:00') -
-                             new Date(c.entryDate + 'T00:00:00')) / 86400000);
-    if (dteE <= 0) { skipped++; return; }
-    const sStar = riskSStar(c.strike, dteE, c.entryVix, thr);
-    const pStop = riskPStop(c.entrySPY, c.strike, dteE, c.entryVix, thr);
-    rows.push({
-      n: idx + 1, entryDate: c.entryDate, expiry: c.expiry, dteE,
-      strike: c.strike, entrySPY: c.entrySPY, entryVix: c.entryVix,
-      entryPx: c.entryPx, entryDelta: c.entryDelta, sStar, pStop,
-      daysHeld: c.daysHeld, pnl: c.pnl, isInitial: !!c.isInitial,
-      reason: c.reason || '—',
-    });
-  });
-  if (!rows.length) return;
-
-  // Pool taxonomy from the sim's own reason strings — delta-first on co-fires,
-  // the standing convention (nothing invented at display time).
-  const core   = rows.filter(r => !r.isInitial);
-  const isStop = r => (r.reason || '').includes('delta');
-  const stops  = core.filter(isStop);
-  const decays = core.filter(r => !isStop(r));
-  const q = (arr, p) => {
-    if (!arr.length) return null;
-    const s = [...arr].sort((a, b) => a - b);
-    const i = (s.length - 1) * p;
-    const lo = Math.floor(i), hi = Math.ceil(i);
-    return lo === hi ? s[lo] : s[lo] + (s[hi] - s[lo]) * (i - lo);
-  };
-  const mean = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
-  const ps   = core.map(r => r.pStop);
-  const f4   = v => v == null ? '—' : v.toFixed(4);
-
-  logDbg(`\n── P_stop Probe (v6.39.1) · Δ${thr} stop · ${rows.length} cycles (${core.length} core, ${skipped} skipped) ──`);
-  logDbg(`  DISTRIBUTION over core cycles — min ${f4(q(ps,0))} · p25 ${f4(q(ps,0.25))} · med ${f4(q(ps,0.5))} · p75 ${f4(q(ps,0.75))} · max ${f4(q(ps,1))}`);
-  logDbg(`  IQR ${f4(q(ps,0.75) - q(ps,0.25))} — if this is negligible the test is UNDERPOWERED BY CONSTRUCTION (corner solution), not null.`);
-  logDbg(`  pool means — delta-stopped n=${stops.length} P_stop ${f4(mean(stops.map(r=>r.pStop)))} · decayed n=${decays.length} P_stop ${f4(mean(decays.map(r=>r.pStop)))}`);
-  logDbg(`  benchmark  — delta-stopped entryΔ ${f4(mean(stops.map(r=>r.entryDelta)))} dte ${Math.round(mean(stops.map(r=>r.dteE))||0)}d · decayed entryΔ ${f4(mean(decays.map(r=>r.entryDelta)))} dte ${Math.round(mean(decays.map(r=>r.dteE))||0)}d`);
-  logDbg('  ── rows (csv; reason last — reason strings carry · and spaces, never commas) ──');
-  logDbg('  PSTOP,n,entryDate,expiry,dteE,strike,entrySPY,entryVix,entryPx,entryDelta,sStar,pStop,daysHeld,pnl,isInitial,reason');
-  rows.forEach(r => {
-    logDbg(`  PSTOP,${r.n},${r.entryDate},${r.expiry},${r.dteE},${r.strike},` +
-           `${r.entrySPY.toFixed(2)},${r.entryVix.toFixed(2)},` +
-           `${r.entryPx != null ? r.entryPx.toFixed(2) : ''},${r.entryDelta.toFixed(4)},` +
-           `${r.sStar.toFixed(2)},${r.pStop.toFixed(6)},${r.daysHeld},` +
-           `${r.pnl != null ? r.pnl.toFixed(2) : ''},${r.isInitial ? 1 : 0},${r.reason}`);
   });
 }
 
@@ -6848,9 +6713,8 @@ async function runRollScan() {
     const dtePenalty   = Math.min(1, r.dte / anchor);
     // v6.37.0 — PARITY WITH findNextContract: rank on the candidate premium alone.
     // netCredit still governs ADMISSION below; it no longer governs ORDER.
-    // v6.39.0 — risk term applied at the live ranker too (λ=0 ⇒ identity).
-    const _rMid        = riskAdjPx(r.mid, spyNow, r.strike, r.dte, scanVix, _riskStopThr);
-    const rollAdjYield = spyNow > 0 ? (_rMid / spyNow) * (365 / r.dte) * 100 * dtePenalty : 0;
+    // v6.40.0 — risk term retired; the numerator is the premium alone.
+    const rollAdjYield = spyNow > 0 ? (r.mid / spyNow) * (365 / r.dte) * 100 * dtePenalty : 0;
     const otmPct       = ((r.strike - spyNow) / spyNow) * 100;
     const delta        = r.delta !== null ? Math.abs(r.delta) : 0.30;
     const deltaSim     = callDelta(spyNow, r.strike, r.dte, scanVix, 4.5);
@@ -6867,7 +6731,7 @@ async function runRollScan() {
     const netWC        = (r.bid || 0) - (coverBook && currentCallMid > 0 ? coverBook.ask : 0);
     // v6.37.0 — worst-case shadow follows the same basis (bid, not bid−ask-cover),
     // or the fragility flag would compare two different objectives and false-flag.
-    const wcAdjYield   = spyNow > 0 ? (riskAdjPx((r.bid || 0), spyNow, r.strike, r.dte, scanVix, _riskStopThr) / spyNow) * (365 / r.dte) * 100 * dtePenalty : 0;
+    const wcAdjYield   = spyNow > 0 ? ((r.bid || 0) / spyNow) * (365 / r.dte) * 100 * dtePenalty : 0; // v6.40.0 — risk term retired
     const spr          = (r.bid && r.ask) ? r.ask - r.bid : null;
     return Object.assign({}, r, { netCredit, rollAdjYield, otmPct, delta, deltaSim, deltaOk, isOTM, netWC, wcAdjYield, spr });
   })
@@ -6923,7 +6787,7 @@ async function runRollScan() {
         const pen    = Math.min(1, dteDm / anchor);
         // v6.37.0 — same basis as the live ranker, or the flip metric stops
         // measuring a FRAME and starts measuring a formula difference.
-        const adj    = dmSpy > 0 ? (riskAdjPx(px, dmSpy, r.strike, dteDm, dmVix, _riskStopThr) / dmSpy) * (365 / dteDm) * 100 * pen : 0; // v6.39.0
+        const adj    = dmSpy > 0 ? (px / dmSpy) * (365 / dteDm) * 100 * pen : 0; // v6.40.0 — risk term retired
         return { exp: r.exp, strike: r.strike, net, dSim, adj,
                  // v6.38.0 — same admission as the live ranker, or the flip
                  // metric measures a filter difference instead of a frame.
@@ -7018,7 +6882,7 @@ async function runRollScan() {
     if (scoredKeys.has(key)) {
       // PASS — qualifying candidate (v5.2.0 — same formula as table: spyNow + dtePenalty)
       // v6.37.0 — prints the score the ranking ACTUALLY used (premium basis).
-      const adjYield = (riskAdjPx(r.mid, spyNow, r.strike, r.dte, scanVix, _riskStopThr) / spyNow) * (365 / r.dte) * 100 * Math.min(1, r.dte / anchor); // v6.39.0 — prints the score the ranking used
+      const adjYield = (r.mid / spyNow) * (365 / r.dte) * 100 * Math.min(1, r.dte / anchor); // v6.40.0 — prints the score the ranking used
       const isBest = scored.length > 0 && r.exp === scored[0].exp && r.strike === scored[0].strike;
       const _sr = _scoredByKey[key]; // v6.4.13 — spread + fragility from the scored row
       logMsg('    $' + r.strike + 'C — PASS: net +$' + netCredit.toFixed(2) +
