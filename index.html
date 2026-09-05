@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.34.5</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.35.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -556,7 +556,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.34.5 · PERFORMANCE PANEL SPLIT IN TWO (S58, Ron). The panel had ONE window, pinned to CWIN_LAST_BALANCE (2026-08-11), which silently hid four closed model-era cycles — 08/18, 08/20, 08/28 and the 08/31 close — behind a month-old statement anchor. The v6.34.3 header made it worse by printing the LAST CLOSE where the window CEILING belonged, so the panel read as though nothing had happened since 08-04. THE FAULT LINE IS REAL, NOT COSMETIC: _cwinTwCapital needs only the START balance and the dated ledger flows, so capital-at-risk is computable to any date. The pinned balance is load-bearing for exactly ONE quantity — the SPY leg, which is a RESIDUAL (gain − CC) and therefore needs a real ending balance. Everything ticket-derived can run to the present. TOP · SPY / STATEMENT: start bal, contributions (truncated to the anchor, or it cannot foot), ending bal, SPY leg with its yield, and a new STATEMENT YIELD for the whole account. Pinned, and labelled as pinned. The residual is what captures dividends and MM interest (Ron). It nets only the CC P&L closed INSIDE the anchor window, which is now stated explicitly. BOTTOM · ROLL ECONOMICS: sim and live, ticket-derived, UNPINNED, running to the last close, with its own time-weighted capital base over the longer span. The SIM row is unpinned too (Ron) — truncating it to a statement date had cut it to 69 cycles and made the live comparison invalid. STATED CONSEQUENCE: the sections span different windows, so CC YIELD and the SPY leg’s yield are NO LONGER ADDITIVE. Ron accepted this in exchange for a live-current roll section; the statement yield carries the account total. SPY section font stepped 9px to 10px to read at the same weight as the table (Ron). NOT BUILT, pending inspection of real ledger rows: reconciling ticket-derived CC P&L against the statement’s own option activity, to catch a mistyped price. DISPLAY-ONLY: confined to _cwinHtml and the version writers. Base v6.34.4 (e6276bf0).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.35.0 · POINT-IN-TIME DM MASK (S60 step 1, Ron’s ruling: THE SIM SEES ONLY WHAT A CURRENT STD SCAN CAN SEE). The DM is right-censored at the recent end and leaky at the early end: Phase 3 of the collector generates strikes off EVERY SPY day’s spot and backfills each contract’s full price history, so a 2024 trade date could see strikes shaped by 2025 spot and expiries out to +365d (EXP_LOOKBACK), while the live fence is today+180d. 79 of 132 cycles entered beyond 180d and produced 84% of core credit — on contracts live cannot buy. THE MASK: a contract is visible at T iff some day D ≤ T had it on the OTM ladder with D ≤ expiry ≤ D+180. Strikes reachable from days ≤ T, not from day T alone — a live scan at T does see the pooled ladder from earlier passes, and strict day-T would push the near-money edge from ~0.4% OTM out to ~1%+, a strategy change wearing a data-hygiene costume. THE EXPIRY CAP FALLS OUT OF THE STRIKE RULE: firstVisible ≥ expiry−180 by construction, so firstVisible ≤ T already implies expiry ≤ T+180. One condition, not two. DERIVED, NEVER STORED — a pure function of DM.spy and data_universe.json, which is READ (same relative-origin pattern as roll_params.json) rather than copied; a second hardcoded ladder in this file would drift from the collector’s. Nothing is deleted: the backfilled bars stay, so the pre-fix baseline remains reproducible and the damage stays attributable to this fix alone. IT MASKS ONLY — it intersects with what the DM holds and can never admit a contract that is not there. MEASURED BEFORE BUILDING (DM 2026-09-05, 27 months): days_empty_after = 0 in every month, so the ranker is never starved; min-OTM identical in 24 of 27 months (three move 0.41→0.57, 0.42→0.55, 0.46→0.57); the early ceiling collapses from a 308–351 sawtooth to a flat 125–177 while 2026-08 runs 167→167 and 2026-09 177→177 — the mask is a no-op exactly where the data is already fenced by reality, which is the validity check. Menu depth −30% at the early end, converging to parity at the recent end. DEFAULT OFF. Armed by URL key ovPit=1 (sandbox, forces Debug), so baseline and capped runs execute against the same DM in one session and the cert pair cannot straddle a collection. Fails LOUD if data_universe.json is unavailable rather than running uncapped. PRE-REGISTERED (§11): core roll yield falls by more than a third; entry DTE median drops from 241d toward 90–120d; stop share falls with it. ALSO FOUND, NOT FIXED HERE: option_days DOES carry a vw column and twelve sites read vw||c, while the line-557 footer asserts option prices are EOD close and that no vw column exists — the S57 correction conflated spy_daily with option_days. Measured harmless in the traded region (180d+ mean −$0.013, median $0.000); logged as a doc-class defect for the weekday lane. Base v6.34.5 (291e4345).</span></div>
 </div>
 
 <script>
@@ -649,6 +649,21 @@ function renderJsonFootnote(raw) {
 
 // v6.34.0 — updateThetaCard REMOVED with its card (S58): both call sites (loader, post-publish) deleted.
 
+// v6.35.0 — the collector's universe config. Same relative-origin pattern as
+// roll_params.json (both sit in the repo root, both served by Pages). READ, never
+// copied: a second hardcoded ladder in this file would drift from the collector's
+// and the mask would then filter on a universe the DM was never built from.
+async function loadUniverseCfg() {
+  const _url = "https://ronb36.github.io/spy-backtest/data_universe.json?_=" + Date.now();
+  const res  = await fetch(_url, { cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const d = await res.json();
+  if (!Array.isArray(d.otm_targets) || !d.otm_targets.length) throw new Error('otm_targets missing');
+  if (!(d.max_expiry_lookahead_days > 0)) throw new Error('max_expiry_lookahead_days missing');
+  _uniCfg = { otm: d.otm_targets.slice(), look: d.max_expiry_lookahead_days, grid: d.strike_grid || 5 };
+  return _uniCfg;
+}
+
 async function loadRollParams() {
   try {
     // roll_params.json is served via GitHub Pages — stays accessible even on private repo with Pro
@@ -719,7 +734,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.34.5'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.35.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -767,6 +782,20 @@ let _pendingAudit = null;        // failed audit write payload for Retry
 let lastResult = null; // cached for price chart roll markers
 let _dmExpiryIndex = {}; // expiry → [contracts] index, rebuilt at start of each simulate()
 let _expFriGate = null;
+// v6.35.0 — POINT-IN-TIME DM MASK (S60 step 1). _pitGate: armed per-simulate from
+// params.pointInTime (URL key ovPit=1). _pitVis: 'expiry_strike' -> first date the
+// contract was REACHABLE by a collector pass, derived from DM.spy + data_universe.json.
+// Rule (Ron, S60): the sim sees only what a current STD scan can see — a contract is
+// visible at T iff some day D <= T had it on the ladder with D <= expiry <= D+180.
+// The expiry cap falls OUT of this: firstVisible >= expiry-180 by construction, so
+// firstVisible <= T already implies expiry <= T+180. ONE condition, not two.
+let _pitGate = false;
+let _pitVis  = null;
+// ONE FORMATTER: strike arrives from Supabase as a raw numeric and its JSON
+// serialization is not asserted here. Both the mask writer and the reader
+// normalize through this, so the key cannot drift between them.
+const _pitKey = (e, k) => e + '_' + (Math.round(Number(k) * 100) / 100);
+let _uniCfg  = null;   // data_universe.json — the collector's OWN config, read not copied
 let _simSpyWin  = null;  // v6.12.0 — the sim's effective SPY window (set per-simulate; null → full DM). Read by post-hoc display decompositions (VIX regime split) so their basis/dayCount match the run they describe.  // v6.11.0 — expiry-Friday filter (sandbox research key ovExpfri; 1–4 = only that Friday-of-month cohort eligible, null = identity). Set per-simulate() from params; read ONLY by findNextContract (sim path; v6.34.0 — evaluateOppGap was the second reader and retired with the θ trigger) — the live scan's candidate machinery has its own expiry code and never reads this.
 
 // ── Utility ───────────────────────────────────────────────────────────────
@@ -2873,6 +2902,35 @@ function fridayOrdinal(iso) {
 
 // Find best contract to roll into: yield-maximizing across all candidates
 // Yield = (entryPremium / SPY) * (365 / DTE) — highest annualized yield wins
+// v6.35.0 — build the visibility map. Mirrors data_collector.py find_nearest_strike
+// (round(round(target/grid)*grid)) and the Phase-3/Phase-4 expiry window. Pure
+// function of DM.spy + _uniCfg; nothing is stored, so a config change re-derives it.
+// It MASKS ONLY — it intersects with contracts the DM actually holds and can never
+// admit one that is not there.
+function buildPitMask() {
+  if (!_uniCfg) throw new Error('universe config not loaded');
+  const grid = _uniCfg.grid, look = _uniCfg.look;
+  const vis = Object.create(null);
+  const expiries = Object.keys(_dmExpiryIndex);
+  const expMs = {};
+  expiries.forEach(e => { expMs[e] = new Date(e + 'T00:00:00').getTime(); });
+  for (const row of DM.spy) {
+    const dMs = new Date(row.date + 'T00:00:00').getTime();
+    const spot = row.c;
+    if (!(spot > 0)) continue;
+    const strikes = _uniCfg.otm.map(p => Math.round(Math.round(spot * (1 + p) / grid) * grid * 100) / 100);
+    for (const e of expiries) {
+      const dte = Math.round((expMs[e] - dMs) / 86400000);
+      if (dte < 0 || dte > look) continue;   // the collector's own pass window
+      for (const k of strikes) {
+        const key = _pitKey(e, k);
+        if (vis[key] === undefined || row.date < vis[key]) vis[key] = row.date;
+      }
+    }
+  }
+  return vis;
+}
+
 function findNextContract(afterDate, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx, realVix = 18) { // v6.14.0 — targetOTM removed: the ranking selects the strike; the target never bound (S44 bracket verdict, 3 byte-identical sweeps)
   const afterD  = new Date(afterDate + 'T00:00:00');
 
@@ -2911,6 +2969,12 @@ function findNextContract(afterDate, currentSPY, dtePenaltyAnchor, dteFloor, exc
 
     for (const c of expContracts) {
       if (c.strike <= currentSPY) continue; // must be OTM
+      // v6.35.0 — point-in-time DM mask. Unreachable on this date by a collector
+      // pass at or before it => the live scan could not have seen it either.
+      if (_pitGate) {
+        const _fv = _pitVis[_pitKey(c.expiry, c.strike)];
+        if (_fv === undefined || _fv > afterDate) continue;
+      }
       // Skip the contract we just closed
       if (excludeKey && (c.expiry + '_' + c.strike) === excludeKey) continue;
       // Skip if entry delta already exceeds threshold — we'd be re-entering same risk
@@ -3176,6 +3240,10 @@ async function simulate(p) {
   // upstream in runSimulation). Set UNCONDITIONALLY every run so a prior
   // sandbox run can never leak the gate into a later plain run. null = identity.
   _expFriGate = (p.expiryFriday ?? null);
+  // v6.35.0 — set UNCONDITIONALLY every run, same leak-proofing as _expFriGate.
+  // Default OFF: this release ships the instrument, not a policy change.
+  _pitGate = !!(p.pointInTime);
+  _pitVis  = null;
   // Clear stale entryPx/entryDate/entrySPY stamped onto shared DM contract objects
   // by the pendingContract capture of a prior simulate() call — without this flush
   // a later run's OPEN row could inherit a previous run's entry price.
@@ -3221,6 +3289,12 @@ async function simulate(p) {
     if (!_dmExpiryIndex[c.expiry]) _dmExpiryIndex[c.expiry] = [];
     _dmExpiryIndex[c.expiry].push(c);
   });
+  // v6.35.0 — mask derived AFTER _dmExpiryIndex is built (it iterates the index).
+  // Fails LOUD: a silent fallback would run uncapped while the header claims capped.
+  if (_pitGate) {
+    _pitVis = buildPitMask();
+    logMsg('\u26a0 POINT-IN-TIME DM MASK ARMED \u2014 contracts visible only from the first collector pass that could reach them (' + Object.keys(_pitVis).length + ' keys, ladder ' + _uniCfg.otm.length + ' targets, horizon ' + _uniCfg.look + 'd)', 'err');
+  }
   let premPnL = 0;
   let curC = null;
   let posOpen = false, entryPrice = null, entryDate = null;
@@ -3913,7 +3987,7 @@ const EXIT_ATTR_CYCLE_ROWS = true; // per-cycle forensic rows (spec default ON)
 // Takes an optional search string for harness testability.
 function researchOverrides(search) {
   const q = new URLSearchParams(search != null ? search : location.search);
-  const map = { ovDecay: 'decayTrigger', ovDelta: 'deltaThreshold', ovDefh: 'defHorizon', ovGrace: 'graceDays', ovFwd: 'fwdRank', ovDebitCap: 'debitCap', ovScratch: 'scratchRoll', ovDte: 'dteFloor', ovEntrydte: 'entryDteMin', ovExpfri: 'expiryFriday', ovSkipm: 'skipMonths' }; // v6.8.0/v6.8.2 — ovOtm deliberately omitted (percent-vs-fraction unit ambiguity; use the card) // v6.11.0 — ovExpfri 1–4: expiry-Friday cohort filter (sandbox-only, no card/axis) // v6.12.0 — ovSkipm 1–12: start-skip jitter (sandbox-only)
+  const map = { ovDecay: 'decayTrigger', ovDelta: 'deltaThreshold', ovDefh: 'defHorizon', ovGrace: 'graceDays', ovFwd: 'fwdRank', ovDebitCap: 'debitCap', ovScratch: 'scratchRoll', ovDte: 'dteFloor', ovEntrydte: 'entryDteMin', ovExpfri: 'expiryFriday', ovSkipm: 'skipMonths', ovPit: 'pointInTime' }; // v6.8.0/v6.8.2 — ovOtm deliberately omitted (percent-vs-fraction unit ambiguity; use the card) // v6.11.0 — ovExpfri 1–4: expiry-Friday cohort filter (sandbox-only, no card/axis) // v6.12.0 — ovSkipm 1–12: start-skip jitter (sandbox-only)
   const ov = {};
   for (const k of Object.keys(map)) {
     if (!q.has(k)) continue;
@@ -6150,6 +6224,16 @@ async function loadData() {
     await loadRollParams();
   } catch(e) {
     console.warn('roll_params.json pre-load failed:', e.message);
+  }
+
+  // v6.35.0 — universe config for the point-in-time mask. A failure here is NOT
+  // fatal at boot (an unarmed run never touches it); an ARMED run then throws in
+  // buildPitMask rather than silently running uncapped.
+  try {
+    await loadUniverseCfg();
+  } catch(e) {
+    console.warn('data_universe.json load failed:', e.message);
+    logMsg('\u26a0 data_universe.json unavailable (' + e.message + ') \u2014 ovPit runs will FAIL rather than run uncapped', 'err');
   }
 
   try {
