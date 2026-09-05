@@ -4,7 +4,7 @@
   "deltaThreshold": 0.70,
   "dtePenaltyAnchor": 123,
   "creditFilter": false,
-  "riskLambda": 0.5,
+  "riskLambda": 0.0,
   "lastOptimized": "2026-09-05",
   "contracts": 6,
   "defHorizon": 10,
