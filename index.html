@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.42.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.43.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -556,7 +556,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.42.0 · RISK TEXTURE IS AN INSTRUMENT, NOT PROSE (S62). TWO CHANGES, NEITHER TOUCHING THE SIM REGION. FIRST, THE STD LOG GAINS A RISK-TEXTURE BLOCK after the core-roll decomposition: n, mean, sd, Sharpe/cycle and annualized, ann sd, Sortino, worst/best, p05/p95, and max drawdown in DOLLARS on the core-cycle path. WHY: the Foundation carried these figures as hand-computed prose and they WENT STALE SILENTLY — the block read 0.142/cycle = 1.12 annualized at 62.3 cycles/yr, which is the PRE-CORRECTION cycle rate, so it described the VOIDED DM 2026-08-21 / v6.32.0 baseline while sitting under the current one. The certified baseline actually runs 0.166/cycle = 1.42 annualized at 73.1 cycles/yr. An instrument that recomputes from r.cycles every run cannot drift; a prose block can and did. Same doctrine as the pool checksums — reconciliation, not estimation. CORE CYCLES ONLY (the initial cycle is an endpoint transient, excluded exactly as it is from core yield) and GROSS, stated on the header line, so the annualized Sharpe reads as a CEILING. SECOND, THE SWEEP ROW GAINS AN sd FIELD (cycleSD, beside holdStats) — emitted to the row, PRINTED NOWHERE and shown in no leaderboard. WHY NOT PRINTED: the S62 screen cut sd from the S61 ledger pack and found ANNUALIZED sd FLAT across all six entries ($22,759–$24,216) while their core yields spanned 8.0–11.1%. Per-cycle sd spreads 31% ($2,163–$2,832) and that spread is ENTIRELY FREQUENCY: rolling more often chops the same price path into more pieces without changing how far SPY travels. Risk per unit time is 6 short calls against 600 shares and that is fixed permanently, so the axes move the SLICING, not the EXPOSURE. Consequence: Sharpe is not a second objective — with ann sd constant it reproduces the yield ordering exactly (1.64 raw #1/#3, 1.42 incumbent, 1.14–1.19 robust), and §10’s "halving the sd beats doubling the mean" is arithmetically true and operationally empty because nothing in the parameter space halves the sd. THAT CLOSES THE VARIANCE SWEEP (§11 item 15) NEGATIVE, on six SELECTED configs — which is why the field ships: the next sweep confirms it across all configs at zero marginal cost and with no re-run. NO RE-RUN IS CALLED FOR NOW. IDENTITY EXPECTED IN THE LEDGER: 10.1% / $73,207 / 156 cycles / 59 uncovered-hold days, with the cert being the ledger lines unmoved plus the new block. Base v6.41.0 (5173b70f).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.43.0 · DEAD CODE PULLED (S62). ELEVEN REMOVALS, NO SIM CONTACT, LEDGER MUST BE BYTE-IDENTICAL. EIGHT ORPHANED FUNCTIONS, each defined once and referenced NOWHERE — verified against BOTH the script blocks and the raw HTML, because onclick= handlers are roster members an emit-site grep structurally misses: _wfBasisSPY (v6.15.3 walk-forward SPY basis, orphaned when the conformance instrument retired at S48), setMode (toggles btn-test/btn-optimize, buttons its own comment says no longer exist; _mode is written at eight other sites so the variable is untouched), getDebugDisplayVal, acButton, onInitDateChange, onSharesChange, hidePublishCard, updatePublishBtn. PLUS THE updateFixedStrip STUB AND BOTH ITS CALL SITES — a function retired to a no-op at v6.5.0 and left in place "for legacy callers", still being called at two sites for six minor versions. THAT IS THE RETIRED-NEVER-DORMANT DOCTRINE VIOLATED IN THE FILE ITSELF: the VIX gate was pulled and its shell was not. A stub that does nothing is not free — it reads as live machinery to the next person grepping, which is exactly the cost the doctrine exists to prevent. The surviving prose that named it is corrected in the same pass rather than left to describe a function that no longer exists. WHAT WAS DELIBERATELY NOT TOUCHED: the delete payload.otmTarget and delete payload.vixGate TOMBSTONES (load-bearing NEGATIVE code — they exist so the publish spread can never resurrect a retired key), the KNOWN json-key omissions that produce the ⚠ no-card tells, and the last_quote path (written, wired, dead on arrival by ENTITLEMENT not by abandonment — it would populate on an entitled plan). NO PERFORMANCE WORK: nothing here is slow enough to matter and touching engine hot paths to save milliseconds is risk against no stated benefit. CERT: STD pair against v6.42.0, timestamp-stripped — the ONLY expected difference is the version banner. Base v6.42.0 (979a3add).</span></div>
 </div>
 
 <script>
@@ -734,7 +734,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.42.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.43.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1195,13 +1195,6 @@ const _debugParamMeta = {
   delta:   { label:'Delta Threshold', key:'deltaThreshold',   min:0.05, max:0.95,step:0.025, parse: v => parseFloat(v) },
 };
 
-function getDebugDisplayVal(v, storedVal) {
-  if (v === 'delta') return storedVal.toFixed(3);
-  if (v === 'decay') return storedVal + '%';
-  return storedVal + 'd';
-}
-
-
 function anySweepActive() {
   return Object.values(_sweepVars).some(Boolean);
 }
@@ -1228,14 +1221,6 @@ function updateEvalCount(done, total) {
   const evals = g.decay.length * g.dte.length * g.delta.length * g.lookahead.length * g.defh.length * g.entrycap.length * g.grace.length * g.entrydte.length; // v6.14.1 — otm factor removed // v6.3.1/v6.4.1/v6.8.0/v6.8.2
   counter.textContent = evals.toLocaleString() + ' evals';
   counter.style.display = 'block';
-}
-
-function setMode(m) {
-  _mode = m;
-  // Legacy compat — these buttons no longer exist in new UI but guard anyway
-  const bt = $('btn-test');     if (bt) bt.classList.toggle('active', m === 'test');
-  const bo = $('btn-optimize'); if (bo) bo.classList.toggle('active', m === 'optimize');
-  updateParamDisplay();
 }
 
 async function handleRunOrPublish() {
@@ -1837,14 +1822,6 @@ function _wfEraSplit(rows, hints) { // policy-scoped counters are era-scoped: pr
     (iso && iso >= WF_ERA_START ? era : prior).push(r);
   });
   return { era, prior };
-}
-function _wfBasisSPY(iso) { // v6.15.3 — SPY close on the first-close date, from the DM (never current market)
-  try {
-    if (typeof DM === 'undefined' || !DM || !DM.spy) return null;
-    const r = DM.spy.find(x => x && (x.date || x.day) === iso);
-    const v = r ? +(r.c ?? r.close ?? r.value) : NaN;
-    return isFinite(v) && v > 0 ? v : null;
-  } catch (e) { return null; }
 }
 // ── v6.20.0/1 · Common-window performance — §3 (S48 spec, S49 build + grid respec;
 // replaces the conformance instrument — retired S48, revival ≈Q1–Q2 2027;
@@ -2468,14 +2445,6 @@ function _acRender(key) {
   box.scrollTop = box.scrollHeight;
 }
 
-// v6.0.2 — one morphing header button: idle = Ask Claude (opens + fires verdict),
-// active = Send (submits the input). Close resets to idle.
-function acButton(key) {
-  const p = $('ac-panel-' + key);
-  if (p && p.dataset.active === '1') { sendAsk(key); return; }
-  toggleAskClaude(key);
-}
-
 function acClose(key) {
   const p = $('ac-panel-' + key);
   if (p) { p.style.display = 'none'; p.dataset.active = '0'; }
@@ -3078,9 +3047,6 @@ function populateInitDates() {
   sel.innerHTML = expiries.map(e => `<option value="${e}">${e}</option>`).join('');
   updateInitPosition();
 }
-
-function onInitDateChange() { updateInitPosition(); }
-function onSharesChange()   { updateInitPosition(); }
 
 function updateInitPosition() {
   if (!DM) return;
@@ -4279,15 +4245,6 @@ function logSweepBoundaryAnalysis(allResults, decays, floors, deltas, lookaheads
     logMsg(`  EntryΔ  floor(${entrycaps[0]}): ${classify(lo)}  ·  ceiling(${entrycaps[entrycaps.length-1]}): ${classify(hi)}`, '');
   }
 }
-function updatePublishBtn() {
-  const btn = $('run-btn');
-  if (!btn) return;
-  const label = btn.textContent || '';
-  if (label.includes('Publish')) {
-    setRunButtonState(btn.disabled ? 'idle' : 'ready');
-  }
-}
-
 function handlePublish(e) {
   // Shift-click clears stored PAT and re-prompts
   if (e?.shiftKey) {
@@ -4364,7 +4321,6 @@ async function publishRollParams(p) {
             defHorizon: payload.defHorizon ?? 0, entryDeltaCap: payload.entryDeltaCap ?? null, // v6.4.8 — merge mirrors payload; card refresh below reads these
             graceDays: payload.graceDays ?? (STD.graceDays ?? 3), // v6.12.2 — missed reader #18 ROOT CAUSE: payload wrote grace (v6.8.3) but this merge never mirrored it, so the grace card painted the STALE pre-publish value with a "published ✓" sub — the most dangerous variant of the family
             entryDteMin: payload.entryDteMin ?? null };
-    updateFixedStrip(); // v6.0.1
     // Refresh all var-cards with newly published values
     const pubUpdates = {
       'vval-grace':    (STD.graceDays ?? 3) + 'd', // v6.8.0 — all-readers: second writer
@@ -4593,16 +4549,11 @@ function confirmSelectedPublish() {
   if (_selPublishPayload) publishRollParams(_selPublishPayload);
 }
 
-function hidePublishCard() { $('publish-confirm-card').style.display = 'none'; }
-
-// v6.5.0 — the v6.0.1 hide-and-strip layout is fully retired: all inputs are
-// cards (v6.4.10) and the VIX gate is removed from the codebase.
-function updateFixedStrip() { /* v6.5.0 — retired no-op: the strip died in v6.4.10 (r-gap moved to the banner) and the VIX gate died here; kept for legacy callers */ }
 (function () {
   // v6.4.10 — full input visibility: every sim input lives on a card. DTE Min +
   // Anchor cards restored (row 2 re-shown, Run stays in it); OTM Target card added
-  // (row 1). The VIX gate card is gone entirely (v6.5.0). The fixed: strip is gone (never created —
-  // updateFixedStrip self-no-ops on the missing element); the r-frame gap
+  // (row 1). The VIX gate card is gone entirely (v6.5.0). The fixed: strip is gone
+  // (never created; its no-op stub and both call sites pulled v6.43.0); the r-frame gap
   // tripwire moved to the market snapshot in the position banner.
   // v6.5.0 — nothing to hide: the VIX gate card was removed with the gate itself.
 })();
@@ -6265,7 +6216,6 @@ async function loadData() {
     applyResReadiness().catch(() => {}); // v6.7.16 — tab-state visible from first load (9 light count queries)
     status.style.color='var(--green)';
     setRunButtonState('idle', { dmReady: true });
-    updateFixedStrip(); // v6.1.13 — r-gap needs DM.yields, which only exists after DM load
     await loadRollParams(); // reload to ensure STD is fully synced after DM available
     // Restore sweep ranges from localStorage (persisted from last session)
     try {
