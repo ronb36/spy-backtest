@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.1.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.1.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -556,7 +556,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.1.0 · PERFORMANCE PANEL: ERA-PINNED ROLL GRID, PROSE REMOVED (S63, Ron). TWO CHANGES, ONE RELEASE, NO SIM CONTACT. (1) THE ROLL GRID IS RE-PINNED TO WF_ERA_START. The panel previously ran both of its sections from the program start 2025-06-02, so the sim-vs-live comparison pooled thirteen live cycles spanning the pre-model 2025 ramp with the twelve the model actually governs — the COUNT RECONCILIATION open item, which this closes by construction. Era membership keys on the CLOSE date, per the standing rule that era filters key on realized_close_date. THE SPY SECTION IS UNCHANGED AND STILL SPANS THE ENTIRE ACCOUNT HISTORY (Ron): the roll grid is a SUBSET of that history, not a replacement for it. (2) THE PANEL NOW MAKES TWO PASSES OVER THE SAME PAIRED CYCLES, and this is the load-bearing part of the change. The SPY leg is a RESIDUAL, gain minus CC — so its CC subtraction MUST stay on the full statement window even though the grid above it shows only era cycles. A single re-pinned pass would have silently dropped every pre-era cycle out of grossP and pushed that P&L into the share bucket, with nothing on screen to say so. liveAll feeds the residual; liveClosed feeds the grid. THE REGISTERED CHECK IS THAT THE SPY LEG AND STATEMENT YIELD ARE UNCHANGED TO THE DOLLAR — if they move, the pin leaked into the residual. (3) PROSE REMOVED (Ron: "I never read it and it takes up too much space"): the SPY residual explanation, the TRADE BASIS definition, the sim-overlay definition, the non-additive-windows note, the open-contracts note, and the DECAY%/DELTA% classified-shares line. THE TWO AMBER WARNINGS STAY — unclassified cycles and orphan closes are CONDITIONAL DATA-STATE ALARMS, not description; they render only on a non-zero count and are silent otherwise. The classified-shares line was added after defect 21, when this panel’s closest reader misread a percentage column, but that risk only exists while the classified denominator differs from the total — after the era pin it does not, so the line is vacuous rather than load-bearing. A STALE FIGURE WENT WITH THE PROSE: the sub-line shipped "break-even sits near a 35% stop share" and the comment above the header array carried 35.4% against 26.7% plus +$413/−$460 daily rates, all four from the VOIDED DM 2026-08-21 baseline. On the certified pools (decay 103 @ +$2,095, stops 53 @ −$2,690) break-even is 43.8% against a 34.0% sim stop share — 9.8 points of cushion, not 1.4. The figures are REMOVED rather than corrected: the risk-texture block in the STD log is the certified emitter for pool statistics, and replacing one hand-computed number with another in a spot that has already gone stale twice is how it goes stale a third time. THE NON-ADDITIVITY IS NOW CARRIED BY THE LAYOUT: both section headers are dated, so two different windows are readable off the dates without a line of prose asserting it. WINDOW ARITHMETIC: spanU and twcU re-seed at the era start, so CC YIELD annualizes over ~44 days on ~12 live and ~9 sim cycles — it will swing week to week, and that is the monitor Ron asked for rather than a measurement. DISPLAY LAYER ONLY: no engine path, no ranker, no params, no live_trades write. Base v7.0.0 (ed16eff1).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.1.1 · WINDOW RULE UNIFIED, ENTRY DTE ON BOTH BLOTTERS, ROLL FREQUENCY REPLACES THE RAW CYCLE COUNT (S63, Ron). FOUR DISPLAY CHANGES, NO SIM CONTACT. (1) THE PANEL’S TWO ROWS WERE USING DIFFERENT WINDOW RULES and v7.1.0 shipped the asymmetry. The sim required BOTH LEGS inside the era (entryDate ≥ pin); live required only the CLOSE date, so any cycle straddling the pin was kept by live and dropped by sim — a like-for-like break in the one comparison this panel exists to make. IDENTIFIED EXACTLY: the live 07/09/26 → 07/21/26 cycle (10/16/26 $760C, +$2,706) opened twelve days before the pin. Live now requires both legs too. THE FIX RECONCILES TO THE DOLLAR against the era ledger three independent ways — decay 8 cycles at +$1,746.75, stops 4 at −$5,212.50, realized −$6,876 — which is what confirms the rule rather than the count merely agreeing. DOCTRINE NOTE, because it is the thing that misled the builder: S33’s "era filters key on realized_close_date" governs ATTRIBUTION — which pool a cycle lands in, keyed off the exit. It was never a WINDOW rule. Window membership is both-legs-in (v6.34.3): a trade cannot charge a cover that predates it. Two different questions that happen to share a date field. ORPHANS keep being counted for the amber alarm over era-CLOSING cycles — an orphan has no open leg, so a both-legs rule would silence that warning permanently rather than clear it honestly. (2) THE START COLUMN WAS SHOWING A CLOSE DATE on both rows (simFirst took c.exitDate; live took toIso(closeDate)). It read as though the sim began a week after the pin when its first cycle opened 07/23 and closed 07/29. START is now the first cycle’s OPEN date, which is also what the window now filters on, so the column and the filter finally agree. LAST CLOSE was always a close date and is unchanged. (3) ENTRY DTE after Contract on BOTH blotters, expiry minus open date — the selection quantity, sitting next to the contract it describes. Every row type gains the cell (sim closed + open; live cycle, open, orphan and long-call) or the table misaligns; orphans have no open leg and render an em-dash. NOT A DELTA COLUMN: live_trades stores no spot-at-entry and no delta, and the engine carries TWO honest entry deltas in different frames (cycle.entryDelta at full DTE, the trigger at defH), so an unstamped "Delta" header would have been a third frame collision. Deferred, not declined. (4) TOTAL CYCLES → ROLL FREQUENCY, the form agreed in a prior session and never built. Every other summary card is a rate; this one was a raw count. Now core cycles per year with cadence and mean hold beneath it, ALL COMPUTED FROM r (coreCycleCount, coreDays, per-cycle daysHeld) so the card cannot go stale the way three hand-computed §5 figures did. NUMERATOR IS CORE CYCLES, excluding the initial, matching every other annualized card; the "+1 initial" survives in the sub-line. WHY THIS IS AN INSTRUMENT AND NOT COSMETICS: §11 item 2 names FREQUENCY as the objective’s first blind spot — the 23,328-config sweep winner beat the incumbent 11.1% vs 10.1% by trading 239 times against 156. The headline now shows the dimension the objective is blind to, beside the yield it is blind in. Base v7.1.0 (769fbecc).</span></div>
 </div>
 
 <script>
@@ -734,7 +734,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.1.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.1.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1958,19 +1958,27 @@ async function _cwinHtml() {
     // are disclosed, never folded into either pool.
     const tg = (c.trigger != null && String(c.trigger).trim()) ? String(c.trigger).trim().toLowerCase() : null;
     return { pnl: net != null ? net * 100 * (c.qty || 0) : null, orphan: !!c.orphan,
-             iso: toIso(c.closeDate), pool: /decay/.test(tg||'') ? 'decay' : /delta/.test(tg||'') ? 'delta' : null };
+             iso: toIso(c.closeDate), openIso: toIso(c.openDate), // v7.1.1 — open leg carried for the both-legs window rule
+             pool: /decay/.test(tg||'') ? 'decay' : /delta/.test(tg||'') ? 'delta' : null };
   }).filter(c => c.pnl != null);
   if (!liveAll.length) return '<div style="color:var(--muted);">no closed cycles in the window yet</div>';
   const grossP  = liveAll.filter(c => c.iso <= L.d).reduce((s, c) => s + c.pnl, 0); // v6.34.5 — CC inside the ANCHOR window only; v7.1.0 — off liveAll, NEVER the era subset
   const spyPnl  = gain - grossP; // v6.34.5 — residual over the ANCHOR window: appreciation + dividends + MM interest
-  // v7.1.0 — ERA WINDOW for the roll grid. Membership keys on the CLOSE date:
-  // era filters key on realized_close_date (S33 doctrine, Model Rules).
-  const liveClosed = liveAll.filter(c => c.iso >= WF_ERA_START);
-  const orphanN = liveClosed.filter(c => c.orphan).length; // v6.34.3 — counted, never silently dropped
+  // v7.1.1 — ERA WINDOW, BOTH LEGS IN, matching the sim's own rule (v6.34.3).
+  // v7.1.0 keyed this on the CLOSE date alone and kept a cycle the sim dropped:
+  // the 07/09 -> 07/21 cycle opened twelve days before the pin. S33's
+  // close-date rule governs ATTRIBUTION (which pool), not window membership.
+  const liveEraClose = liveAll.filter(c => c.iso >= WF_ERA_START); // close-keyed: ALARM SCOPE ONLY
+  const orphanN = liveEraClose.filter(c => c.orphan).length; // v6.34.3 — counted, never silently dropped.
+  // v7.1.1 — deliberately scoped to the close-keyed set: an orphan has NO open
+  // leg, so scoping the alarm to the both-legs set would silence it forever.
+  const liveClosed = liveEraClose.filter(c => c.openIso && c.openIso >= WF_ERA_START);
   const gross   = liveClosed.reduce((s, c) => s + c.pnl, 0);
   const liveWin = liveClosed.filter(c => c.pnl > 0).length;
-  const lastIso  = liveClosed.length ? liveClosed[liveClosed.length - 1].iso : null;
-  const firstIso = liveClosed.length ? liveClosed[0].iso : null;
+  const lastIso  = liveClosed.length ? liveClosed[liveClosed.length - 1].iso : null; // close date — the column says LAST CLOSE
+  // v7.1.1 — START is the first OPEN date, which is what the window filters on.
+  // Min rather than [0], because cycles are ordered by their CLOSING ticket.
+  const firstOpen = liveClosed.length ? liveClosed.map(c => c.openIso).filter(Boolean).sort()[0] || null : null;
 
   // ── SIM overlay, trade basis (Path A: the run in MEMORY — S49) ────────────
   // Sim cycles carry entryPx/exitPx, so trade P&L is native here; no sim path
@@ -1994,7 +2002,7 @@ async function _cwinHtml() {
       if (c.entryPx == null || c.exitPx == null) continue;
       const p = (c.entryPx - c.exitPx) * 100 * liveSize(c.entryDate);
       simCC += p; simN++; if (p > 0) simWin++; simLast = c.exitDate;
-      if (simFirst == null) simFirst = c.exitDate;
+      if (simFirst == null) simFirst = c.entryDate; // v7.1.1 — START is an OPEN date on both rows
       const r = (c.reason || '').toLowerCase(); // v6.34.4 — same classifier shape as the exit-attribution pools
       if (r.includes('decay')) simPool.decay.push(p);
       else if (r.includes('delta')) simPool.delta.push(p);
@@ -2061,7 +2069,7 @@ async function _cwinHtml() {
   // cycles: dividing by a denominator that includes unclassified rows would
   // silently understate both pools and make the live row incomparable to sim.
   // v7.1.0 — EMPTY-ERA GUARD, mirroring the sim row's own placeholder. The era
-  // window can be empty where the full account window cannot, so firstIso/
+  // window can be empty where the full account window cannot, so firstOpen/
   // lastIso are nullable now and gross/0 is reachable. Without this the row
   // prints "null" and "$NaN" rather than saying it has nothing to show.
   const liveCells = !liveClosed.length
@@ -2069,7 +2077,7 @@ async function _cwinHtml() {
        '<span style="color:var(--muted);">\u2014 no closed cycles since the era pin ' + WF_ERA_START + '</span>',
        '', '', '', '', '', '', '', '', '', '']
     : ['<span style="color:var(--accent);">live</span>',
-    firstIso, String(liveClosed.length), wr(liveWin, liveClosed.length),
+    firstOpen, String(liveClosed.length), wr(liveWin, liveClosed.length),
     money(gross / liveClosed.length),
     shr(lDecay.length, lCls), mean(lDecay),
     shr(lDelta.length, lCls), mean(lDelta),
@@ -5189,6 +5197,21 @@ async function exportLedgerPack() {
 
 // ── Render: Summary ────────────────────────────────────────────────────────
 function renderSummary(r) {
+  // v7.1.1 — ROLL FREQUENCY replaces the raw Total Cycles head (agreed form,
+  // prior session; never built). Every other card on this row is a RATE.
+  // COMPUTED FROM r EVERY RUN — coreCycleCount, coreDays and the cycles' own
+  // daysHeld — so it cannot drift the way hand-computed prose has three times.
+  // NUMERATOR IS CORE CYCLES (excludes the initial), matching the other
+  // annualized cards; the initial survives in the sub-line rather than the head.
+  const _freq = (() => {
+    const n = r.coreCycleCount, d = r.coreDays;
+    if (!n || !d) return { yr: 'n/a', sub: (r.rolls ? r.rolls.length : 0) + ' rolls' };
+    const core = (r.cycles || []).filter(c => !c.isInitial && c.daysHeld != null);
+    const held = core.length ? core.reduce((s, c) => s + c.daysHeld, 0) / core.length : null;
+    return { yr: fmt(n / d * 365, 0) + ' /yr',
+             sub: n + ' core + 1 initial \u00b7 ' + fmt(d / n, 1) + 'd apart'
+                  + (held != null ? ' \u00b7 ' + fmt(held, 1) + 'd held' : '') };
+  })();
   const yClass = r.avgYld>=5?'green':r.avgYld>=0?'yellow':'red';
   const ddClass = r.maxDD>20?'red':r.maxDD>10?'yellow':'green';
   $('summary-grid').innerHTML = `
@@ -5197,7 +5220,7 @@ function renderSummary(r) {
     <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${r.winRate>=70?'green':'yellow'}">${fmt(r.winRate,0)}%</div><div class="stat-sub">Cycles with positive P&L</div></div>
     <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmt(r.covRet,1)}%</div><div class="stat-sub">Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
-    <div class="stat-card"><div class="stat-label">Total Cycles</div><div class="stat-value accent">${r.cycles.length}</div><div class="stat-sub">${r.rolls.length} rolls + 1 initial</div></div>
+    <div class="stat-card"><div class="stat-label">Roll Frequency</div><div class="stat-value accent">${_freq.yr}</div><div class="stat-sub">${_freq.sub}</div></div>
   `;
 }
 
@@ -5216,6 +5239,13 @@ function renderCycleTable(r) {
   const fmtPnl = v => v == null ? '<span class="muted">—</span>'
     : `<span style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;">${v >= 0 ? '+' : '−'}$${Math.abs(Math.round(v)).toLocaleString()}</span>`;
 
+  // v7.1.1 — ENTRY DTE: expiry minus open date, the selection quantity, beside
+  // the contract it describes. Date difference, never a clock difference (S59).
+  const dteOf = (entry, exp) => (entry && exp)
+    ? Math.round((new Date(exp + 'T00:00:00') - new Date(entry + 'T00:00:00')) / 86400000) : null;
+  const dteCell = (entry, exp) => { const d = dteOf(entry, exp);
+    return `<td class="muted">${d != null ? d + 'd' : '\u2014'}</td>`; };
+
   let prevExit = null;
   const rowList = (r.cycles || []).map(c => {
     const approx = c.approx ? '<span style="color:var(--yellow);margin-left:3px;font-size:9px">~</span>' : '';
@@ -5230,6 +5260,7 @@ function renderCycleTable(r) {
       <td style="white-space:nowrap;">${fmtDate(c.entryDate)}${gapBadge}</td>
       <td class="muted">${contracts}</td>
       <td style="white-space:nowrap;">${fmtDate(c.expiry)} $${c.strike}C</td>
+      ${dteCell(c.entryDate, c.expiry)}
       <td class="accent">$${fmt(c.entryPx)}</td>
       <td style="white-space:nowrap;" class="${c.isExp ? 'muted' : ''}">${fmtDate(c.exitDate)}${settleTag}${approx}</td>
       <td class="red">$${fmt(c.exitPx)}</td>
@@ -5252,6 +5283,7 @@ function renderCycleTable(r) {
       <td style="white-space:nowrap;">${fmtDate(pc.entryDate)}${gapBadge}</td>
       <td class="muted">${contracts}</td>
       <td style="white-space:nowrap;">${fmtDate(pc.expiry)} $${pc.strike}C</td>
+      ${dteCell(pc.entryDate, pc.expiry)}
       <td class="accent">$${fmt(pc.entryPx)}</td>
       <td><span style="background:var(--accent);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;letter-spacing:.06em;">OPEN</span></td>
       <td class="muted">—</td>
@@ -5263,7 +5295,7 @@ function renderCycleTable(r) {
 
   $('cycle-table').innerHTML = `<table class="tbl">
     <thead><tr>
-      <th>Opened</th><th>Qty</th><th>Contract</th><th>Open $</th>
+      <th>Opened</th><th>Qty</th><th>Contract</th><th>DTE</th><th>Open $</th>
       <th>Closed</th><th>Close $</th>
       <th>Cycle P&L</th><th>Hold</th><th>Trigger</th>
     </tr></thead>
@@ -7797,6 +7829,12 @@ function renderLiveCycles(trades) { // v6.33.1 unified · v6.33.3 (S57, Ron): Qt
   const fmtPnl = v => v == null ? '<span class="muted">—</span>'
     : `<span style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;">${v >= 0 ? '+' : '−'}$${Math.abs(Math.round(v)).toLocaleString()}</span>`;
   const px = v => v != null ? '$' + (+v).toFixed(2) : '—';
+  // v7.1.1 — ENTRY DTE. Blotter dates are US MM/DD/YY, so both ends go through
+  // toIso first; a lexicographic or Date() parse on the raw form is the S60-2
+  // class of defect. Orphans have no open leg and render an em-dash.
+  const dteCell = (openD, expD) => { const a = toIso(openD), b = toIso(expD);
+    const d = (a && b) ? Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000) : null;
+    return `<td class="muted">${d != null ? d + 'd' : '\u2014'}</td>`; };
 
   const cycleRow = c => {
     const pxEff = c.coverPrice != null ? c.coverPrice : (c.closeType === 'expired' ? 0 : null);
@@ -7811,6 +7849,7 @@ function renderLiveCycles(trades) { // v6.33.1 unified · v6.33.3 (S57, Ron): Qt
       + `<td style="white-space:nowrap;">${c.orphan ? '<span style="color:var(--yellow);">— unpaired</span>' : (c.openDate || '—')}</td>`
       + `<td class="muted">${c.qty || '—'}</td>`
       + `<td style="white-space:nowrap;">${c.expiry || '—'} $${c.strike}C</td>`
+      + dteCell(c.openDate, c.expiry)
       + `<td class="accent">${c.orphan ? '—' : px(c.sellPrice)}</td>`
       + `<td style="white-space:nowrap;" class="${c.closeType === 'cover' ? '' : 'muted'}">${c.closeDate || '—'}${closeTag}</td>`
       + `<td class="red">${px(c.coverPrice)}</td>`
@@ -7825,6 +7864,7 @@ function renderLiveCycles(trades) { // v6.33.1 unified · v6.33.3 (S57, Ron): Qt
       + `<td style="white-space:nowrap;">${c.openDate || '—'}</td>`
       + `<td class="muted">${c.qty || '—'}</td>`
       + `<td style="white-space:nowrap;">${c.expiry || '—'} $${c.strike}C</td>`
+      + dteCell(c.openDate, c.expiry)
       + `<td class="accent">${px(c.sellPrice)}</td>`
       + `<td><span style="background:var(--accent);color:#fff;border-radius:3px;padding:1px 6px;font-size:9px;letter-spacing:.06em;">OPEN</span></td>`
       + `<td class="muted">—</td>`
@@ -7837,6 +7877,7 @@ function renderLiveCycles(trades) { // v6.33.1 unified · v6.33.3 (S57, Ron): Qt
       + `<td style="white-space:nowrap;">${t.trade_date || '—'}</td>`
       + `<td class="muted">${t.sellContracts || '—'}</td>`
       + `<td style="white-space:nowrap;">${t.sellExpiry || '—'} $${t.sellStrike}C</td>`
+      + dteCell(t.trade_date, t.sellExpiry)
       + `<td class="accent">${t.sellPrice != null ? px(parseFloat(t.sellPrice)) : '—'}</td>`
       + `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`
       + `<td class="muted" style="font-size:10px;">long call — not a cycle</td>`
@@ -7853,7 +7894,7 @@ function renderLiveCycles(trades) { // v6.33.1 unified · v6.33.3 (S57, Ron): Qt
   tableEl.innerHTML = '<table class="tbl">'
     + '<thead><tr>'
     + `<th style="cursor:pointer;" onclick="toggleLiveSort()">Opened${sortArrow}</th>`
-    + '<th>Qty</th><th>Contract</th><th>Open $</th><th>Closed</th><th>Close $</th>'
+    + '<th>Qty</th><th>Contract</th><th>DTE</th><th>Open $</th><th>Closed</th><th>Close $</th>'
     + '<th>Cycle P&L</th><th>Hold</th><th>Trigger</th>'
     + '</tr></thead>'
     + '<tbody>' + rowsAll.map(r => r.h).join('') + '</tbody>'
