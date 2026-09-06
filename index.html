@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.0.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.1.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -556,7 +556,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.0.0 · THE RATCHET IS GONE (S62, Ron’s ruling). MAJOR BUMP, AND IT MARKS EXACTLY ONE THING: no run this app can produce contains the duration subsidy. The ratchet died in BEHAVIOUR at v6.37.0 when the sunk cover left the ranker numerator — but ovSunk=1 kept it reachable, and `_sunkGate ? netCredit : entryPx` sat in the ranker as a live branch for six minor versions. v7.0.0 removes the SWITCH, so the subsidy is no longer in the codebase at all: the fork, the per-run gate assignment, the sandbox banner, the run-header SUNK-COVER token, the ovSunk entry in the research-override map, and the `let _sunkGate` declaration with its header block. SEVEN SITES. Retired-never-dormant, applied to the last door back. WHY IT EARNS THE MAJOR: a log stamped v7 is SELF-CERTIFYING that it is not a pre-correction run, which matters in a program that has already voided one certified baseline and propagated a wrong DM date through two sessions. WHY THE SUBSIDY IS NOT COMING BACK: the buyback is COMMON to every candidate on a board, so subtracting it cannot change the ORDER — but dividing that constant by a per-candidate dte DOES, because short candidates absorb the whole cover over 57 days while long ones spread it over 175. It was arithmetic that happened to point somewhere defensible, and it ran the entry-DTE median to 241d on contracts the live scan cannot buy. With it gone the post-stop and post-decay medians agree at 129d and 133d against a 214-day split before, the 0–90d band is EMPTY, and duration is set by the anchor as a parameter rather than ratcheted by an artefact. ovPit IS DELIBERATELY RETAINED (Ron’s ruling, same session): the disarmed mask keeps the pre-fix universe reachable and §10 names it as the TEST ORACLE for a future DM rebuild — a rebuilt DM is correct iff an ungated run on it reproduces a gated run on the old one. Removing it would forfeit that check, which is a different trade from this one and was ruled the other way. IDENTITY BY CONSTRUCTION at the shipped config (ovSunk absent ⇒ _sunkGate null ⇒ the fork already took entryPx), so the STD ledger must not move: 10.1% / $73,207 / 156 cycles / 59 uncovered-hold days, risk texture n 156 · sd $2,832 · 1.42 annualized. AN IDENTICAL LOG IS THE CORRECT CERT FOR A REMOVAL AT IDENTITY — the discriminating artifacts are the code diff and a symbol sweep against an unmoved ledger, per the v6.40.0 precedent. Base v6.43.0 (45985262).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.1.0 · PERFORMANCE PANEL: ERA-PINNED ROLL GRID, PROSE REMOVED (S63, Ron). TWO CHANGES, ONE RELEASE, NO SIM CONTACT. (1) THE ROLL GRID IS RE-PINNED TO WF_ERA_START. The panel previously ran both of its sections from the program start 2025-06-02, so the sim-vs-live comparison pooled thirteen live cycles spanning the pre-model 2025 ramp with the twelve the model actually governs — the COUNT RECONCILIATION open item, which this closes by construction. Era membership keys on the CLOSE date, per the standing rule that era filters key on realized_close_date. THE SPY SECTION IS UNCHANGED AND STILL SPANS THE ENTIRE ACCOUNT HISTORY (Ron): the roll grid is a SUBSET of that history, not a replacement for it. (2) THE PANEL NOW MAKES TWO PASSES OVER THE SAME PAIRED CYCLES, and this is the load-bearing part of the change. The SPY leg is a RESIDUAL, gain minus CC — so its CC subtraction MUST stay on the full statement window even though the grid above it shows only era cycles. A single re-pinned pass would have silently dropped every pre-era cycle out of grossP and pushed that P&L into the share bucket, with nothing on screen to say so. liveAll feeds the residual; liveClosed feeds the grid. THE REGISTERED CHECK IS THAT THE SPY LEG AND STATEMENT YIELD ARE UNCHANGED TO THE DOLLAR — if they move, the pin leaked into the residual. (3) PROSE REMOVED (Ron: "I never read it and it takes up too much space"): the SPY residual explanation, the TRADE BASIS definition, the sim-overlay definition, the non-additive-windows note, the open-contracts note, and the DECAY%/DELTA% classified-shares line. THE TWO AMBER WARNINGS STAY — unclassified cycles and orphan closes are CONDITIONAL DATA-STATE ALARMS, not description; they render only on a non-zero count and are silent otherwise. The classified-shares line was added after defect 21, when this panel’s closest reader misread a percentage column, but that risk only exists while the classified denominator differs from the total — after the era pin it does not, so the line is vacuous rather than load-bearing. A STALE FIGURE WENT WITH THE PROSE: the sub-line shipped "break-even sits near a 35% stop share" and the comment above the header array carried 35.4% against 26.7% plus +$413/−$460 daily rates, all four from the VOIDED DM 2026-08-21 baseline. On the certified pools (decay 103 @ +$2,095, stops 53 @ −$2,690) break-even is 43.8% against a 34.0% sim stop share — 9.8 points of cushion, not 1.4. The figures are REMOVED rather than corrected: the risk-texture block in the STD log is the certified emitter for pool statistics, and replacing one hand-computed number with another in a spot that has already gone stale twice is how it goes stale a third time. THE NON-ADDITIVITY IS NOW CARRIED BY THE LAYOUT: both section headers are dated, so two different windows are readable off the dates without a line of prose asserting it. WINDOW ARITHMETIC: spanU and twcU re-seed at the era start, so CC YIELD annualizes over ~44 days on ~12 live and ~9 sim cycles — it will swing week to week, and that is the monitor Ron asked for rather than a measurement. DISPLAY LAYER ONLY: no engine path, no ranker, no params, no live_trades write. Base v7.0.0 (ed16eff1).</span></div>
 </div>
 
 <script>
@@ -734,7 +734,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.0.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.1.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1939,12 +1939,18 @@ async function _cwinHtml() {
   const pf = v => v != null ? v.toFixed(1) + '%' : 'n/a';
 
   // ── LIVE, trade basis ────────────────────────────────────────────────────
-  const { cycles: liveCyc, open: liveOpen, toIso } = _pairLiveCycles(trades);
+  const { cycles: liveCyc, toIso } = _pairLiveCycles(trades); // v7.1.0 — open list dropped with its sub-line
   // v6.34.5 — UNPINNED: every cycle closed on or after the program start. The
   // old ceiling (<= L.d) is kept only as a subtotal, because the SPY residual
   // must net CC over the SAME window as the balances it is derived from.
   const inWin = d => { const i = toIso(d); return i && i >= S.d; };
-  const liveClosed = liveCyc.filter(c => inWin(c.closeDate)).map(c => {
+  // v7.1.0 — TWO PASSES OVER ONE PAIRING (S63). liveAll spans the FULL account
+  // window and exists for exactly one consumer: the SPY residual, whose CC
+  // subtraction must match the statement balances it is derived from. The roll
+  // grid reads liveClosed, re-pinned to the era. Collapsing these into one
+  // re-pinned pass would drop the pre-era cycles out of grossP and push that
+  // P&L into the share bucket, silently.
+  const liveAll = liveCyc.filter(c => inWin(c.closeDate)).map(c => {
     const pxEff = c.coverPrice != null ? c.coverPrice : (c.closeType === 'expired' ? 0 : null);
     const net   = (c.sellPrice != null && pxEff != null) ? c.sellPrice - pxEff : null;
     // v6.34.4 — trigger travels with the cycle so the pool split is computable.
@@ -1954,15 +1960,17 @@ async function _cwinHtml() {
     return { pnl: net != null ? net * 100 * (c.qty || 0) : null, orphan: !!c.orphan,
              iso: toIso(c.closeDate), pool: /decay/.test(tg||'') ? 'decay' : /delta/.test(tg||'') ? 'delta' : null };
   }).filter(c => c.pnl != null);
-  if (!liveClosed.length) return '<div style="color:var(--muted);">no closed cycles in the window yet</div>';
+  if (!liveAll.length) return '<div style="color:var(--muted);">no closed cycles in the window yet</div>';
+  const grossP  = liveAll.filter(c => c.iso <= L.d).reduce((s, c) => s + c.pnl, 0); // v6.34.5 — CC inside the ANCHOR window only; v7.1.0 — off liveAll, NEVER the era subset
+  const spyPnl  = gain - grossP; // v6.34.5 — residual over the ANCHOR window: appreciation + dividends + MM interest
+  // v7.1.0 — ERA WINDOW for the roll grid. Membership keys on the CLOSE date:
+  // era filters key on realized_close_date (S33 doctrine, Model Rules).
+  const liveClosed = liveAll.filter(c => c.iso >= WF_ERA_START);
   const orphanN = liveClosed.filter(c => c.orphan).length; // v6.34.3 — counted, never silently dropped
   const gross   = liveClosed.reduce((s, c) => s + c.pnl, 0);
-  const grossP  = liveClosed.filter(c => c.iso <= L.d).reduce((s, c) => s + c.pnl, 0); // v6.34.5 — CC inside the ANCHOR window only
-  const afterN  = liveClosed.filter(c => c.iso >  L.d).length;
   const liveWin = liveClosed.filter(c => c.pnl > 0).length;
-  const lastIso  = liveClosed[liveClosed.length - 1].iso;
-  const firstIso = liveClosed[0].iso;
-  const spyPnl  = gain - grossP; // v6.34.5 — residual over the ANCHOR window: appreciation + dividends + MM interest
+  const lastIso  = liveClosed.length ? liveClosed[liveClosed.length - 1].iso : null;
+  const firstIso = liveClosed.length ? liveClosed[0].iso : null;
 
   // ── SIM overlay, trade basis (Path A: the run in MEMORY — S49) ────────────
   // Sim cycles carry entryPx/exitPx, so trade P&L is native here; no sim path
@@ -1982,7 +1990,7 @@ async function _cwinHtml() {
       // inside it. This replaces v6.25.1's anchor-and-skip, which existed only
       // because a ROLL charges a cover that may predate the window; a trade
       // cannot. Both legs in, or the cycle is out.
-      if (!c.entryDate || !c.exitDate || c.entryDate < S.d) continue; // v6.34.5 — unpinned (Ron): truncating the sim to a statement date made the comparison to live invalid
+      if (!c.entryDate || !c.exitDate || c.entryDate < WF_ERA_START) continue; // v6.34.5 — unpinned (Ron); v7.1.0 — RE-PINNED to the era so the sim overlay covers the same dates the live row does. Both legs inside the window (v6.34.3): a trade cannot charge a cover that predates it.
       if (c.entryPx == null || c.exitPx == null) continue;
       const p = (c.entryPx - c.exitPx) * 100 * liveSize(c.entryDate);
       simCC += p; simN++; if (p > 0) simWin++; simLast = c.exitDate;
@@ -1993,10 +2001,14 @@ async function _cwinHtml() {
     }
   }
 
-  // v6.34.5 — capital base for the ROLL section, sized to the unpinned window
-  const endIso = [lastIso, simLast].filter(Boolean).sort().pop() || lastIso;
-  const spanU  = Math.max(1, Math.round((new Date(endIso + 'T00:00:00Z') - new Date(S.d + 'T00:00:00Z')) / 86400000));
-  const twcU   = _cwinTwCapital(S.d, endIso, flows);
+  // v6.34.5 — capital base for the ROLL section; v7.1.0 — re-seeded at the era
+  // start. _cwinTwCapital needs only the START balance and the dated ledger
+  // flows, so contributed capital is computable at ANY date without a second
+  // statement anchor — which is why the roll grid can move and the SPY section
+  // cannot. Short window: CC YIELD annualizes ~44 days and will swing.
+  const endIso = [lastIso, simLast].filter(Boolean).sort().pop() || WF_ERA_START;
+  const spanU  = Math.max(1, Math.round((new Date(endIso + 'T00:00:00Z') - new Date(WF_ERA_START + 'T00:00:00Z')) / 86400000));
+  const twcU   = _cwinTwCapital(WF_ERA_START, endIso, flows);
   const yU = v => twcU > 0 ? (v / twcU / spanU * 365 * 100) : null;
 
   // ── shared context: stated once, because both rows share it by construction ─
@@ -2011,13 +2023,11 @@ async function _cwinHtml() {
     + '<span style="' + lab + '"> \u00b7 ending bal</span> ' + money(L.amt)
     + '<span style="' + lab + '"> \u00b7 SPY leg</span> ' + money(spyPnl) + ' (' + pf(yP(spyPnl)) + ')'
     + '<span style="' + lab + '"> \u00b7 statement yield</span> ' + pf(yP(gain))
-    + '<br><span style="' + lab + 'font-size:9px;">SPY leg is the RESIDUAL over this window (appreciation + dividends + MM interest), '
-    + 'so it nets only the ' + money(grossP) + ' of covered-call P&L closed inside it. '
-    + 'Statement yield is the whole account. Pinned because a residual needs a real balance.</span></div>'
+    + '</div>' // v7.1.0 — residual prose removed (Ron). Header + data line only.
     + '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:9px 0 3px;letter-spacing:.05em;">'
-    + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 ticket-derived, NOT pinned \u00b7 ' + S.d + ' \u2192 ' + endIso
-    + (afterN ? ' \u00b7 includes ' + afterN + ' cycle' + (afterN !== 1 ? 's' : '') + ' closed after the statement anchor' : '')
-    + '</span></div>';
+    + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 era-pinned \u00b7 ' + WF_ERA_START + ' \u2192 ' + endIso + '</span></div>';
+    // v7.1.0 — BOTH HEADERS ARE DATED, which is what now carries the
+    // non-additivity: two windows, readable off the dates, no prose line.
 
   // ── the comparison: only columns that can actually differ ────────────────
   const th = 'text-align:right;padding:3px 6px;color:var(--muted);font-size:9px;letter-spacing:.04em;border-bottom:1px solid var(--border);';
@@ -2025,11 +2035,17 @@ async function _cwinHtml() {
   // v6.34.4 (Ron, S58) — START added at the left, the DECAY/DELTA pool split
   // added after MEAN, and the SIM row moved ABOVE live (the sim is the
   // reference the live row is read against; the reference reads first).
-  // The pool columns are why the panel exists: the two pools have nearly
-  // equal and opposite daily rates (+$413/day decay vs -$460/day stop on the
-  // certified run), so the edge is a FREQUENCY MIX, not a magnitude edge, and
-  // break-even sits at a 35.4% stop share against the sim's 26.7%. The mix is
-  // the quantity to watch, and until now it was not on this panel at all.
+  // The pool columns are why the panel exists: the edge is a FREQUENCY MIX, not
+  // a magnitude edge, so the mix is the quantity to watch.
+  // v7.1.0 — THE POOL NUMBERS THAT WERE HERE ARE GONE, NOT CORRECTED, AND ARE
+  // NOT RESTATED EVEN AS HISTORY: they were cut from the VOIDED DM 2026-08-21
+  // baseline, and leaving the digits in a comment is how a grep finds them
+  // again. Hand-computed prose in this file has gone stale against a moving
+  // model three times. DO NOT PUT A BREAK-EVEN OR A DAILY RATE HERE. The STD
+  // log's risk-texture block is the certified emitter for pool statistics and
+  // it recomputes from r.cycles every run; read it there. The removed figures
+  // are named once, in the v7.1.0 version-header entry, which is the only
+  // place a superseded number belongs.
   const hdr = ['', 'START', 'CYCLES', 'WIN%', 'MEAN P&L',
                'DECAY%', 'DECAY P&L', 'DELTA%', 'DELTA P&L',
                'CC P&L', 'CC YIELD', 'LAST CLOSE'];
@@ -2044,7 +2060,15 @@ async function _cwinHtml() {
   // v6.34.4 — pool SHARES are taken over the CLASSIFIED subset, never over all
   // cycles: dividing by a denominator that includes unclassified rows would
   // silently understate both pools and make the live row incomparable to sim.
-  const liveCells = ['<span style="color:var(--accent);">live</span>',
+  // v7.1.0 — EMPTY-ERA GUARD, mirroring the sim row's own placeholder. The era
+  // window can be empty where the full account window cannot, so firstIso/
+  // lastIso are nullable now and gross/0 is reachable. Without this the row
+  // prints "null" and "$NaN" rather than saying it has nothing to show.
+  const liveCells = !liveClosed.length
+    ? ['<span style="color:var(--accent);">live</span>',
+       '<span style="color:var(--muted);">\u2014 no closed cycles since the era pin ' + WF_ERA_START + '</span>',
+       '', '', '', '', '', '', '', '', '', '']
+    : ['<span style="color:var(--accent);">live</span>',
     firstIso, String(liveClosed.length), wr(liveWin, liveClosed.length),
     money(gross / liveClosed.length),
     shr(lDecay.length, lCls), mean(lDecay),
@@ -2063,17 +2087,15 @@ async function _cwinHtml() {
        shr(sT.length, sCls), mean(sT),
        money(simCC), pf(yU(simCC)), simLast || '\u2014'];
 
-  const sub = '<div style="color:var(--muted);font-size:8px;margin-top:4px;line-height:1.6;">'
-    + 'TRADE BASIS (v6.34.3): each cycle is one contract sold and later covered \u2014 sell \u2212 cover \u00d7 100 \u00d7 qty. '
-    + 'NOT roll credit (new sell \u2212 prior cover), which pairs two different contracts and charges a sunk buyback. '
-    + 'A win is a contract covered for less than it was sold.'
-    + '<br>sim = run in memory \u00b7 cycles opened AND closed inside the window \u00b7 scaled to live size at each entry date (ticket-direct) \u00b7 NOT the fixed-6 full-DM STD headline.'
-    + (liveOpen && liveOpen.length ? '<br>' + liveOpen.length + ' open contract' + (liveOpen.length !== 1 ? 's' : '') + ' excluded \u2014 closed cycles only (unrealized MTM is not a result).' : '')
-    + '<br>The two sections span DIFFERENT windows, so CC YIELD and the SPY leg\u2019s yield are NOT additive \u2014 use statement yield above for the account total.'
-    + '<br>DECAY%/DELTA% are shares of the CLASSIFIED cycles, not of all cycles \u2014 the two pools have near-equal and opposite daily rates, so the MIX is the edge (break-even sits near a 35% stop share).'
-    + (lUncl ? '<br><span style="color:#e0a020;">\u26a0 ' + lUncl + ' of ' + liveClosed.length + ' live cycles UNCLASSIFIED (no trigger recorded \u2014 CSV-imported pre-model rows). Their P&L is in CC P&L and MEAN; they are excluded from both pool shares, so the live mix is measured on ' + lCls + ' cycle' + (lCls !== 1 ? 's' : '') + ' only and is NOT yet comparable to sim.</span>' : '')
-    + (orphanN ? '<br><span style="color:#e0a020;">\u26a0 ' + orphanN + ' orphan close' + (orphanN !== 1 ? 's' : '') + ' in window (cover with no matching open) \u2014 counted, never dropped.</span>' : '')
-    + '</div>';
+  // v7.1.0 — DESCRIPTIVE SUB-LINES REMOVED (Ron). What remains are CONDITIONAL
+  // DATA-STATE ALARMS: they render only on a non-zero count and are silent
+  // otherwise, so they cost nothing on a clean panel. The whole block collapses
+  // to '' when both counts are zero — no empty div holding space.
+  const warn = (lUncl ? '<br><span style="color:#e0a020;">\u26a0 ' + lUncl + ' of ' + liveClosed.length + ' live cycles UNCLASSIFIED (no trigger recorded) \u2014 excluded from both pool shares, so the live mix is measured on ' + lCls + ' cycle' + (lCls !== 1 ? 's' : '') + ' only.</span>' : '')
+    + (orphanN ? '<br><span style="color:#e0a020;">\u26a0 ' + orphanN + ' orphan close' + (orphanN !== 1 ? 's' : '') + ' in window (cover with no matching open) \u2014 counted, never dropped.</span>' : '');
+  const sub = warn
+    ? '<div style="color:var(--muted);font-size:8px;margin-top:4px;line-height:1.6;">' + warn + '</div>'
+    : '';
 
   return ctx
     + '<table style="border-collapse:collapse;font-family:var(--mono);font-size:10px;width:100%;table-layout:fixed;">'
