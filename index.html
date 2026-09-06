@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.40.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.41.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -556,7 +556,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.40.0 · THE RISK TERM IS RETIRED (S61, Ron’s ruling). MEASURED AND ABANDONED, not deferred. v6.39.1’s probe ran the §11 item 4 test on all 163 core cycles: does modelled P_stop AT ENTRY separate cycles that later delta-stopped from cycles that decayed? IT DOES NOT. AUC 0.484 [0.395, 0.570] for the shipped barrier form; 0.486 for gambler’s ruin; 0.504 for a two-barrier form at the median 4-day hold; 0.484 for ENTRY DELTA ITSELF. Quartile stop-rates are non-monotone (30/54/39/34%), the two era halves point OPPOSITE ways (0.572 and 0.403), and a logistic on all five entry observables reaches only 0.582 IN-SAMPLE WITH FIVE FREE PARAMETERS on n=163 — an upper bound no out-of-sample number would beat. THE DECISIVE NUMBER IS ρ = +1.000: P_stop and entry delta induce THE SAME ORDERING on this ledger, so the term could only ever re-express a cap the ranker already applies at 0.69. Nothing observable at entry separates the pools — what fires the stop is the PATH AFTER ENTRY, not the contract chosen — so there is no selection-time risk job available to do. RULING (Ron): pull all of it rather than leave λ=0 dormant. Removed at TWENTY SITES in six regions — json read, module state (_riskLambda/_riskStopCost/_riskStopThr), the three functions riskSStar / riskPStop / riskAdjPx, the sim ranker, the param binding, and four live-scan sites (ranker, worst-case shadow, DM-close frame-flip shadow, PASS-row display). The v6.39.1 probe goes with them: its question is closed. THIS IS A DELETION AT EXACT IDENTITY — roll_params carried riskLambda 0, so every riskAdjPx call was already returning px unchanged, and the STD ledger must not move by a cent. AN IDENTICAL LOG IS THE CORRECT CERT HERE and not a failure to discriminate: the discriminating artifact is the code diff plus a symbol sweep showing zero risk* references surviving against an unmoved ledger. If the ledger DOES move, the json was not what it was read to be and the release is void. creditFilter IS KEPT (Ron) and is ADDED TO THE KNOWN JSON-KEY LIST (§11 item 9b) — riskLambda and riskStopCost are deliberately NOT added, so a leftover key now prints ⚠ no card per the v6.14.2 otmTarget ruling, which is the tripwire that would have caught both the S60 “riskLamba” typo and the S61 silent creditFilter OFF. §11 item 9c (λ as a sweep axis) is MOOT and drops. Base v6.39.1 (545e2484).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.41.0 · NET-CREDIT ADMISSION IS STRUCTURAL (S61, Ron’s ruling). No longer a parameter, no longer a json key, no longer switchable: a roll must fund its own buyback. WHY, MEASURED TWO WAYS. FIRST, THE ACCOUNTING IDENTITY. Each cycle books pnl = (entryPrice − exitPx)×100×contracts, so summing over cycles TELESCOPES: core credit = P₁ + Σ netCredit − X_N. Verified against the real ledger to $0.00 (core credit $11,373.06, telescoped $11,373.06). CORE CREDIT IS THE SUM OF THE NET CREDITS, up to two boundary terms — so admitting netCredit≤0 admits rolls that subtract from the objective BY CONSTRUCTION. On the unfiltered ledger 77 of 162 rolls (48%) were net-debit, contributing −$273,796 against +$293,710 from the credit rolls: the headline was the thin residual of two nearly-cancelling flows, which is also why that surface is unstable and why a 27,720-point sweep could not rescue it (best raw 3.1%, robust 1.95%, ALL 25 robust rows on grid edges). SECOND, SUPPRESSION — AND IT IS A SEPARATE MECHANISM. When no candidate clears admission the sim holds long SPY UNCOVERED and re-scans daily (3518). Measured: 59 uncovered-hold days with the filter on, 0 with it off. So the filter also converts “keep chasing with debit rolls” into “take the loss, stand aside, re-enter when you can sell for credit”. THE TWO MECHANISMS ARE NOT SEPARABLE from the runs in hand and the ruling records both — a future session reading only the tidier admission story would be reading something known to be incomplete. WHY v6.38.0’S SUNK-COST ARGUMENT WAS HALF RIGHT: the buyback is COMMON to every candidate, so it correctly must not affect ORDER (v6.37.0 stands) — but a constant still decides whether the best candidate is ABOVE WATER, and admission is a PARTICIPATION decision, not a ranking one. Removing it left the optimizer maximising a quantity that is not the P&amp;L. MEASURED GAP 10.1% vs 1.6% core, and stop share 34.0% (53/156) vs 39.3% (64/163) against a 35.4% break-even — the filter moves the program from the losing side of its own break-even line to the winning side. WHY STRUCTURAL RATHER THAN A DEFAULT: v6.39.0 kept it switchable only until the risk term could demonstrably replace it. v6.40.0 retired the risk term on measurement (AUC 0.484, ρ=+1.000 with entry delta) and the 27,720-point sweep retired the tuning route the same night. NO REPLACEMENT CANDIDATE REMAINS, so the condition is closed. ONE-WAY DOOR, ACCEPTED: the OFF arm is now unreachable and the S61 OFF sweep survives only as a log. creditFilter is REMOVED FROM THE KNOWN JSON-KEY LIST — a leftover key now prints ⚠ no card per the v6.14.2 otmTarget ruling, and the tell clears when the key does. UNMODELLED, STATED: on the 59 uncovered days the shares participate fully in upside and core yield measures the overlay only, so that benefit appears nowhere. IDENTITY AT THE SHIPPED JSON (creditFilter true) — the STD ledger must not move: 10.1% / $73,207 / 156 cycles / 59 uncovered-hold days. Base v6.40.0 (38214573).</span></div>
 </div>
 
 <script>
@@ -621,7 +621,7 @@ function renderJsonFootnote(raw) {
     const KNOWN = ['decayTrigger','dteFloor','deltaThreshold','dtePenaltyAnchor', // v6.14.2 — otmTarget OFF the list deliberately: while the json still carries the retired field the footnote shows it as ⚠ no card, which is the HONEST state (v6.7.10 ruling); the tell disappears when the field does
       'lastOptimized','contracts','shares','shortStrike','shortExpiry','entryDate','netPremium',
       'coverPrice','sellPrice','entrySpy','defHorizon','note','optProjYield','entryDeltaCap',
-      'entryDteMin','graceDays','costBasis','sharesHeld','basisAsOf','creditFilter']; // v6.26.0 — import-writer fields // v6.40.0 — creditFilter added (§11 item 9b); riskLambda/riskStopCost deliberately NOT added, so a leftover key prints ⚠ no card per the v6.14.2 otmTarget ruling
+      'entryDteMin','graceDays','costBasis','sharesHeld','basisAsOf']; // v6.26.0 — import-writer fields // v6.41.0 — creditFilter REMOVED from this list again (added v6.40.0, one release): the code no longer reads the key, so a leftover creditFilter/riskLambda/riskStopCost prints ⚠ no card per the v6.14.2 otmTarget ruling. The tell clears when the keys do.
       // v6.34.0 — oppTheta/oppH OFF this list deliberately (θ retired): while roll_params.json still carries them the footnote prints them as ⚠ no card, which is the HONEST state per the otmTarget v6.14.2 ruling. The tell clears when the fields do.
     Object.keys(raw).filter(k => !KNOWN.includes(k))
       .forEach(k => parts.push(k + ' ' + JSON.stringify(raw[k]) + ' \u26A0 no card'));
@@ -684,7 +684,6 @@ async function loadRollParams() {
       defHorizon:     data.defHorizon || 0, // v6.3.0 — absent in pre-v6.3.0 params → 0 (off)
       entryDeltaCap:  data.entryDeltaCap ?? null, // v6.4.0 — null = coupled to deltaThreshold
       entryDteMin:    data.entryDteMin ?? null,   // v6.4.0 — null = coupled to dteFloor
-      creditFilter:   data.creditFilter ?? true,  // v6.39.0 — net-credit admission; default ON
       graceDays:      data.graceDays ?? null,     // v6.8.3 — null = not yet published (sim defaults 3; card shows hardcode honesty sub)
       // Live position fields — contracts is primary, shares always derived
       contracts:      data.contracts ?? (data.shares ? Math.round(data.shares / 100) : 6),
@@ -735,7 +734,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.40.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.41.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -3015,7 +3014,10 @@ function findNextContract(afterDate, currentSPY, dtePenaltyAnchor, dteFloor, exc
       // AFFORDABILITY IS REAL but it is an EXECUTION constraint at the ticket,
       // not a ranking criterion, and the sim has no cash constraint (S45).
       if (!(entryPx > 0)) { debitSkips++; continue; }
-      if (_creditFilter && netCredit <= 0) { debitSkips++; continue; } // v6.39.0 — parameterised, default ON
+      // v6.41.0 — STRUCTURAL: a roll must fund its own buyback. Core credit
+      // telescopes to P₁ + Σ netCredit − X_N (verified to $0.00), so a netCredit≤0
+      // roll subtracts from the objective by construction. Not switchable.
+      if (netCredit <= 0) { debitSkips++; continue; }
       // v6.37.0 — RANKING NUMERATOR IS THE PREMIUM ALONE. The buyback is SUNK and
       // COMMON to every candidate; subtracting a constant and THEN dividing by a
       // per-candidate dte is not constant — short candidates absorb the whole cover
@@ -3227,14 +3229,6 @@ async function simulate(p) {
   // Set UNCONDITIONALLY every run, same leak-proofing as _expFriGate.
   _pitGate = !!(p.pointInTime ?? true);
   _pitVis  = null;
-  // v6.39.0 — set UNCONDITIONALLY every run (the _expFriGate leak-proofing).
-  // creditFilter DEFAULTS ON: v6.38.0 removed net-credit admission on the sunk-
-  // cost argument, which is right in principle and cost ~7pp of yield in
-  // measurement (10.1% → 2.8% best re-fit) because the filter was ALSO acting as
-  // a crude risk control. It is retained as the shipped default until the risk
-  // term can demonstrably replace it — that comparison is the whole point of the
-  // two flags existing together.
-  _creditFilter = (p.creditFilter ?? true) !== false;
   // Clear stale entryPx/entryDate/entrySPY stamped onto shared DM contract objects
   // by the pendingContract capture of a prior simulate() call — without this flush
   // a later run's OPEN row could inherit a previous run's entry price.
@@ -4121,8 +4115,6 @@ function logExitAttribution(result) {
 // against the model the published policy was actually fit on.
 //   _sunkGate  null/0 = OFF (base: rank on premium alone) · 1 = pre-fix subsidy
 let _sunkGate = null;
-// v6.39.0 — net-credit admission as a PARAMETER, not a code state. Default ON.
-let _creditFilter = true;
 // ── v6.18.0 · SCRATCH ROLL ON DELTA STOPS (SIM CHANGE, sandbox-only) ──
 // Ron's S44 question: after a delta stop, take the SHORTEST-DATED contract that still funds the
 // cover (the near edge of the feasible set) instead of the richest one. CONDITIONAL by design —
@@ -6738,7 +6730,7 @@ async function runRollScan() {
   // v6.38.0 — net-credit admission removed (parity with findNextContract).
   // netCredit is still COMPUTED and DISPLAYED: it is the ticket's real cash and
   // the operator needs it. It no longer decides eligibility.
-  .filter(r => r.mid > 0 && r.deltaOk && r.isOTM && (!_creditFilter || r.netCredit > 0)) // v6.39.0 — parameterised, default ON
+  .filter(r => r.mid > 0 && r.deltaOk && r.isOTM && r.netCredit > 0) // v6.41.0 — structural, sim parity
   .sort((a,b) => b.rollAdjYield - a.rollAdjYield);
 
   // v6.4.13 — worst-case shadow re-rank (same qualifying set, wcAdjYield order).
@@ -6899,8 +6891,8 @@ async function runRollScan() {
         skipReason = 'ITM (' + otmPct + '% OTM) — sim never sells ITM (parity, v5.13.0)';
       } else if (_dSim >= entryCap) { // v6.4.0
         skipReason = 'Δsim ' + _dSim.toFixed(3) + ' ≥ ' + entryCap.toFixed(3) + ' (mkt ' + delta.toFixed(3) + ') — sim-frame entry cap (v6.4.0)';
-      } else if (_creditFilter && netCredit <= 0) {
-        skipReason = 'net debit $' + netCredit.toFixed(2) + ' (creditFilter ON)';
+      } else if (netCredit <= 0) {
+        skipReason = 'net debit $' + netCredit.toFixed(2) + ' — a roll must fund its own buyback (v6.41.0)';
         _scanDebitSkips++;
       } else if (!(r.mid > 0)) {
         skipReason = 'no usable mid';
