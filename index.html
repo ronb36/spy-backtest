@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.41.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v6.42.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -556,7 +556,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.41.0 · NET-CREDIT ADMISSION IS STRUCTURAL (S61, Ron’s ruling). No longer a parameter, no longer a json key, no longer switchable: a roll must fund its own buyback. WHY, MEASURED TWO WAYS. FIRST, THE ACCOUNTING IDENTITY. Each cycle books pnl = (entryPrice − exitPx)×100×contracts, so summing over cycles TELESCOPES: core credit = P₁ + Σ netCredit − X_N. Verified against the real ledger to $0.00 (core credit $11,373.06, telescoped $11,373.06). CORE CREDIT IS THE SUM OF THE NET CREDITS, up to two boundary terms — so admitting netCredit≤0 admits rolls that subtract from the objective BY CONSTRUCTION. On the unfiltered ledger 77 of 162 rolls (48%) were net-debit, contributing −$273,796 against +$293,710 from the credit rolls: the headline was the thin residual of two nearly-cancelling flows, which is also why that surface is unstable and why a 27,720-point sweep could not rescue it (best raw 3.1%, robust 1.95%, ALL 25 robust rows on grid edges). SECOND, SUPPRESSION — AND IT IS A SEPARATE MECHANISM. When no candidate clears admission the sim holds long SPY UNCOVERED and re-scans daily (3518). Measured: 59 uncovered-hold days with the filter on, 0 with it off. So the filter also converts “keep chasing with debit rolls” into “take the loss, stand aside, re-enter when you can sell for credit”. THE TWO MECHANISMS ARE NOT SEPARABLE from the runs in hand and the ruling records both — a future session reading only the tidier admission story would be reading something known to be incomplete. WHY v6.38.0’S SUNK-COST ARGUMENT WAS HALF RIGHT: the buyback is COMMON to every candidate, so it correctly must not affect ORDER (v6.37.0 stands) — but a constant still decides whether the best candidate is ABOVE WATER, and admission is a PARTICIPATION decision, not a ranking one. Removing it left the optimizer maximising a quantity that is not the P&amp;L. MEASURED GAP 10.1% vs 1.6% core, and stop share 34.0% (53/156) vs 39.3% (64/163) against a 35.4% break-even — the filter moves the program from the losing side of its own break-even line to the winning side. WHY STRUCTURAL RATHER THAN A DEFAULT: v6.39.0 kept it switchable only until the risk term could demonstrably replace it. v6.40.0 retired the risk term on measurement (AUC 0.484, ρ=+1.000 with entry delta) and the 27,720-point sweep retired the tuning route the same night. NO REPLACEMENT CANDIDATE REMAINS, so the condition is closed. ONE-WAY DOOR, ACCEPTED: the OFF arm is now unreachable and the S61 OFF sweep survives only as a log. creditFilter is REMOVED FROM THE KNOWN JSON-KEY LIST — a leftover key now prints ⚠ no card per the v6.14.2 otmTarget ruling, and the tell clears when the key does. UNMODELLED, STATED: on the 59 uncovered days the shares participate fully in upside and core yield measures the overlay only, so that benefit appears nowhere. IDENTITY AT THE SHIPPED JSON (creditFilter true) — the STD ledger must not move: 10.1% / $73,207 / 156 cycles / 59 uncovered-hold days. Base v6.40.0 (38214573).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v6.42.0 · RISK TEXTURE IS AN INSTRUMENT, NOT PROSE (S62). TWO CHANGES, NEITHER TOUCHING THE SIM REGION. FIRST, THE STD LOG GAINS A RISK-TEXTURE BLOCK after the core-roll decomposition: n, mean, sd, Sharpe/cycle and annualized, ann sd, Sortino, worst/best, p05/p95, and max drawdown in DOLLARS on the core-cycle path. WHY: the Foundation carried these figures as hand-computed prose and they WENT STALE SILENTLY — the block read 0.142/cycle = 1.12 annualized at 62.3 cycles/yr, which is the PRE-CORRECTION cycle rate, so it described the VOIDED DM 2026-08-21 / v6.32.0 baseline while sitting under the current one. The certified baseline actually runs 0.166/cycle = 1.42 annualized at 73.1 cycles/yr. An instrument that recomputes from r.cycles every run cannot drift; a prose block can and did. Same doctrine as the pool checksums — reconciliation, not estimation. CORE CYCLES ONLY (the initial cycle is an endpoint transient, excluded exactly as it is from core yield) and GROSS, stated on the header line, so the annualized Sharpe reads as a CEILING. SECOND, THE SWEEP ROW GAINS AN sd FIELD (cycleSD, beside holdStats) — emitted to the row, PRINTED NOWHERE and shown in no leaderboard. WHY NOT PRINTED: the S62 screen cut sd from the S61 ledger pack and found ANNUALIZED sd FLAT across all six entries ($22,759–$24,216) while their core yields spanned 8.0–11.1%. Per-cycle sd spreads 31% ($2,163–$2,832) and that spread is ENTIRELY FREQUENCY: rolling more often chops the same price path into more pieces without changing how far SPY travels. Risk per unit time is 6 short calls against 600 shares and that is fixed permanently, so the axes move the SLICING, not the EXPOSURE. Consequence: Sharpe is not a second objective — with ann sd constant it reproduces the yield ordering exactly (1.64 raw #1/#3, 1.42 incumbent, 1.14–1.19 robust), and §10’s "halving the sd beats doubling the mean" is arithmetically true and operationally empty because nothing in the parameter space halves the sd. THAT CLOSES THE VARIANCE SWEEP (§11 item 15) NEGATIVE, on six SELECTED configs — which is why the field ships: the next sweep confirms it across all configs at zero marginal cost and with no re-run. NO RE-RUN IS CALLED FOR NOW. IDENTITY EXPECTED IN THE LEDGER: 10.1% / $73,207 / 156 cycles / 59 uncovered-hold days, with the cert being the ledger lines unmoved plus the new block. Base v6.41.0 (5173b70f).</span></div>
 </div>
 
 <script>
@@ -734,7 +734,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v6.41.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v6.42.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -3719,6 +3719,42 @@ async function simulate(p) {
     }
   }
 
+  // ── v6.42.0 — Risk texture (DISPLAY ONLY) ───────────────────────────────
+  // The Foundation's risk-texture figures were hand-computed in a session and
+  // went stale silently: they carried 62.3 cycles/yr, the PRE-CORRECTION rate,
+  // and so described the VOIDED baseline while reading as current. An
+  // instrument that recomputes from r.cycles every run cannot drift; a prose
+  // block can and did. Same doctrine as the pool checksums - reconciliation,
+  // not estimation.
+  // CORE CYCLES ONLY: the initial cycle is an endpoint transient, excluded here
+  // for the same reason it is excluded from core yield.
+  // NOT A SELECTION INPUT. Nothing computed here reaches the ranker, admission
+  // or any trigger; it is read off the finished ledger and logged.
+  // GROSS, and stated as such on the header line - no commissions, no slippage,
+  // no risk-free deduction. Treat the annualized Sharpe as a CEILING.
+  if (coreCycleCount >= 3) {
+    const rtMoney = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
+    const ps = cycles.slice(1).map(c => c.pnl);
+    const nRT = ps.length;
+    const meanRT = ps.reduce((a, b) => a + b, 0) / nRT;
+    const sdRT = Math.sqrt(ps.reduce((s, v) => s + (v - meanRT) * (v - meanRT), 0) / (nRT - 1));
+    const lossRT = ps.filter(v => v < 0);
+    const dsdRT = lossRT.length ? Math.sqrt(lossRT.reduce((s, v) => s + v * v, 0) / lossRT.length) : null;
+    const srtRT = ps.slice().sort((a, b) => a - b);
+    const qRT = f => srtRT[Math.min(nRT - 1, Math.max(0, Math.round(f * (nRT - 1))))];
+    let cumRT = 0, peakRT = 0, ddRT = 0;
+    ps.forEach(v => { cumRT += v; if (cumRT > peakRT) peakRT = cumRT; if (cumRT - peakRT < ddRT) ddRT = cumRT - peakRT; });
+    const cpyRT = (coreDays > 0) ? nRT / (coreDays / 365) : null;
+    logDbg(`  \u2500\u2500 Risk texture (v6.42.0 \u00b7 core cycles \u00b7 GROSS: no commissions, no slippage, no risk-free deduction) \u2500\u2500`);
+    // No NESTED template literal here: the standing undeclared-call probe strips
+    // template literals with a non-recursive regex, so a template inside ${} ends
+    // the match early and leaks the remainder as a false positive. Concatenate.
+    const annTxt = cpyRT ? ' = ' + (meanRT / sdRT * Math.sqrt(cpyRT)).toFixed(2) + ' annualized (' + cpyRT.toFixed(1) + ' cycles/yr) \u2014 CEILING' : '';
+    logDbg(`  n ${nRT} \u00b7 mean ${rtMoney(meanRT)} \u00b7 sd ${rtMoney(sdRT)} \u00b7 Sharpe ${(meanRT / sdRT).toFixed(3)}/cycle${annTxt}`);
+    logDbg(`  ann sd ${cpyRT ? rtMoney(sdRT * Math.sqrt(cpyRT)) : 'n/a'} \u00b7 Sortino ${dsdRT ? (meanRT / dsdRT).toFixed(3) + '/cycle' : 'n/a'} \u00b7 worst ${rtMoney(srtRT[0])} \u00b7 best ${rtMoney(srtRT[nRT - 1])} \u00b7 p05 ${rtMoney(qRT(0.05))} \u00b7 p95 ${rtMoney(qRT(0.95))}`);
+    logDbg(`  max drawdown ${rtMoney(ddRT)} on the core-cycle path \u2014 ONE price path, no bootstrap behind it`);
+  }
+
   // Strategy yield: total roll credit annualized over full period / SPY basis
   const firstDate = _simSpy[0].date;
   const lastDate  = _simSpy[_simSpy.length-1].date; // always full sim window (jitter-aware, v6.12.0) — idle time counts against yield
@@ -3883,6 +3919,24 @@ logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.sunkCover
 
 // v5.11.3 — hold-time look: mean(daysHeld / DTE-at-entry) over closed cycles.
 // Pure post-hoc aggregation of existing cycle records; no sim change.
+// v6.42.0 — per-config cycle-P&L dispersion for the sweep row. EMITTED TO THE
+// ROW, PRINTED NOWHERE. The S62 screen measured ANNUALIZED sd flat across six
+// selected configs ($22,759-$24,216) whose core yields spanned 8.0-11.1%: per
+// cycle sd looks like a live dimension ($2,163-$2,832) but that spread is
+// entirely frequency, and dividing it out leaves nothing. Risk per unit time is
+// set by 6 short calls against 600 shares, which is fixed - the axes move the
+// slicing, not the exposure. A leaderboard column would therefore invite
+// ranking on a quantity that does not discriminate, and Sharpe would reproduce
+// the yield ordering exactly. The field exists so the NEXT sweep confirms that
+// across all configs instead of six selected ones, with no re-run.
+// Excludes the initial cycle, matching the core-yield population.
+function cycleSD(cycles) {
+  const ps = (cycles || []).slice(1).map(c => c.pnl).filter(v => typeof v === 'number' && isFinite(v));
+  if (ps.length < 3) return null;
+  const m = ps.reduce((a, b) => a + b, 0) / ps.length;
+  return Math.sqrt(ps.reduce((s, v) => s + (v - m) * (v - m), 0) / (ps.length - 1));
+}
+
 function holdStats(cycles) {
   const rs = [];
   let dSum = 0;
@@ -4911,7 +4965,7 @@ async function runOptimization() {
               // co-fires with decay/DTE that don't change the path.
               const stopN = (r?.cycles || []).filter(c => c.reason && c.reason.startsWith('delta ')).length;
               const pureN = (r?.cycles || []).filter(c => c.reason && c.reason.startsWith('delta ') && !c.reason.includes('\u00b7')).length;
-              allResults.rows.push({ decay, floor, delta, lookahead, defh, entrycap, grace, entrydte, yld, head, coreN: r?.coreCycleCount ?? null, rolls: r?.rolls?.length ?? 0, hold: holdStats(r?.cycles), stopN, pureN, edgeRatio: null });
+              allResults.rows.push({ decay, floor, delta, lookahead, defh, entrycap, grace, entrydte, yld, head, coreN: r?.coreCycleCount ?? null, rolls: r?.rolls?.length ?? 0, hold: holdStats(r?.cycles), sd: cycleSD(r?.cycles), stopN, pureN, edgeRatio: null });
             } catch(innerErr) {
               const msg = `✗ Error decay=${decay} floor=${floor} lookahead=${lookahead}: ${innerErr.message}`;
               logMsg(msg,'err');
