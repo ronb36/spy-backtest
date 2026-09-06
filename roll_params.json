@@ -3,7 +3,6 @@
   "dteFloor": 7,
   "deltaThreshold": 0.70,
   "dtePenaltyAnchor": 123,
-  "creditFilter": true,
   "lastOptimized": "2026-09-05",
   "contracts": 6,
   "defHorizon": 10,
