@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -557,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.0 · LEGS DRY RUN — STATEMENT-AUTHORED CONVERSION, READ-ONLY (S63, Ron). PURELY ADDITIVE: one new button, one new function, ZERO edits to the existing import path, which stays byte-identical and certified. WRITES NOTHING ANYWHERE — no POST, no PATCH, no live_legs insert. BACKGROUND. Ron ruled the statement GOLDEN on every field it carries — identity, price, quantity, cost — and the ticket a trade-day provisional: "what I intended to trade has no bearing over what I actually traded." That REVERSES the S49/S50 activity-table rule that SPY option legs are never inserted because the blotter is authoritative for them. The whole database converts, not the era forward. WHY THIS IS NEEDED AT ALL: commission is populated on ONE of 324 live_trades rows and fees on five, and the one is a HAL long call. SPY option cost data does not exist in this program — it was parsed, reconciled and discarded by design. THE ATOM IS THE POINT. Fidelity’s atom is an EXECUTION; live_trades’ atom is a ROLL carrying two leg-groups. Split fills, the retired per-leg matcher, fee attribution and the Feb–Apr 2026 parallel-strike stretch are all that one mismatch surfacing. Legs are aggregated by (date, cls, symbol) with amount-weighted price, which dissolves split fills WITHOUT reviving the matcher that was retired for them: under an AUTHORING model there is nothing to match, only to replace. Cycles assemble at read time by the same stack algorithm _pairLiveCycles already uses — the primitive moves down a level, the architecture does not change. MEASURED OFFLINE FIRST, on the full 2025-06-02 → 2026-09-04 history (11 files, 538 rows → 515 after the importer’s own cross-file collapse, ZERO UNKNOWN actions): total SPY option cost $674.98 over 1,542 contracts. Commission is $0.65/contract throughout, but cost per contract ROSE 70% across eras — $0.4087 in the 0DTE/weekly era against $0.6954 in the walk-forward era — because an expiry costs nothing and the current strategy covers almost every position. A SIM COST CONSTANT WOULD THEREFORE BE WRONG BY CONSTRUCTION: the right number depends on the stop/expiry mix, so it is not a constant. Split fills run 14 of 252 legs (5.6%) across every era, so they are permanent, not historical. The era assembles to TWELVE cycles matching the v7.1.1 both-legs rule, at −$6,854 against the blotter’s −$6,876 — a +$22 delta that is entirely punch error the statement corrects: three 1-cent sell transcriptions and the 07/24 split fill recorded at one fill’s price instead of the weighted average. Era cost $100.09, $8.34/cycle, which is the first provenance the $8.36/roll figure has ever had. P&L STAYS GROSS (Ron): cost is reported ALONGSIDE, never netted in, preserving frame parity with the sim, which is gross by its own header line. ORPHANS AND UNCLOSED POSITIONS ARE COUNTED AND NAMED, never silently dropped — they are cycles whose other leg falls outside the loaded files and they need adjudication, not suppression. Base v7.1.1 (f483652b).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.1 · ASSEMBLER ORDERING FIX — SAME-DAY ROUND TRIPS (S63). STILL READ-ONLY, still writes nothing. v7.2.0 sorted CLOSERS BEFORE OPENERS within a date, which is correct for a ROLL — close the carried contract, open a different one — and WRONG for a contract that opens and closes on the SAME DAY. The 0DTE era did that twenty times. Each one produced TWO phantom records: the close found nothing on the stack and became an ORPHAN, and the open was never matched and stayed STILL-OPEN forever. The dry run reported 23 orphans and 21 open positions; the truth is 3 and 1. Twenty round trips counted twice, once at each end. THE FIX: ordering within a date is STACK-DEPENDENT and cannot be decided by a static sort, so it moves out of _legsAggregate (which now sorts by date alone) and into _legsToCycles, which knows what is carried. Within each date: FIRST the closers whose contract is already on the stack (the roll), THEN the openers, THEN any remaining closers (the same-day round trip). WHAT THIS DOES NOT CHANGE, and the reason it went unnoticed: THE ERA IS IDENTICAL — 12 cycles, −$6,854, byte-for-byte. An era roll always opens a DIFFERENT contract than the one it closes, so the rule never bites there, and the +$22.00 blotter delta was exact despite the defect. A CLEAN HEADLINE SAT ON TOP OF A BROKEN COMPONENT, which is the whole argument for reporting orphans and still-open counts rather than only the totals: the totals agreed, the diagnostics did not, and the diagnostics were right. THE THREE REMAINING ORPHANS ARE REAL and are NOT suppressed — 2026-02-27 $697×3, 2026-03-13 $699×4, 2026-03-20 $698×5, all from the Feb–Apr 2026 parallel-strike stretch, each closing the day after expiry. They need adjudication in the insert spec, not a filter. THE ONE REMAINING OPEN POSITION is the live 2027-02-26 $775C ×6, which is correct. Legs are FACTS and their insertion is unaffected by assembly order — this defect was always read-time only — but the assembler had to be right before anyone reads a converted ledger, or they would read twenty positions that do not exist. Base v7.2.0 (909853fd).</span></div>
 </div>
 
 <script>
@@ -735,7 +735,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.2.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.2.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -8174,9 +8174,9 @@ function _legsAggregate(rows) {
     a.comm += (r.commission || 0); a.fees += (r.fees || 0); a.fills++;
   }
   const out = [...g.values()].map(a => ({ ...a, px: a.qty ? a.pq / a.qty : 0 }));
-  // closers before openers within a date: a roll closes then re-opens
-  out.sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1
-    : (LEG_CLOSERS.has(x.cls) ? 0 : 1) - (LEG_CLOSERS.has(y.cls) ? 0 : 1));
+  // v7.2.1 — DATE ONLY. Within-date ordering depends on what is carried on the
+  // stack, which a static comparator cannot know, so it moved to _legsToCycles.
+  out.sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
   return out;
 }
 
@@ -8185,9 +8185,29 @@ function _legsToCycles(legs) {
   // ASSIGNED close carries px 0 — the position went to zero, and Fidelity
   // emits the row, so nothing is derived. (The builder asserted expiries were
   // absences needing synthetic rows; _impClassify's opt_expired disproved it.)
+  //
+  // v7.2.1 — WITHIN-DATE ORDERING IS STACK-DEPENDENT. A roll closes the carried
+  // contract and opens a DIFFERENT one, so closers must go first. A same-day
+  // round trip opens and closes the SAME contract, so its close must go LAST or
+  // it finds an empty stack and fabricates an orphan AND a never-matched open —
+  // twenty of them in the 0DTE era, each double-counted at both ends.
   const open = [], cycles = [];
+  const kOf = o => o.strike + '|' + o.expiry;
+  const byDate = new Map();
   for (const L of legs) {
     if (L.und !== 'SPY') continue; // non-SPY imported as facts, not cycles
+    if (!byDate.has(L.date)) byDate.set(L.date, []);
+    byDate.get(L.date).push(L);
+  }
+  for (const d of [...byDate.keys()].sort()) {
+    const day = byDate.get(d);
+    const onStack = new Set(open.map(kOf));
+    const order = [
+      ...day.filter(L => LEG_CLOSERS.has(L.cls) && onStack.has(kOf(L))),  // roll leg
+      ...day.filter(L => L.cls === 'opt_sell_open'),                      // then open
+      ...day.filter(L => LEG_CLOSERS.has(L.cls) && !onStack.has(kOf(L)))  // same-day round trip
+    ];
+    for (const L of order) {
     if (LEG_CLOSERS.has(L.cls)) {
       const k = L.strike + '|' + L.expiry;
       let idx = -1;
@@ -8207,6 +8227,7 @@ function _legsToCycles(legs) {
       }
     }
     if (L.cls === 'opt_sell_open') open.push(L);
+    }
   }
   return { cycles, stillOpen: open };
 }
