@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.1.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -486,6 +486,7 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="file" id="imp-files" accept=".csv" multiple style="font-family:var(--mono);font-size:10px;color:var(--muted);">
           <button onclick="impDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Dry Run</button>
           <button onclick="impComputeBasis()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⟳ Cost Basis</button><!-- v6.26.0 — ledger FIFO walk, no import needed -->
+          <button onclick="impLegsDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Legs Dry Run</button><!-- v7.2.0 — statement-authored conversion, READ-ONLY -->
           <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">Parses Fidelity history CSVs · classifies · reconciles SPY option legs vs blotter · dedupes · tie-out. Dry run writes nothing; Insert appears after.</span>
         </div>
         <div id="imp-basis" style="padding:0 16px 6px;font-family:var(--mono);font-size:9px;color:var(--muted);"></div><!-- v6.26.0 -->
@@ -556,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.1.1 · WINDOW RULE UNIFIED, ENTRY DTE ON BOTH BLOTTERS, ROLL FREQUENCY REPLACES THE RAW CYCLE COUNT (S63, Ron). FOUR DISPLAY CHANGES, NO SIM CONTACT. (1) THE PANEL’S TWO ROWS WERE USING DIFFERENT WINDOW RULES and v7.1.0 shipped the asymmetry. The sim required BOTH LEGS inside the era (entryDate ≥ pin); live required only the CLOSE date, so any cycle straddling the pin was kept by live and dropped by sim — a like-for-like break in the one comparison this panel exists to make. IDENTIFIED EXACTLY: the live 07/09/26 → 07/21/26 cycle (10/16/26 $760C, +$2,706) opened twelve days before the pin. Live now requires both legs too. THE FIX RECONCILES TO THE DOLLAR against the era ledger three independent ways — decay 8 cycles at +$1,746.75, stops 4 at −$5,212.50, realized −$6,876 — which is what confirms the rule rather than the count merely agreeing. DOCTRINE NOTE, because it is the thing that misled the builder: S33’s "era filters key on realized_close_date" governs ATTRIBUTION — which pool a cycle lands in, keyed off the exit. It was never a WINDOW rule. Window membership is both-legs-in (v6.34.3): a trade cannot charge a cover that predates it. Two different questions that happen to share a date field. ORPHANS keep being counted for the amber alarm over era-CLOSING cycles — an orphan has no open leg, so a both-legs rule would silence that warning permanently rather than clear it honestly. (2) THE START COLUMN WAS SHOWING A CLOSE DATE on both rows (simFirst took c.exitDate; live took toIso(closeDate)). It read as though the sim began a week after the pin when its first cycle opened 07/23 and closed 07/29. START is now the first cycle’s OPEN date, which is also what the window now filters on, so the column and the filter finally agree. LAST CLOSE was always a close date and is unchanged. (3) ENTRY DTE after Contract on BOTH blotters, expiry minus open date — the selection quantity, sitting next to the contract it describes. Every row type gains the cell (sim closed + open; live cycle, open, orphan and long-call) or the table misaligns; orphans have no open leg and render an em-dash. NOT A DELTA COLUMN: live_trades stores no spot-at-entry and no delta, and the engine carries TWO honest entry deltas in different frames (cycle.entryDelta at full DTE, the trigger at defH), so an unstamped "Delta" header would have been a third frame collision. Deferred, not declined. (4) TOTAL CYCLES → ROLL FREQUENCY, the form agreed in a prior session and never built. Every other summary card is a rate; this one was a raw count. Now core cycles per year with cadence and mean hold beneath it, ALL COMPUTED FROM r (coreCycleCount, coreDays, per-cycle daysHeld) so the card cannot go stale the way three hand-computed §5 figures did. NUMERATOR IS CORE CYCLES, excluding the initial, matching every other annualized card; the "+1 initial" survives in the sub-line. WHY THIS IS AN INSTRUMENT AND NOT COSMETICS: §11 item 2 names FREQUENCY as the objective’s first blind spot — the 23,328-config sweep winner beat the incumbent 11.1% vs 10.1% by trading 239 times against 156. The headline now shows the dimension the objective is blind to, beside the yield it is blind in. Base v7.1.0 (769fbecc).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.0 · LEGS DRY RUN — STATEMENT-AUTHORED CONVERSION, READ-ONLY (S63, Ron). PURELY ADDITIVE: one new button, one new function, ZERO edits to the existing import path, which stays byte-identical and certified. WRITES NOTHING ANYWHERE — no POST, no PATCH, no live_legs insert. BACKGROUND. Ron ruled the statement GOLDEN on every field it carries — identity, price, quantity, cost — and the ticket a trade-day provisional: "what I intended to trade has no bearing over what I actually traded." That REVERSES the S49/S50 activity-table rule that SPY option legs are never inserted because the blotter is authoritative for them. The whole database converts, not the era forward. WHY THIS IS NEEDED AT ALL: commission is populated on ONE of 324 live_trades rows and fees on five, and the one is a HAL long call. SPY option cost data does not exist in this program — it was parsed, reconciled and discarded by design. THE ATOM IS THE POINT. Fidelity’s atom is an EXECUTION; live_trades’ atom is a ROLL carrying two leg-groups. Split fills, the retired per-leg matcher, fee attribution and the Feb–Apr 2026 parallel-strike stretch are all that one mismatch surfacing. Legs are aggregated by (date, cls, symbol) with amount-weighted price, which dissolves split fills WITHOUT reviving the matcher that was retired for them: under an AUTHORING model there is nothing to match, only to replace. Cycles assemble at read time by the same stack algorithm _pairLiveCycles already uses — the primitive moves down a level, the architecture does not change. MEASURED OFFLINE FIRST, on the full 2025-06-02 → 2026-09-04 history (11 files, 538 rows → 515 after the importer’s own cross-file collapse, ZERO UNKNOWN actions): total SPY option cost $674.98 over 1,542 contracts. Commission is $0.65/contract throughout, but cost per contract ROSE 70% across eras — $0.4087 in the 0DTE/weekly era against $0.6954 in the walk-forward era — because an expiry costs nothing and the current strategy covers almost every position. A SIM COST CONSTANT WOULD THEREFORE BE WRONG BY CONSTRUCTION: the right number depends on the stop/expiry mix, so it is not a constant. Split fills run 14 of 252 legs (5.6%) across every era, so they are permanent, not historical. The era assembles to TWELVE cycles matching the v7.1.1 both-legs rule, at −$6,854 against the blotter’s −$6,876 — a +$22 delta that is entirely punch error the statement corrects: three 1-cent sell transcriptions and the 07/24 split fill recorded at one fill’s price instead of the weighted average. Era cost $100.09, $8.34/cycle, which is the first provenance the $8.36/roll figure has ever had. P&L STAYS GROSS (Ron): cost is reported ALONGSIDE, never netted in, preserving frame parity with the sim, which is gross by its own header line. ORPHANS AND UNCLOSED POSITIONS ARE COUNTED AND NAMED, never silently dropped — they are cycles whose other leg falls outside the loaded files and they need adjudication, not suppression. Base v7.1.1 (f483652b).</span></div>
 </div>
 
 <script>
@@ -734,7 +735,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.1.1'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.2.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -8141,6 +8142,168 @@ function _impReconSpy(rows, tickets) {
   for (const [k, n] of csv) { const b = blot.get(k) || 0; if (b !== n) gaps.push(k + ' csv ' + n + ' vs blotter ' + b); }
   for (const [k, b] of blot) { if (!csv.has(k) && b) gaps.push(k + ' csv 0 vs blotter ' + b); }
   return gaps;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// v7.2.0 — LEGS DRY RUN (S63). Statement-authored conversion, READ-ONLY.
+// Reuses the CERTIFIED pipeline (_impParseFile, the cross-file overlap
+// collapse, _impClassify, _impOptSym) rather than reimplementing it. The
+// builder DID reimplement the collapse offline, omitted it, and misread the
+// result as an importer defect — hence this function calls the real thing.
+// WRITES NOTHING. No POST, no PATCH, no insert. Report only.
+// ═══════════════════════════════════════════════════════════════════════
+const LEG_OPT_CLS = new Set(['opt_sell_open', 'opt_buy_close', 'opt_buy_open',
+  'opt_sell_close', 'opt_assigned', 'opt_expired', 'opt_exercised']);
+const LEG_CLOSERS = new Set(['opt_buy_close', 'opt_expired', 'opt_assigned']);
+
+function _legsAggregate(rows) {
+  // Split fills collapse by (date, cls, symbol): Σqty, amount-WEIGHTED price,
+  // Σcost. 5.6% of legs measured across the full history — permanent, not
+  // historical, so this is the normal path and not an edge case.
+  const g = new Map();
+  for (const r of rows) {
+    if (!r.opt || !LEG_OPT_CLS.has(r.cls)) continue;
+    if (r.disposition && r.disposition.startsWith('skip')) continue;
+    const k = [r.date, r.cls, r.symbol].join('|');
+    let a = g.get(k);
+    if (!a) { a = { date: r.date, cls: r.cls, sym: r.symbol, und: r.opt.und,
+      strike: r.opt.strike, expiry: r.opt.expiry, qty: 0, pq: 0,
+      comm: 0, fees: 0, fills: 0 }; g.set(k, a); }
+    const q = Math.abs(r.quantity || 0);
+    a.qty += q; a.pq += (r.price || 0) * q;
+    a.comm += (r.commission || 0); a.fees += (r.fees || 0); a.fills++;
+  }
+  const out = [...g.values()].map(a => ({ ...a, px: a.qty ? a.pq / a.qty : 0 }));
+  // closers before openers within a date: a roll closes then re-opens
+  out.sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1
+    : (LEG_CLOSERS.has(x.cls) ? 0 : 1) - (LEG_CLOSERS.has(y.cls) ? 0 : 1));
+  return out;
+}
+
+function _legsToCycles(legs) {
+  // Same stack algorithm as _pairLiveCycles, one level down. An EXPIRED or
+  // ASSIGNED close carries px 0 — the position went to zero, and Fidelity
+  // emits the row, so nothing is derived. (The builder asserted expiries were
+  // absences needing synthetic rows; _impClassify's opt_expired disproved it.)
+  const open = [], cycles = [];
+  for (const L of legs) {
+    if (L.und !== 'SPY') continue; // non-SPY imported as facts, not cycles
+    if (LEG_CLOSERS.has(L.cls)) {
+      const k = L.strike + '|' + L.expiry;
+      let idx = -1;
+      for (let i = open.length - 1; i >= 0; i--)
+        if (open[i].strike + '|' + open[i].expiry === k) { idx = i; break; }
+      const cpx = L.cls === 'opt_buy_close' ? L.px : 0;
+      if (idx >= 0) {
+        const o = open.splice(idx, 1)[0];
+        cycles.push({ openDate: o.date, closeDate: L.date, strike: L.strike,
+          expiry: L.expiry, qty: Math.min(o.qty, L.qty), spx: o.px, cpx,
+          how: L.cls, cost: o.comm + o.fees + L.comm + L.fees,
+          fills: o.fills + L.fills });
+      } else {
+        cycles.push({ openDate: null, closeDate: L.date, strike: L.strike,
+          expiry: L.expiry, qty: L.qty, spx: null, cpx, how: L.cls,
+          cost: L.comm + L.fees, fills: L.fills, orphan: true });
+      }
+    }
+    if (L.cls === 'opt_sell_open') open.push(L);
+  }
+  return { cycles, stillOpen: open };
+}
+
+async function impLegsDryRun() {
+  const st = $('imp-status'), host = $('imp-results');
+  const files = $('imp-files').files;
+  if (!files || !files.length) { st.textContent = 'no files selected'; return; }
+  st.textContent = 'parsing (legs)\u2026'; host.innerHTML = '';
+  try {
+    const parsed = [];
+    for (const f of files) parsed.push({ name: f.name, rows: _impParseFile(await f.text(), f.name) });
+    const all = parsed.flatMap(p => p.rows);
+    // CERTIFIED cross-file overlap collapse — same fingerprint as impDryRun.
+    // Genuine split fills differ in running Cash Balance, so they survive.
+    const seen = new Map();
+    for (const r of all) {
+      const fp = [r.date, r.action_raw, r.amount, r.cash_balance, r.quantity, r.price].join('|');
+      if (seen.has(fp)) r.disposition = 'skip (file overlap w/ ' + seen.get(fp) + ')';
+      else seen.set(fp, r.file);
+    }
+    const live = all.filter(r => !(r.disposition || '').startsWith('skip'));
+    const unk = live.filter(r => r.cls === 'UNKNOWN');
+    const legs = _legsAggregate(live);
+    const { cycles, stillOpen } = _legsToCycles(legs);
+
+    const money = v => (v < 0 ? '\u2212$' : '$') + Math.abs(v).toFixed(2);
+    const spyLegs = legs.filter(l => l.und === 'SPY');
+    const ct = spyLegs.reduce((s, l) => s + l.qty, 0);
+    const cost = spyLegs.reduce((s, l) => s + l.comm + l.fees, 0);
+    const splits = spyLegs.filter(l => l.fills > 1);
+    const orphans = cycles.filter(c => c.orphan);
+
+    // era slice — BOTH legs in, matching the v7.1.1 panel rule exactly
+    const era = cycles.filter(c => c.openDate && c.openDate >= WF_ERA_START);
+    const eraPnl = era.reduce((s, c) => s + (c.spx - c.cpx) * 100 * c.qty, 0);
+    const eraCost = era.reduce((s, c) => s + c.cost, 0);
+
+    // blotter side, for the diff — read-only fetch
+    let blot = null;
+    try {
+      const trades = (await sbGetLiveTrades());
+      const { cycles: bc, toIso } = _pairLiveCycles(trades);
+      const bEra = bc.filter(c => c.openDate && toIso(c.openDate) >= WF_ERA_START
+        && c.closeDate && c.coverPrice != null && c.sellPrice != null);
+      blot = { n: bEra.length,
+        pnl: bEra.reduce((s, c) => s + (c.sellPrice - c.coverPrice) * 100 * (c.qty || 0), 0) };
+    } catch (e) { blot = null; }
+
+    const cls = {}; for (const r of live) cls[r.cls] = (cls[r.cls] || 0) + 1;
+    let html = '<div style="font-family:var(--mono);font-size:10px;line-height:1.7;">'
+      + '<div style="color:var(--accent);margin:6px 0;">LEGS DRY RUN \u00b7 NOTHING WRITTEN \u00b7 '
+      + all.length + ' parsed \u2192 ' + live.length + ' after overlap collapse ('
+      + (all.length - live.length) + ' collapsed)</div>'
+      + (unk.length
+        ? '<div style="color:var(--red);">\u2717 ' + unk.length + ' UNKNOWN actions \u2014 NAMED, never guessed:<br>'
+          + [...new Set(unk.map(r => r.action_raw.slice(0, 70)))].map(a => '\u00a0\u00a0' + a).join('<br>') + '</div>'
+        : '<div style="color:var(--green);">\u2713 zero UNKNOWN actions \u2014 every species classifies</div>')
+      + '<div style="margin-top:6px;">SPY option legs <b>' + spyLegs.length + '</b> \u00b7 contracts <b>'
+      + ct + '</b> \u00b7 cost <b>' + money(cost) + '</b> \u00b7 ' + money(ct ? cost / ct : 0) + '/contract</div>'
+      + '<div>split fills <b>' + splits.length + '</b> of ' + spyLegs.length + ' legs ('
+      + (spyLegs.length ? (100 * splits.length / spyLegs.length).toFixed(1) : '0') + '%)</div>'
+      + '<div>cycles assembled <b>' + cycles.length + '</b> \u00b7 still open ' + stillOpen.length
+      + ' \u00b7 <span style="color:' + (orphans.length ? '#e0a020' : 'var(--muted)') + ';">orphans '
+      + orphans.length + '</span> \u2014 counted, never dropped</div>'
+      + '<div style="color:var(--muted);margin-top:4px;">class: '
+      + Object.entries(cls).map(([k, v]) => k + ' ' + v).join(' \u00b7 ') + '</div>';
+
+    html += '<div style="color:var(--text);margin-top:8px;">ERA \u00b7 both legs \u2265 ' + WF_ERA_START + '</div>'
+      + '<div>statement cycles <b>' + era.length + '</b> \u00b7 CC P&L <b>' + money(eraPnl)
+      + '</b> \u00b7 cost ' + money(eraCost) + ' (' + money(era.length ? eraCost / era.length : 0) + '/cycle)</div>';
+    if (blot) {
+      const d = eraPnl - blot.pnl;
+      html += '<div style="color:' + (Math.abs(d) < 0.005 ? 'var(--green)' : '#e0a020') + ';">'
+        + 'blotter cycles ' + blot.n + ' \u00b7 CC P&L ' + money(blot.pnl)
+        + ' \u00b7 \u0394 <b>' + money(d) + '</b> \u2014 expected: punch error the statement corrects</div>';
+    } else {
+      html += '<div style="color:var(--muted);">blotter unavailable \u2014 diff skipped</div>';
+    }
+    // P&L STAYS GROSS (Ron). Cost sits beside it and is never netted in.
+    html += '<div style="color:var(--muted);font-size:9px;margin-top:4px;">P&L is GROSS \u2014 cost reported '
+      + 'alongside, never netted, preserving frame parity with the sim.</div>';
+
+    if (orphans.length) {
+      html += '<div style="color:#e0a020;margin-top:6px;">ORPHAN CLOSES (open leg outside loaded files) \u2014 need adjudication:<br>'
+        + orphans.slice(0, 12).map(c => '\u00a0\u00a0' + c.closeDate + ' ' + c.expiry + ' $' + c.strike
+          + ' \u00d7' + c.qty + ' (' + c.how + ')').join('<br>')
+        + (orphans.length > 12 ? '<br>\u00a0\u00a0\u2026 and ' + (orphans.length - 12) + ' more' : '') + '</div>';
+    }
+    html += '<div style="color:var(--muted);font-size:9px;margin-top:8px;">READ-ONLY. No live_legs write, '
+      + 'no live_trades mutation. Insert is a separate, separately-ratified step.</div></div>';
+    host.innerHTML = html;
+    st.textContent = '\u2713 legs dry run complete \u2014 nothing written';
+  } catch (e) {
+    st.textContent = '\u2717 ' + e.message;
+    host.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">' + e.message + '</div>';
+  }
 }
 
 async function impDryRun() {
