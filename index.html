@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -486,7 +486,7 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="file" id="imp-files" accept=".csv" multiple style="font-family:var(--mono);font-size:10px;color:var(--muted);">
           <button onclick="impDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Dry Run</button>
           <button onclick="impComputeBasis()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⟳ Cost Basis</button><!-- v6.26.0 — ledger FIFO walk, no import needed -->
-          <button onclick="impLegsDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Legs Dry Run</button><!-- v7.2.0 — statement-authored conversion, READ-ONLY -->
+          <button onclick="impLegsDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Legs Dry Run</button><!-- v7.2.0 — statement-authored conversion, READ-ONLY --><button onclick="impLegsCompare()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Compare</button><!-- v7.2.4 — parallel run, READ-ONLY --><button onclick="impLegsInsert()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:rgba(224,160,32,.10);border:1px solid #e0a020;border-radius:3px;color:#e0a020;padding:4px 12px;cursor:pointer;">▲ Insert → live_legs</button><!-- v7.2.4 — WRITES. live_trades untouched. -->
           <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">Parses Fidelity history CSVs · classifies · reconciles SPY option legs vs blotter · dedupes · tie-out. Dry run writes nothing; Insert appears after.</span>
         </div>
         <div id="imp-basis" style="padding:0 16px 6px;font-family:var(--mono);font-size:9px;color:var(--muted);"></div><!-- v6.26.0 -->
@@ -557,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.3 · CLOSING-GROUP-PER-DATE PROBE (S64, Ron). STILL READ-ONLY — no live_legs write, no live_trades mutation, engine untouched. THE QUESTION: the insert spec carries trigger data forward from the ticket, and a trigger attaches to the CLOSER on a date. Ron’s ruling is that the trade date alone identifies it — rolls follow in sequence. That is true if and only if a date never holds two closing groups. v7.2.1 already proved the weaker version of this wrong: within-date ORDER is stack-dependent and cannot be read off the file, which is what fabricated twenty orphans in the 0DTE era. So the bucket is measured rather than assumed. THE PROBE counts closing groups per trade date across the full loaded history, excluding closers of BOUGHT contracts — _legsToCycles already rules those protection, not orphans, and counting them would false-alarm on all three. Each offending date is listed and marked IN ERA against the 2026-07-21 pin. A clean era makes date-only trigger attachment PROVEN, not assumed, and collapses the insert spec’s match rule to a single field. A dirty era means those dates get adjudicated before any row is written. THE LINE RENDERS EITHER WAY — a proof that only speaks when it fails is a proof nobody checks. Base v7.2.2 (5189af3e).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.4 · LEGS INSERT — THE FIRST WRITE (S64, Ron, SPEC_legs_insert.md rev B). live_legs becomes the only live table; live_trades is UNTOUCHED by this release and its ticket writers still own it until v7.2.5. THE INSERT HAS NO DELETE PATH. Three dispositions and no fourth: an id already present is a NO-OP; a basis=ticket row in the slot is UPDATED IN PLACE with triggers deliberately absent from the update set, because the statement carries WHAT and only the ticket carries WHY; anything else inserts. A ticket row matching nothing is a trade recorded that Fidelity never cleared — it FLAGS AMBER AND HOLDS, never swept. rev A’s delete-and-reinsert died when Ron ruled the update, and snapshot-and-reapply died with it: triggers now survive by NON-INTERFERENCE, which is strictly safer than lifting them out and putting them back. IDS ARE DETERMINISTIC (FNV-1a over the ruled dedupe key, amount fixed at 2dp), so a re-pull is a no-op at the DATABASE and not merely at the app — the cert is that re-running Insert on the same six files writes ZERO rows. THREE GATES, each blocking the write it guards: zero UNKNOWN; closing-groups-per-date with ZERO in era (v7.2.3 measured 27 dates >1, all 2025, all 0DTE — which is what makes date-only trigger attachment PROVEN rather than assumed); and the open position asserted 0-or-1 and reconciled against roll_params.json, an INDEPENDENT THIRD SOURCE the old status=open column never was. The two hand-corrected S55 rows are verified by direct read after the seed and a miss says ROLL BACK, not hand-patch — 08-03 carries trigger_value NULL deliberately and NULL IS DATA. COMPARE runs the SAME assembler over both tables, bounded to the last statement date so tomorrow’s roll cannot pollute the diff. occ_seq extracted to one authority. Base v7.2.3 (02cb048e).</span></div>
 </div>
 
 <script>
@@ -735,7 +735,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.2.3'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.2.4'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -8243,6 +8243,96 @@ function _legsToCycles(legs) {
   return { cycles, stillOpen: open, protection };
 }
 
+// v7.2.4 — occ_seq assignment, EXTRACTED. Both dry runs and the insert call this
+// one function. Duplicating it would create two sequence authorities for one key,
+// which is the 'expired'/'opt_expired' namespace defect wearing a new hat.
+function _impAssignOccSeq(rows) {
+  const grp = new Map();
+  for (const r of rows) {
+    if (r.disposition && r.disposition.startsWith('skip')) continue;
+    const k = [r.date, r.action_raw, r.amount].join('|');
+    r.occ_seq = grp.get(k) || 0; grp.set(k, r.occ_seq + 1);
+  }
+  return rows;
+}
+
+// v7.2.4 — FNV-1a 32. Deterministic id from the ruled dedupe key, so a re-pull is
+// a no-op at the DATABASE, not merely at the app. amount is fixed at 2dp first: a
+// float rendering difference must never mint a second id for one execution.
+function _legsFnv32(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return ('0000000' + h.toString(16)).slice(-8);
+}
+function _legRowId(r) {
+  return 'leg_' + _legsFnv32([r.date, r.action_raw,
+    (Number(r.amount) || 0).toFixed(2), r.occ_seq || 0].join('|'));
+}
+
+// v7.2.4 — payload from parsed statement rows. NOT _legsAggregate's output:
+// that collapses split fills and filters to SPY options. The table's atom is the
+// EXECUTION, every class, sign convention exactly as Fidelity gives it.
+function _legsBuildPayload(live) {
+  return live.map(r => ({
+    id: _legRowId(r),
+    trade_date: r.date,
+    settlement_date: r.settlement_date || null,
+    action_raw: r.action_raw,
+    cls: r.cls,
+    symbol: r.symbol || null,
+    underlying: r.opt ? r.opt.und : (r.symbol || null),
+    expiry: r.opt ? r.opt.expiry : null,
+    strike: r.opt ? r.opt.strike : null,
+    quantity: r.quantity,
+    price: r.price,
+    commission: r.commission,
+    fees: r.fees,
+    amount: r.amount,
+    cash_balance: r.cash_balance,
+    occ_seq: r.occ_seq || 0,
+    stmt_file: r.file || null,
+    basis: 'statement',
+    trigger: null, trigger_value: null, trigger_threshold: null, note: null
+  }));
+}
+
+// v7.2.4 — closing groups per date, ONE authority. The dry run reports it; the
+// insert BLOCKS on it (Ron, S64). Protection closers excluded: _legsToCycles
+// already rules them not-orphans and counting them would false-alarm on all three.
+function _legsCloseGroups(spyLegs, protection) {
+  const boughtKeys = new Set(protection.map(p => p.strike + '|' + p.expiry));
+  const byDate = new Map();
+  for (const L of spyLegs) {
+    if (!LEG_CLOSERS.has(L.cls)) continue;
+    if (boughtKeys.has(L.strike + '|' + L.expiry)) continue;
+    byDate.set(L.date, (byDate.get(L.date) || 0) + 1);
+  }
+  const multi = [...byDate.entries()].filter(e => e[1] > 1)
+    .map(e => ({ d: e[0], n: e[1], era: e[0] >= WF_ERA_START }))
+    .sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+  return { multi, multiEra: multi.filter(x => x.era) };
+}
+
+// v7.2.4 — read live_legs back as parse-shaped rows so the SAME assembler runs on
+// both sides of the parallel run. A second assembler would be a second truth.
+async function legsGetFromTable() {
+  const res = await fetch(`${SB_URL}/live_legs?order=trade_date.asc,occ_seq.asc&limit=2000`,
+    { headers: _sbHeaders });
+  if (!res.ok) throw new Error('live_legs read failed: ' + res.status);
+  const rows = await res.json();
+  if (rows.length === 2000) throw new Error('live_legs hit the 2000-row window — truncation can never hide');
+  return { rows, shaped: rows.map(r => ({
+    date: r.trade_date, cls: r.cls, symbol: r.symbol,
+    quantity: r.quantity, price: r.price, commission: r.commission, fees: r.fees,
+    amount: r.amount, occ_seq: r.occ_seq, basis: r.basis,
+    trigger: r.trigger, trigger_value: r.trigger_value, trigger_threshold: r.trigger_threshold,
+    opt: r.strike != null ? { und: r.underlying, strike: r.strike, expiry: r.expiry } : null
+  })) };
+}
+
 async function impLegsDryRun() {
   const st = $('imp-status'), host = $('imp-results');
   const files = $('imp-files').files;
@@ -8260,6 +8350,7 @@ async function impLegsDryRun() {
       if (seen.has(fp)) r.disposition = 'skip (file overlap w/ ' + seen.get(fp) + ')';
       else seen.set(fp, r.file);
     }
+    _impAssignOccSeq(all); // v7.2.4 — shared authority; the insert needs the same keys
     const live = all.filter(r => !(r.disposition || '').startsWith('skip'));
     const unk = live.filter(r => r.cls === 'UNKNOWN');
     const legs = _legsAggregate(live);
@@ -8277,18 +8368,7 @@ async function impLegsDryRun() {
     // one closing group. Protection closers are excluded: _legsToCycles already
     // rules them not-orphans, and counting them would false-alarm on the three
     // bought contracts. Measured on the whole history, reported for the era.
-    const boughtKeys = new Set(protection.map(p => p.strike + '|' + p.expiry));
-    const closeByDate = new Map();
-    for (const L of spyLegs) {
-      if (!LEG_CLOSERS.has(L.cls)) continue;
-      if (boughtKeys.has(L.strike + '|' + L.expiry)) continue;
-      closeByDate.set(L.date, (closeByDate.get(L.date) || 0) + 1);
-    }
-    const multiClose = [...closeByDate.entries()]
-      .filter(e => e[1] > 1)
-      .map(e => ({ d: e[0], n: e[1], era: e[0] >= WF_ERA_START }))
-      .sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
-    const multiEra = multiClose.filter(x => x.era);
+    const { multi: multiClose, multiEra } = _legsCloseGroups(spyLegs, protection); // v7.2.4 — shared with the insert
 
     // era slice — BOTH legs in, matching the v7.1.1 panel rule exactly
     const era = cycles.filter(c => c.openDate && c.openDate >= WF_ERA_START);
@@ -8385,6 +8465,205 @@ async function impLegsDryRun() {
   }
 }
 
+// ============================ v7.2.4 · LEGS INSERT ============================
+// SPEC_legs_insert.md rev B. No delete path exists in this function. Three
+// dispositions and no fourth: id already present -> no-op; a basis='ticket' row
+// occupies the slot -> UPDATE it in place (triggers NOT in the update set);
+// neither -> insert. Anything ambiguous BLOCKS. Nothing is ever swept.
+async function impLegsInsert() {
+  const st = $('imp-status'), host = $('imp-results');
+  const files = $('imp-files').files;
+  if (!files || !files.length) { st.textContent = 'no files selected'; return; }
+  if (!confirm('WRITE to live_legs. live_trades is untouched. Proceed?')) return;
+  st.textContent = 'parsing (insert)\u2026'; host.innerHTML = '';
+  const L = [];
+  const die = (msg) => { throw new Error(msg); };
+  try {
+    const parsed = [];
+    for (const f of files) parsed.push({ name: f.name, rows: _impParseFile(await f.text(), f.name) });
+    const all = parsed.flatMap(p => p.rows);
+    const seen = new Map();
+    for (const r of all) {
+      const fp = [r.date, r.action_raw, r.amount, r.cash_balance, r.quantity, r.price].join('|');
+      if (seen.has(fp)) r.disposition = 'skip (file overlap w/ ' + seen.get(fp) + ')';
+      else seen.set(fp, r.file);
+    }
+    _impAssignOccSeq(all);
+    const live = all.filter(r => !(r.disposition || '').startsWith('skip'));
+
+    // GATE 1 — UNKNOWN never inserts.
+    const unk = live.filter(r => r.cls === 'UNKNOWN');
+    if (unk.length) die(unk.length + ' UNKNOWN actions — BLOCKED, nothing written');
+    L.push('\u2713 gate 1 — zero UNKNOWN across ' + live.length + ' rows');
+
+    // GATE 2 — closing groups per date (Ron, S64: BLOCK, not warn).
+    const legs = _legsAggregate(live);
+    const { cycles, stillOpen, protection } = _legsToCycles(legs);
+    const spyLegs = legs.filter(l => l.und === 'SPY');
+    const { multi, multiEra } = _legsCloseGroups(spyLegs, protection);
+    if (multiEra.length) die('closing-group probe: ' + multiEra.length + ' in-era date(s) carry >1 closing group ('
+      + multiEra.map(x => x.d).join(', ') + ') — trigger attachment is ambiguous, BLOCKED');
+    L.push('\u2713 gate 2 — closing groups: ' + multi.length + ' date(s) >1, 0 in era');
+
+    // GATE 3 — open position 0-or-1, reconciled against roll_params.json.
+    if (stillOpen.length > 1) die('assembler carries ' + stillOpen.length + ' open positions — BLOCKED');
+    if (stillOpen.length === 1 && STD && STD.shortStrike) {
+      const o = stillOpen[0];
+      const mismatch = [];
+      if (Number(o.strike) !== Number(STD.shortStrike)) mismatch.push('strike ' + o.strike + ' vs params ' + STD.shortStrike);
+      if (STD.shortExpiry && o.expiry !== STD.shortExpiry) mismatch.push('expiry ' + o.expiry + ' vs params ' + STD.shortExpiry);
+      if (STD.contracts && Number(o.qty) !== Number(STD.contracts)) mismatch.push('qty ' + o.qty + ' vs params ' + STD.contracts);
+      if (mismatch.length) die('open position disagrees with roll_params.json — ' + mismatch.join(' \u00b7 ') + ' — BLOCKED');
+      L.push('\u2713 gate 3 — open position $' + o.strike + ' ' + o.expiry + ' \u00d7' + o.qty
+        + ' agrees with roll_params.json (independent third source)');
+    } else {
+      L.push('\u2713 gate 3 — open positions ' + stillOpen.length + ' (params check skipped: no shortStrike loaded)');
+    }
+
+    const payload = _legsBuildPayload(live);
+    const dates = payload.map(p => p.trade_date).sort();
+    const dMin = dates[0], dMax = dates[dates.length - 1];
+
+    // DISPOSITION 2 — ticket rows in range convert IN PLACE. Never deleted.
+    st.textContent = 'checking ticket rows\u2026';
+    const tres = await fetch(`${SB_URL}/live_legs?basis=eq.ticket&trade_date=gte.${dMin}&trade_date=lte.${dMax}&limit=1000`,
+      { headers: _sbHeaders });
+    if (!tres.ok) die('live_legs ticket read failed: ' + tres.status);
+    const tkts = await tres.json();
+    const converted = new Set(); const held = [];
+    for (const t of tkts) {
+      const cands = payload.filter(p => p.trade_date === t.trade_date && p.cls === t.cls && !converted.has(p.id));
+      if (cands.length > 1) die('ticket row ' + t.id + ' matches ' + cands.length + ' statement slots on '
+        + t.trade_date + ' — ambiguous, BLOCKED');
+      if (!cands.length) { held.push(t); continue; } // recorded, never cleared — flags and HOLDS
+      const p = cands[0];
+      const upd = { ...p }; // triggers deliberately absent from the payload object
+      delete upd.trigger; delete upd.trigger_value; delete upd.trigger_threshold; delete upd.note;
+      const ur = await fetch(`${SB_URL}/live_legs?id=eq.${encodeURIComponent(t.id)}`, {
+        method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
+        body: JSON.stringify(upd) });
+      if (!ur.ok) die('ticket convert PATCH failed on ' + t.id + ': ' + ur.status + ' ' + await ur.text());
+      converted.add(p.id);
+    }
+    L.push('\u2713 ticket rows in range ' + tkts.length + ' \u00b7 converted in place ' + converted.size
+      + ' \u00b7 held (recorded, never cleared) ' + held.length);
+    if (held.length) L.push('\u26a0 HELD, not swept: ' + held.map(h => h.trade_date + ' ' + h.cls).join(', '));
+
+    // INSERT — one POST, one transaction, ids deterministic so a re-pull is free.
+    st.textContent = 'inserting ' + payload.length + ' rows\u2026';
+    const body = payload.filter(p => !converted.has(p.id));
+    const ins = await fetch(`${SB_URL}/live_legs?on_conflict=id`, {
+      method: 'POST',
+      headers: { ..._sbHeaders, 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
+      body: JSON.stringify(body) });
+    if (!ins.ok) die('insert failed: ' + ins.status + ' ' + await ins.text());
+    L.push('\u2713 POST ' + body.length + ' rows \u00b7 ' + converted.size + ' already written by convert');
+
+    // MIGRATION SEED — the statement carries WHAT; only the ticket carries WHY.
+    st.textContent = 'seeding triggers\u2026';
+    const trs = await fetch(`${SB_URL}/live_trades?select=id,trade_date,trigger,trigger_value,trigger_threshold&trade_date=gte.${WF_ERA_START}&order=trade_date.asc&limit=1000`,
+      { headers: _sbHeaders });
+    if (!trs.ok) die('live_trades trigger read failed: ' + trs.status);
+    const tickets = (await trs.json()).filter(t => t.trigger);
+    let seeded = 0;
+    for (const t of tickets) {
+      // date-only attachment — PROVEN by gate 2, one closing group per era date.
+      const grp = payload.filter(p => p.trade_date === t.trade_date && LEG_CLOSERS.has(p.cls)
+        && p.underlying === 'SPY');
+      if (!grp.length) { L.push('\u26a0 ticket ' + t.id + ' (' + t.trade_date + ') has no closing leg — trigger NOT seeded'); continue; }
+      grp.sort((a, b) => (a.occ_seq || 0) - (b.occ_seq || 0));
+      const target = grp[0]; // group property, carried on its first execution
+      const pr = await fetch(`${SB_URL}/live_legs?id=eq.${encodeURIComponent(target.id)}`, {
+        method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ trigger: t.trigger,
+          trigger_value: t.trigger_value === undefined ? null : t.trigger_value, // NULL IS DATA
+          trigger_threshold: t.trigger_threshold === undefined ? null : t.trigger_threshold }) });
+      if (!pr.ok) die('trigger seed PATCH failed on ' + target.id + ': ' + pr.status);
+      seeded++;
+    }
+    L.push('\u2713 triggers seeded ' + seeded + ' of ' + tickets.length + ' era tickets carrying one');
+
+    // VERIFY — the two hand-corrected S55 rows, by direct read. Neither is
+    // recoverable from the statement. A miss means ROLL BACK, not patch by hand.
+    const vr = await fetch(`${SB_URL}/live_legs?trade_date=in.(2026-08-03,2026-08-04)&select=trade_date,cls,trigger,trigger_value,trigger_threshold&order=trade_date.asc`,
+      { headers: _sbHeaders });
+    const vrows = vr.ok ? (await vr.json()).filter(r => r.trigger) : [];
+    const chk = (d, val) => {
+      const r = vrows.find(x => x.trade_date === d);
+      if (!r) return '\u2717 ' + d + ' — NO trigger landed';
+      const okv = (val === null) ? (r.trigger_value === null) : (Number(r.trigger_value) === val);
+      return ((r.trigger === 'delta' && okv && Number(r.trigger_threshold) === 0.740) ? '\u2713 ' : '\u2717 ')
+        + d + ' \u2014 ' + r.trigger + ' \u00b7 value ' + (r.trigger_value === null ? 'NULL' : r.trigger_value)
+        + ' \u00b7 threshold ' + r.trigger_threshold;
+    };
+    const v1 = chk('2026-08-03', null), v2 = chk('2026-08-04', 0.865);
+    L.push(v1); L.push(v2);
+    const bad = v1.startsWith('\u2717') || v2.startsWith('\u2717');
+
+    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;">'
+      + '<div style="color:' + (bad ? 'var(--red)' : 'var(--green)') + ';margin-bottom:6px;">'
+      + (bad ? 'INSERT COMPLETE \u2014 VERIFICATION FAILED \u00b7 ROLL BACK, do not hand-patch'
+             : 'INSERT COMPLETE \u00b7 live_trades untouched') + '</div>'
+      + L.map(x => '<div style="color:' + (x.startsWith('\u2717') ? 'var(--red)'
+          : x.startsWith('\u26a0') ? '#e0a020' : 'var(--muted)') + ';">' + x + '</div>').join('')
+      + '<div style="color:var(--muted);font-size:9px;margin-top:8px;">Re-run this button on the same '
+      + 'files: it must write ZERO rows. That is the cert that the deterministic id works.</div></div>';
+    st.textContent = bad ? '\u2717 verification failed' : '\u2713 insert complete';
+  } catch (e) {
+    st.textContent = '\u2717 ' + e.message;
+    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;">'
+      + L.map(x => '<div style="color:var(--muted);">' + x + '</div>').join('')
+      + '<div style="color:var(--red);margin-top:6px;">\u2717 ' + e.message + '</div>'
+      + '<div style="color:var(--muted);font-size:9px;">BLOCKED before the write it guards. '
+      + 'Earlier gates that passed wrote nothing.</div></div>';
+  }
+}
+
+// v7.2.4 — PARALLEL RUN. Same assembler, two sources, bounded to the last
+// statement date so a roll landing mid-compare cannot pollute the diff.
+async function impLegsCompare() {
+  const st = $('imp-status'), host = $('imp-results');
+  st.textContent = 'comparing\u2026'; host.innerHTML = '';
+  try {
+    const { rows, shaped } = await legsGetFromTable();
+    if (!rows.length) throw new Error('live_legs is empty — insert first');
+    const stmtDates = rows.filter(r => r.basis === 'statement').map(r => r.trade_date).sort();
+    const bound = stmtDates[stmtDates.length - 1];
+    const legs = _legsAggregate(shaped);
+    const { cycles, stillOpen, protection } = _legsToCycles(legs);
+    const tblEra = cycles.filter(c => c.openDate && c.openDate >= WF_ERA_START
+      && c.closeDate && c.closeDate <= bound);
+    const tblPnl = tblEra.reduce((s, c) => s + (c.spx - c.cpx) * 100 * c.qty, 0);
+
+    const trades = await sbGetLiveTrades();
+    const { cycles: bc, toIso } = _pairLiveCycles(trades);
+    const bEra = bc.filter(c => c.openDate && toIso(c.openDate) >= WF_ERA_START
+      && c.closeDate && toIso(c.closeDate) <= bound
+      && c.coverPrice != null && c.sellPrice != null);
+    const bPnl = bEra.reduce((s, c) => s + (c.sellPrice - c.coverPrice) * 100 * (c.qty || 0), 0);
+
+    const money = v => (v < 0 ? '\u2212$' : '$') + Math.abs(v).toFixed(2);
+    const dN = tblEra.length - bEra.length, dP = tblPnl - bPnl;
+    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;">'
+      + '<div style="color:var(--accent);">PARALLEL RUN \u00b7 bounded to \u2264 ' + bound
+      + ' (last statement date) \u00b7 READ-ONLY</div>'
+      + '<div>live_legs \u2014 rows ' + rows.length + ' \u00b7 cycles ' + tblEra.length
+      + ' \u00b7 CC P&L ' + money(tblPnl) + ' \u00b7 open ' + stillOpen.length
+      + ' \u00b7 protection ' + protection.length + '</div>'
+      + '<div>live_trades \u2014 cycles ' + bEra.length + ' \u00b7 CC P&L ' + money(bPnl) + '</div>'
+      + '<div style="color:' + ((dN === 0 && Math.abs(dP) < 0.005) ? 'var(--green)' : '#e0a020') + ';">'
+      + '\u0394 cycles ' + dN + ' \u00b7 \u0394 P&L ' + money(dP)
+      + ((dN === 0 && Math.abs(dP) < 0.005) ? ' \u2014 IDENTICAL'
+        : ' \u2014 expected: the $22.00 punch error the statement corrects. Any OTHER difference is a defect.') + '</div>'
+      + '<div style="color:var(--muted);font-size:9px;margin-top:6px;">Cut over only when every line of '
+      + 'this diff is explained. Ticket writers still target live_trades until v7.2.5.</div></div>';
+    st.textContent = '\u2713 compare complete \u2014 nothing written';
+  } catch (e) {
+    st.textContent = '\u2717 ' + e.message;
+    host.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">' + e.message + '</div>';
+  }
+}
+
 async function impDryRun() {
   const st = $('imp-status'), host = $('imp-results');
   const files = $('imp-files').files;
@@ -8403,13 +8682,7 @@ async function impDryRun() {
       if (seen.has(fp)) r.disposition = 'skip (file overlap w/ ' + seen.get(fp) + ')';
       else seen.set(fp, r.file);
     }
-    // occ_seq within the ruled dedupe key (date, action_raw, amount), deterministic order
-    const grp = new Map();
-    for (const r of all) {
-      if (r.disposition && r.disposition.startsWith('skip')) continue;
-      const k = [r.date, r.action_raw, r.amount].join('|');
-      r.occ_seq = grp.get(k) || 0; grp.set(k, r.occ_seq + 1);
-    }
+    _impAssignOccSeq(all); // v7.2.4 — ONE sequence authority (was inline here)
     st.textContent = 'reconciling\u2026';
     const tickets = await sbGetLiveTrades(); // read-only blotter fetch
     const reconGaps = _impReconSpy(all, tickets); // v6.22.2 — SPY legs → 'blotter ✓', never inserted
