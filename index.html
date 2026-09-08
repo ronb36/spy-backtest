@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.5</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.6</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -557,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.5 · SEED REPAIR — THE VERIFICATION EARNED ITS KEEP (S64). v7.2.4 inserted 515 fact rows correctly — ids, gates, dispositions and the POST all held — and then mis-seeded the triggers. THE DEFECT: the seed took every era ticket carrying any trigger and attached it to that date’s closing group, never excluding OPENING tickets. On 2026-08-03 the entry ticket landed after the cover-only delta ticket and buried the hand-correction under ‘entry · NULL · null’. 08-04 survived on ordering luck alone. The ‘17 of 17’ line was the tell: the era holds 12 closed cycles, so seventeen tickets-with-triggers could only mean entries were in the set. SPEC §8 SAID CLOSER-ONLY AND THE CODE DID NOT — measurement-before-assertion, logged: the gates were verified by reading them, the seed loop was trusted on intent. THE FIX IS THREE LINES OF RULE: entry tickets excluded from the seed set; two or more non-entry tickets on one date BLOCKS rather than picks, because that is the ambiguity date-only attachment assumes away; and era triggers are CLEARED before re-seed, which rolls back our own bad write and never a fact — identity, price, quantity and cash are untouched, so re-running Insert still writes ZERO fact rows and cert item 5 keeps its meaning. THE POINT WORTH KEEPING: nothing here was found by reading code. The two-row read-back after the write found it, on the one date in the ledger where a null is load-bearing. Base v7.2.4 (c7a2b926).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.6 · TICKET DUAL-WRITE (S64, Ron). Every ticket — roll and cover-only — now writes its LEGS to live_legs as basis=ticket alongside the live_trades row it already wrote. ONE SEAM: both paths call appendLiveTrade, so the change lands in a single function rather than at every writer. TRANSITIONAL BY DESIGN. Readers still take live_trades, so this can only ADD information: if the legs write fails the trade is already booked, the audit still runs, and nothing throws into the ticket path — it warns on the blotter, which is where a roll actually gets checked, because a ticket living in one table and not the other is precisely the divergence this release exists to prevent. WHY NOT THE FULL FLIP TONIGHT: every reader goes through sbGetLiveTrades, which returns TICKET-shaped objects — rollCredit, status, coverPrice, trigger — none of which live_legs has. Reconstructing that shape from assembled cycles is real new code with no dry run behind it, and its first exercise would have been tomorrow morning’s position check. That adapter is v7.2.7, on a night with room. SIGN CONVENTION IS MEASURED, NOT ASSUMED: quantity and amount signs are read off a statement row of the same class already in the table rather than hardcoded from memory of what Fidelity emits; with no sample the row carries magnitudes and says so in note. The trigger rides the CLOSING leg only — the v7.2.5 seed rule applied at the source, so the defect that buried the 08-03 correction cannot be re-created by a ticket. THE PAYOFF LANDS ON THE NEXT STATEMENT PULL: §7’s convert-in-place path was built in v7.2.4 and has never once run, because until tonight there were zero ticket rows to convert. Base v7.2.5 (27aca111).</span></div>
 </div>
 
 <script>
@@ -735,7 +735,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.2.5'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.2.6'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -7753,7 +7753,16 @@ async function loadLiveBlotter() {
     // lots, cash events) live in the same table but never render here or count as cycles.
     _liveTradesCache = trades;
     renderLiveBlotter(trades);
-    if (statusEl) statusEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
+    if (statusEl) {
+      statusEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
+      // v7.2.6 — a silent dual-write failure would mean a ticket exists in one
+      // table and not the other, which is exactly the divergence this release is
+      // meant to prevent. It says so on the blotter until the next clean write.
+      if (_legsDualWarn) {
+        statusEl.textContent += ' \u00b7 \u26a0 live_legs dual-write failed: ' + _legsDualWarn;
+        statusEl.style.color = '#e0a020';
+      }
+    }
   } catch(e) {
     if (statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.style.color = 'var(--red)'; }
     if (tableEl) tableEl.innerHTML = '<div style="padding:16px;font-family:var(--mono);font-size:11px;color:var(--red);">Could not load live_trades — ' + e.message + '</div>';
@@ -8331,6 +8340,87 @@ async function legsGetFromTable() {
     trigger: r.trigger, trigger_value: r.trigger_value, trigger_threshold: r.trigger_threshold,
     opt: r.strike != null ? { und: r.underlying, strike: r.strike, expiry: r.expiry } : null
   })) };
+}
+
+// ===================== v7.2.6 · TICKET DUAL-WRITE =====================
+// Every ticket now writes its LEGS to live_legs as basis='ticket' alongside the
+// existing live_trades row. Transitional by design: readers still take
+// live_trades, so this can only ADD information. The §7 convert path picks these
+// rows up when the statement lands — its first real exercise, since until now
+// there were zero ticket rows in the table.
+let _legsDualWarn = null;
+
+function _tktRowId(date, cls, sym, n) {
+  return 'tkt_' + _legsFnv32([date, cls, sym || '', n || 0].join('|'));
+}
+
+// Sign convention is MEASURED, not assumed. Fidelity's quantity/amount signs are
+// a property of the export, so we read them off a statement row of the same class
+// already in the table rather than hardcoding a guess. No sample -> magnitudes
+// only, and the row is flagged in note. The statement overwrites all of it on
+// convert regardless, and _legsAggregate takes Math.abs for cycle arithmetic.
+async function _legsSignFor(cls) {
+  try {
+    const r = await fetch(`${SB_URL}/live_legs?cls=eq.${cls}&basis=eq.statement&select=quantity,amount&limit=1`,
+      { headers: _sbHeaders });
+    if (!r.ok) return null;
+    const rows = await r.json();
+    if (!rows.length) return null;
+    return { q: Math.sign(Number(rows[0].quantity) || 1) || 1,
+             a: Math.sign(Number(rows[0].amount) || 1) || 1 };
+  } catch (e) { return null; }
+}
+
+async function _ticketToLegs(t) {
+  const und = 'SPY', legs = [];
+  const add = async (cls, strike, expiry, contracts, price) => {
+    if (strike == null || price == null) return;
+    const sym = _impSymOf(und, expiry, strike);
+    const sg = await _legsSignFor(cls);
+    const qty = Math.abs(Number(contracts) || 0);
+    const gross = Math.abs(Number(price) * qty * 100);
+    legs.push({
+      id: _tktRowId(t.trade_date, cls, sym, legs.length),
+      trade_date: t.trade_date,
+      settlement_date: null,
+      action_raw: (cls === 'opt_buy_close' ? 'TICKET BOUGHT TO CLOSE ' : 'TICKET SOLD TO OPEN ') + (sym || ''),
+      cls, symbol: sym, underlying: und,
+      expiry: expiry || null, strike: Number(strike),
+      quantity: sg ? sg.q * qty : qty,
+      price: Number(price),
+      commission: null, fees: null,          // unknown until the statement lands
+      amount: sg ? sg.a * gross : gross,     // GROSS — fees are not knowable at ticket time
+      cash_balance: null,
+      occ_seq: legs.length,
+      stmt_file: null,
+      basis: 'ticket',
+      note: sg ? null : 'sign unmeasured (no statement sample for ' + cls + ')'
+    });
+  };
+  // A roll is one ticket and two legs. Cover first: it is the leg the trigger
+  // belongs to, and _legsToCycles orders closers ahead of opens anyway.
+  await add('opt_buy_close', t.coverStrike, t.coverExpiry, t.coverContracts, t.coverPrice);
+  await add('opt_sell_open', t.sellStrike,  t.sellExpiry,  t.sellContracts,  t.sellPrice);
+  // The trigger rides the CLOSING leg only — an opening ticket has no close
+  // reason. This is the same rule the v7.2.5 seed enforces, applied at the source.
+  const closer = legs.find(l => LEG_CLOSERS.has(l.cls));
+  if (closer && t.trigger) {
+    closer.trigger = t.trigger;
+    closer.trigger_value = (t.triggerValue === undefined ? null : t.triggerValue);
+    closer.trigger_threshold = (t.triggerThreshold === undefined ? null : t.triggerThreshold);
+  }
+  return legs;
+}
+
+async function _legsWriteTicket(t) {
+  const legs = await _ticketToLegs(t);
+  if (!legs.length) return 0;
+  const res = await fetch(`${SB_URL}/live_legs?on_conflict=id`, {
+    method: 'POST',
+    headers: { ..._sbHeaders, 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
+    body: JSON.stringify(legs) });
+  if (!res.ok) throw new Error('live_legs ticket write ' + res.status + ' ' + await res.text());
+  return legs.length;
 }
 
 async function impLegsDryRun() {
@@ -8944,6 +9034,17 @@ async function deleteLiveTrade(id) {
 // ── Append a completed roll to Supabase ────────────────────────────────────
 async function appendLiveTrade(tradeObj) {
   await sbUpsertTrade(tradeObj);
+  // v7.2.6 — DUAL-WRITE. live_trades is written FIRST and stays authoritative;
+  // a live_legs failure must never block a trade, void an audit write, or throw
+  // into the ticket path. It warns, loudly and where Ron actually looks.
+  try {
+    const n = await _legsWriteTicket(tradeObj);
+    _legsDualWarn = null;
+    console.log('live_legs dual-write: ' + n + ' leg(s) for ' + tradeObj.id);
+  } catch (e) {
+    _legsDualWarn = tradeObj.trade_date + ' \u2014 ' + e.message;
+    console.warn('live_legs dual-write FAILED:', e.message);
+  }
 }
 
 // ── v6.1.0 audit_snapshot writes — trade-time only (Ron S33) ──
