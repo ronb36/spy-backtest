@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.7</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.8</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -557,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.7 · DUAL-WRITE REPAIR — CAUGHT ON ITS FIRST LIVE TICKET (S65). The 2026-09-09 roll booked correctly to live_trades and the blotter was right; only the live_legs copy failed, with PGRST102 ‘All object keys must match’. THE DEFECT: PostgREST requires every object in a batch POST to carry an identical key set, and v7.2.6 built both legs the same and then attached trigger/trigger_value/trigger_threshold to the CLOSING leg only. Two legs, two shapes, refused whole with a 400 — which is why nothing partial was written. A cover-only ticket has ONE leg and would have sailed through, so this was only ever going to surface on a roll: the first live exercise found in ten minutes what no amount of reading would have. FIX: every leg declares all three trigger keys, null by default, and the closer overwrites them. The rule is unchanged; only the shape is. SECOND DEFECT, found by grep while fixing the first: expiry was passed to _impSymOf unnormalized. _impReconSpy wraps the same call in _impUsIso because a ticket field can arrive MM/DD/YY, and _impSymOf slices blindly — ‘02/26/27’ would have produced ‘-SPY/26/27C775’ and a date column Postgres cannot parse. Today’s candidate emitted ISO so it would not have fired yet; it was waiting. Normalized now, and _impUsIso passes ISO through untouched. ADDED: a shape assertion before the POST that names the offending leg and the differing key, because PGRST102 was legible by luck and the next one might not be. NOT FIXED, LOGGED: the roll ticket stamps trade_date with toISOString().slice(0,10) — UTC, not ET. The codebase names this the UTC-STAMP class at line 8983 and uses en-CA/America-New_York elsewhere. Harmless before 8pm ET, wrong after. Base v7.2.6 (bcc288f7).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.8 · ROBUST OVERLAY ON THE TERRAIN GRAPH (S65, Ron). DISPLAY ONLY — no selection, ranker, params or engine contact; the graph renders from OPT rows with no re-sim. The 1-axis terrain plotted RAW core yield only, which is the argmax view the house doctrine explicitly suspends: single-cell spikes at 25d, 40d and 69-73d read exactly like the real 120-126d shelf. Now the ranking’s own view is drawn beside it. WHAT IT IS: the median of the ±1-grid-step neighbourhood with photocopy cells collapsed — the same number computeRobustRanking already produces, joined by ROW IDENTITY (computeRobustRanking keeps `row: r`), so nothing is re-derived and there is no second definition of robust anywhere in the file. WHAT IT IS NOT: a moving average. A mean window MANUFACTURES shelves out of single-cell spikes — the precise false structure the doctrine rejects — and shifts the apparent peak off the true argmax. A median is unmoved by one outlier: spikes collapse toward their neighbours, genuine shelves stay flat. Broken at nulls, never interpolated: a cell with no priced neighbour has no robust score and the gap says so. AND THE CAPTION EARNS ITS SPACE: on a single-axis sweep the ±1 neighbourhood holds at most THREE distinct cells, so the ndist≥4 eligibility bar is unreachable by construction and no cell on this graph can be robust-eligible — stated on the chart so a high robust value never reads as a publishable candidate. The joint sweep remains the only instrument that can qualify one. Base v7.2.7 (21597614).</span></div>
 </div>
 
 <script>
@@ -735,7 +735,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.2.7'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.2.8'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -2362,10 +2362,12 @@ function renderGraphSvg(rows, cfg, pubYld) {
   const gc = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888';
   const TXT = gc('--text'), MUT = gc('--muted'), BRD = gc('--border');
   const CURVE = '#e0b25c', PUBC = '#69c2a3', RED = '#ff5d5d', ORG = '#ff9d45';
+  const ROB = '#7aa7ff'; // v7.2.8 — robust overlay; distinct from core, never replaces it
   const W = 860, H = 430, L = 56, R = 18, T = 22, B = 46;
   const xs = rows.map(r => r.v);
   const x0 = Math.min(...xs), x1 = Math.max(...xs);
   const ys = rows.map(r => r.yld).filter(y => y != null);
+  rows.forEach(r => { if (r.robust != null) ys.push(r.robust); }); // v7.2.8 — robust inside scale
   if (pubYld != null) ys.push(pubYld); // v6.4.5 — incumbent line inside scale
   let y0 = Math.min(0, ...ys), y1 = Math.max(...ys, 1);
   const pad = (y1 - y0) * 0.12 || 1; y1 += pad; if (y0 < 0) y0 -= pad;
@@ -2384,7 +2386,7 @@ function renderGraphSvg(rows, cfg, pubYld) {
     el('text',{x:X(r.v),y:H-B+16,'text-anchor':'middle','font-size':9.5,fill:MUT,'font-family':'monospace'}, cfg.fmt(r.v));
   });
   if (y0 < 0) el('line',{x1:L,y1:Y(0),x2:W-R,y2:Y(0),stroke:MUT,'stroke-width':1,opacity:.7});
-  el('text',{x:(L+W-R)/2,y:H-6,'text-anchor':'middle','font-size':10,fill:TXT,'font-family':'monospace','letter-spacing':'.08em'}, cfg.label.toUpperCase() + ' — CORE YIELD');
+  el('text',{x:(L+W-R)/2,y:H-6,'text-anchor':'middle','font-size':10,fill:TXT,'font-family':'monospace','letter-spacing':'.08em'}, cfg.label.toUpperCase() + ' \u2014 CORE YIELD + ROBUST');
   // v6.4.5 — incumbent horizontal reference: yield of the published config
   if (pubYld != null) {
     el('line',{x1:L,y1:Y(pubYld),x2:W-R,y2:Y(pubYld),stroke:PUBC,'stroke-width':1.5,'stroke-dasharray':'6 5',opacity:.8});
@@ -2397,6 +2399,41 @@ function renderGraphSvg(rows, cfg, pubYld) {
     el('text',{x:X(pv)+4,y:T+10,'font-size':9.5,fill:PUBC,'font-family':'monospace'}, 'published ' + cfg.pubStr(pv));
   } else {
     el('text',{x:W-R,y:T+10,'text-anchor':'end','font-size':9.5,fill:PUBC,'font-family':'monospace'}, 'published: ' + cfg.pubStr(pv) + ' (off-range)');
+  }
+  // v7.2.8 — ROBUST OVERLAY. Not a new statistic: this is the median of the +/-1
+  // neighborhood with photocopies collapsed, exactly the number the RANKING uses.
+  // A moving average was considered and rejected — a mean window MANUFACTURES
+  // shelves out of single-cell spikes, which is the false structure the doctrine
+  // exists to reject, and it shifts peaks off the true argmax. A median is
+  // unmoved by one outlier, so spikes collapse toward their neighbours and real
+  // shelves stay flat. Drawn FIRST so the core curve renders on top of it, and
+  // BROKEN at nulls: a cell with no priced neighbour has no robust score and the
+  // gap is never interpolated across.
+  {
+    let rp = '', rpen = false, rn = 0;
+    rows.forEach(r => {
+      if (r.robust == null) { rpen = false; return; }
+      rn++;
+      rp += (rpen ? ' L' : ' M') + X(r.v).toFixed(1) + ' ' + Y(r.robust).toFixed(1); rpen = true;
+    });
+    if (rn) {
+      el('path',{d:rp.trim(),fill:'none',stroke:ROB,'stroke-width':2,'stroke-dasharray':'5 4',
+                 'stroke-linejoin':'round',opacity:.9});
+      // legend — two lines, never a replacement for the core curve
+      el('line',{x1:W-R-150,y1:T+4,x2:W-R-128,y2:T+4,stroke:CURVE,'stroke-width':2.5});
+      el('text',{x:W-R-124,y:T+7.5,'font-size':9.5,fill:MUT,'font-family':'monospace'},'core');
+      el('line',{x1:W-R-88,y1:T+4,x2:W-R-66,y2:T+4,stroke:ROB,'stroke-width':2,'stroke-dasharray':'5 4'});
+      el('text',{x:W-R-62,y:T+7.5,'font-size':9.5,fill:MUT,'font-family':'monospace'},'robust');
+      // eligibility caption. On a single-axis sweep the +/-1 neighbourhood holds at
+      // most 3 distinct cells, so ndist >= 4 is UNREACHABLE by construction and no
+      // cell here can be robust-eligible. Saying so stops a high robust value from
+      // reading as a publishable candidate.
+      const nElig = rows.filter(r => r.elig).length;
+      const maxN = rows.reduce((m2, r) => Math.max(m2, r.ndist || 0), 0);
+      el('text',{x:W-R,y:T+21,'text-anchor':'end','font-size':9,fill:MUT,'font-family':'monospace'},
+        'robust = median \u00b11 nbhd \u00b7 max n=' + maxN + ' \u00b7 eligible cells ' + nElig
+        + (nElig === 0 ? ' (n\u22654 unreachable on 1 axis)' : ''));
+    }
   }
   // curve — break at nulls; null cells hatched at baseline
   let path = '', pen = false;
@@ -5065,7 +5102,16 @@ async function runOptimization() {
       const _gAxis = Object.keys(_rrAxesG)[0];
       const _gCfg  = _graphAxes[_gAxis];
       if (_gCfg) {
-        const _gRows = allResults.rows.map(r => ({ v: r[_gAxis], yld: r.yld, stopN: r.stopN, pureN: r.pureN, rolls: r.rolls })).sort((a, b) => a.v - b.v);
+        // v7.2.8 — carry the ROBUST score onto the graph rows. computeRobustRanking
+        // keeps the original row object (`row: r`), so the join is by identity, not
+        // by value: no re-derivation, no second definition of robust anywhere.
+        const _rrByRow = new Map();
+        if (_rankingRR && _rankingRR.list) for (const o of _rankingRR.list) _rrByRow.set(o.row, o);
+        const _gRows = allResults.rows.map(r => {
+          const o = _rrByRow.get(r);
+          return { v: r[_gAxis], yld: r.yld, stopN: r.stopN, pureN: r.pureN, rolls: r.rolls,
+                   robust: o ? o.robust : null, ndist: o ? o.ndist : 0, elig: o ? !!o.eligible : false };
+        }).sort((a, b) => a.v - b.v);
         const _gYls = _gRows.map(r => r.yld);
         const _gBest = Math.max(..._gYls.filter(y => y != null));
         _gRows.forEach((r, i) => {
