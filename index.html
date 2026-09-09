@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.9</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.10</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -401,12 +401,12 @@ select.display-box { cursor:pointer; outline:none; }
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span>
-          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><!-- v6.1.0: inline opt Ask Claude button retired; chat section above tabs --><button id="robust-grid-btn" onclick="toggleShapeView()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button><span id="lp-wrap" style="display:none;margin-left:10px;"><!-- v6.19.0 — ledger-pack export: armed post-OPT only --><label style="font-family:var(--mono);font-size:9px;color:var(--muted);">raw K <input id="lp-kraw" type="number" min="0" max="500" value="5" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);">robust K <input id="lp-krob" type="number" min="0" max="500" value="5" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);" title="Shelf tolerance in percentage points: a run of 3+ adjacent cells whose yields all sit within this band is drawn as a shelf bar."> shelf \u00b1pp <input id="opt-shelf-tol" type="number" min="0.05" max="5" step="0.05" value="0.5" onchange="_shelfRedraw()" style="width:52px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <button id="ledger-pack-btn" onclick="exportLedgerPack()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⧉ Export Ledger Pack</button></span>
+          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><!-- v6.1.0: inline opt Ask Claude button retired; chat section above tabs --><button id="robust-grid-btn" onclick="toggleShapeView()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button><span id="lp-wrap" style="display:none;margin-left:10px;"><!-- v6.19.0 — ledger-pack export: armed post-OPT only --><label style="font-family:var(--mono);font-size:9px;color:var(--muted);">raw K <input id="lp-kraw" type="number" min="0" max="500" value="5" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);">robust K <input id="lp-krob" type="number" min="0" max="500" value="5" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);" title="Shelf tolerance in percentage points: how FLAT a run must be. All cells in the run must sit within this band."> shelf ±pp <input id="opt-shelf-tol" type="number" min="0.05" max="5" step="0.05" value="0.5" onchange="_shelfRedraw()" style="width:52px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);" title="Minimum shelf WIDTH in cells. Raise it to see only wide flat regions; this is the selectivity dial."> min n <input id="opt-shelf-minn" type="number" min="2" max="60" step="1" value="5" onchange="_shelfRedraw()" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);" title="Horizontal zoom. Above 1x the graph scrolls sideways; vertical scale is unchanged."> zoom <input id="opt-graph-zoom" type="number" min="1" max="10" step="0.5" value="1" onchange="_shelfRedraw()" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;">x</label> <button id="ledger-pack-btn" onclick="exportLedgerPack()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⧉ Export Ledger Pack</button></span>
         </div>
         <div id="grid-read-wrap" style="display:none;margin-bottom:10px;"></div>
         <div id="ac-panel-opt" style="display:none;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;background:var(--surface);"></div>
         <div id="robust-grid-wrap" style="display:none;overflow:auto;margin-bottom:10px;"></div>
-        <div id="opt-graph-wrap" style="display:none;margin-bottom:10px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);padding:4px;"><svg id="opt-graph-svg" viewBox="0 0 860 430" style="width:100%;height:auto;display:block;"></svg><div id="opt-graph-summary" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:6px 4px;line-height:1.6;"></div></div><!-- v6.4.6 — embedded 1-axis graph -->
+        <div id="opt-graph-wrap" style="display:none;margin-bottom:10px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);padding:4px;overflow-x:auto;"><svg id="opt-graph-svg" viewBox="0 0 860 430" style="width:100%;height:auto;display:block;"></svg><div id="opt-graph-summary" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:6px 4px;line-height:1.6;"></div></div><!-- v6.4.6 — embedded 1-axis graph -->
         <div id="heatmap-container"></div>
       </div>
     </div>
@@ -557,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.9 · SHELF BARS (S65, Ron). DISPLAY ONLY — no re-sim; the tolerance is a read-time knob over rows already computed. v7.2.8’s robust line is RETIRED after one session: it traced the same shape as core and gave a reader nothing to act on. Ron’s ask was a horizontal line at median height wherever the terrain is genuinely flat, with a dial controlling how many appear. WHY NOT ndist AS THE DIAL: it counts DISTINCT neighbours after photocopies collapse, so it measures how much neighbours DIFFER, not how much they AGREE — the noisy 10-68d stretch scores the MAXIMUM n=3 precisely because its neighbours disagree, while the flat wasteland at 1-9d scores n=1 because its neighbours are identical. Filtering on high n would light up the noise and hide the flat ground, backwards from what was wanted. SPREAD is the statistic that separates shelf from spike: small max-minus-min is a shelf, large is a spike by definition. So a shelf is every MAXIMAL run of 3+ adjacent priced cells whose yields ALL sit inside the tolerance band — whole-run, not adjacent-pair, because pairwise would let a run drift arbitrarily far in small steps — drawn at the run’s MEDIAN height with end caps and labelled range · median · n. Tighten the dial and only real shelves survive; loosen it and more appear. AXIS FIXED: at 180 rungs every label printed and the result was an unreadable smear — a display defect, not a data one, since the axis was there and could not be read. Every tick keeps its mark; roughly fifteen get text. Base v7.2.8 (17f91acf).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.10 · SHELF BARS — READABLE (S65, Ron). DISPLAY ONLY, still no re-sim. THE REAL FIX IS MIN N. Ron expected a dial that made shelves FEWER and could not find one — correctly, because there wasn’t one: n is an OUTPUT of detection (the run’s width in cells), and tolerance alone does not reduce the count, since at ±0.5pp the noisy low region still yields 29 three-cell runs. Now there are two dials and they are orthogonal: TOLERANCE says how FLAT a run must be, MIN N says how WIDE. Set min n to 9 and only wide flat ground survives — note the 120-126d shelf is n7 and drops out at that setting, which is itself worth knowing. LABELS REMOVED: the per-shelf range/median/n text overprinted itself and the curve, and every number is already in the grid below, so the graph now shows position and extent and nothing else. Bars are heavier and fully opaque with taller end caps, readable against the gold curve at a glance. ZOOM AND SCROLL: the viewBox WIDENS rather than the SVG being scaled, so vertical scale, label size and stroke weights hold still and only the x-axis stretches; above 1x the wrapper scrolls sideways and the axis grants proportionally more labels. AND A TYPO WITH A LESSON: the tolerance control rendered as ‘shelf \u00b1pp’ — a JS escape written into HTML text, where nothing interprets it. Base v7.2.9 (8a5cd960).</span></div>
 </div>
 
 <script>
@@ -735,7 +735,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.2.9'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.2.10'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -2370,7 +2370,16 @@ function renderGraphSvg(rows, cfg, pubYld) {
   const TXT = gc('--text'), MUT = gc('--muted'), BRD = gc('--border');
   const CURVE = '#e0b25c', PUBC = '#69c2a3', RED = '#ff5d5d', ORG = '#ff9d45';
   const ROB = '#7aa7ff'; // v7.2.8 — robust overlay; distinct from core, never replaces it
-  const W = 860, H = 430, L = 56, R = 18, T = 22, B = 46;
+  // v7.2.10 — horizontal zoom. The viewBox WIDENS rather than the whole SVG being
+  // scaled, so vertical scale, label size and stroke weights stay put and only the
+  // x-axis stretches. Above 1x the wrapper scrolls sideways.
+  const _zEl = $('opt-graph-zoom');
+  const Z = Math.min(10, Math.max(1, Number(_zEl && _zEl.value) || 1));
+  const H = 430, L = 56, R = 18, T = 22, B = 46;
+  const W = Math.round(860 * Z);
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  if (Z === 1) { svg.style.width = '100%'; svg.style.minWidth = ''; }
+  else { svg.style.width = W + 'px'; svg.style.minWidth = W + 'px'; }
   const xs = rows.map(r => r.v);
   const x0 = Math.min(...xs), x1 = Math.max(...xs);
   const ys = rows.map(r => r.yld).filter(y => y != null);
@@ -2391,7 +2400,7 @@ function renderGraphSvg(rows, cfg, pubYld) {
   // v7.2.9 — every tick keeps its mark; only every Nth gets a LABEL. At 180 rungs
   // the labels overprinted into an unreadable smear, which is a display defect
   // rather than a data one: the axis was there and could not be read.
-  const _lblEvery = Math.max(1, Math.ceil(rows.length / 15));
+  const _lblEvery = Math.max(1, Math.ceil(rows.length / (15 * Z))); // v7.2.10 — more labels as you zoom in
   rows.forEach((r, i) => {
     el('line',{x1:X(r.v),y1:H-B,x2:X(r.v),y2:H-B+4,stroke:MUT,'stroke-width':1,
                opacity:(i % _lblEvery === 0 ? 1 : .45)});
@@ -2430,7 +2439,13 @@ function renderGraphSvg(rows, cfg, pubYld) {
   {
     const tolEl = $('opt-shelf-tol');
     const TOL = Math.max(0.05, Number(tolEl && tolEl.value) || 0.5);
-    const MINRUN = 3;
+    // v7.2.10 — MIN N is the selectivity dial Ron asked for. Tolerance controls how
+    // FLAT a run must be; min n controls how WIDE. Raising it must reduce the count,
+    // which tightening tolerance alone did not reliably do: at 0.5pp the noisy
+    // low region still produced 29 three-cell runs. n is an OUTPUT of detection
+    // (the run's width) and was never a control until now.
+    const _mnEl = $('opt-shelf-minn');
+    const MINRUN = Math.max(2, Math.round(Number(_mnEl && _mnEl.value) || 5));
     const shelves = [];
     let i0 = 0;
     while (i0 < rows.length) {
@@ -2455,14 +2470,15 @@ function renderGraphSvg(rows, cfg, pubYld) {
     }
     // draw widest-first so a long shelf never hides a short one's label
     shelves.sort((s, t) => (t.b - t.a) - (s.b - s.a));
+    // v7.2.10 — BARS ONLY. The per-shelf labels overprinted each other and the
+    // curve; the numbers are in the grid below, so the graph shows position and
+    // extent and nothing else. Heavier and fully opaque so a bar reads against the
+    // gold curve at a glance.
     shelves.forEach(s => {
-      el('line',{x1:X(s.a),y1:Y(s.med),x2:X(s.b),y2:Y(s.med),stroke:ROB,'stroke-width':3,
-                 'stroke-linecap':'round',opacity:.95});
-      el('line',{x1:X(s.a),y1:Y(s.med)-5,x2:X(s.a),y2:Y(s.med)+5,stroke:ROB,'stroke-width':1.5});
-      el('line',{x1:X(s.b),y1:Y(s.med)-5,x2:X(s.b),y2:Y(s.med)+5,stroke:ROB,'stroke-width':1.5});
-      el('text',{x:(X(s.a)+X(s.b))/2,y:Y(s.med)-9,'text-anchor':'middle','font-size':9,fill:ROB,
-                 'font-family':'monospace'},
-        cfg.fmt(s.a) + '\u2013' + cfg.fmt(s.b) + ' \u00b7 ' + s.med.toFixed(1) + '% \u00b7 n' + s.n);
+      el('line',{x1:X(s.a),y1:Y(s.med),x2:X(s.b),y2:Y(s.med),stroke:ROB,'stroke-width':5,
+                 'stroke-linecap':'butt',opacity:1});
+      el('line',{x1:X(s.a),y1:Y(s.med)-7,x2:X(s.a),y2:Y(s.med)+7,stroke:ROB,'stroke-width':2.5});
+      el('line',{x1:X(s.b),y1:Y(s.med)-7,x2:X(s.b),y2:Y(s.med)+7,stroke:ROB,'stroke-width':2.5});
     });
     el('line',{x1:W-R-150,y1:T+4,x2:W-R-128,y2:T+4,stroke:CURVE,'stroke-width':2.5});
     el('text',{x:W-R-124,y:T+7.5,'font-size':9.5,fill:MUT,'font-family':'monospace'},'core');
@@ -2470,7 +2486,8 @@ function renderGraphSvg(rows, cfg, pubYld) {
     el('text',{x:W-R-58,y:T+7.5,'font-size':9.5,fill:MUT,'font-family':'monospace'},'shelf');
     el('text',{x:W-R,y:T+21,'text-anchor':'end','font-size':9,fill:MUT,'font-family':'monospace'},
       'shelf = ' + MINRUN + '+ adjacent cells within \u00b1' + TOL.toFixed(2)
-      + 'pp, drawn at run median \u00b7 ' + shelves.length + ' found');
+      + 'pp \u00b7 drawn at run median \u00b7 ' + shelves.length + ' found'
+      + (Z > 1 ? ' \u00b7 zoom ' + Z + 'x' : ''));
   }
   // curve — break at nulls; null cells hatched at baseline
   let path = '', pen = false;
