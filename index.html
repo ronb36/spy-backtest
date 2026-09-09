@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.10</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.11</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -557,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.10 · SHELF BARS — READABLE (S65, Ron). DISPLAY ONLY, still no re-sim. THE REAL FIX IS MIN N. Ron expected a dial that made shelves FEWER and could not find one — correctly, because there wasn’t one: n is an OUTPUT of detection (the run’s width in cells), and tolerance alone does not reduce the count, since at ±0.5pp the noisy low region still yields 29 three-cell runs. Now there are two dials and they are orthogonal: TOLERANCE says how FLAT a run must be, MIN N says how WIDE. Set min n to 9 and only wide flat ground survives — note the 120-126d shelf is n7 and drops out at that setting, which is itself worth knowing. LABELS REMOVED: the per-shelf range/median/n text overprinted itself and the curve, and every number is already in the grid below, so the graph now shows position and extent and nothing else. Bars are heavier and fully opaque with taller end caps, readable against the gold curve at a glance. ZOOM AND SCROLL: the viewBox WIDENS rather than the SVG being scaled, so vertical scale, label size and stroke weights hold still and only the x-axis stretches; above 1x the wrapper scrolls sideways and the axis grants proportionally more labels. AND A TYPO WITH A LESSON: the tolerance control rendered as ‘shelf \u00b1pp’ — a JS escape written into HTML text, where nothing interprets it. Base v7.2.9 (8a5cd960).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.11 · SHELVES ON TOP (S65, Ron). DISPLAY ONLY. SVG paints in document order and the bars were emitted during detection, which put them UNDER the curve — a 5px bar losing to 4px markers. Detection stays exactly where it is; only the DRAW is deferred, held on a handle and called after the marker loop. The curve drops to a 1.5px trace with 2px solid points: the shelves are the finding, the curve is the context they sit in. BARS SIT AT THE LITERAL MEDIAN — an offset was offered for legibility where a bar lands on the curve and Ron ruled literal, which is right: the bar’s height is a measurement, and nudging it would make the picture prettier and slightly false. NO SLOPE TEST, RULED (Ron): a wide bar in the declining tail is not a false positive, it is the band doing its job — a 7-cell run inside ±0.8pp can descend at most 0.8pp end to end, so tolerance IS the slope allowance and a separate slope rule would be a second control over the same quantity, free to disagree with the first. Loose and wide admits gradients because that is what those settings asked for; the answer is to tighten the band, not to add a rule. AND THE TAIL BARS SAY SOMETHING REAL: a shelf at 143-150d means the decline is locally shallow there — the same property the 120-126d shelf has, at a lower height, and height is already on the chart. The tolerance/min-n relationship is deliberately NOT coupled: they answer different questions, and a formula binding them would be an invented preference. Base v7.2.10 (bfee3dbc).</span></div>
 </div>
 
 <script>
@@ -735,7 +735,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.2.10'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.2.11'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -2389,6 +2389,7 @@ function renderGraphSvg(rows, cfg, pubYld) {
   const pad = (y1 - y0) * 0.12 || 1; y1 += pad; if (y0 < 0) y0 -= pad;
   const X = v => x1 === x0 ? (L+W-R)/2 : L + (v-x0)/(x1-x0)*(W-L-R);
   const Y = v => H-B - (v-y0)/(y1-y0)*(H-T-B);
+  let _shelfDraw = null; // v7.2.11 — shelf bars paint AFTER the curve; set during detection
   const el = (t,a,txt) => { const e = document.createElementNS(NS,t); for (const k in a) e.setAttribute(k,a[k]); if (txt!=null) e.textContent = txt; svg.appendChild(e); return e; };
   // grid + axes
   const yTicks = 6;
@@ -2470,11 +2471,12 @@ function renderGraphSvg(rows, cfg, pubYld) {
     }
     // draw widest-first so a long shelf never hides a short one's label
     shelves.sort((s, t) => (t.b - t.a) - (s.b - s.a));
-    // v7.2.10 — BARS ONLY. The per-shelf labels overprinted each other and the
-    // curve; the numbers are in the grid below, so the graph shows position and
-    // extent and nothing else. Heavier and fully opaque so a bar reads against the
-    // gold curve at a glance.
-    shelves.forEach(s => {
+    // v7.2.10 — BARS ONLY. Labels overprinted each other and the curve; the numbers
+    // are in the grid below, so the graph shows position and extent, nothing else.
+    // v7.2.11 — DRAWING DEFERRED. SVG paints in document order, so bars emitted here
+    // sat UNDER the curve and lost to it. Detection stays put; the draw moves to
+    // after the curve. Held on the module-scope handle below.
+    _shelfDraw = () => shelves.forEach(s => {
       el('line',{x1:X(s.a),y1:Y(s.med),x2:X(s.b),y2:Y(s.med),stroke:ROB,'stroke-width':5,
                  'stroke-linecap':'butt',opacity:1});
       el('line',{x1:X(s.a),y1:Y(s.med)-7,x2:X(s.a),y2:Y(s.med)+7,stroke:ROB,'stroke-width':2.5});
@@ -2497,10 +2499,12 @@ function renderGraphSvg(rows, cfg, pubYld) {
       return; }
     path += (pen ? ' L' : ' M') + X(r.v).toFixed(1) + ' ' + Y(r.yld).toFixed(1); pen = true;
   });
-  el('path',{d:path.trim(),fill:'none',stroke:CURVE,'stroke-width':2.5,'stroke-linejoin':'round'});
+  // v7.2.11 — curve reduced to a light trace: the shelves are the finding, the
+  // curve is the context they sit in.
+  el('path',{d:path.trim(),fill:'none',stroke:CURVE,'stroke-width':1.5,'stroke-linejoin':'round',opacity:.85});
   rows.forEach(r => {
     if (r.yld == null) return;
-    el('circle',{cx:X(r.v),cy:Y(r.yld),r:4,fill:gc('--surface2')||'#222',stroke:CURVE,'stroke-width':2});
+    el('circle',{cx:X(r.v),cy:Y(r.yld),r:2,fill:CURVE,stroke:'none',opacity:.9}); // v7.2.11 — small solid points
     if (r.single) {
       el('circle',{cx:X(r.v),cy:Y(r.yld),r:8,fill:'none',stroke:ORG,'stroke-width':1.5,'stroke-dasharray':'2 2'});
       el('text',{x:X(r.v),y:Y(r.yld)-12,'text-anchor':'middle','font-size':9.5,fill:ORG,'font-family':'monospace'},'single cell');
@@ -2509,7 +2513,13 @@ function renderGraphSvg(rows, cfg, pubYld) {
       el('circle',{cx:X(r.v),cy:Y(r.yld),r:8,fill:'none',stroke:RED,'stroke-width':2});
       el('text',{x:X(r.v),y:Y(r.yld)-12,'text-anchor':'middle','font-size':9.5,fill:RED,'font-family':'monospace'},'🔴 edge');
     }
+    // (shelf bars paint after this loop — see below)
   });
+  // v7.2.11 — SHELF BARS ON TOP, at the LITERAL median height. No vertical offset:
+  // a bar that sits exactly on the curve is telling the truth about where the run's
+  // median is, and nudging it for legibility would make the picture prettier and
+  // slightly false.
+  if (_shelfDraw) _shelfDraw();
 }
 
 // ── AI Analysis ────────────────────────────────────────────────────────────
