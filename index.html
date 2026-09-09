@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.8</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.9</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -401,7 +401,7 @@ select.display-box { cursor:pointer; outline:none; }
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span>
-          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><!-- v6.1.0: inline opt Ask Claude button retired; chat section above tabs --><button id="robust-grid-btn" onclick="toggleShapeView()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button><span id="lp-wrap" style="display:none;margin-left:10px;"><!-- v6.19.0 — ledger-pack export: armed post-OPT only --><label style="font-family:var(--mono);font-size:9px;color:var(--muted);">raw K <input id="lp-kraw" type="number" min="0" max="500" value="5" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);">robust K <input id="lp-krob" type="number" min="0" max="500" value="5" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <button id="ledger-pack-btn" onclick="exportLedgerPack()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⧉ Export Ledger Pack</button></span>
+          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><!-- v6.1.0: inline opt Ask Claude button retired; chat section above tabs --><button id="robust-grid-btn" onclick="toggleShapeView()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button><span id="lp-wrap" style="display:none;margin-left:10px;"><!-- v6.19.0 — ledger-pack export: armed post-OPT only --><label style="font-family:var(--mono);font-size:9px;color:var(--muted);">raw K <input id="lp-kraw" type="number" min="0" max="500" value="5" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);">robust K <input id="lp-krob" type="number" min="0" max="500" value="5" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);" title="Shelf tolerance in percentage points: a run of 3+ adjacent cells whose yields all sit within this band is drawn as a shelf bar."> shelf \u00b1pp <input id="opt-shelf-tol" type="number" min="0.05" max="5" step="0.05" value="0.5" onchange="_shelfRedraw()" style="width:52px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <button id="ledger-pack-btn" onclick="exportLedgerPack()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⧉ Export Ledger Pack</button></span>
         </div>
         <div id="grid-read-wrap" style="display:none;margin-bottom:10px;"></div>
         <div id="ac-panel-opt" style="display:none;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;background:var(--surface);"></div>
@@ -557,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.8 · ROBUST OVERLAY ON THE TERRAIN GRAPH (S65, Ron). DISPLAY ONLY — no selection, ranker, params or engine contact; the graph renders from OPT rows with no re-sim. The 1-axis terrain plotted RAW core yield only, which is the argmax view the house doctrine explicitly suspends: single-cell spikes at 25d, 40d and 69-73d read exactly like the real 120-126d shelf. Now the ranking’s own view is drawn beside it. WHAT IT IS: the median of the ±1-grid-step neighbourhood with photocopy cells collapsed — the same number computeRobustRanking already produces, joined by ROW IDENTITY (computeRobustRanking keeps `row: r`), so nothing is re-derived and there is no second definition of robust anywhere in the file. WHAT IT IS NOT: a moving average. A mean window MANUFACTURES shelves out of single-cell spikes — the precise false structure the doctrine rejects — and shifts the apparent peak off the true argmax. A median is unmoved by one outlier: spikes collapse toward their neighbours, genuine shelves stay flat. Broken at nulls, never interpolated: a cell with no priced neighbour has no robust score and the gap says so. AND THE CAPTION EARNS ITS SPACE: on a single-axis sweep the ±1 neighbourhood holds at most THREE distinct cells, so the ndist≥4 eligibility bar is unreachable by construction and no cell on this graph can be robust-eligible — stated on the chart so a high robust value never reads as a publishable candidate. The joint sweep remains the only instrument that can qualify one. Base v7.2.7 (21597614).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.9 · SHELF BARS (S65, Ron). DISPLAY ONLY — no re-sim; the tolerance is a read-time knob over rows already computed. v7.2.8’s robust line is RETIRED after one session: it traced the same shape as core and gave a reader nothing to act on. Ron’s ask was a horizontal line at median height wherever the terrain is genuinely flat, with a dial controlling how many appear. WHY NOT ndist AS THE DIAL: it counts DISTINCT neighbours after photocopies collapse, so it measures how much neighbours DIFFER, not how much they AGREE — the noisy 10-68d stretch scores the MAXIMUM n=3 precisely because its neighbours disagree, while the flat wasteland at 1-9d scores n=1 because its neighbours are identical. Filtering on high n would light up the noise and hide the flat ground, backwards from what was wanted. SPREAD is the statistic that separates shelf from spike: small max-minus-min is a shelf, large is a spike by definition. So a shelf is every MAXIMAL run of 3+ adjacent priced cells whose yields ALL sit inside the tolerance band — whole-run, not adjacent-pair, because pairwise would let a run drift arbitrarily far in small steps — drawn at the run’s MEDIAN height with end caps and labelled range · median · n. Tighten the dial and only real shelves survive; loosen it and more appear. AXIS FIXED: at 180 rungs every label printed and the result was an unreadable smear — a display defect, not a data one, since the axis was there and could not be read. Every tick keeps its mark; roughly fifteen get text. Base v7.2.8 (17f91acf).</span></div>
 </div>
 
 <script>
@@ -735,7 +735,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.2.8'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.2.9'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -2324,6 +2324,13 @@ function toggleShapeView() { // v6.4.6 — one slot, run decides the shape
   if (_shapeMode === 'grid') return toggleRobustGrid();
   if (_shapeMode === 'graph') return toggleOptGraph();
 }
+// v7.2.9 — tolerance is a READ-TIME knob. Nothing re-sims; the OPT rows are
+// unchanged and only the shelf detection re-runs over them.
+function _shelfRedraw() {
+  const w = $('opt-graph-wrap');
+  if (!w || w.style.display === 'none' || !_graphLast) return;
+  renderGraphSvg(_graphLast.rows, _graphLast.cfg, _graphLast.pubYld);
+}
 function toggleOptGraph() {
   const w = $('opt-graph-wrap'), btn = $('robust-grid-btn');
   if (!w || !_graphLast) return;
@@ -2381,12 +2388,18 @@ function renderGraphSvg(rows, cfg, pubYld) {
     el('line',{x1:L,y1:Y(yv),x2:W-R,y2:Y(yv),stroke:BRD,'stroke-width':1,opacity:.5});
     el('text',{x:L-8,y:Y(yv)+3.5,'text-anchor':'end','font-size':10,fill:MUT,'font-family':'monospace'}, yv.toFixed(1)+'%');
   }
-  rows.forEach(r => {
-    el('line',{x1:X(r.v),y1:H-B,x2:X(r.v),y2:H-B+4,stroke:MUT,'stroke-width':1});
-    el('text',{x:X(r.v),y:H-B+16,'text-anchor':'middle','font-size':9.5,fill:MUT,'font-family':'monospace'}, cfg.fmt(r.v));
+  // v7.2.9 — every tick keeps its mark; only every Nth gets a LABEL. At 180 rungs
+  // the labels overprinted into an unreadable smear, which is a display defect
+  // rather than a data one: the axis was there and could not be read.
+  const _lblEvery = Math.max(1, Math.ceil(rows.length / 15));
+  rows.forEach((r, i) => {
+    el('line',{x1:X(r.v),y1:H-B,x2:X(r.v),y2:H-B+4,stroke:MUT,'stroke-width':1,
+               opacity:(i % _lblEvery === 0 ? 1 : .45)});
+    if (i % _lblEvery === 0 || i === rows.length - 1)
+      el('text',{x:X(r.v),y:H-B+16,'text-anchor':'middle','font-size':9.5,fill:MUT,'font-family':'monospace'}, cfg.fmt(r.v));
   });
   if (y0 < 0) el('line',{x1:L,y1:Y(0),x2:W-R,y2:Y(0),stroke:MUT,'stroke-width':1,opacity:.7});
-  el('text',{x:(L+W-R)/2,y:H-6,'text-anchor':'middle','font-size':10,fill:TXT,'font-family':'monospace','letter-spacing':'.08em'}, cfg.label.toUpperCase() + ' \u2014 CORE YIELD + ROBUST');
+  el('text',{x:(L+W-R)/2,y:H-6,'text-anchor':'middle','font-size':10,fill:TXT,'font-family':'monospace','letter-spacing':'.08em'}, cfg.label.toUpperCase() + ' \u2014 CORE YIELD + SHELVES');
   // v6.4.5 — incumbent horizontal reference: yield of the published config
   if (pubYld != null) {
     el('line',{x1:L,y1:Y(pubYld),x2:W-R,y2:Y(pubYld),stroke:PUBC,'stroke-width':1.5,'stroke-dasharray':'6 5',opacity:.8});
@@ -2400,40 +2413,64 @@ function renderGraphSvg(rows, cfg, pubYld) {
   } else {
     el('text',{x:W-R,y:T+10,'text-anchor':'end','font-size':9.5,fill:PUBC,'font-family':'monospace'}, 'published: ' + cfg.pubStr(pv) + ' (off-range)');
   }
-  // v7.2.8 — ROBUST OVERLAY. Not a new statistic: this is the median of the +/-1
-  // neighborhood with photocopies collapsed, exactly the number the RANKING uses.
-  // A moving average was considered and rejected — a mean window MANUFACTURES
-  // shelves out of single-cell spikes, which is the false structure the doctrine
-  // exists to reject, and it shifts peaks off the true argmax. A median is
-  // unmoved by one outlier, so spikes collapse toward their neighbours and real
-  // shelves stay flat. Drawn FIRST so the core curve renders on top of it, and
-  // BROKEN at nulls: a cell with no priced neighbour has no robust score and the
-  // gap is never interpolated across.
+  // v7.2.9 — SHELF BARS. Replaces the v7.2.8 robust line, which traced the same
+  // shape as core and so added nothing a reader could act on.
+  //
+  // WHY NOT ndist: it counts DISTINCT neighbours after photocopies collapse, so it
+  // measures how much neighbours DIFFER, not how much they AGREE. The noisy 10-68d
+  // stretch scores the maximum n=3 precisely because its neighbours disagree, while
+  // the flat wasteland at 1-9d scores n=1 because its neighbours are identical.
+  // Filtering on high n lights up the noise and hides the flat ground — backwards.
+  //
+  // SPREAD is the statistic that separates shelf from spike: a shelf has small
+  // max-minus-min across the run, a spike has large by definition. So: find every
+  // MAXIMAL run of >=3 contiguous priced cells whose yields all sit inside the
+  // tolerance band, and draw it at the run's MEDIAN height. Tolerance is the dial —
+  // tighten it and only genuine shelves survive; loosen it and more appear.
   {
-    let rp = '', rpen = false, rn = 0;
-    rows.forEach(r => {
-      if (r.robust == null) { rpen = false; return; }
-      rn++;
-      rp += (rpen ? ' L' : ' M') + X(r.v).toFixed(1) + ' ' + Y(r.robust).toFixed(1); rpen = true;
-    });
-    if (rn) {
-      el('path',{d:rp.trim(),fill:'none',stroke:ROB,'stroke-width':2,'stroke-dasharray':'5 4',
-                 'stroke-linejoin':'round',opacity:.9});
-      // legend — two lines, never a replacement for the core curve
-      el('line',{x1:W-R-150,y1:T+4,x2:W-R-128,y2:T+4,stroke:CURVE,'stroke-width':2.5});
-      el('text',{x:W-R-124,y:T+7.5,'font-size':9.5,fill:MUT,'font-family':'monospace'},'core');
-      el('line',{x1:W-R-88,y1:T+4,x2:W-R-66,y2:T+4,stroke:ROB,'stroke-width':2,'stroke-dasharray':'5 4'});
-      el('text',{x:W-R-62,y:T+7.5,'font-size':9.5,fill:MUT,'font-family':'monospace'},'robust');
-      // eligibility caption. On a single-axis sweep the +/-1 neighbourhood holds at
-      // most 3 distinct cells, so ndist >= 4 is UNREACHABLE by construction and no
-      // cell here can be robust-eligible. Saying so stops a high robust value from
-      // reading as a publishable candidate.
-      const nElig = rows.filter(r => r.elig).length;
-      const maxN = rows.reduce((m2, r) => Math.max(m2, r.ndist || 0), 0);
-      el('text',{x:W-R,y:T+21,'text-anchor':'end','font-size':9,fill:MUT,'font-family':'monospace'},
-        'robust = median \u00b11 nbhd \u00b7 max n=' + maxN + ' \u00b7 eligible cells ' + nElig
-        + (nElig === 0 ? ' (n\u22654 unreachable on 1 axis)' : ''));
+    const tolEl = $('opt-shelf-tol');
+    const TOL = Math.max(0.05, Number(tolEl && tolEl.value) || 0.5);
+    const MINRUN = 3;
+    const shelves = [];
+    let i0 = 0;
+    while (i0 < rows.length) {
+      if (rows[i0].yld == null) { i0++; continue; }
+      // extend while the WHOLE run stays inside the band — not just adjacent pairs,
+      // which would let a run drift arbitrarily far by small steps.
+      let lo = rows[i0].yld, hi = rows[i0].yld, i1 = i0;
+      while (i1 + 1 < rows.length && rows[i1 + 1].yld != null) {
+        const y = rows[i1 + 1].yld;
+        const nlo = Math.min(lo, y), nhi = Math.max(hi, y);
+        if (nhi - nlo > TOL) break;
+        lo = nlo; hi = nhi; i1++;
+      }
+      if (i1 - i0 + 1 >= MINRUN) {
+        const seg = rows.slice(i0, i1 + 1);
+        const vals = seg.map(r => r.yld).sort((a, b) => a - b);
+        const med = vals.length % 2 ? vals[(vals.length - 1) / 2]
+                                    : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
+        shelves.push({ a: seg[0].v, b: seg[seg.length - 1].v, n: seg.length, med, lo, hi });
+        i0 = i1 + 1;
+      } else i0++;
     }
+    // draw widest-first so a long shelf never hides a short one's label
+    shelves.sort((s, t) => (t.b - t.a) - (s.b - s.a));
+    shelves.forEach(s => {
+      el('line',{x1:X(s.a),y1:Y(s.med),x2:X(s.b),y2:Y(s.med),stroke:ROB,'stroke-width':3,
+                 'stroke-linecap':'round',opacity:.95});
+      el('line',{x1:X(s.a),y1:Y(s.med)-5,x2:X(s.a),y2:Y(s.med)+5,stroke:ROB,'stroke-width':1.5});
+      el('line',{x1:X(s.b),y1:Y(s.med)-5,x2:X(s.b),y2:Y(s.med)+5,stroke:ROB,'stroke-width':1.5});
+      el('text',{x:(X(s.a)+X(s.b))/2,y:Y(s.med)-9,'text-anchor':'middle','font-size':9,fill:ROB,
+                 'font-family':'monospace'},
+        cfg.fmt(s.a) + '\u2013' + cfg.fmt(s.b) + ' \u00b7 ' + s.med.toFixed(1) + '% \u00b7 n' + s.n);
+    });
+    el('line',{x1:W-R-150,y1:T+4,x2:W-R-128,y2:T+4,stroke:CURVE,'stroke-width':2.5});
+    el('text',{x:W-R-124,y:T+7.5,'font-size':9.5,fill:MUT,'font-family':'monospace'},'core');
+    el('line',{x1:W-R-84,y1:T+4,x2:W-R-62,y2:T+4,stroke:ROB,'stroke-width':3});
+    el('text',{x:W-R-58,y:T+7.5,'font-size':9.5,fill:MUT,'font-family':'monospace'},'shelf');
+    el('text',{x:W-R,y:T+21,'text-anchor':'end','font-size':9,fill:MUT,'font-family':'monospace'},
+      'shelf = ' + MINRUN + '+ adjacent cells within \u00b1' + TOL.toFixed(2)
+      + 'pp, drawn at run median \u00b7 ' + shelves.length + ' found');
   }
   // curve — break at nulls; null cells hatched at baseline
   let path = '', pen = false;
