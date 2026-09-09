@@ -1,7 +1,7 @@
 {
   "decayTrigger": 0.08,
   "dteFloor": 7,
-  "deltaThreshold": 0.70,
+  "deltaThreshold": 0.7,
   "dtePenaltyAnchor": 123,
   "lastOptimized": "2026-09-05",
   "contracts": 6,
@@ -14,11 +14,11 @@
   "costBasis": 742.4833,
   "sharesHeld": 600,
   "basisAsOf": "2026-08-12",
-  "shortStrike": 775,
-  "shortExpiry": "2027-02-26",
-  "entryDate": "2026-09-04",
-  "entrySpy": 770.26,
-  "coverPrice": 14.24,
-  "sellPrice": 35,
-  "netPremium": 20.76
+  "shortStrike": 765,
+  "shortExpiry": "2027-01-29",
+  "entryDate": "2026-09-09",
+  "entrySpy": 763.6,
+  "coverPrice": 31.41,
+  "sellPrice": 32.68,
+  "netPremium": 1.27
 }
