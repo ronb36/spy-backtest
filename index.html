@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.6</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.7</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -557,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.6 · TICKET DUAL-WRITE (S64, Ron). Every ticket — roll and cover-only — now writes its LEGS to live_legs as basis=ticket alongside the live_trades row it already wrote. ONE SEAM: both paths call appendLiveTrade, so the change lands in a single function rather than at every writer. TRANSITIONAL BY DESIGN. Readers still take live_trades, so this can only ADD information: if the legs write fails the trade is already booked, the audit still runs, and nothing throws into the ticket path — it warns on the blotter, which is where a roll actually gets checked, because a ticket living in one table and not the other is precisely the divergence this release exists to prevent. WHY NOT THE FULL FLIP TONIGHT: every reader goes through sbGetLiveTrades, which returns TICKET-shaped objects — rollCredit, status, coverPrice, trigger — none of which live_legs has. Reconstructing that shape from assembled cycles is real new code with no dry run behind it, and its first exercise would have been tomorrow morning’s position check. That adapter is v7.2.7, on a night with room. SIGN CONVENTION IS MEASURED, NOT ASSUMED: quantity and amount signs are read off a statement row of the same class already in the table rather than hardcoded from memory of what Fidelity emits; with no sample the row carries magnitudes and says so in note. The trigger rides the CLOSING leg only — the v7.2.5 seed rule applied at the source, so the defect that buried the 08-03 correction cannot be re-created by a ticket. THE PAYOFF LANDS ON THE NEXT STATEMENT PULL: §7’s convert-in-place path was built in v7.2.4 and has never once run, because until tonight there were zero ticket rows to convert. Base v7.2.5 (27aca111).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.7 · DUAL-WRITE REPAIR — CAUGHT ON ITS FIRST LIVE TICKET (S65). The 2026-09-09 roll booked correctly to live_trades and the blotter was right; only the live_legs copy failed, with PGRST102 ‘All object keys must match’. THE DEFECT: PostgREST requires every object in a batch POST to carry an identical key set, and v7.2.6 built both legs the same and then attached trigger/trigger_value/trigger_threshold to the CLOSING leg only. Two legs, two shapes, refused whole with a 400 — which is why nothing partial was written. A cover-only ticket has ONE leg and would have sailed through, so this was only ever going to surface on a roll: the first live exercise found in ten minutes what no amount of reading would have. FIX: every leg declares all three trigger keys, null by default, and the closer overwrites them. The rule is unchanged; only the shape is. SECOND DEFECT, found by grep while fixing the first: expiry was passed to _impSymOf unnormalized. _impReconSpy wraps the same call in _impUsIso because a ticket field can arrive MM/DD/YY, and _impSymOf slices blindly — ‘02/26/27’ would have produced ‘-SPY/26/27C775’ and a date column Postgres cannot parse. Today’s candidate emitted ISO so it would not have fired yet; it was waiting. Normalized now, and _impUsIso passes ISO through untouched. ADDED: a shape assertion before the POST that names the offending leg and the differing key, because PGRST102 was legible by luck and the next one might not be. NOT FIXED, LOGGED: the roll ticket stamps trade_date with toISOString().slice(0,10) — UTC, not ET. The codebase names this the UTC-STAMP class at line 8983 and uses en-CA/America-New_York elsewhere. Harmless before 8pm ET, wrong after. Base v7.2.6 (bcc288f7).</span></div>
 </div>
 
 <script>
@@ -735,7 +735,7 @@ async function loadRollParams() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.2.6'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.2.7'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -8373,8 +8373,14 @@ async function _legsSignFor(cls) {
 
 async function _ticketToLegs(t) {
   const und = 'SPY', legs = [];
-  const add = async (cls, strike, expiry, contracts, price) => {
-    if (strike == null || price == null) return;
+  const add = async (cls, strikeIn, expiryIn, contracts, price) => {
+    if (strikeIn == null || price == null) return;
+    // v7.2.7 — expiry normalized through _impUsIso. The scan candidate emits ISO
+    // but a ticket field can arrive MM/DD/YY, and _impSymOf slices blindly: an
+    // unnormalized '02/26/27' yields '-SPY/26/27C775' and a date column Postgres
+    // cannot parse. _impUsIso passes ISO through unchanged, so this is safe either way.
+    const expiry = _impUsIso(expiryIn);
+    const strike = strikeIn;
     const sym = _impSymOf(und, expiry, strike);
     const sg = await _legsSignFor(cls);
     const qty = Math.abs(Number(contracts) || 0);
@@ -8394,6 +8400,13 @@ async function _ticketToLegs(t) {
       occ_seq: legs.length,
       stmt_file: null,
       basis: 'ticket',
+      // v7.2.7 — UNIFORM KEY SET. PostgREST rejects a batch POST whose objects
+      // carry different keys (PGRST102 'All object keys must match'). v7.2.6 built
+      // both legs the same and then attached the trigger fields to the closer
+      // only, so a two-leg roll was refused whole with a 400 while a one-leg
+      // cover-only would have gone through. Every leg now declares all three,
+      // null by default; the closer overwrites them below.
+      trigger: null, trigger_value: null, trigger_threshold: null,
       note: sg ? null : 'sign unmeasured (no statement sample for ' + cls + ')'
     });
   };
@@ -8415,6 +8428,18 @@ async function _ticketToLegs(t) {
 async function _legsWriteTicket(t) {
   const legs = await _ticketToLegs(t);
   if (!legs.length) return 0;
+  // v7.2.7 — shape assertion. PGRST102 was legible by luck; this names the leg
+  // and the key. A batch POST is one transaction, so a mismatch costs the whole
+  // ticket, not one row.
+  const k0 = Object.keys(legs[0]).sort().join(',');
+  for (let i = 1; i < legs.length; i++) {
+    const ki = Object.keys(legs[i]).sort().join(',');
+    if (ki !== k0) {
+      const a = new Set(Object.keys(legs[0])), b = new Set(Object.keys(legs[i]));
+      const diff = [...new Set([...a, ...b])].filter(x => !a.has(x) || !b.has(x));
+      throw new Error('leg key mismatch at leg ' + i + ' (' + legs[i].cls + '): ' + diff.join(', '));
+    }
+  }
   const res = await fetch(`${SB_URL}/live_legs?on_conflict=id`, {
     method: 'POST',
     headers: { ..._sbHeaders, 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
