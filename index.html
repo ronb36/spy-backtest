@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.11</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.12</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -557,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.11 · SHELVES ON TOP (S65, Ron). DISPLAY ONLY. SVG paints in document order and the bars were emitted during detection, which put them UNDER the curve — a 5px bar losing to 4px markers. Detection stays exactly where it is; only the DRAW is deferred, held on a handle and called after the marker loop. The curve drops to a 1.5px trace with 2px solid points: the shelves are the finding, the curve is the context they sit in. BARS SIT AT THE LITERAL MEDIAN — an offset was offered for legibility where a bar lands on the curve and Ron ruled literal, which is right: the bar’s height is a measurement, and nudging it would make the picture prettier and slightly false. NO SLOPE TEST, RULED (Ron): a wide bar in the declining tail is not a false positive, it is the band doing its job — a 7-cell run inside ±0.8pp can descend at most 0.8pp end to end, so tolerance IS the slope allowance and a separate slope rule would be a second control over the same quantity, free to disagree with the first. Loose and wide admits gradients because that is what those settings asked for; the answer is to tighten the band, not to add a rule. AND THE TAIL BARS SAY SOMETHING REAL: a shelf at 143-150d means the decline is locally shallow there — the same property the 120-126d shelf has, at a lower height, and height is already on the chart. The tolerance/min-n relationship is deliberately NOT coupled: they answer different questions, and a formula binding them would be an invented preference. Base v7.2.10 (bfee3dbc).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.12 · UTC-STAMP CLASS FIX (S66, Ron). NO SIM CONTACT — weekday lane. Four authoring paths stamped a wall-clock CALENDAR DATE with toISOString().slice(0,10), which is UTC and rolls over at 8 PM ET, so anything authored after that recorded TOMORROW’s date. Sites: params publish (roll_params.json), roll ticket writer, cover-only ticket writer, manual-entry modal default. The roll ticket writer was the widest — ONE variable feeding FOUR consumers: entryDate in roll_params.json, the GitHub commit message, STD.entryDate in memory, and trade_date on the live_legs ticket leg. All four now call _etToday(), a single named helper using the en-CA/America/New_York pattern the codebase ALREADY used correctly at three sites (_etDayDiff and the two import paths) and already named as a class in a comment. The fix is attributed to in-file precedent, not invented. THE THREE CORRECT INLINE SITES WERE DELIBERATELY LEFT ALONE: they are already right, converting them changes no behaviour and only widens the diff. Instants (full ISO timestamps — opt run identity, ledger-pack generated, audit ts) are correctly UTC and were NOT touched; the class is calendar dates only. ALSO NOT TOUCHED, FLAGGED INSTEAD: _tradeAnchoredReprice builds a Polygon minute-bar date range from UTC, so after 8 PM ET it requests tomorrow, gets no bars and returns null — the caller silently keeps the day-close mid. Same root cause, DIFFERENT failure mode (silent degradation, not a wrong stamp), and it is live scan pricing rather than an authoring stamp, so it is out of this release’s approved scope. Base v7.2.11 (78d953ee).</span></div>
 </div>
 
 <script>
@@ -734,8 +734,17 @@ async function loadRollParams() {
   }
 }
 
+// v7.2.12 — UTC-STAMP CLASS. The ONE writer of a wall-clock CALENDAR DATE.
+// toISOString() yields a UTC date, which rolls over at 8 PM ET (7 PM on EST),
+// so any date authored after that stamps TOMORROW. Every authoring path that
+// records "what day is it" goes through here. Instants (full ISO timestamps)
+// are correctly UTC and do NOT use this.
+function _etToday() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.2.11'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.2.12'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -4394,7 +4403,7 @@ async function publishRollParams(p) {
     const gh  = { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github.v3+json' };
     const sha = (await (await fetch(url, { headers: gh })).json()).sha;
     if (!sha) throw new Error('Could not get file SHA');
-    const today = new Date().toISOString().slice(0, 10);
+    const today = _etToday(); // v7.2.12 — UTC-STAMP class
     // Fetch current JSON to preserve position fields before overwriting
     let _existingJson = {};
     try {
@@ -7618,7 +7627,7 @@ async function confirmTrade() {
     const sha = (await (await fetch(url, { headers: gh })).json()).sha;
     if (!sha) throw new Error('Could not get file SHA');
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = _etToday(); // v7.2.12 — UTC-STAMP class; feeds entryDate, commit msg, STD.entryDate, live leg trade_date
     let existing = {};
     try {
       const r = await fetch('https://ronb36.github.io/spy-backtest/roll_params.json?_=' + Date.now(), { cache: 'no-store' });
@@ -9341,7 +9350,7 @@ async function confirmCoverOnly() {
   statusEl.textContent = '';
 
   try {
-    const today = new Date().toISOString().slice(0,10);
+    const today = _etToday(); // v7.2.12 — UTC-STAMP class
     const totalDebit = -(contracts * price * 100);
     // v6.7.12 — STEP 1 (was missing; root cause of the 07/27 stale-short incident):
     // find + verify + CLOSE the open row. sbUpsertTrade's auto-close only fires
@@ -9447,7 +9456,7 @@ async function confirmCoverOnly() {
 
 // ── Manual Entry Modal (for importing history) ──────────────────────────────
 function openManualEntryModal() {
-  $('me-date').value      = new Date().toISOString().slice(0,10);
+  $('me-date').value      = _etToday(); // v7.2.12 — UTC-STAMP class
   $('me-type').value      = 'roll';
   $('me-contracts').value = STD.shares ? Math.floor(STD.shares / 100) : '';
   $('me-cover-strike').value  = '';
