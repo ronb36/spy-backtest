@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.12</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.13</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -557,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.12 · UTC-STAMP CLASS FIX (S66, Ron). NO SIM CONTACT — weekday lane. Four authoring paths stamped a wall-clock CALENDAR DATE with toISOString().slice(0,10), which is UTC and rolls over at 8 PM ET, so anything authored after that recorded TOMORROW’s date. Sites: params publish (roll_params.json), roll ticket writer, cover-only ticket writer, manual-entry modal default. The roll ticket writer was the widest — ONE variable feeding FOUR consumers: entryDate in roll_params.json, the GitHub commit message, STD.entryDate in memory, and trade_date on the live_legs ticket leg. All four now call _etToday(), a single named helper using the en-CA/America/New_York pattern the codebase ALREADY used correctly at three sites (_etDayDiff and the two import paths) and already named as a class in a comment. The fix is attributed to in-file precedent, not invented. THE THREE CORRECT INLINE SITES WERE DELIBERATELY LEFT ALONE: they are already right, converting them changes no behaviour and only widens the diff. Instants (full ISO timestamps — opt run identity, ledger-pack generated, audit ts) are correctly UTC and were NOT touched; the class is calendar dates only. ALSO NOT TOUCHED, FLAGGED INSTEAD: _tradeAnchoredReprice builds a Polygon minute-bar date range from UTC, so after 8 PM ET it requests tomorrow, gets no bars and returns null — the caller silently keeps the day-close mid. Same root cause, DIFFERENT failure mode (silent degradation, not a wrong stamp), and it is live scan pricing rather than an authoring stamp, so it is out of this release’s approved scope. Base v7.2.11 (78d953ee).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.13 · PER-CYCLE OBJECTIVE BASIS (S66, Ron). SIM-REGION. coreYld divided coreSum by cycles[0].exitSPY × shares — SPY at the FIRST ROLL, frozen across the whole window — while BOTH selection layers normalise premium by the spot on screen at the decision (rawYield in the sim, adjYield in the live scan). Every cycle was CHOSEN on current spot and SCORED on a two-year-old price. THERE IS NO SINGLE BASIS: a live selection can only use one day’s spot, and the sim must replicate live rather than the reverse, so each cycle is now scored against the capital its own decision was made against — coreYld = Σ[pnl_i/(entrySPY_i × shares)] × 365/coreDays. Not an averaged basis renamed: dividing each cycle by its own spot differs arithmetically from averaging and dividing once, and the averaged forms COMPRESS the candidate spread the Gate adjudicates (incumbent trails raw #1 by 0.54pp per-cycle vs 0.81pp equal-averaged). No daysHeld anywhere — hold duration is unknown at decision time and cannot enter a metric that scores decisions as they were made. MEASURED FIRST on the v6.41.0 six-entry pack, before any code moved: published 10.12% → 9.17%, ORDERING UNCHANGED [1,2,3,0,5,4] — the published policy was NOT selected by an artifact and needs no re-selection. Cycles lacking entrySPY are EXCLUDED and counted in the log, never folded in at another basis. coreBasisSPY is RETIRED everywhere including the pack’s own note field; it was never a real quantity. PACK SCHEMA ledger-pack/1 → /2 with basis:market-percycle; /1 packs are retired, not backfilled, and a fresh OPT and bootstrap follow. Base v7.2.12 (b88e6cb6).</span></div>
 </div>
 
 <script>
@@ -744,7 +744,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.2.12'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.2.13'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -3797,11 +3797,34 @@ async function simulate(p) {
   // cycles · open = MTM net of the unclosed end-of-window position. The
   // three sum to the headline credit by construction (identity logged).
   // Core yield annualizes core dollars over the core window only (first
-  // roll date → last closed cycle's close; basis = shares × SPY at first
-  // roll), excluding the regime-correlated endpoint transients: in an
-  // uptrend the initial sell prices off window-start SPY while the open
-  // mark prices off window-end SPY — endpoint regime, not roll logic.
-  let coreYld = null, coreSum = null, coreDays = null, coreStart = null, coreEnd = null, coreBasisSPY = null;
+  // roll date → last closed cycle's close), excluding the regime-correlated
+  // endpoint transients: in an uptrend the initial sell prices off
+  // window-start SPY while the open mark prices off window-end SPY —
+  // endpoint regime, not roll logic.
+  //
+  // v7.2.13 — PER-CYCLE BASIS (S66, Ron). The objective divided coreSum by
+  // cycles[0].exitSPY × shares: SPY at the FIRST ROLL, frozen for the whole
+  // window. Both selection layers normalise premium by the spot ON SCREEN AT
+  // THE DECISION (rawYield here, adjYield in the live scan), so every cycle
+  // was CHOSEN against current spot and then SCORED against a two-year-old
+  // price. THERE IS NO SINGLE BASIS. A live selection can only ever use one
+  // day's spot, and the sim must replicate live — not the reverse — so each
+  // cycle is scored against the capital ITS OWN decision was made against:
+  //
+  //     coreYld = Σ[ pnl_i / (entrySPY_i × shares) ] × 365/coreDays
+  //
+  // This is NOT an averaged basis by another name: dividing each cycle by its
+  // own entrySPY is arithmetically different from averaging entrySPY and
+  // dividing once, and the averaged forms COMPRESS the spread between
+  // candidates (incumbent trails raw #1 by 0.54pp per-cycle vs 0.81pp
+  // equal-averaged) — which is the spread the Gate adjudicates. No weighting
+  // rule, and NO daysHeld: hold duration is unknown at decision time, so it
+  // cannot enter a metric that claims to score decisions as they were made.
+  // Measured on the v6.41.0 six-entry pack before any code moved: published
+  // 10.12% → 9.17%; ORDERING UNCHANGED [1,2,3,0,5,4]. Level correction, not a
+  // re-selection. The frozen basis is RETIRED, and coreBasisSPY with it — it
+  // was never a real quantity.
+  let coreYld = null, coreSum = null, coreDays = null, coreStart = null, coreEnd = null;
   const coreCycleCount = Math.max(0, cycles.length - 1);
   const initPnl  = cycles.length > 0 ? cycles[0].pnl : 0;
   const openNetD = (pendingContract && pendingContract.entryPx && openMark != null)
@@ -3812,14 +3835,20 @@ async function simulate(p) {
     logDbg(`  ── Core-roll decomposition (v5.10.1) ──`);
     logDbg(`  Initial cycle ${money(initPnl)} + core rolls ${money(coreSum)} (${coreCycleCount} cycles) + open MTM ${money(openNetD)} = ${money(initPnl + coreSum + openNetD)} (headline ${money(rollCreditTotal)})`);
     if (coreCycleCount >= 3 && cycles[0].exitDate) {
-      coreStart    = cycles[0].exitDate;
-      coreEnd      = cycles[cycles.length - 1].exitDate;
-      coreBasisSPY = cycles[0].exitSPY;
-      coreDays     = Math.max(1, Math.round((new Date(coreEnd + 'T00:00:00') - new Date(coreStart + 'T00:00:00')) / 86400000));
-      const coreBasis = (coreBasisSPY || 0) * shares;
-      if (coreBasis > 0) {
-        coreYld = (coreSum / coreBasis) * (365 / coreDays) * 100;
-        logDbg(`  Core yield: ${coreYld.toFixed(1)}%/yr over ${coreStart} → ${coreEnd} (${coreDays}d · basis SPY $${coreBasisSPY.toFixed(2)} × ${shares})`);
+      coreStart = cycles[0].exitDate;
+      coreEnd   = cycles[cycles.length - 1].exitDate;
+      coreDays  = Math.max(1, Math.round((new Date(coreEnd + 'T00:00:00') - new Date(coreStart + 'T00:00:00')) / 86400000));
+      // v7.2.13 — sum of per-cycle returns, each against its own entry spot.
+      // A cycle missing entrySPY cannot be scored on its own capital, so it is
+      // EXCLUDED and reported, never silently folded in at some other basis.
+      const _cy    = cycles.slice(1);
+      const _score = _cy.filter(c => c.entrySPY > 0);
+      const _drop  = _cy.length - _score.length;
+      if (_score.length > 0 && shares > 0) {
+        const coreRet = _score.reduce((s, c) => s + c.pnl / (c.entrySPY * shares), 0);
+        coreYld = coreRet * (365 / coreDays) * 100;
+        logDbg(`  Core yield: ${coreYld.toFixed(1)}%/yr over ${coreStart} → ${coreEnd} (${coreDays}d · per-cycle basis, ${_score.length} cycles × own entry spot × ${shares} sh · v7.2.13)`);
+        if (_drop > 0) logDbg(`  \u26a0 ${_drop} core cycle(s) EXCLUDED from core yield — no entrySPY`);
       }
     } else {
       logDbg(`  Core yield: n/a (<3 closed core cycles)`);
@@ -3879,7 +3908,7 @@ async function simulate(p) {
   const spyRet     = (Math.pow(1 + rawSpyRet/100, 365/dayCount) - 1) * 100;
   const covRet     = (Math.pow(1 + ccTotalRet/100, 365/dayCount) - 1) * 100;
 
-  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, openMark, openMarkSrc, coreYld, coreSum, coreDays, coreStart, coreEnd, coreBasisSPY, coreCycleCount, initPnl, openNetD };
+  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, openMark, openMarkSrc, coreYld, coreSum, coreDays, coreStart, coreEnd, coreCycleCount, initPnl, openNetD };
 }
 
 // ── Run simulation ─────────────────────────────────────────────────────────
@@ -5285,7 +5314,7 @@ async function exportLedgerPack() {
         params: c.axes
           ? { decay: c.axes.decay, dteFloor: c.axes.floor, delta: c.axes.delta, anchor: c.axes.lookahead, defH: c.axes.defh ?? 0, entryCap: c.axes.entrycap ?? null, grace: c.axes.grace ?? 3, entryDteMin: c.axes.entrydte ?? null }
           : { published: true, decay: STD.decayTrigger, dteFloor: STD.dteFloor, delta: STD.deltaThreshold, anchor: STD.dtePenaltyAnchor, defH: STD.defHorizon, entryCap: STD.entryDeltaCap, grace: STD.graceDays ?? 3, entryDteMin: STD.entryDteMin },
-        stats: { coreYld: res.coreYld ?? null, coreSum: res.coreSum ?? null, coreDays: res.coreDays ?? null, coreStart: res.coreStart ?? null, coreEnd: res.coreEnd ?? null, coreBasisSPY: res.coreBasisSPY ?? null, coreCycleCount: res.coreCycleCount ?? null, rolls: res.rolls?.length ?? 0 },
+        stats: { coreYld: res.coreYld ?? null, coreSum: res.coreSum ?? null, coreDays: res.coreDays ?? null, coreStart: res.coreStart ?? null, coreEnd: res.coreEnd ?? null, coreCycleCount: res.coreCycleCount ?? null, rolls: res.rolls?.length ?? 0 },
         shares: STD.shares || 600,
         cycles: cyc // v6.19.1 — the fingerprinted array IS the shipped array
       };
@@ -5294,10 +5323,13 @@ async function exportLedgerPack() {
     }
     if (!entries.length) { logMsg('\u2717 Ledger pack: nothing captured', 'err'); return; }
     const pack = {
-      schema: 'ledger-pack/1', app: APP_VERSION, generated: new Date().toISOString(),
+      // v7.2.13 — SCHEMA BUMP. /1 carried a coreYld on the RETIRED frozen
+      // first-roll basis, ~1pp higher for the same policy. basis is explicit
+      // so the adjudicator refuses the mix by name instead of inferring it.
+      schema: 'ledger-pack/2', basis: 'market-percycle', app: APP_VERSION, generated: new Date().toISOString(),
       dmUpdated: DM.metadata?.last_updated ?? null, dmSpyDays: DM.spy?.length ?? null, dmContracts: DM.options ? Object.keys(DM.options).length : null,
       sweepEvals: R.rows.length, considered: cands.length, distinct: entries.length,
-      note: 'incumbent is always id 0; cycles include the initial (isInitial:true) \u2014 core = non-initial closed cycles; core yield basis = coreBasisSPY \u00d7 shares over coreDays',
+      note: 'incumbent is always id 0; cycles include the initial (isInitial:true) \u2014 core = non-initial closed cycles; core yield = \u03a3[pnl_i/(entrySPY_i \u00d7 shares)] \u00d7 365/coreDays \u2014 each cycle against the spot ITS OWN selection saw (v7.2.13). A ledger-pack/1 pack divided coreSum by SPY at the first roll, frozen; the two are NOT comparable.',
       entries
     };
     const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);

@@ -124,7 +124,7 @@
       <span class="gatemsg" id="gateMsgP"></span>
     </div>
     <div class="parsebox" id="pboxP">— no pack loaded —</div>
-    <p class="note">Import a <span class="mono">ledger-pack/1</span> JSON from the backtester
+    <p class="note">Import a <span class="mono">ledger-pack/2</span> JSON from the backtester
     (v6.19.0+ Export Ledger Pack). Co-resampling: ONE shared sequence of circular
     calendar-day blocks (L ∈ {30, 61, 91} ≈ 1/2/3 months) applied to every entry per
     resample — shared history cancels; the Δ distribution reflects only where machines
@@ -139,9 +139,21 @@
 
 <script>
 "use strict";
-const BS_VERSION='v1.3.1'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
+const BS_VERSION='v1.4.0'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
 document.addEventListener('DOMContentLoaded',()=>{const e=document.getElementById('bs-ver');if(e)e.textContent=BS_VERSION;});
-/* Cycle-Ledger Bootstrap v1.3.1 — S48
+/* Cycle-Ledger Bootstrap v1.4.0 — S66
+   v1.4.0 (S66): LEDGER-PACK/2 ONLY. Backtester v7.2.13 retired the frozen
+   first-roll core-yield basis. There is no single basis: each cycle is scored
+   against the spot its own selection saw, coreYld = Σ[pnl_i/(entrySPY_i ×
+   shares)] × 365/coreDays. Packs carry schema ledger-pack/2, basis
+   market-percycle. /1 is refused BY NAME with the reason — same policy reads
+   ~1pp higher under /1, so a /1 report and a /2 report are not comparable even
+   though both are labelled core yield. basis is surfaced on import and stamped
+   into every report header, so no report is silent about its own frame.
+   Ordering was measured UNCHANGED across the six-entry v6.41.0 pack before the
+   switch: this is a level correction, not a re-selection.
+
+   v1.3.1 (S48): P-P1 VERDICT SELECTS BY PAIRED P(Δ>0) — the "strongest
    Full version history: CHANGELOG.md in the project folder (S46 ruling; in-file
    log carries only the current release entry, per the S45 convention).
    v1.3.1 (S48): P-P1 VERDICT SELECTS BY PAIRED P(Δ>0) — the "strongest
@@ -449,7 +461,14 @@ function dayIdx(iso,t0){return Math.round((Date.parse(iso+'T00:00:00Z')-t0)/8640
 function parsePack(txt){
   let j;
   try{j=JSON.parse(txt);}catch(e){return {err:'Not valid JSON: '+e.message};}
-  if(j.schema!=='ledger-pack/1')return {err:'Unknown schema "'+(j.schema||'?')+'" — expected ledger-pack/1'};
+  // v1.4.0 (S66) — ledger-pack/2. A /1 pack's coreYld divided coreSum by SPY
+  // at the FIRST ROLL, frozen; /2 scores each cycle against the spot its own
+  // selection saw. Same policy reads ~1pp higher under /1. parsePack takes ONE
+  // pack, so /1 and /2 entries cannot mix inside a run — the hazard is reading
+  // a /1 REPORT against a /2 report. /1 is refused BY NAME, with the reason.
+  if(j.schema==='ledger-pack/1')return {err:'ledger-pack/1 — RETIRED at v7.2.13. Its coreYld uses the frozen first-roll basis and reads ~1pp higher than /2 for the same policy. Not comparable to a /2 report. Re-export from the backtester.'};
+  if(j.schema!=='ledger-pack/2')return {err:'Unknown schema "'+(j.schema||'?')+'" — expected ledger-pack/2'};
+  if(j.basis&&j.basis!=='market-percycle')return {err:'Unknown basis "'+j.basis+'" — expected market-percycle'};
   if(!Array.isArray(j.entries)||!j.entries.length)return {err:'Pack has no entries'};
   const probs=[];
   j.entries.forEach(e=>{
@@ -468,7 +487,7 @@ function showPack(res){
   const box=$('pboxP');
   if(res.err){box.innerHTML='<span class="bad">'+res.err+'</span>';return null;}
   const j=res.pack;
-  let h='schema <b>'+j.schema+'</b> · app <b>'+(j.app||'?')+'</b> · DM <b>'+(j.dmUpdated||'?')
+  let h='schema <b>'+j.schema+'</b> · basis <b>'+(j.basis||'?')+'</b> · app <b>'+(j.app||'?')+'</b> · DM <b>'+(j.dmUpdated||'?')
     +'</b> · sweep evals <b>'+(j.sweepEvals??'?')+'</b> · considered '+(j.considered??'?')
     +' → distinct <b>'+(j.distinct??j.entries.length)+'</b>\n';
   j.entries.forEach(e=>{
@@ -556,7 +575,7 @@ $('runP').onclick=()=>{
   const stamp=etStamp(new Date(),false);
   const hdr='bootstrap '+BS_VERSION+' · pack mode · '+stamp
     +' · seed '+seed+' · B '+B+' · L {30,61,91}cd · window '+W+'d'
-    +'\npack: app '+(j.app||'?')+' · DM '+(j.dmUpdated||'?')+' · distinct '+E.length
+    +'\npack: app '+(j.app||'?')+' · DM '+(j.dmUpdated||'?')+' · basis '+(j.basis||'?')+' · distinct '+E.length
     +' · draw ck {'+Ls.map(L=>res[L].drawCk).join(', ')+'}';
   const out=['<div class="card"><h2>Pack run header — copy into the session record</h2>'
     +'<div class="runhdr">'+hdr+'</div>'];
