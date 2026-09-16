@@ -154,7 +154,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.2.13</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.3.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -557,7 +557,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.13 · PER-CYCLE OBJECTIVE BASIS (S66, Ron). SIM-REGION. coreYld divided coreSum by cycles[0].exitSPY × shares — SPY at the FIRST ROLL, frozen across the whole window — while BOTH selection layers normalise premium by the spot on screen at the decision (rawYield in the sim, adjYield in the live scan). Every cycle was CHOSEN on current spot and SCORED on a two-year-old price. THERE IS NO SINGLE BASIS: a live selection can only use one day’s spot, and the sim must replicate live rather than the reverse, so each cycle is now scored against the capital its own decision was made against — coreYld = Σ[pnl_i/(entrySPY_i × shares)] × 365/coreDays. Not an averaged basis renamed: dividing each cycle by its own spot differs arithmetically from averaging and dividing once, and the averaged forms COMPRESS the candidate spread the Gate adjudicates (incumbent trails raw #1 by 0.54pp per-cycle vs 0.81pp equal-averaged). No daysHeld anywhere — hold duration is unknown at decision time and cannot enter a metric that scores decisions as they were made. MEASURED FIRST on the v6.41.0 six-entry pack, before any code moved: published 10.12% → 9.17%, ORDERING UNCHANGED [1,2,3,0,5,4] — the published policy was NOT selected by an artifact and needs no re-selection. Cycles lacking entrySPY are EXCLUDED and counted in the log, never folded in at another basis. coreBasisSPY is RETIRED everywhere including the pack’s own note field; it was never a real quantity. PACK SCHEMA ledger-pack/1 → /2 with basis:market-percycle; /1 packs are retired, not backfilled, and a fresh OPT and bootstrap follow. Base v7.2.12 (b88e6cb6).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.3.0 · STRATIFIED PACK SELECTION (S67, Ron). SELECTION ONLY — the sim region is untouched and every pack invariant holds (incumbent is id 0, param-tuple then ledger-fingerprint dedup, fingerprint bound to the SHIPPED serialised cycles, schema ledger-pack/2, basis market-percycle). exportLedgerPack() selected raw candidates as rawSorted.slice(0,kRaw) — top-K by core yield. Core yield is MONOTONE in the frequency axes (decay, delta, defH): the S67 sweeps at 22,050 and 32,400 evals EACH walked to whatever floor the grid offered (decay 8→4→2, Δ 0.64→0.56, defH 4→1), so widening a range RELOCATES the corner instead of bounding it and top-K returns K neighbours of that corner by construction. The two packs spent 5 and 9 challenger slots on ~2 hypotheses; the Gate rejected both, twice, at ~11h of sweep per verdict, and NO entry in either pack sat near the incumbent’s operating point. Raw selection is now STRATIFIED by roll count against r0 = the incumbent cell’s own rolls: bands at 0.85/1.15/1.50/2.00 × r0, kRaw KEEPS ITS MEANING (total raw slots, not per-band — the existing default of 5 does not silently become 25 capture sims) and is dealt round-robin across non-empty bands. The corner keeps a seat; it stops taking all of them. Plus an INCUMBENT±1 SEED: best cell within one grid step of STD on every swept axis, so “a modest improvement on what is actually published” is representable — under top-K it entered only by coincidence (the S66 pack’s raw #5: 158 core cycles, frequency-MATCHED to the incumbent, P(Δ>0) 86% at L91, p05 −0.13, the best adjudication result to date, failed by 0.03pp). Robust top-K UNCHANGED — different question, and its failures are informative. DRY-RUN on the real 32,400-cell leaderboard: A#1 132 rolls 9.1% (rank #498) · B#1 158 rolls 9.8% (#86) · C#1 236 rolls 10.7% (#15) · D#1 284 rolls 11.5% (#1) · nbr 157 rolls 9.7% (#107); band E (>2.00×) was EMPTY on that tape, so its boundary is untested, and at kRaw=5 round-robin hands band A a near-twin second pick — USE kRaw=4. If STD is not on the grid the strata fall back to a median r0 and say so in the log. Provenance rides in the pack’s note field, NOT a new top-level key: v1.4.0’s importer strictness is unread. FALSIFIED IF three stratified packs produce no challenger above 86%, or the frequency-matched B band consistently adjudicates worse than the corner — then the corner is genuinely the best region on this tape and selection was not the binding constraint. Base v7.2.13 (9f6b2b14).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.13 · PER-CYCLE OBJECTIVE BASIS (S66, Ron). SIM-REGION. coreYld divided coreSum by cycles[0].exitSPY × shares — SPY at the FIRST ROLL, frozen across the whole window — while BOTH selection layers normalise premium by the spot on screen at the decision (rawYield in the sim, adjYield in the live scan). Every cycle was CHOSEN on current spot and SCORED on a two-year-old price. THERE IS NO SINGLE BASIS: a live selection can only use one day’s spot, and the sim must replicate live rather than the reverse, so each cycle is now scored against the capital its own decision was made against — coreYld = Σ[pnl_i/(entrySPY_i × shares)] × 365/coreDays. Not an averaged basis renamed: dividing each cycle by its own spot differs arithmetically from averaging and dividing once, and the averaged forms COMPRESS the candidate spread the Gate adjudicates (incumbent trails raw #1 by 0.54pp per-cycle vs 0.81pp equal-averaged). No daysHeld anywhere — hold duration is unknown at decision time and cannot enter a metric that scores decisions as they were made. MEASURED FIRST on the v6.41.0 six-entry pack, before any code moved: published 10.12% → 9.17%, ORDERING UNCHANGED [1,2,3,0,5,4] — the published policy was NOT selected by an artifact and needs no re-selection. Cycles lacking entrySPY are EXCLUDED and counted in the log, never folded in at another basis. coreBasisSPY is RETIRED everywhere including the pack’s own note field; it was never a real quantity. PACK SCHEMA ledger-pack/1 → /2 with basis:market-percycle; /1 packs are retired, not backfilled, and a fresh OPT and bootstrap follow. Base v7.2.12 (b88e6cb6).</span></div>
 </div>
 
 <script>
@@ -744,7 +744,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.2.13'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.3.0'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -5287,8 +5287,71 @@ async function exportLedgerPack() {
     const cands = [];
     cands.push({ label: 'incumbent (published)', sim: { ...STD, shares: STD.shares || 600 }, axes: null });
     const rowSim = r => ({ ...STD, shares: STD.shares || 600, decayTrigger: r.decay, dteFloor: r.floor, deltaThreshold: r.delta, dtePenaltyAnchor: r.lookahead, defHorizon: r.defh ?? 0, entryDeltaCap: r.entrycap ?? null, graceDays: r.grace ?? 3, entryDteMin: r.entrydte ?? null });
-    const rawSorted = R.rows.filter(r => r.yld !== null).slice().sort((a, b) => b.yld - a.yld);
-    rawSorted.slice(0, kRaw).forEach((r, i) => cands.push({ label: 'raw #' + (i + 1), sim: rowSim(r), axes: r }));
+    // ── v7.3.0 — STRATIFIED SELECTION ─────────────────────────
+    // Top-K by core yield returns K NEIGHBOURS OF THE FREQUENCY CORNER, not
+    // a sample of the leaderboard: core yield is monotone in decay/delta/defH,
+    // so S67's two sweeps each walked to whatever floor the grid offered and
+    // widening relocated the corner instead of bounding it. The two packs
+    // spent 5 and 9 challenger slots on ~2 hypotheses; the Gate rejected both,
+    // twice, at ~11h of sweep per verdict. Strata deal the SAME slots across
+    // roll-count bands so each band gets a representative — the corner keeps
+    // its seat, it just stops taking all of them. Selection only: adjudication
+    // still happens in the bootstrap, ratification still with the builder.
+    const LP_BANDS = [
+      { key: 'A', lo: 0,    hi: 0.85,     name: '<0.85x'     },
+      { key: 'B', lo: 0.85, hi: 1.15,     name: '0.85-1.15x' },
+      { key: 'C', lo: 1.15, hi: 1.50,     name: '1.15-1.50x' },
+      { key: 'D', lo: 1.50, hi: 2.00,     name: '1.50-2.00x' },
+      { key: 'E', lo: 2.00, hi: Infinity, name: '2.00x+'     }
+    ];
+    const _eqv = (a, b) => (a == null && b == null) ? true : (a != null && b != null && Math.abs(a - b) < 1e-9);
+    const _elig = R.rows.filter(r => r.yld !== null);
+    const stdRow = _elig.find(r =>
+      _eqv(r.decay, STD.decayTrigger) && _eqv(r.floor, STD.dteFloor) &&
+      _eqv(r.delta, STD.deltaThreshold) && _eqv(r.lookahead, STD.dtePenaltyAnchor) &&
+      _eqv(r.defh ?? 0, STD.defHorizon ?? 0) && _eqv(r.entrycap ?? null, STD.entryDeltaCap ?? null) &&
+      _eqv(r.grace ?? 3, STD.graceDays ?? 3));
+    let r0 = stdRow ? (stdRow.rolls || 0) : 0;
+    if (!r0) { const _rs = _elig.map(r => r.rolls || 0).sort((a, b) => a - b); r0 = _rs.length ? _rs[Math.floor(_rs.length / 2)] : 1; }
+    logMsg('  strata: r0 = ' + r0 + ' rolls ' + (stdRow ? '(incumbent cell found on grid)' : '⚠ (STD NOT on grid — median fallback; strata are NOT incumbent-relative)'), '');
+    const _bandOf = r => { const x = (r.rolls || 0) / r0; return LP_BANDS.find(b => x >= b.lo && x < b.hi) || LP_BANDS[LP_BANDS.length - 1]; };
+    const _buckets = new Map(LP_BANDS.map(b => [b.key, []]));
+    _elig.forEach(r => _buckets.get(_bandOf(r).key).push(r));
+    _buckets.forEach(arr => arr.sort((a, b) => b.yld - a.yld));
+    LP_BANDS.forEach(b => { const n = _buckets.get(b.key).length; logMsg('    band ' + b.key + ' ' + b.name + ': ' + n + ' cell(s)' + (n ? ' · best core ' + _buckets.get(b.key)[0].yld.toFixed(1) + '%' : ''), ''); });
+    // kRaw keeps its meaning — TOTAL raw slots — dealt round-robin across
+    // non-empty bands, so the existing default of 5 gives one per band.
+    const _order = LP_BANDS.filter(b => _buckets.get(b.key).length);
+    let _picked = 0;
+    for (let depth = 0; _picked < kRaw && _order.length; depth++) {
+      let _took = false;
+      for (const b of _order) {
+        if (_picked >= kRaw) break;
+        const arr = _buckets.get(b.key);
+        if (depth >= arr.length) continue;
+        const r = arr[depth];
+        cands.push({ label: 'raw ' + b.key + '#' + (depth + 1) + ' (' + b.name + ', ' + (r.rolls || 0) + ' rolls)', sim: rowSim(r), axes: r });
+        _picked++; _took = true;
+      }
+      if (!_took) break;
+    }
+    // Incumbent-neighbourhood seed: best cell within ±1 grid step of STD on
+    // EVERY swept axis. Makes "a modest improvement on what is actually
+    // published" representable; under top-K it entered only by coincidence
+    // (S66 pack raw #5 — 158 cycles, P(Δ>0) 86% at L91, best result to date).
+    (() => {
+      const ax = _rrAxesG || {}; const names = Object.keys(ax);
+      if (!names.length || !stdRow) return;
+      const at = {}; let ok = true;
+      names.forEach(a => { const i = ax[a].findIndex(v => _eqv(v, stdRow[a])); if (i < 0) ok = false; else at[a] = i; });
+      if (!ok) { logMsg('    nbr seed: STD value not on a swept axis — skipped', ''); return; }
+      const near = _elig.filter(r => r !== stdRow && names.every(a => {
+        const i = ax[a].findIndex(v => _eqv(v, r[a]));
+        return i >= 0 && Math.abs(i - at[a]) <= 1;
+      })).sort((a, b) => b.yld - a.yld);
+      if (!near.length) { logMsg('    nbr seed: no eligible ±1 neighbour — skipped', ''); return; }
+      cands.push({ label: 'nbr (incumbent ±1, ' + (near[0].rolls || 0) + ' rolls)', sim: rowSim(near[0]), axes: near[0] });
+    })();
     const robList = (_rankingRR && _rankingRR.list) ? _rankingRR.list.filter(o => o.eligible) : [];
     robList.slice(0, kRob).forEach((o, i) => cands.push({ label: 'robust R#' + (i + 1), sim: rowSim(o.row), axes: o.row }));
     // Param-level dedup first (raw/robust overlap is common): key on the axis tuple.
@@ -5329,7 +5392,7 @@ async function exportLedgerPack() {
       schema: 'ledger-pack/2', basis: 'market-percycle', app: APP_VERSION, generated: new Date().toISOString(),
       dmUpdated: DM.metadata?.last_updated ?? null, dmSpyDays: DM.spy?.length ?? null, dmContracts: DM.options ? Object.keys(DM.options).length : null,
       sweepEvals: R.rows.length, considered: cands.length, distinct: entries.length,
-      note: 'incumbent is always id 0; cycles include the initial (isInitial:true) \u2014 core = non-initial closed cycles; core yield = \u03a3[pnl_i/(entrySPY_i \u00d7 shares)] \u00d7 365/coreDays \u2014 each cycle against the spot ITS OWN selection saw (v7.2.13). A ledger-pack/1 pack divided coreSum by SPY at the first roll, frozen; the two are NOT comparable.',
+      note: 'selection: v7.3.0 roll-stratified (bands 0.85/1.15/1.50/2.00 \u00d7 r0) + incumbent\u00b11 seed + robust top-K; incumbent is always id 0; cycles include the initial (isInitial:true) \u2014 core = non-initial closed cycles; core yield = \u03a3[pnl_i/(entrySPY_i \u00d7 shares)] \u00d7 365/coreDays \u2014 each cycle against the spot ITS OWN selection saw (v7.2.13). A ledger-pack/1 pack divided coreSum by SPY at the first roll, frozen; the two are NOT comparable.',
       entries
     };
     const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
