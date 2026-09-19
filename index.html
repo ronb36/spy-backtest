@@ -143,6 +143,76 @@ select.display-box { cursor:pointer; outline:none; }
 
 .footer { font-size:11px; color:var(--muted); border-top:1px solid var(--border); padding-top:12px; margin-top:8px; line-height:1.6; }
 @media(max-width:700px) { .init-grid { grid-template-columns:repeat(3,1fr); } .summary-grid { grid-template-columns:repeat(2,1fr); } #var-card-row { grid-template-columns:repeat(2,1fr); } } /* v6.19.4 — controls-row rule removed with the wrapper. v6.31.2 (Ron's iPhone sighting) — #run-publish-card full-width rule REMOVED: the card row's column count is INLINE (repeat(4,1fr)) and beats this query's 2-col rule, so phones rendered 4 columns while the run card still obeyed grid-column:1/-1 — exiled to its own 3rd row under an empty row-2 slot. As cell 8 of the 4×2 grid it now fills that slot on every width. (The var-card-row 2-col rule above is dead for the same inline-beats-query reason; left as-is, out of scope.) */
+
+/* ── v7.4.0 · merged Gate region (bootstrap v1.5.0) — every selector scoped
+   to #tab-gate so the light-themed instrument cannot touch the host page. */
+#tab-gate{
+    --paper:#f6f7f5; --panel:#ffffff; --ink:#1c2126; --dim:#6b7480;
+    --line:#d8dce0; --mono-bg:#f0f2f1; --signal:#2456c8; --pass:#1a7d3c;
+    --fail:#b3261e; --warn:#a05a00; --band:#dfe7f8;
+  }
+#tab-gate *{box-sizing:border-box}
+#tab-gate{-webkit-text-size-adjust:100%}
+#tab-gate{margin:0;background:var(--paper);color:var(--ink);
+       font:16px/1.5 -apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif}
+#tab-gate .wrap{max-width:880px;margin:0 auto;padding:20px 16px 60px}
+#tab-gate h1{font-size:21px;font-weight:700;letter-spacing:.01em;margin:6px 0 2px}
+#tab-gate .sub{color:var(--dim);font-size:13.5px;margin:0 0 18px}
+#tab-gate .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+        padding:14px 16px;margin-bottom:14px}
+#tab-gate .card h2{font-size:13px;font-weight:700;text-transform:uppercase;
+           letter-spacing:.07em;color:var(--dim);margin:0 0 10px}
+#tab-gate textarea{width:100%;height:130px;font:12px/1.45 ui-monospace,Menlo,monospace;
+           border:1px solid var(--line);border-radius:6px;padding:8px;
+           background:var(--mono-bg);color:var(--ink);resize:vertical}
+#tab-gate .row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px}
+#tab-gate label{font-size:12.5px;color:var(--dim);display:block;margin-bottom:3px}
+#tab-gate input[type=text], #tab-gate input[type=number]{
+    font:14px ui-monospace,Menlo,monospace;border:1px solid var(--line);
+    border-radius:6px;padding:7px 9px;width:110px;background:#fff;color:var(--ink)}
+#tab-gate input[type=file]{display:none}
+#tab-gate button{font:600 14px -apple-system,sans-serif;border:1px solid var(--ink);
+         border-radius:6px;padding:9px 16px;background:var(--ink);color:#fff;
+         cursor:pointer}
+#tab-gate button.ghost{background:#fff;color:var(--ink)}
+#tab-gate button:disabled{opacity:.45;cursor:default}
+#tab-gate .gatemsg{font:12.5px ui-monospace,Menlo,monospace;color:var(--warn)}
+#tab-gate .mono{font-family:ui-monospace,Menlo,monospace}
+#tab-gate .parsebox{font:12.5px/1.6 ui-monospace,Menlo,monospace;background:var(--mono-bg);
+            border:1px solid var(--line);border-radius:6px;padding:8px 10px;
+            margin-top:10px;white-space:pre-wrap}
+#tab-gate .ok{color:var(--pass);font-weight:700}
+#tab-gate .bad{color:var(--fail);font-weight:700}
+#tab-gate .wn{color:var(--warn);font-weight:700}
+#tab-gate table{border-collapse:collapse;width:100%;font:13px/1.5 ui-monospace,Menlo,monospace}
+#tab-gate th, #tab-gate td{text-align:right;padding:4px 8px;border-bottom:1px solid var(--line)}
+#tab-gate th{color:var(--dim);font-weight:600;font-size:11.5px;text-transform:uppercase;
+     letter-spacing:.05em}
+#tab-gate th:first-child, #tab-gate td:first-child{text-align:left}
+#tab-gate .gauge{position:relative;height:34px;margin:8px 0 2px;background:var(--mono-bg);
+         border:1px solid var(--line);border-radius:5px;overflow:hidden}
+#tab-gate .gauge .band{position:absolute;top:0;bottom:0;background:var(--band)}
+#tab-gate .gauge .iqr{position:absolute;top:9px;bottom:9px;background:#b9c9ee}
+#tab-gate .gauge .med{position:absolute;top:0;bottom:0;width:2px;background:var(--signal)}
+#tab-gate .gauge .cmp{position:absolute;top:0;bottom:0;width:2px;background:var(--fail)}
+#tab-gate .gauge .cmp::after{content:attr(data-l);position:absolute;top:-1px;left:4px;
+         font:10px ui-monospace,monospace;color:var(--fail);white-space:nowrap}
+#tab-gate .axis{display:flex;justify-content:space-between;font:10.5px ui-monospace,monospace;
+        color:var(--dim);margin-bottom:10px}
+#tab-gate .verdict{font:13px/1.6 ui-monospace,Menlo,monospace;border-left:3px solid var(--line);
+           padding:6px 10px;margin:8px 0;background:var(--mono-bg);border-radius:0 5px 5px 0}
+#tab-gate .verdict.pass{border-left-color:var(--pass)}
+#tab-gate .verdict.fail{border-left-color:var(--fail)}
+#tab-gate .runhdr{font:12px/1.6 ui-monospace,Menlo,monospace;color:var(--dim);
+          background:var(--mono-bg);border:1px dashed var(--line);border-radius:6px;
+          padding:7px 10px;margin-bottom:10px;white-space:pre-wrap;user-select:all}
+#tab-gate .note{font-size:12.5px;color:var(--dim);margin-top:8px}
+@media (max-width:520px){
+#tab-gate input[type=text], #tab-gate input[type=number]{width:88px}
+#tab-gate th, #tab-gate td{padding:4px 5px}
+}
+
+
 </style>
 </head>
 <body>
@@ -154,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.3.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.4.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -310,7 +380,17 @@ select.display-box { cursor:pointer; outline:none; }
       <button class="tab-btn" id="tab-btn-runlog" onclick="showTab('runlog')">📄 Logs</button>
       <button class="tab-btn" id="tab-btn-scan" onclick="showTab('scan')" style="display:none">🔍 Scan</button>
       <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
-      <button class="tab-btn" id="tab-btn-research" onclick="showTab('research')">🔬 Research</button>
+      <button class="tab-btn" id="tab-btn-gate" onclick="showTab('gate')">⚖️ Gate</button>
+      <!-- v7.3.3 — Research tab RETIRED (S67, Ron): no open research projects. Phase B
+           H-tournament closed with a NEGATIVE verdict at 11/10 cycles (H=6 and H-infinity
+           picked the IDENTICAL contract in all 83 era scans with shadow_topk — the horizon
+           rescales every candidate by a near-constant factor, mean H6/Hinf 0.506, so the
+           argmax cannot move). The flip-rate probe cleared its gate (M1 74.1% vs a predicted
+           20% [10–35]) but measures a frame nobody trades — candidates are never generated
+           from prior-day data — and its one actionable finding is already banked in v7.3.2.
+           The tab BODY, renderResearchTab, the probe and the registry code are all LEFT IN
+           PLACE, unreferenced: re-add this button to bring it back. shadow_topk collection
+           continues in scan_snapshot, so a future regime change is still recorded. -->
     </div>
 
     <!-- v6.24.1 — Performance panel: directly below the tab row (Ron respec), compact height,
@@ -435,6 +515,76 @@ select.display-box { cursor:pointer; outline:none; }
     </div>
 
     <!-- Live Trades tab -->
+    <div id="tab-gate" style="display:none">
+<div class="wrap">
+  <h1>Cycle-Ledger Bootstrap <span id="bs-ver" class="mono" style="font-weight:400;font-size:14px;color:var(--dim)"></span></h1>
+  <p class="sub">Circular moving-block bootstrap on Exit Attribution per-cycle rows.
+  Evaluation instrument only — no policy machinery. Load a certified STD log file,
+  or paste rows exactly as they appear in the log (timestamps optional).</p>
+
+  <div class="card">
+    <h2>Ledger A — primary</h2>
+    <textarea id="txtA" placeholder="#1 2024-07-19 decay 3d P&amp;L +$5,841 ITM -2.8% Δin 0.68&#10;#2 ..."></textarea>
+    <div class="row">
+      <div><label>Observed core yield %</label><input type="number" id="yA" step="0.1"></div>
+      <button class="ghost" id="loadA">Load STD log…</button>
+      <input type="file" id="fileA" accept=".txt,text/plain">
+      <button class="ghost" id="parseA">Parse Ledger A</button>
+    </div>
+    <div class="parsebox" id="pboxA">— not parsed —</div>
+  </div>
+
+  <div class="card">
+    <h2>Ledger B — comparison (optional)</h2>
+    <textarea id="txtB" placeholder="Load or paste the sandbox run's log here, or leave empty and use the point-yield field below."></textarea>
+    <div class="row">
+      <div><label>Observed core yield %</label><input type="number" id="yB" step="0.1"></div>
+      <button class="ghost" id="loadB">Load STD log…</button>
+      <input type="file" id="fileB" accept=".txt,text/plain">
+      <button class="ghost" id="parseB">Parse Ledger B</button>
+    </div>
+    <div class="parsebox" id="pboxB">— not parsed —</div>
+  </div>
+
+  <div class="card">
+    <h2>Run</h2>
+    <div class="row">
+      <div><label>Resamples B</label><input type="number" id="nB" value="10000"></div>
+      <div><label>Seed</label><input type="number" id="seed" value="42"></div>
+      <div><label>Comparison yield % (P-B1)</label><input type="number" id="cmpY" step="0.01"></div>
+      <button id="run" disabled>Run bootstrap</button>
+      <span class="gatemsg" id="gateMsg"></span>
+    </div>
+    <p class="note">Block lengths L ∈ {3, 6, 10} always run together (P-B2). Seeded PRNG —
+    same seed + same rows reproduces the run exactly. Comparison yield defaults to
+    Ledger B's observed yield when B is parsed.</p>
+  </div>
+
+  <div class="card"><!-- ledger-pack N-way mode (v1.3.0+): separate path, legacy A/B untouched -->
+    <h2>Ledger Pack — N-way calendar-block</h2>
+    <div class="row">
+      <button class="ghost" id="loadP">Load ledger pack…</button>
+      <input type="file" id="fileP" accept=".json,application/json">
+      <div><label>Resamples B</label><input type="number" id="nBP" value="10000"></div>
+      <div><label>Seed</label><input type="number" id="seedP" value="42"></div>
+      <button id="runP" disabled>Run pack bootstrap</button>
+      <span class="gatemsg" id="gateMsgP"></span>
+    </div>
+    <div class="parsebox" id="pboxP">— no pack loaded —</div>
+    <p class="note">Import a <span class="mono">ledger-pack/2</span> JSON from the backtester
+    (v6.19.0+ Export Ledger Pack). Co-resampling: ONE shared sequence of circular
+    calendar-day blocks (L ∈ {30, 61, 91} ≈ 1/2/3 months) applied to every entry per
+    resample — shared history cancels; the Δ distribution reflects only where machines
+    diverge. Core cycles only (initial excluded), attributed to blocks by exit date.
+    Outputs: win-frequency ranking + paired Δ vs entry #0 (incumbent). Adjudication
+    instrument only — the shortlist still walks through walk-forward.</p>
+  </div>
+
+  <div id="outP"></div>
+  <div id="out"></div>
+</div>
+    </div>
+
     <div id="tab-research" style="display:none"><!-- v6.7.0 — walk-forward registry watcher -->
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
@@ -557,7 +707,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.3.2 · SCAN SPOT = AGENT SPOT (S67, Ron). The scan and the agent disagreed on whether a trigger had FIRED. S67 09-17: the scan read SPY $760.61 from a 10:54 ET minute bar at 11:10 (17m stale) while the agent’s card read $761.89 — defH-10 delta 0.685 vs 0.719 across a 0.700 threshold, fire spot $761.21. The scan therefore returned NO delta fire on the very cycle the agent rolled, and that empty allTypes is what let v7.3.1’s initialiser bug stamp a decay label on it. VIX was NOT the cause — scanVix already prefers live (15.91 fresh vs DM 17.71); the “VIX from the DM’s latest close” comment at the delta block is STALE TEXT. fetchLiveSPY now tries the /v2/snapshot stocks product FIRST (ticker.lastTrade.p, then day.c) and keeps the minute aggregate as fallback. A minute bar cannot exist until its minute has CLOSED and published, so the aggregate path is structurally a minute-plus behind before feed delay. This is NOT the dead /v2/last/trade endpoint (v6.4.12) that needed an entitlement this key lacks and silently returned null — it is the same snapshot product the AGENT has run in production every 30 minutes on the same key. DELIBERATE REVISION OF S37 SCOPE: S37 put the scan on the aggregates family for source-consistency with the DM’s daily bars. That argument is about the SIM’s frame; the scan’s trigger check is a live-tape question where freshness is what matters. The DM-shadow comparison still runs on DM spot — that one IS a sim-frame question and is UNTOUCHED, as are the sim, the OPT loop and every trigger TEST. _spyQuoteMeta gains a src tag and the scan header now says which source it used and its age (“trade 11:09 ET, 1m · stocks-snapshot, agent-parity” vs “bar 10:54 ET, 17m · minute-agg FALLBACK — snapshot unavailable”), so a silent downgrade cannot hide. Note the assumption v6.4.12 recorded and this supersedes: “immaterial for decay/delta checks on multi-month positions” — true at 1–5% OTM, FALSE at 0.5% OTM where defH-10 delta moves ~0.019 per $1 of SPY and 60¢ of staleness is 0.012 of delta. Verified across five branches: snapshot lastTrade→761.89/snap/1m · day.c-only→snap/0m · snapshot 403→agg/17m · snapshot throws→agg/17m · both dead→null (existing DM-close tripwire still fires). Base v7.3.1.</span><br><span style="color:var(--muted);opacity:.6;">v7.3.1 · TRIGGER LABEL HONESTY (S67, Ron). DISPLAY/RECORD ONLY — no trigger TEST changed, no sim path touched. S67 cycle 16 (09/16→09/17, 1d hold, −$2,994) was written to the blotter as “decay −13.2% ≥ 8%”: a decay label, with a NEGATIVE decay value, on a cycle whose time value GREW and which was closed by a delta stop (Δ 0.719 ≥ 0.700 on the agent). Three defects, all in _scanTriggerInfo and its renderer. (1) primaryType was INITIALISED to ‘decay’ and the delta-first precedence only REASSIGNS when allTypes is non-empty — so a scan where NOTHING fired returned type:‘decay’ from the initialiser and carried decayVal with it. Now initialised NULL: “nothing fired” is representable. (2) _renderScanUI did `ti.type || ‘decay’` — a SECOND default that re-introduced the mislabel even once the builder reported null honestly. Now `|| null`. (3) currentVal was assigned ONLY inside the decay branch, so on a delta fire the delta chip rendered the decay PERCENTAGE (or an em dash) as if it were a delta — two frames, one field. currentVal now follows the primary type, and the chip reads ti.deltaVal. Verified across all five fire combinations: nothing→null/HOLD, delta-only→0.719/delta, decay-only→11.7/decay, co-fire→delta primary with signal decay+delta, dte-only→dte. NOT FIXED HERE, and the reason the scan disagreed with the agent at all: the scan evaluated on a 17-MINUTE-STALE spot bar ($760.61, 10:54 ET) while the agent used $761.89 — 0.685 vs 0.719 across a 0.700 threshold, fire spot $761.21. VIX was NOT the cause (scanVix already prefers live: fresh 15.91 vs DM 17.71; the “VIX from the DM’s latest close” comment at the delta block is STALE TEXT — read the code, not the comment). Spot-source parity between scan and agent is SPECCED, NOT BUILT. Consequence still on the books: cycle 16’s loss landed in the DECAY pool, so the era-pinned decay/delta split and both pool P&Ls are misattributed for that cycle until the record is corrected. Base v7.3.0.</span><br><span style="color:var(--muted);opacity:.6;">v7.3.0 · STRATIFIED PACK SELECTION (S67, Ron). SELECTION ONLY — the sim region is untouched and every pack invariant holds (incumbent is id 0, param-tuple then ledger-fingerprint dedup, fingerprint bound to the SHIPPED serialised cycles, schema ledger-pack/2, basis market-percycle). exportLedgerPack() selected raw candidates as rawSorted.slice(0,kRaw) — top-K by core yield. Core yield is MONOTONE in the frequency axes (decay, delta, defH): the S67 sweeps at 22,050 and 32,400 evals EACH walked to whatever floor the grid offered (decay 8→4→2, Δ 0.64→0.56, defH 4→1), so widening a range RELOCATES the corner instead of bounding it and top-K returns K neighbours of that corner by construction. The two packs spent 5 and 9 challenger slots on ~2 hypotheses; the Gate rejected both, twice, at ~11h of sweep per verdict, and NO entry in either pack sat near the incumbent’s operating point. Raw selection is now STRATIFIED by roll count against r0 = the incumbent cell’s own rolls: bands at 0.85/1.15/1.50/2.00 × r0, kRaw KEEPS ITS MEANING (total raw slots, not per-band — the existing default of 5 does not silently become 25 capture sims) and is dealt round-robin across non-empty bands. The corner keeps a seat; it stops taking all of them. Plus an INCUMBENT±1 SEED: best cell within one grid step of STD on every swept axis, so “a modest improvement on what is actually published” is representable — under top-K it entered only by coincidence (the S66 pack’s raw #5: 158 core cycles, frequency-MATCHED to the incumbent, P(Δ>0) 86% at L91, p05 −0.13, the best adjudication result to date, failed by 0.03pp). Robust top-K UNCHANGED — different question, and its failures are informative. DRY-RUN on the real 32,400-cell leaderboard: A#1 132 rolls 9.1% (rank #498) · B#1 158 rolls 9.8% (#86) · C#1 236 rolls 10.7% (#15) · D#1 284 rolls 11.5% (#1) · nbr 157 rolls 9.7% (#107); band E (>2.00×) was EMPTY on that tape, so its boundary is untested, and at kRaw=5 round-robin hands band A a near-twin second pick — USE kRaw=4. If STD is not on the grid the strata fall back to a median r0 and say so in the log. Provenance rides in the pack’s note field, NOT a new top-level key: v1.4.0’s importer strictness is unread. FALSIFIED IF three stratified packs produce no challenger above 86%, or the frequency-matched B band consistently adjudicates worse than the corner — then the corner is genuinely the best region on this tape and selection was not the binding constraint. Base v7.2.13 (9f6b2b14).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.13 · PER-CYCLE OBJECTIVE BASIS (S66, Ron). SIM-REGION. coreYld divided coreSum by cycles[0].exitSPY × shares — SPY at the FIRST ROLL, frozen across the whole window — while BOTH selection layers normalise premium by the spot on screen at the decision (rawYield in the sim, adjYield in the live scan). Every cycle was CHOSEN on current spot and SCORED on a two-year-old price. THERE IS NO SINGLE BASIS: a live selection can only use one day’s spot, and the sim must replicate live rather than the reverse, so each cycle is now scored against the capital its own decision was made against — coreYld = Σ[pnl_i/(entrySPY_i × shares)] × 365/coreDays. Not an averaged basis renamed: dividing each cycle by its own spot differs arithmetically from averaging and dividing once, and the averaged forms COMPRESS the candidate spread the Gate adjudicates (incumbent trails raw #1 by 0.54pp per-cycle vs 0.81pp equal-averaged). No daysHeld anywhere — hold duration is unknown at decision time and cannot enter a metric that scores decisions as they were made. MEASURED FIRST on the v6.41.0 six-entry pack, before any code moved: published 10.12% → 9.17%, ORDERING UNCHANGED [1,2,3,0,5,4] — the published policy was NOT selected by an artifact and needs no re-selection. Cycles lacking entrySPY are EXCLUDED and counted in the log, never folded in at another basis. coreBasisSPY is RETIRED everywhere including the pack’s own note field; it was never a real quantity. PACK SCHEMA ledger-pack/1 → /2 with basis:market-percycle; /1 packs are retired, not backfilled, and a fresh OPT and bootstrap follow. Base v7.2.12 (b88e6cb6).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.4.0 · GATE MERGED + VERDICT READER + VERSION NAMESPACES (S67, Ron). The adjudicator (bootstrap.html, served md5 631d7d93) is now a ⚖️ GATE TAB in this page, and the export→load→paste loop is gone. MERGE HYGIENE, all verified BEFORE the splice: ZERO element-id collisions (29 bootstrap ids vs the host page — none shared), ZERO CSS-variable collisions (--paper/--ink/--dim/--line/--pass/--fail vs --bg/--text/--muted/--accent), and exactly ONE JS collision, the $ helper, whose two definitions are semantically identical — the bootstrap’s copy dropped, the host’s kept. All 41 bootstrap CSS rules are SCOPED to #tab-gate (:root/html/body→#tab-gate, *→#tab-gate *), so the light-themed instrument cannot reach the dark host page; its bare button/table/input/textarea/h1 rules would otherwise have restyled the whole app. Bootstrap JS is otherwise VERBATIM — the resampler, the PRNG, the block logic and both report writers are byte-untouched, which is what makes Ron’s certification plan work: run the OPT pack through the two SEPARATE apps first, then through this build, and the seeded PRNG must reproduce the report exactly (same seed + same pack → same draw checksums). NEW P-G1 GATE VERDICT: the Sunday Gate rule applied in code instead of by eye — publish only if P(Δ>0) ≥ 90% at EVERY L AND p05 ≥ −0.25pp at EVERY L, default HOLD. Renders a per-challenger PUBLISH/hold table naming WHICH test failed and at WHICH L, plus one overall verdict, and writes both into the text report. It READS the same res[] the existing tables render — computes nothing new, so it cannot disagree with them. CLOSEST-challenger ranks by criteria CLEARED first, then P(Δ>0): ranking on P alone names an entry failing BOTH tests over one failing only P with p05 comfortably inside (S67 pack 3: D#1 80%/−1.91 vs nbr 76%/−0.18 — nbr is nearer the Gate in any sense that matters). Verified against all of S67 pack 3: every entry holds, closest nbr, plus synthetic clear→PUBLISH and clears-P-fails-p05→HOLD. THREE VERSION NAMESPACES: APP_VERSION (the page) · MODEL_VERSION (sim semantics — trigger tests, scoring basis, candidate selection, the objective; a bump INVALIDATES EVERY FITTED PARAMETER and forces a fresh OPT per §12.3; set to m7.2.13, the per-cycle objective, and UNCHANGED by v7.3.x and v7.4.0) · GATE_VERSION (v1.5.0, was BS_VERSION v1.4.0). STANDING RULE, and the reason the merge is safe at all: THE GATE REGION IS NEVER EDITED IN THE SAME RELEASE AS THE SIM OR THE RANKER. Two files gave that independence for free — v1.3.1 hard-rejecting /2 packs was it working — and one file only keeps it by discipline. Base v7.3.3.</span><br><span style="color:var(--muted);opacity:.6;">v7.3.3 · §4.3 REGIME SPLIT + RESEARCH TAB RETIRED (S67, Ron). DISPLAY ONLY — no sim path, no trigger test, no selection logic touched. Foundation §4.3 has ruled since the era was pinned that it spans TWO POLICY REGIMES and that any conformance statement MUST REPORT THE SPLIT, never a pooled mean. The Roll Economics panel never implemented it: ONE live row spanning both regimes, read against a sim row that is uniformly CURRENT-rules. Cycles opened before the 2026-09-05 publish ran the prior axes AND the duration ratchet — the ratchet is exactly what produced the 46d/57d/63d entries the sim never selects in 159 cycles — so the pooled live row was comparing a ratchet-era record against a simulation that never had one, and answered a question nobody asked. New POLICY_REGIME_2 constant, keyed on the OPEN date (the rules a cycle was SELECTED under), not the close date, which governs pool ATTRIBUTION and is a different question. Panel now renders THREE rows: sim · prior (dimmed) · live. Pool shares are computed per regime on that regime’s own CLASSIFIED subset. Identity guard: r1+r2 must foot to the pooled set or an amber line says do not read either row. Context for what this separates — at S67 close the pooled live row read 16 cycles, 31% delta share against sim’s 17%, CC P&L −$3,630; the four post-publish entries (142/127/121/162d, mean 138) sit INSIDE the sim’s 105–178 range and match its 136 mean, so the DTE divergence was a regime artifact, not a live/sim gap. RESEARCH TAB RETIRED: no open projects. Phase B H-tournament closed NEGATIVE at 11/10 cycles — H=6 and H-infinity picked the IDENTICAL contract in all 83 era scans carrying shadow_topk; the horizon rescales every candidate by a near-constant factor (H6/Hinf mean 0.506, median 0.504, range 0.43–0.67) so the argmax CANNOT move. Only 8 of 83 scans disagree across any horizon and in every one the outlier is H=30 alone, preferring a shorter expiry at the same strike; none was a live roll. Flip-rate probe CLEARED its gate (M1 74.1% vs predicted 20% [10–35], M2 4.5% vs 4% [1–8]) and the prediction is logged as FALSIFIED — but it measures a t−1 frame nobody trades, and its one actionable finding (input freshness changes selection) is already banked in v7.3.2. Only the BUTTON is removed; renderResearchTab, the registry, the probe and the tab body are left in place unreferenced — re-add the button to restore. shadow_topk collection CONTINUES in scan_snapshot so a future regime change is still recorded. Base v7.3.2.</span><br><span style="color:var(--muted);opacity:.6;">v7.3.2 · SCAN SPOT = AGENT SPOT (S67, Ron). The scan and the agent disagreed on whether a trigger had FIRED. S67 09-17: the scan read SPY $760.61 from a 10:54 ET minute bar at 11:10 (17m stale) while the agent’s card read $761.89 — defH-10 delta 0.685 vs 0.719 across a 0.700 threshold, fire spot $761.21. The scan therefore returned NO delta fire on the very cycle the agent rolled, and that empty allTypes is what let v7.3.1’s initialiser bug stamp a decay label on it. VIX was NOT the cause — scanVix already prefers live (15.91 fresh vs DM 17.71); the “VIX from the DM’s latest close” comment at the delta block is STALE TEXT. fetchLiveSPY now tries the /v2/snapshot stocks product FIRST (ticker.lastTrade.p, then day.c) and keeps the minute aggregate as fallback. A minute bar cannot exist until its minute has CLOSED and published, so the aggregate path is structurally a minute-plus behind before feed delay. This is NOT the dead /v2/last/trade endpoint (v6.4.12) that needed an entitlement this key lacks and silently returned null — it is the same snapshot product the AGENT has run in production every 30 minutes on the same key. DELIBERATE REVISION OF S37 SCOPE: S37 put the scan on the aggregates family for source-consistency with the DM’s daily bars. That argument is about the SIM’s frame; the scan’s trigger check is a live-tape question where freshness is what matters. The DM-shadow comparison still runs on DM spot — that one IS a sim-frame question and is UNTOUCHED, as are the sim, the OPT loop and every trigger TEST. _spyQuoteMeta gains a src tag and the scan header now says which source it used and its age (“trade 11:09 ET, 1m · stocks-snapshot, agent-parity” vs “bar 10:54 ET, 17m · minute-agg FALLBACK — snapshot unavailable”), so a silent downgrade cannot hide. Note the assumption v6.4.12 recorded and this supersedes: “immaterial for decay/delta checks on multi-month positions” — true at 1–5% OTM, FALSE at 0.5% OTM where defH-10 delta moves ~0.019 per $1 of SPY and 60¢ of staleness is 0.012 of delta. Verified across five branches: snapshot lastTrade→761.89/snap/1m · day.c-only→snap/0m · snapshot 403→agg/17m · snapshot throws→agg/17m · both dead→null (existing DM-close tripwire still fires). Base v7.3.1.</span><br><span style="color:var(--muted);opacity:.6;">v7.3.1 · TRIGGER LABEL HONESTY (S67, Ron). DISPLAY/RECORD ONLY — no trigger TEST changed, no sim path touched. S67 cycle 16 (09/16→09/17, 1d hold, −$2,994) was written to the blotter as “decay −13.2% ≥ 8%”: a decay label, with a NEGATIVE decay value, on a cycle whose time value GREW and which was closed by a delta stop (Δ 0.719 ≥ 0.700 on the agent). Three defects, all in _scanTriggerInfo and its renderer. (1) primaryType was INITIALISED to ‘decay’ and the delta-first precedence only REASSIGNS when allTypes is non-empty — so a scan where NOTHING fired returned type:‘decay’ from the initialiser and carried decayVal with it. Now initialised NULL: “nothing fired” is representable. (2) _renderScanUI did `ti.type || ‘decay’` — a SECOND default that re-introduced the mislabel even once the builder reported null honestly. Now `|| null`. (3) currentVal was assigned ONLY inside the decay branch, so on a delta fire the delta chip rendered the decay PERCENTAGE (or an em dash) as if it were a delta — two frames, one field. currentVal now follows the primary type, and the chip reads ti.deltaVal. Verified across all five fire combinations: nothing→null/HOLD, delta-only→0.719/delta, decay-only→11.7/decay, co-fire→delta primary with signal decay+delta, dte-only→dte. NOT FIXED HERE, and the reason the scan disagreed with the agent at all: the scan evaluated on a 17-MINUTE-STALE spot bar ($760.61, 10:54 ET) while the agent used $761.89 — 0.685 vs 0.719 across a 0.700 threshold, fire spot $761.21. VIX was NOT the cause (scanVix already prefers live: fresh 15.91 vs DM 17.71; the “VIX from the DM’s latest close” comment at the delta block is STALE TEXT — read the code, not the comment). Spot-source parity between scan and agent is SPECCED, NOT BUILT. Consequence still on the books: cycle 16’s loss landed in the DECAY pool, so the era-pinned decay/delta split and both pool P&Ls are misattributed for that cycle until the record is corrected. Base v7.3.0.</span><br><span style="color:var(--muted);opacity:.6;">v7.3.0 · STRATIFIED PACK SELECTION (S67, Ron). SELECTION ONLY — the sim region is untouched and every pack invariant holds (incumbent is id 0, param-tuple then ledger-fingerprint dedup, fingerprint bound to the SHIPPED serialised cycles, schema ledger-pack/2, basis market-percycle). exportLedgerPack() selected raw candidates as rawSorted.slice(0,kRaw) — top-K by core yield. Core yield is MONOTONE in the frequency axes (decay, delta, defH): the S67 sweeps at 22,050 and 32,400 evals EACH walked to whatever floor the grid offered (decay 8→4→2, Δ 0.64→0.56, defH 4→1), so widening a range RELOCATES the corner instead of bounding it and top-K returns K neighbours of that corner by construction. The two packs spent 5 and 9 challenger slots on ~2 hypotheses; the Gate rejected both, twice, at ~11h of sweep per verdict, and NO entry in either pack sat near the incumbent’s operating point. Raw selection is now STRATIFIED by roll count against r0 = the incumbent cell’s own rolls: bands at 0.85/1.15/1.50/2.00 × r0, kRaw KEEPS ITS MEANING (total raw slots, not per-band — the existing default of 5 does not silently become 25 capture sims) and is dealt round-robin across non-empty bands. The corner keeps a seat; it stops taking all of them. Plus an INCUMBENT±1 SEED: best cell within one grid step of STD on every swept axis, so “a modest improvement on what is actually published” is representable — under top-K it entered only by coincidence (the S66 pack’s raw #5: 158 core cycles, frequency-MATCHED to the incumbent, P(Δ>0) 86% at L91, p05 −0.13, the best adjudication result to date, failed by 0.03pp). Robust top-K UNCHANGED — different question, and its failures are informative. DRY-RUN on the real 32,400-cell leaderboard: A#1 132 rolls 9.1% (rank #498) · B#1 158 rolls 9.8% (#86) · C#1 236 rolls 10.7% (#15) · D#1 284 rolls 11.5% (#1) · nbr 157 rolls 9.7% (#107); band E (>2.00×) was EMPTY on that tape, so its boundary is untested, and at kRaw=5 round-robin hands band A a near-twin second pick — USE kRaw=4. If STD is not on the grid the strata fall back to a median r0 and say so in the log. Provenance rides in the pack’s note field, NOT a new top-level key: v1.4.0’s importer strictness is unread. FALSIFIED IF three stratified packs produce no challenger above 86%, or the frequency-matched B band consistently adjudicates worse than the corner — then the corner is genuinely the best region on this tape and selection was not the binding constraint. Base v7.2.13 (9f6b2b14).</span><br><span style="color:var(--muted);opacity:.6;">v7.2.13 · PER-CYCLE OBJECTIVE BASIS (S66, Ron). SIM-REGION. coreYld divided coreSum by cycles[0].exitSPY × shares — SPY at the FIRST ROLL, frozen across the whole window — while BOTH selection layers normalise premium by the spot on screen at the decision (rawYield in the sim, adjYield in the live scan). Every cycle was CHOSEN on current spot and SCORED on a two-year-old price. THERE IS NO SINGLE BASIS: a live selection can only use one day’s spot, and the sim must replicate live rather than the reverse, so each cycle is now scored against the capital its own decision was made against — coreYld = Σ[pnl_i/(entrySPY_i × shares)] × 365/coreDays. Not an averaged basis renamed: dividing each cycle by its own spot differs arithmetically from averaging and dividing once, and the averaged forms COMPRESS the candidate spread the Gate adjudicates (incumbent trails raw #1 by 0.54pp per-cycle vs 0.81pp equal-averaged). No daysHeld anywhere — hold duration is unknown at decision time and cannot enter a metric that scores decisions as they were made. MEASURED FIRST on the v6.41.0 six-entry pack, before any code moved: published 10.12% → 9.17%, ORDERING UNCHANGED [1,2,3,0,5,4] — the published policy was NOT selected by an artifact and needs no re-selection. Cycles lacking entrySPY are EXCLUDED and counted in the log, never folded in at another basis. coreBasisSPY is RETIRED everywhere including the pack’s own note field; it was never a real quantity. PACK SCHEMA ledger-pack/1 → /2 with basis:market-percycle; /1 packs are retired, not backfilled, and a fresh OPT and bootstrap follow. Base v7.2.12 (b88e6cb6).</span></div>
 </div>
 
 <script>
@@ -744,7 +894,19 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.3.2'; // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
+const APP_VERSION = 'v7.4.0';
+// ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
+// APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
+// MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
+//   candidate selection, the objective. A bump here INVALIDATES EVERY FITTED
+//   PARAMETER and forces a fresh OPT before any decision (§12.3). v7.2.13's
+//   per-cycle objective was a model change; v7.3.1's label fix was not.
+// GATE_VERSION  — adjudication: the bootstrap, the pack contract, the verdict
+//   rule. Declared in the merged Gate region below. STANDING RULE: the Gate
+//   region is NEVER edited in the same release as the sim or the ranker. That
+//   rule is what preserves the independence the two files used to get for free
+//   — v1.3.1 hard-rejecting /2 packs was that independence working.
+const MODEL_VERSION = 'm7.2.13'; // per-cycle objective basis (S66). Unchanged by v7.3.x and v7.4.0. // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -1578,11 +1740,11 @@ function showTab(tab) {
   if (tab === 'log')        { _tradesView = 'sim';  tab = 'trades'; }
   else if (tab === 'live')  { _tradesView = 'live'; tab = 'trades'; }
   else if (tab === 'chart') { _tradesChartOpen = true; tab = 'trades'; }
-  ['trades','heatmap','gaps','runlog','scan','mart','research'].forEach(t => {
+  ['trades','heatmap','gaps','runlog','scan','mart','research','gate'].forEach(t => {
     const btn = $('tab-btn-' + t);
     if (btn) btn.classList.toggle('active', t === tab);
   });
-  ['heatmap','gaps','runlog','scan','mart','research'].forEach(t => {
+  ['heatmap','gaps','runlog','scan','mart','research','gate'].forEach(t => {
     const el = $('tab-' + t);
     if (el) el.style.display = t === tab ? 'block' : 'none';
   });
@@ -1818,6 +1980,14 @@ const RES_DM_TABLES = ['spy_daily','vix_daily','yield_daily','option_days'];
 // ── v6.13.0 · WALK-FORWARD ERA ── PINNED constant, deliberately NOT json-sourced:
 // the boundary must not be writable by the policy being judged (Ron's S44 ruling).
 // A future publish requires REGISTERING a new era here — a decision, never automatic.
+const POLICY_REGIME_2 = '2026-09-05'; // v7.3.3 — the publish that moved the axes.
+// Foundation §4.3 has always ruled that the era spans TWO POLICY REGIMES and that
+// any conformance statement MUST REPORT THE SPLIT, never a pooled mean. The panel
+// did not implement it: one live row spanning both regimes, read against a sim row
+// that is uniformly CURRENT-rules. Cycles before this date ran the prior axes AND
+// the duration ratchet, so the pooled live row answered a question nobody asked.
+// Keyed on the OPEN date: a cycle was SELECTED under the rules in force when it
+// opened. Not json-writable, same doctrine as the era pin itself.
 const WF_ERA_START = '2026-07-21'; // v6.15.2 — RE-PINNED (Ron, S44): the era is MODEL-GOVERNED TRADING, not a policy
 // version. It starts at the first live trade taken on the backtester's recommendation and does NOT restart when params
 // are refined — "as this develops we will always be making refinements". Registered ONCE. audit_snapshot rows each
@@ -1984,6 +2154,12 @@ async function _cwinHtml() {
   // v7.1.1 — deliberately scoped to the close-keyed set: an orphan has NO open
   // leg, so scoping the alarm to the both-legs set would silence it forever.
   const liveClosed = liveEraClose.filter(c => c.openIso && c.openIso >= WF_ERA_START);
+  // v7.3.3 — §4.3 SPLIT. Keyed on the OPEN date (the rules the cycle was SELECTED
+  // under), not the close date, which governs pool ATTRIBUTION and is a different
+  // question. The pooled row is retained ONLY as the identity check: r1+r2 must
+  // foot to it, and the sub-line says so when it does not.
+  const liveR1 = liveClosed.filter(c => c.openIso <  POLICY_REGIME_2);
+  const liveR2 = liveClosed.filter(c => c.openIso >= POLICY_REGIME_2);
   const gross   = liveClosed.reduce((s, c) => s + c.pnl, 0);
   const liveWin = liveClosed.filter(c => c.pnl > 0).length;
   const lastIso  = liveClosed.length ? liveClosed[liveClosed.length - 1].iso : null; // close date — the column says LAST CLOSE
@@ -2083,16 +2259,28 @@ async function _cwinHtml() {
   // window can be empty where the full account window cannot, so firstOpen/
   // lastIso are nullable now and gross/0 is reachable. Without this the row
   // prints "null" and "$NaN" rather than saying it has nothing to show.
-  const liveCells = !liveClosed.length
-    ? ['<span style="color:var(--accent);">live</span>',
-       '<span style="color:var(--muted);">\u2014 no closed cycles since the era pin ' + WF_ERA_START + '</span>',
-       '', '', '', '', '', '', '', '', '', '']
-    : ['<span style="color:var(--accent);">live</span>',
-    firstOpen, String(liveClosed.length), wr(liveWin, liveClosed.length),
-    money(gross / liveClosed.length),
-    shr(lDecay.length, lCls), mean(lDecay),
-    shr(lDelta.length, lCls), mean(lDelta),
-    money(gross), '<span style="color:var(--accent);">' + pf(yU(gross)) + '</span>', lastIso];
+  // v7.3.3 — one builder, used per regime. Pool shares are measured on the
+  // CLASSIFIED subset of that regime only: a denominator carrying unclassified
+  // rows understates both pools, and doing it per-regime keeps each row's mix
+  // honest on its own terms.
+  const liveRow = (label, set) => {
+    if (!set.length) return ['<span style="color:var(--accent);">' + label + '</span>',
+      '<span style="color:var(--muted);">\u2014 no closed cycles in this regime</span>',
+      '', '', '', '', '', '', '', '', '', ''];
+    const g  = set.reduce((a, c) => a + c.pnl, 0);
+    const w  = set.filter(c => c.pnl > 0).length;
+    const dC = set.filter(c => c.pool === 'decay').map(c => c.pnl);
+    const dT = set.filter(c => c.pool === 'delta').map(c => c.pnl);
+    const cl = dC.length + dT.length;
+    const fo = set.map(c => c.openIso).filter(Boolean).sort()[0] || '\u2014';
+    const lc = set.map(c => c.iso).filter(Boolean).sort().pop() || '\u2014';
+    return ['<span style="color:var(--accent);">' + label + '</span>',
+      fo, String(set.length), wr(w, set.length), money(g / set.length),
+      shr(dC.length, cl), mean(dC), shr(dT.length, cl), mean(dT),
+      money(g), '<span style="color:var(--accent);">' + pf(yU(g)) + '</span>', lc];
+  };
+  const liveCellsR1 = liveRow('prior', liveR1);
+  const liveCellsR2 = liveRow('live',  liveR2);
 
   const sD = simPool.decay, sT = simPool.delta, sCls = sD.length + sT.length;
   const simCells = simN == null
@@ -2110,7 +2298,12 @@ async function _cwinHtml() {
   // DATA-STATE ALARMS: they render only on a non-zero count and are silent
   // otherwise, so they cost nothing on a clean panel. The whole block collapses
   // to '' when both counts are zero — no empty div holding space.
-  const warn = (lUncl ? '<br><span style="color:#e0a020;">\u26a0 ' + lUncl + ' of ' + liveClosed.length + ' live cycles UNCLASSIFIED (no trigger recorded) \u2014 excluded from both pool shares, so the live mix is measured on ' + lCls + ' cycle' + (lCls !== 1 ? 's' : '') + ' only.</span>' : '')
+  // v7.3.3 — identity: the two regime rows must foot to the pooled set they came
+  // from. Silent when it holds; loud when it does not, because a cycle falling
+  // through both filters would otherwise vanish without a trace.
+  const splitOk = (liveR1.length + liveR2.length) === liveClosed.length;
+  const warn = (!splitOk ? '<br><span style="color:#e0a020;">\u26a0 regime split does not foot: ' + liveR1.length + ' + ' + liveR2.length + ' \u2260 ' + liveClosed.length + ' \u2014 do not read either row.</span>' : '')
+    + (lUncl ? '<br><span style="color:#e0a020;">\u26a0 ' + lUncl + ' of ' + liveClosed.length + ' live cycles UNCLASSIFIED (no trigger recorded) \u2014 excluded from both pool shares, so the live mix is measured on ' + lCls + ' cycle' + (lCls !== 1 ? 's' : '') + ' only.</span>' : '')
     + (orphanN ? '<br><span style="color:#e0a020;">\u26a0 ' + orphanN + ' orphan close' + (orphanN !== 1 ? 's' : '') + ' in window (cover with no matching open) \u2014 counted, never dropped.</span>' : '');
   const sub = warn
     ? '<div style="color:var(--muted);font-size:8px;margin-top:4px;line-height:1.6;">' + warn + '</div>'
@@ -2120,7 +2313,8 @@ async function _cwinHtml() {
     + '<table style="border-collapse:collapse;font-family:var(--mono);font-size:10px;width:100%;table-layout:fixed;">'
     + '<thead><tr>' + hdr.map((h, k) => '<th style="' + th + (k === 0 ? 'text-align:left;width:4%;' : '') + '">' + h + '</th>').join('') + '</tr></thead>'
     + '<tbody><tr>' + simCells.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : (k === 1 && simCells[2] === '' ? 'text-align:left;white-space:nowrap;' : '')) + '">' + c + '</td>').join('') + '</tr>'
-    + '<tr>' + liveCells.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : '') + '">' + c + '</td>').join('') + '</tr></tbody></table>' // v6.34.4 — sim first (Ron)
+    + '<tr>' + liveCellsR1.map((c, k) => '<td style="' + td + 'opacity:.62;' + (k === 0 ? 'text-align:left;' : '') + '">' + c + '</td>').join('') + '</tr>'
+    + '<tr>' + liveCellsR2.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : '') + '">' + c + '</td>').join('') + '</tr></tbody></table>' // v6.34.4 — sim first (Ron); v7.3.3 — prior regime dimmed ABOVE current
     + sub;
 }
 let _resCache = {};   // table|order|limit → {rows, err, at}
@@ -9683,6 +9877,563 @@ async function confirmManualEntry() {
 }
 
 
+
+
+// ══ v7.4.0 · MERGED GATE REGION (bootstrap v1.5.0) ══════════════════════
+// Verbatim from the served bootstrap.html (md5 631d7d93) except: the duplicate
+// $ helper dropped, BS_VERSION renamed GATE_VERSION, and the P-G1 gate verdict
+// added. Zero element-id collisions, zero CSS-variable collisions, one JS
+// collision ($, byte-identical semantics) — all verified before the splice.
+
+"use strict";
+const GATE_VERSION='v1.5.0'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
+document.addEventListener('DOMContentLoaded',()=>{const e=document.getElementById('bs-ver');if(e)e.textContent=GATE_VERSION;});
+/* Cycle-Ledger Bootstrap v1.4.0 — S66
+   v1.4.0 (S66): LEDGER-PACK/2 ONLY. Backtester v7.2.13 retired the frozen
+   first-roll core-yield basis. There is no single basis: each cycle is scored
+   against the spot its own selection saw, coreYld = Σ[pnl_i/(entrySPY_i ×
+   shares)] × 365/coreDays. Packs carry schema ledger-pack/2, basis
+   market-percycle. /1 is refused BY NAME with the reason — same policy reads
+   ~1pp higher under /1, so a /1 report and a /2 report are not comparable even
+   though both are labelled core yield. basis is surfaced on import and stamped
+   into every report header, so no report is silent about its own frame.
+   Ordering was measured UNCHANGED across the six-entry v6.41.0 pack before the
+   switch: this is a level correction, not a re-selection.
+
+   v1.3.1 (S48): P-P1 VERDICT SELECTS BY PAIRED P(Δ>0) — the "strongest
+   Full version history: CHANGELOG.md in the project folder (S46 ruling; in-file
+   log carries only the current release entry, per the S45 convention).
+   v1.3.1 (S48): P-P1 VERDICT SELECTS BY PAIRED P(Δ>0) — the "strongest
+   challenger" was chosen by win frequency (maiden-run wart: pointed at a
+   wide-spread lottery shape while a different entry cleared the 90% paired
+   bar). Doctrine: win-frequency is descriptive, paired-Δ decides. Selection
+   is now argmax P(Δ>0) at L=61, ties → lower id; win% retained in the
+   sentence as a descriptive stat. VERDICT TEXT ONLY — draws, resampling,
+   fingerprint gate, bands, win-frequency tables, and the legacy A/B path
+   are byte-untouched. Cert: re-import of the repaired maiden pack (seed 42,
+   B 10000) must reproduce draw ck {23e158e3, 748f97a4, 16c4a153} and all
+   band values; sole report diff is the P-P1 line. Legacy A/B certified
+   reference remains the 08-05 pair, band fp 22659242. */
+/* v7.4.0 merge: $ helper dropped — byte-identical to the host page’s own. */
+let A=null,Bl=null,reportTxt=null;
+
+function parseLedger(txt){
+  const rows=[];const errs=[];
+  const meta={yObs:null,coreLine:null,verLine:null,runLine:null};
+  const re=/#(\d+)\s+(\d{4}-\d{2}-\d{2})\s+(\S+)\s+(\d+)d\s+P&L\s+([+-])\$([\d,]+)\s+ITM\s+([+-][\d.]+)%\s+Δin\s+([\d.]+)/;
+  txt.replace(/[\u2028\u2029\r]/g,'\n').split(/\n/).forEach(line=>{
+    const t=line.replace(/^\[[^\]]*\]\s*/,'').trim();
+    if(!t)return;
+    // v1.2.1 — identity readers (first hit wins; stripped of timestamps)
+    if(!meta.verLine&&/^v[\d.]+\s+·\s+SPY Covered Call Backtest/.test(t))meta.verLine=t;
+    if(!meta.runLine&&/^Running — /.test(t))meta.runLine=t;
+    if(meta.coreLine===null){
+      // v1.2.2 — parse the REAL summary line ("127 cycles · 7.4% core yield · ...");
+      // the v1.2.1 pattern "Core yield: X.X%/yr" matched no line any log has ever emitted
+      const cy=t.match(/^\d+\s+cycles\s+·\s+(-?[\d.]+)%\s+core\s+yield\b/);
+      if(cy){meta.coreLine=t;meta.yObs=parseFloat(cy[1]);}
+    }
+    if(!t.includes('#'))return;
+    const m=t.match(re);
+    if(m){rows.push({i:+m[1],date:m[2],pool:m[3],days:+m[4],
+      pnl:(m[5]==='-'?-1:1)*parseInt(m[6].replace(/,/g,''),10)});}
+    else if(/^#\d+/.test(t))errs.push(t.slice(0,60));
+  });
+  return {rows,errs,meta};
+}
+function fingerprint(rows){ // small stable hash for the run header
+  let h=2166136261>>>0;
+  rows.forEach(r=>{const s=r.i+r.date+r.pool+r.days+r.pnl;
+    for(let k=0;k<s.length;k++){h^=s.charCodeAt(k);h=Math.imul(h,16777619);}});
+  return (h>>>0).toString(16).padStart(8,'0');
+}
+function summarize(rows){
+  const pools={};let pnl=0,days=0;
+  rows.forEach(r=>{pools[r.pool]=(pools[r.pool]||0)+1;pnl+=r.pnl;days+=r.days;});
+  return {n:rows.length,pools,pnl,days};
+}
+function showParse(which,res){
+  const box=which==='A'?$('pboxA'):$('pboxB');
+  if(!res.rows.length){box.innerHTML='<span class="bad">No rows parsed.</span> '
+    +'Expected rows like: <span class="mono">#1 2024-07-19 decay 3d P&amp;L +$5,841 ITM -2.8% Δin 0.68</span>'
+    +' — load the STD log file directly if pasting fails.';return null;}
+  const s=summarize(res.rows);
+  const p=Object.entries(s.pools).map(([k,v])=>k+' '+v).join(' · ');
+  box.innerHTML='rows <b>'+s.n+'</b> · '+p+' · ΣP&L <b>'
+    +(s.pnl<0?'−':'+')+'$'+Math.abs(s.pnl).toLocaleString()+'</b> · Σhold '
+    +s.days+'d · fp <b>'+fingerprint(res.rows)+'</b>'
+    +(res.meta.yObs!=null?' · yObs <b>'+res.meta.yObs.toFixed(1)+'%</b> (parsed from log)':
+      ' · <span class="wn">no Core-yield line — yObs MANUAL</span>')+'\n'
+    +'<span class="wn">Verify n and ΣP&L against the log checksum line before running.</span>'
+    +(res.errs.length?'\n<span class="bad">'+res.errs.length+' unparsed #-rows (first: '
+      +res.errs[0]+')</span>':'');
+  return {rows:res.rows,sum:s,meta:res.meta};
+}
+function etStamp(d, forFilename){ // v1.2.1 — America/New_York, DST-correct via Intl (never hand-offset)
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone:'America/New_York', year:'numeric', month:'2-digit',
+    day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }).formatToParts(d)
+    .reduce((o,x)=>(o[x.type]=x.value,o),{});
+  const hh = p.hour === '24' ? '00' : p.hour; // en-CA can emit 24 at midnight
+  return forFilename ? `${p.year}-${p.month}-${p.day}_${hh}${p.minute}ET`
+                     : `${p.year}-${p.month}-${p.day} ${hh}:${p.minute} ET`;
+}
+function autofillY(which){  // v1.2.1 — the log's Core-yield line wins the field
+  const L=which==='A'?A:Bl;
+  if(L&&L.meta&&L.meta.yObs!=null)$(which==='A'?'yA':'yB').value=L.meta.yObs;
+}
+function loadFile(which){
+  const inp=which==='A'?$('fileA'):$('fileB');
+  const f=inp.files&&inp.files[0];
+  if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const txt=String(rd.result);
+    if(which==='A'){$('txtA').value=txt;A=showParse('A',parseLedger(txt));autofillY('A');}
+    else{$('txtB').value=txt;Bl=showParse('B',parseLedger(txt));autofillY('B');
+      if(Bl&&$('yB').value&&!$('cmpY').value)$('cmpY').value=$('yB').value;}
+    gate();
+  };
+  rd.onerror=()=>{
+    const box=which==='A'?$('pboxA'):$('pboxB');
+    box.innerHTML='<span class="bad">File read failed.</span>';
+  };
+  rd.readAsText(f);
+  inp.value=''; // allow re-selecting the same file
+}
+$('loadA').onclick=()=>$('fileA').click();
+$('loadB').onclick=()=>$('fileB').click();
+$('fileA').onchange=()=>loadFile('A');
+$('fileB').onchange=()=>loadFile('B');
+$('parseA').onclick=()=>{A=showParse('A',parseLedger($('txtA').value));autofillY('A');gate();};
+$('parseB').onclick=()=>{Bl=showParse('B',parseLedger($('txtB').value));autofillY('B');
+  if(Bl&&$('yB').value&&!$('cmpY').value)$('cmpY').value=$('yB').value;gate();};
+function yMismatch(L,fld){ // v1.2.1 — parsed log value vs field, 0.05 tolerance
+  if(!L||!L.meta||L.meta.yObs==null)return false;
+  const v=+$(fld).value;
+  return !v||Math.abs(v-L.meta.yObs)>0.05;
+}
+function gate(){
+  let msg='';
+  if(!A||!A.rows.length)msg='Load or parse Ledger A first';
+  else if(A.meta.yObs==null&&!+$('yA').value)msg='Enter Ledger A observed yield (no Core-yield line in log — manual)';
+  else if(yMismatch(A,'yA'))msg='⚠ yObs field '+(+$('yA').value||'?')+' ≠ log Core yield '
+    +A.meta.yObs.toFixed(1)+' (Ledger A) — field must match the loaded log';
+  else if(Bl&&Bl.rows.length&&yMismatch(Bl,'yB'))msg='⚠ yObs field '+(+$('yB').value||'?')
+    +' ≠ log Core yield '+Bl.meta.yObs.toFixed(1)+' (Ledger B) — field must match the loaded log';
+  $('run').disabled=!!msg;
+  $('gateMsg').textContent=msg;
+}
+$('yA').oninput=gate;
+$('yB').oninput=gate;
+gate();
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;
+  let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;
+  return((t^t>>>14)>>>0)/4294967296;};}
+
+function bootstrapLedger(rows,yObs,L,B,rng){
+  const n=rows.length;
+  const Dobs=rows.reduce((a,r)=>a+r.days,0);
+  const Pobs=rows.reduce((a,r)=>a+r.pnl,0);
+  const ys=new Float64Array(B),ss=new Float64Array(B);
+  for(let b=0;b<B;b++){
+    let d=0,p=0,harv=0,stop=0;
+    while(d<Dobs){
+      const start=Math.floor(rng()*n);
+      for(let k=0;k<L&&d<Dobs;k++){
+        const r=rows[(start+k)%n];
+        d+=r.days;p+=r.pnl;
+        if(r.pool==='delta-stop')stop+=r.pnl;else harv+=r.pnl;
+      }
+    }
+    ys[b]=yObs*(p/Pobs)*(Dobs/d);
+    ss[b]=harv>0?(-stop/harv)*100:NaN;
+  }
+  ys.sort();const q=f=>ys[Math.min(B-1,Math.floor(f*B))];
+  const sv=Array.from(ss).filter(x=>!isNaN(x)).sort((a,b)=>a-b);
+  const sq=f=>sv.length?sv[Math.min(sv.length-1,Math.floor(f*sv.length))]:NaN;
+  return {p05:q(.05),p25:q(.25),p50:q(.50),p75:q(.75),p95:q(.95),
+          s25:sq(.25),s50:sq(.50),s75:sq(.75),
+          mean:ys.reduce((a,v)=>a+v,0)/B,
+          sd:Math.sqrt(ys.reduce((a,v)=>a+(v-ys.reduce((x,y)=>x+y,0)/B)**2,0)/B)};
+}
+function gauge(r,lo,hi,cmp,cmpLabel){
+  const X=v=>((v-lo)/(hi-lo)*100).toFixed(2)+'%';
+  const W=(a,b)=>((b-a)/(hi-lo)*100).toFixed(2)+'%';
+  let g='<div class="gauge">'
+    +'<div class="band" style="left:'+X(r.p05)+';width:'+W(r.p05,r.p95)+'"></div>'
+    +'<div class="iqr" style="left:'+X(r.p25)+';width:'+W(r.p25,r.p75)+'"></div>'
+    +'<div class="med" style="left:'+X(r.p50)+'"></div>';
+  if(cmp!=null&&cmp>=lo&&cmp<=hi)
+    g+='<div class="cmp" data-l="'+cmpLabel+' '+cmp.toFixed(2)+'" style="left:'+X(cmp)+'"></div>';
+  g+='</div><div class="axis"><span>'+lo.toFixed(1)+'%</span><span>'+hi.toFixed(1)+'%</span></div>';
+  return g;
+}
+
+$('run').onclick=()=>{
+  const B=Math.max(100,+$('nB').value||10000);
+  const seed=+$('seed').value||42;
+  const Ls=[3,6,10];
+  const cmp=$('cmpY').value?+$('cmpY').value:null;
+  const out=[];
+  const stamp=etStamp(new Date(), false); // v1.2.1 — ET-labeled (was unlabeled UTC)
+  const yTagA=A.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
+  const yTagB=Bl&&Bl.meta&&Bl.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
+  const hdr='bootstrap '+GATE_VERSION+' · '+stamp // v1.2.3 — single writer: artifacts can never carry a stale version
+    +' · seed '+seed+' · B '+B+' · L {3,6,10}\n'
+    +'A: n '+A.sum.n+' · ΣP&L '+(A.sum.pnl<0?'−':'+')+'$'+Math.abs(A.sum.pnl).toLocaleString()
+    +' · Σhold '+A.sum.days+'d · yObs '+(+$('yA').value).toFixed(1)+'% '+yTagA+' · fp '+fingerprint(A.rows)
+    +(Bl&&Bl.rows.length?'\nB: n '+Bl.sum.n+' · ΣP&L '+(Bl.sum.pnl<0?'−':'+')
+      +'$'+Math.abs(Bl.sum.pnl).toLocaleString()+' · Σhold '+Bl.sum.days+'d · yObs '
+      +($('yB').value?(+$('yB').value).toFixed(1)+'% '+yTagB:'?')+' · fp '+fingerprint(Bl.rows):'')
+    +(cmp!=null?'\ncomparison yield (P-B1): '+cmp.toFixed(2)+'%':'');
+  out.push('<div class="card"><h2>Run header — copy into the session record</h2>'
+    +'<div class="runhdr">'+hdr+'</div>');
+
+  const resA={},resB={};
+  Ls.forEach(L=>{resA[L]=bootstrapLedger(A.rows,+$('yA').value,L,B,mulberry32(seed*100+L));});
+  if(Bl&&Bl.rows.length&&$('yB').value)
+    Ls.forEach(L=>{resB[L]=bootstrapLedger(Bl.rows,+$('yB').value,L,B,mulberry32(seed*100+L+50));});
+
+  const allv=[];Ls.forEach(L=>{allv.push(resA[L].p05,resA[L].p95);
+    if(resB[L])allv.push(resB[L].p05,resB[L].p95);});
+  if(cmp!=null)allv.push(cmp);
+  const lo=Math.floor(Math.min(...allv))-1,hi=Math.ceil(Math.max(...allv))+1;
+
+  let tbl='<table><tr><th>Ledger·L</th><th>p05</th><th>p25</th><th>median</th>'
+    +'<th>p75</th><th>p95</th><th>90% CI width</th><th>stop-share med (IQR)</th></tr>';
+  Ls.forEach(L=>{const r=resA[L];
+    tbl+='<tr><td>A · L='+L+'</td><td>'+r.p05.toFixed(2)+'</td><td>'+r.p25.toFixed(2)
+      +'</td><td><b>'+r.p50.toFixed(2)+'</b></td><td>'+r.p75.toFixed(2)+'</td><td>'
+      +r.p95.toFixed(2)+'</td><td>'+(r.p95-r.p05).toFixed(2)+'pp</td><td>'
+      +r.s50.toFixed(0)+'% ('+r.s25.toFixed(0)+'–'+r.s75.toFixed(0)+')</td></tr>';});
+  Ls.forEach(L=>{const r=resB[L];if(!r)return;
+    tbl+='<tr><td>B · L='+L+'</td><td>'+r.p05.toFixed(2)+'</td><td>'+r.p25.toFixed(2)
+      +'</td><td><b>'+r.p50.toFixed(2)+'</b></td><td>'+r.p75.toFixed(2)+'</td><td>'
+      +r.p95.toFixed(2)+'</td><td>'+(r.p95-r.p05).toFixed(2)+'pp</td><td>'
+      +r.s50.toFixed(0)+'% ('+r.s25.toFixed(0)+'–'+r.s75.toFixed(0)+')</td></tr>';});
+  tbl+='</table>';
+  out.push('<h2 style="margin-top:14px">Ledger A · L=6 (primary)</h2>'
+    +gauge(resA[6],lo,hi,cmp,'cmp')
+    +(resB[6]?'<h2>Ledger B · L=6</h2>'+gauge(resB[6],lo,hi,null,''):'')
+    +tbl);
+
+  // Verdicts (plain-text copies collected for the report)
+  const vTxt=[];
+  const rA=resA[6];
+  if(cmp!=null){
+    const inCI=cmp>=rA.p05&&cmp<=rA.p95;
+    const v='P-B1 — comparison '+cmp.toFixed(2)+'% '+(inCI?'INSIDE':'OUTSIDE')
+      +' A\u2019s 90% interval ['+rA.p05.toFixed(2)+', '+rA.p95.toFixed(2)+'] at L=6 → '
+      +(inCI?'gap NOT resolvable at this resolution':'gap IS resolvable — a real distinction');
+    vTxt.push(v);
+    out.push('<div class="verdict '+(inCI?'pass':'fail')+'">'+v+'</div>');
+  }
+  const l3=resA[3],l10=resA[10];
+  const stable=Math.abs(l3.p05-l10.p05)<=1.0&&Math.abs(l3.p95-l10.p95)<=1.0
+    &&(cmp==null||((cmp>=l3.p05&&cmp<=l3.p95)===(cmp>=l10.p05&&cmp<=l10.p95)));
+  const v2='P-B2 — endpoints across L {3,6,10}: p05 {'+l3.p05.toFixed(2)+', '
+    +rA.p05.toFixed(2)+', '+l10.p05.toFixed(2)+'} · p95 {'+l3.p95.toFixed(2)+', '
+    +rA.p95.toFixed(2)+', '+l10.p95.toFixed(2)+'} → '
+    +(stable?'STABLE (≤1.0pp drift, same P-B1 verdict)':'BLOCK-LENGTH FRAGILE');
+  vTxt.push(v2);
+  out.push('<div class="verdict '+(stable?'pass':'fail')+'">'+v2+'</div>');
+  const v3='P-B3 — stop-share dispersion: IQR '+(rA.s75-rA.s25).toFixed(0)
+    +'pp on median '+rA.s50.toFixed(0)+'% (record vs harvest dispersion in the session log)';
+  vTxt.push(v3);
+  out.push('<div class="verdict">'+v3+'</div>');
+  const methodLine='Method: circular moving-block bootstrap · clock-filled to Σhold '
+    +A.sum.days+'d (truncate at boundary) · y = yObs·(P&L_b/P&L_obs)·(D_obs/D_b) · '
+    +'unpaired A/B comparison by interval overlap only.';
+  out.push('<p class="note">'+methodLine+'</p>'
+    +'<div class="row" style="margin-top:10px"><button class="ghost" id="dl">Download results log</button></div></div>');
+  $('out').innerHTML=out.join('');
+
+  // v1.2.1 — plain-text report (the downloadable artifact)
+  const idLines=(tag,L)=>{
+    if(!L||!L.meta)return [];
+    const ls=[];
+    if(L.meta.verLine)ls.push('  source:  '+L.meta.verLine);
+    if(L.meta.runLine)ls.push('  params:  '+L.meta.runLine);
+    if(L.meta.coreLine)ls.push('  yield:   '+L.meta.coreLine);
+    return ls.length?['Ledger '+tag+' source identity:'].concat(ls):[
+      'Ledger '+tag+' source identity: (none parsed — pasted rows only)'];
+  };
+  const pad=(s,w)=>String(s).padStart(w);
+  const rep=[];
+  rep.push('═══════════════════════════════════════════════════════════');
+  rep.push('CYCLE-LEDGER BOOTSTRAP — RESULTS REPORT');
+  rep.push('═══════════════════════════════════════════════════════════');
+  rep.push(hdr);
+  rep.push('');
+  rep.push(...idLines('A',A));
+  if(Bl&&Bl.rows.length){rep.push('');rep.push(...idLines('B',Bl));}
+  rep.push('');
+  rep.push('Ledger·L     p05     p25  median     p75     p95   90%CIw   stop-share med (IQR)');
+  rep.push('───────────────────────────────────────────────────────────────────────────────');
+  const repRow=(tag,L,r)=>rep.push(tag+' · L='+String(L).padEnd(3)
+    +pad(r.p05.toFixed(2),8)+pad(r.p25.toFixed(2),8)+pad(r.p50.toFixed(2),8)
+    +pad(r.p75.toFixed(2),8)+pad(r.p95.toFixed(2),8)
+    +pad((r.p95-r.p05).toFixed(2)+'pp',9)
+    +'   '+r.s50.toFixed(0)+'% ('+r.s25.toFixed(0)+'–'+r.s75.toFixed(0)+')');
+  Ls.forEach(L=>repRow('A',L,resA[L]));
+  Ls.forEach(L=>{if(resB[L])repRow('B',L,resB[L]);});
+  rep.push('');
+  vTxt.forEach(v=>rep.push(v));
+  rep.push('');
+  rep.push(methodLine);
+  reportTxt=rep.join('\n')+'\n';
+  const fn='bootstrap_'+etStamp(new Date(), true)+'.txt'; // v1.2.1 — ET-labeled filename
+  $('dl').onclick=()=>{
+    const blob=new Blob([reportTxt],{type:'text/plain'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=fn;
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+  };
+};
+
+// ═══ v1.3.0 — Ledger-Pack N-way calendar-block mode ═══════════════════════
+// Separate path end-to-end: legacy A/B machinery above is byte-untouched.
+let PK=null,reportTxtP=null;
+
+function fpPack(cycles){ // must match the backtester's _fpLedger exactly (djb2 over entry|exit|round(pnl))
+  let h=5381;
+  const s=(cycles||[]).map(c=>c.entryDate+'|'+c.exitDate+'|'+Math.round(c.pnl)).join(';');
+  for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;
+  return h.toString(16).padStart(8,'0');
+}
+function dayIdx(iso,t0){return Math.round((Date.parse(iso+'T00:00:00Z')-t0)/86400000);}
+
+function parsePack(txt){
+  let j;
+  try{j=JSON.parse(txt);}catch(e){return {err:'Not valid JSON: '+e.message};}
+  // v1.4.0 (S66) — ledger-pack/2. A /1 pack's coreYld divided coreSum by SPY
+  // at the FIRST ROLL, frozen; /2 scores each cycle against the spot its own
+  // selection saw. Same policy reads ~1pp higher under /1. parsePack takes ONE
+  // pack, so /1 and /2 entries cannot mix inside a run — the hazard is reading
+  // a /1 REPORT against a /2 report. /1 is refused BY NAME, with the reason.
+  if(j.schema==='ledger-pack/1')return {err:'ledger-pack/1 — RETIRED at v7.2.13. Its coreYld uses the frozen first-roll basis and reads ~1pp higher than /2 for the same policy. Not comparable to a /2 report. Re-export from the backtester.'};
+  if(j.schema!=='ledger-pack/2')return {err:'Unknown schema "'+(j.schema||'?')+'" — expected ledger-pack/2'};
+  if(j.basis&&j.basis!=='market-percycle')return {err:'Unknown basis "'+j.basis+'" — expected market-percycle'};
+  if(!Array.isArray(j.entries)||!j.entries.length)return {err:'Pack has no entries'};
+  const probs=[];
+  j.entries.forEach(e=>{
+    const fp=fpPack(e.cycles);
+    e._fpOk=(fp===e.fingerprint);
+    if(!e._fpOk)probs.push('#'+e.id+' '+e.label+': fp recompute '+fp+' ≠ pack '+e.fingerprint);
+    e._core=(e.cycles||[]).filter(c=>!c.isInitial);
+    if(e.stats?.coreYld==null)probs.push('#'+e.id+' '+e.label+': coreYld null — cannot anchor yield scaling');
+    if(!e._core.length)probs.push('#'+e.id+' '+e.label+': no core cycles');
+  });
+  if(j.entries[0]?.params?.published!==true)probs.push('entry #0 is not marked published:true — incumbent-first pack expected');
+  return {pack:j,probs};
+}
+
+function showPack(res){
+  const box=$('pboxP');
+  if(res.err){box.innerHTML='<span class="bad">'+res.err+'</span>';return null;}
+  const j=res.pack;
+  let h='schema <b>'+j.schema+'</b> · basis <b>'+(j.basis||'?')+'</b> · app <b>'+(j.app||'?')+'</b> · DM <b>'+(j.dmUpdated||'?')
+    +'</b> · sweep evals <b>'+(j.sweepEvals??'?')+'</b> · considered '+(j.considered??'?')
+    +' → distinct <b>'+(j.distinct??j.entries.length)+'</b>\n';
+  j.entries.forEach(e=>{
+    h+='#'+e.id+' '+e.label+(e.aliases&&e.aliases.length?' (+'+e.aliases.length+' alias)':'')
+      +' · fp '+e.fingerprint+(e._fpOk?' <span class="ok">✓</span>':' <span class="bad">✗ MISMATCH</span>')
+      +' · core '+(e.stats?.coreYld!=null?e.stats.coreYld.toFixed(1)+'%':'—')
+      +' · '+e._core.length+' core cycles\n';
+  });
+  if(res.probs.length)h+='<span class="'+(res.probs.some(p=>p.includes('fp recompute'))?'bad':'wn')+'">'
+    +res.probs.length+' issue(s): '+res.probs[0]+(res.probs.length>1?' (+'+(res.probs.length-1)+' more)':'')+'</span>';
+  box.innerHTML=h;
+  return res;
+}
+
+function gateP(){
+  let msg='';
+  if(!PK||!PK.pack)msg='Load a ledger pack first';
+  else if(PK.pack.entries.some(e=>!e._fpOk))msg='✗ fingerprint mismatch — pack integrity failed; re-export from the backtester';
+  else if(PK.pack.entries.some(e=>e.stats?.coreYld==null||!e._core.length))msg='✗ entry missing coreYld or core cycles — cannot run';
+  $('runP').disabled=!!msg;
+  $('gateMsgP').textContent=msg;
+}
+$('loadP').onclick=()=>$('fileP').click();
+$('fileP').onchange=()=>{
+  const f=$('fileP').files&&$('fileP').files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{PK=showPack(parsePack(String(rd.result)));gateP();};
+  rd.onerror=()=>{$('pboxP').innerHTML='<span class="bad">File read failed.</span>';};
+  rd.readAsText(f);$('fileP').value='';
+};
+gateP();
+
+$('runP').onclick=()=>{
+  const j=PK.pack,E=j.entries,B=Math.max(100,+$('nBP').value||10000),seed=+$('seedP').value||42;
+  const Ls=[30,61,91];
+  // Union calendar window across all entries' core cycles (exit-date attribution)
+  let minD=Infinity,maxD=-Infinity;
+  E.forEach(e=>e._core.forEach(c=>{const t=Date.parse(c.exitDate+'T00:00:00Z');
+    if(t<minD)minD=t;if(t>maxD)maxD=t;}));
+  const W=Math.round((maxD-minD)/86400000)+1;
+  // Per-entry prefix sums of P&L by calendar day index — O(1) wrapped block sums
+  const pref=E.map(e=>{
+    const a=new Float64Array(W+1);
+    e._core.forEach(c=>{a[dayIdx(c.exitDate,minD)+1]+=c.pnl;});
+    for(let i=1;i<=W;i++)a[i]+=a[i-1];
+    return a;
+  });
+  const Pobs=E.map((e,i)=>pref[i][W]);
+  const yObs=E.map(e=>e.stats.coreYld);
+  const blockSum=(pe,s,L)=>{const en=s+L;
+    return en<=W?pe[en]-pe[s]:(pe[W]-pe[s])+pe[en-W];}; // circular wrap
+  const res={}; // res[L] = {win:[], dq:[[p05,p50,p95,Pgt0] per entry], drawCk}
+  Ls.forEach((L,li)=>{
+    const nb=Math.ceil(W/L),rng=mulberry32(seed*1000+li+1); // stream disjoint from legacy (seed*100+L[+50])
+    const win=new Array(E.length).fill(0);
+    const dArr=E.map(()=>new Float64Array(B));
+    let ck=2166136261>>>0,ckN=0;
+    const ys=new Float64Array(E.length);
+    for(let b=0;b<B;b++){
+      ys.fill(0);
+      for(let k=0;k<nb;k++){
+        const s=Math.floor(rng()*W);
+        if(ckN<8){const st=String(s);for(let q=0;q<st.length;q++){ck^=st.charCodeAt(q);ck=Math.imul(ck,16777619);}ckN++;}
+        for(let e=0;e<E.length;e++)ys[e]+=blockSum(pref[e],s,L);
+      }
+      const tf=W/(nb*L); // constant per L — identical for every entry (shared clock)
+      let bi=0;
+      for(let e=0;e<E.length;e++){
+        ys[e]=yObs[e]*(ys[e]/Pobs[e])*tf;
+        if(ys[e]>ys[bi])bi=e; // strict argmax; exact ties → lower id
+        if(e>0)dArr[e][b]=ys[e]-ys[0];
+      }
+      win[bi]++;
+    }
+    const dq=dArr.map((a,e)=>{
+      if(e===0)return null;
+      const v=Array.from(a).sort((x,y)=>x-y);
+      const q=f=>v[Math.min(B-1,Math.floor(f*B))];
+      return {p05:q(.05),p50:q(.50),p95:q(.95),pgt:v.filter(x=>x>0).length/B};
+    });
+    res[L]={win,dq,drawCk:(ck>>>0).toString(16).padStart(8,'0'),nb};
+  });
+
+  // ── Render ──
+  const stamp=etStamp(new Date(),false);
+  const hdr='bootstrap '+GATE_VERSION+' · pack mode · '+stamp
+    +' · seed '+seed+' · B '+B+' · L {30,61,91}cd · window '+W+'d'
+    +'\npack: app '+(j.app||'?')+' · DM '+(j.dmUpdated||'?')+' · basis '+(j.basis||'?')+' · distinct '+E.length
+    +' · draw ck {'+Ls.map(L=>res[L].drawCk).join(', ')+'}';
+  const out=['<div class="card"><h2>Pack run header — copy into the session record</h2>'
+    +'<div class="runhdr">'+hdr+'</div>'];
+
+  let wt='<table><tr><th>Entry</th><th>core yObs</th>';
+  Ls.forEach(L=>wt+='<th>win% L='+L+'</th>');wt+='</tr>';
+  E.forEach((e,i)=>{wt+='<tr><td>#'+e.id+' '+e.label+'</td><td>'+yObs[i].toFixed(1)+'%</td>';
+    Ls.forEach(L=>{const w=res[L].win[i]/B*100;
+      wt+='<td'+(w===Math.max(...res[L].win)/B*100?' style="font-weight:700"':'')+'>'+w.toFixed(1)+'</td>';});
+    wt+='</tr>';});
+  wt+='</table>';
+  out.push('<h2 style="margin-top:14px">Win frequency — share of '+B.toLocaleString()+' resampled worlds each machine ranks #1</h2>'+wt);
+
+  let dt='<table><tr><th>Δ vs #0 (pp)</th>';
+  Ls.forEach(L=>dt+='<th>L='+L+': p05 / med / p95 · P(Δ&gt;0)</th>');dt+='</tr>';
+  E.forEach((e,i)=>{if(i===0)return;dt+='<tr><td>#'+e.id+' '+e.label+'</td>';
+    Ls.forEach(L=>{const d=res[L].dq[i];
+      dt+='<td>'+d.p05.toFixed(2)+' / <b>'+d.p50.toFixed(2)+'</b> / '+d.p95.toFixed(2)
+        +' · '+(d.pgt*100).toFixed(0)+'%</td>';});
+    dt+='</tr>';});
+  dt+='</table>';
+  out.push('<h2>Paired Δ vs incumbent (#0) — shared draws, divergent segments only</h2>'+dt);
+
+  // Verdicts
+  const vTxt=[];
+  const inc=res[61].win[0]/B*100;
+  const chall=E.map((e,i)=>i===0?null:{i,w:res[61].win[i]/B*100,p:res[61].dq[i].pgt*100})
+    .filter(x=>x).sort((a,b)=>b.p-a.p||a.i-b.i); // v1.3.1: paired P(Δ>0) decides; ties → lower id; win% descriptive
+  const top=chall[0];
+  const v1='P-P1 — incumbent wins '+inc.toFixed(0)+'% of worlds at L=61'
+    +(top?'; strongest challenger #'+E[top.i].id+' ('+E[top.i].label+') P(Δ>0) '+top.p.toFixed(0)
+      +'% (paired), wins '+top.w.toFixed(0)+'% of worlds':'')
+    +' → '+(top&&top.p>=90?'challenger CLEARS the paired bar — walk-forward candidate'
+      :top&&top.p>=60?'suggestive, NOT resolved — more tape or more cycles'
+      :'ranking is sampling luck at this depth — no motion');
+  vTxt.push(v1);out.push('<div class="verdict '+(top&&top.p>=90?'fail':'pass')+'">'+v1+'</div>');
+  // ── v1.5.0 · P-G1 GATE VERDICT ────────────────────────────────────────────
+  // The Sunday Gate rule, applied here instead of by eye: a challenger
+  // publishes only if P(Δ>0) ≥ 90% at EVERY L and p05 ≥ −0.25pp at EVERY L.
+  // Default is HOLD. This reads the same res[] the tables above render — it
+  // computes nothing new and cannot disagree with them.
+  const GP=0.90, GP05=-0.25;
+  const gv=E.map((e,i)=>{
+    if(i===0)return null;
+    const perL=Ls.map(L=>res[L].dq[i]);
+    const minP=Math.min(...perL.map(d=>d.pgt));
+    const minP05=Math.min(...perL.map(d=>d.p05));
+    const lP=Ls[perL.findIndex(d=>d.pgt===minP)], l5=Ls[perL.findIndex(d=>d.p05===minP05)];
+    const okP=minP>=GP, ok5=minP05>=GP05;
+    const why=okP&&ok5?'clears both'
+      :[okP?null:'P(Δ>0) '+(minP*100).toFixed(0)+'% < 90% at L='+lP,
+        ok5?null:'p05 '+minP05.toFixed(2)+' < −0.25 at L='+l5].filter(Boolean).join(' · ');
+    return {i,id:e.id,label:e.label,minP,minP05,pass:okP&&ok5,why,nOk:(okP?1:0)+(ok5?1:0)};
+  }).filter(Boolean);
+  const winner=gv.filter(x=>x.pass).sort((a,b)=>b.minP-a.minP||a.i-b.i)[0]||null;
+  // CLOSEST ranks by criteria CLEARED first, then by P(Δ>0). Ranking on P alone
+  // names an entry that fails BOTH tests over one that fails only the P test
+  // with p05 comfortably inside — the second is nearer the Gate in any sense
+  // that matters. (S67 pack 3: D#1 80%/−1.91 vs nbr 76%/−0.18.)
+  const near=gv.slice().sort((a,b)=>b.nOk-a.nOk||b.minP-a.minP||a.i-b.i)[0]||null;
+  let gt='<table><tr><th>Challenger</th><th>min P(Δ>0)</th><th>min p05</th><th>verdict</th></tr>';
+  gv.forEach(x=>{gt+='<tr><td>#'+x.id+' '+x.label+'</td><td>'+(x.minP*100).toFixed(0)+'%</td><td>'
+    +x.minP05.toFixed(2)+'</td><td'+(x.pass?' style="color:var(--pass);font-weight:700"':'')+'>'
+    +(x.pass?'PUBLISH':'hold — '+x.why)+'</td></tr>';});
+  gt+='</table>';
+  const v0=winner
+    ? 'P-G1 — PUBLISH #'+winner.id+' ('+winner.label+'): clears P(Δ>0) ≥90% at every L (min '
+      +(winner.minP*100).toFixed(0)+'%) and p05 ≥ −0.25 at every L (min '+winner.minP05.toFixed(2)+').'
+    : 'P-G1 — HOLD. No challenger clears the Gate; the published policy stands.'
+      +(near?' Closest: #'+near.id+' ('+near.label+') — '+near.why+'.':'');
+  out.push('<h2 style="margin-top:14px">Gate verdict — publish or hold ('+GATE_VERSION+')</h2>'+gt);
+  vTxt.push(v0);
+  out.push('<div class="verdict '+(winner?'pass':'fail')+'">'+v0+'</div>');
+  const stab=E.every((e,i)=>i===0||Ls.every(L=>Math.abs(res[L].dq[i].pgt-res[61].dq[i].pgt)<=0.10));
+  const v2='P-P2 — P(Δ>0) drift across L {30,61,91}: '+(stab?'STABLE (≤10pp per entry)':'BLOCK-LENGTH FRAGILE — treat verdicts as unresolved');
+  vTxt.push(v2);out.push('<div class="verdict '+(stab?'pass':'fail')+'">'+v2+'</div>');
+  const mth='Method: circular calendar-day moving-block · ONE shared draw sequence per resample across all entries '
+    +'(paired) · exit-date attribution · core cycles only · y = coreYld·(P&L_b/P&L_obs)·(W/(nb·L)) · '
+    +'strict argmax (ties → lower id) · adjudication only, no policy machinery.';
+  out.push('<p class="note">'+mth+'</p>'
+    +'<div class="row" style="margin-top:10px"><button class="ghost" id="dlP">Download pack results log</button></div></div>');
+  $('outP').innerHTML=out.join('');
+
+  // Plain-text report
+  const rep=['═══════════════════════════════════════════════════════════',
+    'LEDGER-PACK BOOTSTRAP — N-WAY RESULTS REPORT',
+    '═══════════════════════════════════════════════════════════',hdr,'','Entries:'];
+  E.forEach((e,i)=>rep.push('  #'+e.id+' '+e.label+(e.aliases&&e.aliases.length?' (+'+e.aliases.length+' alias)':'')
+    +' · fp '+e.fingerprint+' · core '+yObs[i].toFixed(1)+'% · '+e._core.length+' core cycles'));
+  rep.push('','Win frequency (% of '+B+' worlds ranked #1):');
+  E.forEach((e,i)=>rep.push('  #'+e.id+' '+String(e.label).padEnd(24)
+    +Ls.map(L=>('L'+L+' '+(res[L].win[i]/B*100).toFixed(1)+'%').padStart(12)).join('')));
+  rep.push('','Paired Δ vs #0 (pp) — p05 / median / p95 · P(Δ>0):');
+  E.forEach((e,i)=>{if(i===0)return;
+    rep.push('  #'+e.id+' '+String(e.label).padEnd(24)
+      +Ls.map(L=>{const d=res[L].dq[i];return ('L'+L+' '+d.p05.toFixed(2)+'/'+d.p50.toFixed(2)+'/'
+        +d.p95.toFixed(2)+' '+(d.pgt*100).toFixed(0)+'%').padStart(28);}).join(''));});
+  rep.push('','Gate ('+GATE_VERSION+') \u2014 publish needs P(\u0394>0) \u2265 90% at EVERY L and p05 \u2265 \u22120.25 at EVERY L:');
+  gv.forEach(x=>rep.push('  #'+x.id+' '+String(x.label).padEnd(30)+'minP '+(x.minP*100).toFixed(0).padStart(3)+'%  minP05 '
+    +x.minP05.toFixed(2).padStart(6)+'   '+(x.pass?'PUBLISH':'hold \u2014 '+x.why)));
+  rep.push('');vTxt.forEach(v=>rep.push(v));rep.push('',mth);
+  reportTxtP=rep.join('\n')+'\n';
+  const fn='bootstrap_pack_'+etStamp(new Date(),true)+'.txt';
+  $('dlP').onclick=()=>{
+    const blob=new Blob([reportTxtP],{type:'text/plain'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=fn;
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+  };
+};
 
 </script>
 <!-- ── Trade Modal ─────────────────────────────────────────────────────── -->
