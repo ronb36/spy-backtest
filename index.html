@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.17</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.18</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -720,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.17 · LEDGER ROWS ORDERED BY CASH CONTINUITY (S68). DISPLAY ONLY. The v7.6.16 tie-out read ✗ Δ $20,995.58 at 2026-09-04 — exactly the 09-04 sell — because two rows on one day have no order the table can give: occ_seq is per contract group, ids are hashes, and Postgres returned the day’s rows in an order that put the sell before the cover it followed, so the “last row” closed on the wrong balance. Within a day the order is now DERIVED FROM THE CASH: starting at the prior day’s close, the next row is the one whose (cash_balance − amount) equals the running cash (balance-neutral memos: cash_balance equals it). A day that cannot be chained keeps its input order and is flagged on the panel. The order is therefore a property of the statement, never of the index. Base v7.6.16 (e62c013c).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.18 · LEGS INSERT — TRIGGER SEED SCOPED TO THE FILE SPAN (S68). STATE ONLY, sim untouched. DEFECT: v7.2.5’s seed step was written for a full re-import: it CLEARED every era trigger in live_legs (trade_date ≥ WF_ERA_START), then re-seeded only from legs present in the loaded file’s payload, and verified two fixed dates (08-03, 08-04). On an incremental file (08-18 → 09-17) that cleared the July and early-August triggers, re-seeded none of them (“no closing leg — trigger NOT seeded” ×6) and failed its own verification — facts untouched, triggers on 07-21…08-04 legs in live_legs left NULL. live_trades (the blotter’s source) was never touched. Now: the clear, the ticket read and the seed are all bounded to [dMin, dMax] of the loaded file; the 08-03/08-04 verification runs only when those dates are inside the span, otherwise it reports “outside this file — not verified here”. Re-running the insert on the July–August file restores the cleared triggers; every run still writes ZERO fact rows. Base v7.6.17 (8546860e).</span></div>
 </div>
 
 <script>
@@ -907,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.17';
+const APP_VERSION = 'v7.6.18';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -9708,7 +9708,12 @@ async function impLegsInsert() {
 
     // MIGRATION SEED — the statement carries WHAT; only the ticket carries WHY.
     st.textContent = 'seeding triggers\u2026';
-    const trs = await fetch(`${SB_URL}/live_trades?select=id,trade_date,trigger,trigger_value,trigger_threshold&trade_date=gte.${WF_ERA_START}&order=trade_date.asc&limit=1000`,
+    // v7.6.18 — SCOPED TO THE FILE: tickets, clear and seed all bounded to [dMin, dMax].
+    // A whole-era clear followed by a file-only re-seed nulled every trigger the
+    // file did not carry (S68, incremental import) — the seed must never reach
+    // past the legs it can re-seed.
+    const seedLo = dMin > WF_ERA_START ? dMin : WF_ERA_START, seedHi = dMax;
+    const trs = await fetch(`${SB_URL}/live_trades?select=id,trade_date,trigger,trigger_value,trigger_threshold&trade_date=gte.${seedLo}&trade_date=lte.${seedHi}&order=trade_date.asc&limit=1000`,
       { headers: _sbHeaders });
     if (!trs.ok) die('live_trades trigger read failed: ' + trs.status);
     // v7.2.5 — ENTRY TICKETS EXCLUDED. An opening ticket has no close reason
@@ -9733,11 +9738,11 @@ async function impLegsInsert() {
     // v7.2.5 — clear era triggers before re-seeding. This rolls back OUR OWN bad
     // write (v7.2.4's mis-seed), never a fact: identity, price, quantity and cash
     // are untouched, so a re-run of Insert still writes ZERO fact rows.
-    const clr = await fetch(`${SB_URL}/live_legs?trade_date=gte.${WF_ERA_START}`, {
+    const clr = await fetch(`${SB_URL}/live_legs?trade_date=gte.${seedLo}&trade_date=lte.${seedHi}`, { // v7.6.18 — file span only
       method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
       body: JSON.stringify({ trigger: null, trigger_value: null, trigger_threshold: null }) });
     if (!clr.ok) die('era trigger clear failed: ' + clr.status);
-    L.push('\u2713 era triggers cleared before re-seed \u2014 facts untouched');
+    L.push('\u2713 triggers cleared ' + seedLo + ' \u2192 ' + seedHi + ' before re-seed \u2014 facts untouched, nothing outside the file span'); // v7.6.18
 
     let seeded = 0;
     for (const t of tickets) {
@@ -9770,7 +9775,9 @@ async function impLegsInsert() {
         + d + ' \u2014 ' + r.trigger + ' \u00b7 value ' + (r.trigger_value === null ? 'NULL' : r.trigger_value)
         + ' \u00b7 threshold ' + r.trigger_threshold;
     };
-    const v1 = chk('2026-08-03', null), v2 = chk('2026-08-04', 0.865);
+    const inSpan = d => d >= seedLo && d <= seedHi; // v7.6.18 — verify only what this file could have seeded
+    const v1 = inSpan('2026-08-03') ? chk('2026-08-03', null) : '\u00b7 2026-08-03 outside this file \u2014 not verified here';
+    const v2 = inSpan('2026-08-04') ? chk('2026-08-04', 0.865) : '\u00b7 2026-08-04 outside this file \u2014 not verified here';
     L.push(v1); L.push(v2);
     const bad = v1.startsWith('\u2717') || v2.startsWith('\u2717');
 
