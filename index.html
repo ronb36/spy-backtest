@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -592,7 +592,7 @@ select.display-box { cursor:pointer; outline:none; }
           <span class="chart-title">🔬 Conformance — sim vs live, cycle by cycle</span>
           <span id="conf-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
         </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 10px;line-height:1.5;">Each live entry is replayed through simulate() at its own fill (v7.6.1 pin) and the sim's trades are laid on the same calendar as the live ones — one row per trading date. RE-PIN = every cycle independently, exit rules only (leg A, selection held constant). FREE-RUN = first entry pinned, sim selects forward (compounding). Prior-regime rows (before POLICY_REGIME_2) are dimmed and excluded from the summary. Reads only.</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 10px;line-height:1.5;">Each live entry is replayed through simulate() at its own fill (v7.6.1 pin) and the sim's trades are laid on the same calendar as the live ones — one row per trading date. PIN FIRST, FREE-RUN (default) = the live sell on the start date is pinned at its contract and fill, then the sim selects forward on its own. RE-PIN = every cycle independently, exit rules only (leg A, selection held constant). Prior-regime rows (before POLICY_REGIME_2) are dimmed and excluded from the summary. Reads only.</div>
         <div id="conf-body"></div>
       </div>
     </div>
@@ -718,7 +718,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.3 · CONFORMANCE CALENDAR GRID (S68, Ron). DISPLAY ONLY — sim path, trigger tests, ranker and Gate region untouched. The row-per-cycle table becomes a row-per-TRADING-DATE grid from the start date: date · sim buy · px · sim sell · px · live buy · px · live sell · px. A cell carries the contract spec (and the trigger reading on a buy) only when that side traded that day, so every date reads as none / one side / both; empty dates stay in the grid dimmed, the date is green when both sides traded and amber when only one did. On a pinned row the sim sell px is the DM day-bar VWAP (the sim’s own mark) while the replay opened at the live fill — stated under the grid. Sim positions still open at DM end are listed as notes. Summary band unchanged: leg A split decay/delta, leg B in free-run, the VWAP-wedge and not-a-verdict lines. FIRST READING (v7.6.2, DM 09-18, 3 post-publish closed cycles): every exit the SAME DAY, same trigger type 3/3; live decay fires +0.7pp over the sim’s close reading, live delta fire −0.020 under — the SPEC §7 expectation of live firing LATE is falsified on n=3; leg A conforms. Base v7.6.2 (41bbbb0e).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.4 · CONFORMANCE GRID — TRIGGER COLUMNS, ONE LINE PER ROW, FREE-RUN DEFAULT (S68, Ron). DISPLAY ONLY — sim path, trigger tests, ranker and Gate region untouched. Each side gains a TRIGGER column (date · sim buy · px · trigger · sim sell · px · live buy · px · trigger · live sell · px) so every row is a single line; same-day same-side events join with a middle dot. Start selector lists DATES only; the sim is pinned to the live sell on that date at its contract AND its fill, then selects forward on its own (free-run is now the default — “pin the first line, see how the balance of the rows conform”); re-pin stays available. On the pinned row the sim sell px IS the fill; the DM day-bar VWAP for that contract/date is reported under the grid. Base v7.6.3 (822b793a).</span></div>
 </div>
 
 <script>
@@ -905,7 +905,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.3';
+const APP_VERSION = 'v7.6.4';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2487,7 +2487,7 @@ function _resCounterHtml(n, minN, label) {
 // STATEMENT (§12.4: this edge is not verifiable on live data within any
 // reasonable horizon). Sixteen live cycles support a diagnostic, not a verdict.
 let _confRunning = false;
-let _confMode = 'repin';   // 'repin' | 'free'
+let _confMode = 'free';    // 'free' (default, v7.6.4) | 'repin'
 let _confStart = null;     // ISO entry date of the first row
 let _confLive = null;      // paired live cycles (closed + open), ascending
 
@@ -2546,18 +2546,18 @@ async function renderConfTab() {
     const first = rows.find(r => r.open >= POLICY_REGIME_2) || rows[rows.length - 1];
     _confStart = first.open;
   }
-  const opts = rows.map(r => `<option value="${r.open}"${r.open === _confStart ? ' selected' : ''}>${r.open} \u00b7 ${_confContract(r.strike, r.expiry)}${r.open < POLICY_REGIME_2 ? ' \u00b7 prior regime' : ''}${r.isOpen ? ' \u00b7 OPEN' : ''}</option>`).join('');
+  const opts = rows.map(r => `<option value="${r.open}"${r.open === _confStart ? ' selected' : ''}>${r.open}</option>`).join(''); // v7.6.4 — dates only (each is a live sell date; the sim pins to that trade)
   const pill = (id, on) => `background:${on ? 'var(--accent)' : 'var(--surface2)'};border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};color:${on ? '#fff' : 'var(--muted)'};`;
   body.innerHTML =
     `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;font-family:var(--mono);font-size:10px;">
       <label style="color:var(--muted);">start <select id="conf-start" onchange="_confStart=this.value;renderConfTab();" style="font-family:var(--mono);font-size:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 6px;">${opts}</select></label>
       <span style="color:var(--muted);">mode</span>
+      <button class="btn" style="height:24px;padding:0 10px;font-size:9px;${pill('', _confMode === 'free')}" onclick="_confMode='free';renderConfTab();">pin first, free-run</button>
       <button class="btn" style="height:24px;padding:0 10px;font-size:9px;${pill('', _confMode === 'repin')}" onclick="_confMode='repin';renderConfTab();">re-pin each cycle</button>
-      <button class="btn" style="height:24px;padding:0 10px;font-size:9px;${pill('', _confMode === 'free')}" onclick="_confMode='free';renderConfTab();">free-run</button>
       <button class="btn btn-primary" id="conf-run-btn" style="height:24px;padding:0 12px;font-size:9px;" onclick="runConformance()">\u25b6 Run</button>
       <button class="btn" style="height:24px;padding:0 10px;font-size:9px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);" onclick="_confLive=null;renderConfTab();">\u21bb reload live</button>
     </div>
-    <div id="conf-table" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${rows.filter(r => r.open >= _confStart).length} live cycle(s) from ${_confStart} \u00b7 ${_confMode === 'repin' ? 'each entry pinned, exit rules only \u2014 independent tests of leg A' : 'first entry pinned, sim selects forward \u2014 compounding divergence'}. Press Run.${_confLive.skipped.length ? '<br><span style="color:#e0a020;">\u26a0 ' + _confLive.skipped.length + ' live row(s) skipped: orphan cover or no sell leg.</span>' : ''}</div>`;
+    <div id="conf-table" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${rows.filter(r => r.open >= _confStart).length} live cycle(s) from ${_confStart} \u00b7 ${_confMode === 'repin' ? 'each entry pinned, exit rules only \u2014 independent tests of leg A' : 'the ' + _confStart + ' live sell is pinned (contract + fill); the sim selects forward on its own'}. Press Run.${_confLive.skipped.length ? '<br><span style="color:#e0a020;">\u26a0 ' + _confLive.skipped.length + ' live row(s) skipped: orphan cover or no sell leg.</span>' : ''}</div>`;
   if (st) st.textContent = `${rows.length} live cycles \u00b7 ${rows.filter(r => r.isOpen).length} open`;
 }
 
@@ -2644,7 +2644,8 @@ function _confRender(results) {
       const sv = stype === 'delta' ? C.exitDelta : stype === 'decay' ? C.exitDecayPct : null;
       const pinned = (_confMode === 'repin') || i === 0;
       // sim sell: pinned rows opened at the live fill; the sim's OWN mark that day is entryPxDm
-      at(C.entryDate).ss.push({ c: _confContract(C.strike, C.expiry), px: pinned ? C.entryPxDm : C.entryPx, tag: pinned ? 'pinned' : '', prior });
+      at(C.entryDate).ss.push({ c: _confContract(C.strike, C.expiry) + (pinned ? ' pin' : ''), px: C.entryPx, tag: '', prior }); // v7.6.4 — pinned row shows the FILL (the pin); VWAP goes to the notes
+      if (pinned && C.entryPxDm != null && Math.abs(C.entryPxDm - C.entryPx) > 0.005) notes.push(`<span style="${muted}">pin ${C.entryDate} ${_confContract(C.strike, C.expiry)}: sim opened at the live fill ${fmtPx(C.entryPx)}; the DM day-bar VWAP that day was ${fmtPx(C.entryPxDm)}</span>`);
       at(C.exitDate).sb.push({ c: _confContract(C.strike, C.expiry), px: C.exitPx, tag: stype + (sv != null ? ' ' + fmtTv(stype, sv) : '') + (stype === 'delta' && C.exitDecayPct != null ? ' (decay ' + Number(C.exitDecayPct).toFixed(1) + '%)' : ''), prior, note: x.note });
     } else if (x.held) {
       const what = L ? _confContract(L.strike, L.expiry) : (x.pending ? _confContract(x.pending.strike, x.pending.expiry) : 'position');
@@ -2672,11 +2673,15 @@ function _confRender(results) {
   const dates = new Set(DM.spy.filter(r => r.date >= _confStart).map(r => r.date));
   Object.keys(ev).forEach(d => { if (d >= _confStart) dates.add(d); });
   const axis = [...dates].sort();
-  const cell = (arr, key) => arr.map(e => key === 'c'
-    ? `<span style="${e.prior ? 'opacity:.62;' : ''}">${e.c}${e.tag ? `<br><span style="${muted}">${e.tag}</span>` : ''}${e.note ? `<br><span style="${amber}">\u26a0 ${e.note}</span>` : ''}</span>`
-    : `<span style="${e.prior ? 'opacity:.62;' : ''}">${fmtPx(e.px)}</span>`).join('<br>');
+  // v7.6.4 — ONE LINE PER ROW: contract / px / trigger are separate columns;
+  // same-day same-side events join with a middle dot; pin-mask notes go below.
+  const cell = (arr, key) => arr.map(e => { const o = e.prior ? 'opacity:.62;' : '';
+    if (key === 'c')  return `<span style="${o}">${e.c}</span>`;
+    if (key === 'px') return `<span style="${o}">${fmtPx(e.px)}</span>`;
+    return `<span style="${o}${muted}">${e.tag || ''}</span>`; }).join(' \u00b7 ');
+  results.forEach(x => { if (x.sim && x.note) notes.push(`<span style="${amber}">\u26a0 ${x.sim.entryDate} ${_confContract(x.sim.strike, x.sim.expiry)}: ${x.note}</span>`); });
   let html = `<table style="border-collapse:collapse;width:100%;font-family:var(--mono);font-size:10px;"><thead><tr>
-    <th style="${th}">date</th><th style="${th}">sim buy</th><th style="${th}">px</th><th style="${th}">sim sell</th><th style="${th}">px</th><th style="${th}">live buy</th><th style="${th}">px</th><th style="${th}">live sell</th><th style="${th}">px</th></tr></thead><tbody>`;
+    <th style="${th}">date</th><th style="${th}">sim buy</th><th style="${th}">px</th><th style="${th}">trigger</th><th style="${th}">sim sell</th><th style="${th}">px</th><th style="${th}">live buy</th><th style="${th}">px</th><th style="${th}">trigger</th><th style="${th}">live sell</th><th style="${th}">px</th></tr></thead><tbody>`;
   axis.forEach(d => {
     const e = ev[d];
     const anySim = e && (e.sb.length || e.ss.length), anyLive = e && (e.lb.length || e.ls.length);
@@ -2684,12 +2689,12 @@ function _confRender(results) {
     const dateStyle = (anySim && !anyLive) || (!anySim && anyLive) ? amber : (anySim && anyLive ? green : '');
     const prior = d < POLICY_REGIME_2;
     html += `<tr style="${rowStyle}"><td style="${td}${dateStyle}">${d}${prior ? ` <span style="${amber}">prior</span>` : ''}${d > lastDm ? ` <span style="${amber}">no DM</span>` : ''}</td>`
-      + (e ? `<td style="${td}">${cell(e.sb, 'c')}</td><td style="${td}">${cell(e.sb, 'px')}</td><td style="${td}">${cell(e.ss, 'c')}</td><td style="${td}">${cell(e.ss, 'px')}</td><td style="${td}">${cell(e.lb, 'c')}</td><td style="${td}">${cell(e.lb, 'px')}</td><td style="${td}">${cell(e.ls, 'c')}</td><td style="${td}">${cell(e.ls, 'px')}</td>`
-           : `<td style="${td}"></td>`.repeat(8))
+      + (e ? `<td style="${td}">${cell(e.sb, 'c')}</td><td style="${td}">${cell(e.sb, 'px')}</td><td style="${td}">${cell(e.sb, 'tag')}</td><td style="${td}">${cell(e.ss, 'c')}</td><td style="${td}">${cell(e.ss, 'px')}</td><td style="${td}">${cell(e.lb, 'c')}</td><td style="${td}">${cell(e.lb, 'px')}</td><td style="${td}">${cell(e.lb, 'tag')}</td><td style="${td}">${cell(e.ls, 'c')}</td><td style="${td}">${cell(e.ls, 'px')}</td>`
+           : `<td style="${td}"></td>`.repeat(10))
       + '</tr>';
   });
   html += '</tbody></table>';
-  html += `<div style="margin-top:6px;font-size:9px;${muted}">date colour: <span style="${green}">both traded</span> \u00b7 <span style="${amber}">one side only</span> \u00b7 dim = no trade. Sim sell px on a pinned row is the DM day-bar VWAP (the sim\u2019s own mark); the replay itself opened at the live fill, so decay is measured from the fill on both sides.${notes.length ? '<br>' + notes.join('<br>') : ''}</div>`;
+  html += `<div style="margin-top:6px;font-size:9px;${muted}">date colour: <span style="${green}">both traded</span> \u00b7 <span style="${amber}">one side only</span> \u00b7 dim = no trade. \u201cpin\u201d = the sim opened at the live contract and fill, so decay is measured from the fill on both sides.${notes.length ? '<br>' + notes.join('<br>') : ''}</div>`;
   // ── summary band ──
   const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
   const fm = (v, dd, suf) => v == null ? '\u2014' : (v >= 0 ? '+' : '') + v.toFixed(dd) + suf;
