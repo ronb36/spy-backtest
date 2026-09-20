@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.12</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.13</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -720,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.12 · LEDGER BALANCE — LEGS AT OR PAST EXPIRY MARK BY INTRINSIC, NOT THE DM (S68). DISPLAY ONLY. The first live render of v7.6.11 failed both anchors on legs the blotter still carries as open: a $692C expiring 2025-12-31 (the anchor day itself) and a $628C expiring 2025-07-15 (never closed in the blotter — an expiration with no closing row). A leg at its expiry is worth its intrinsic at that close; a leg past it is worth zero (expired, or assigned — and an assignment’s share and cash effects are already in the ledger rows). Neither needs a DM bar, and the DM would not have them anyway (pre-universe contracts). _ledgerBalanceAt now marks expiry ≤ d by intrinsic from the SPY close, tags those legs “expiry”/“expired” in the printed composition, and asks the DM only for live contracts. Base v7.6.11 (c791076e).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.13 · BLOTTER PAIRING — SAME-DAY ROUND TRIPS; STATEMENT LINE COMPACTED (S68, Ron). DISPLAY/STATE ONLY, sim untouched. DEFECT FIXED in _pairLiveCycles: (a) the date comparator returned 1 on ties, so same-day rows sorted in undefined order; (b) a cover processed before its same-day sell found no open position and became an ORPHAN while the sell stayed OPEN forever. Fidelity’s 0DTE round trips — sold and bought back the same session — were exactly this: the blotter showed 07/15/25 $628C, 07/24/25 $635C and 08/07/25 $637C as open for 400+ days beside “unpaired” covers, and the ledger balance carried them as short legs. Ron’s 07–08/2025 CSV confirms every one closed the same day. Sort is now stable (date, then id); a cover with no open position is DEFERRED to the end of its day and retried against that day’s sells; only then is it an orphan. Statement line: strategy and SPY on one line, prose dropped — starting balance · contributions · redemptions · SPY P&amp;L · CC P&amp;L · ending balance (ledger-computed beside it, with Δ) · strategy % · SPY buy/hold % (same days, price only). Base v7.6.12 (394ce3ec).</span></div>
 </div>
 
 <script>
@@ -907,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.12';
+const APP_VERSION = 'v7.6.13';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2167,10 +2167,7 @@ async function _cwinHtml() {
   const ytdB = (_perfRange === 'ytd') ? _ledgerBalanceAt(CWIN_YTD_ANCHOR, trades) : null; // v7.6.11 — computed anchor
   const S = (_perfRange === 'ytd') ? { d: CWIN_YTD_ANCHOR, amt: (ytdB && !ytdB.err) ? ytdB.total : null } : CWIN_START_BALANCE; // v7.6.10 — ALL / YTD
   const chkB = _ledgerBalanceAt(L.d, trades); // v7.6.11 — the same computation at the pinned anchor: tie-out for the open item
-  const _bal = B => B.err ? '<span style="color:#e0a020;">\u26a0 ' + B.err + '</span>'
-    : 'cash ' + money(B.cash) + ' (ledger row ' + B.asOf + ') + ' + B.shares + ' SPY \u00d7 ' + money(B.spyPx) + ' (' + B.spyDate + ')'
-      + (B.legs.length ? ' \u2212 short ' + B.legs.map(l => l.q + '\u00d7 $' + l.K + 'C ' + l.exp + ' @ ' + money(l.px) + (l.tag ? ' (' + l.tag + ')' : '')).join(', ') + ' = ' + money(B.optMark) : ' \u00b7 no open calls')
-      + ' = <b>' + money(B.total) + '</b>';
+  // v7.6.13 — the composition string (_bal) was dropped with the prose; _ledgerBalanceAt still returns legs/cash/shares for a future tie-out view.
   const flows = _cwinLedgerFlows(trades); // v6.23.0 — ledger-derived; guard: absence can never hide
   if (!flows.length) return '<div style="color:var(--red);">\u2717 ledger has no contribution/withdrawal rows \u2014 run the statement import (\u00a73 capital series is ledger-derived as of v6.23.0)</div>';
   // v6.34.5 — TWO SECTIONS, TWO WINDOWS (Ron, S58). The fault line is real,
@@ -2304,17 +2301,15 @@ async function _cwinHtml() {
     + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (pinned to statement balance)</span>'
     + (S.amt == null
       ? '<br><span style="color:#e0a020;">\u26a0 YTD anchor ' + S.d + ' could not be computed from the ledger: ' + (ytdB ? ytdB.err : 'n/a') + '</span>'
-      : '<br><span style="' + lab + '">starting balance</span> ' + money(S.amt) // v7.6.10 — balance order: start + contributions − redemptions + SPY + CC = ending
+      : '<br><span style="' + lab + '">starting balance</span> ' + money(S.amt) // v7.6.10 — balance order: start + contributions − redemptions + SPY + CC = ending; v7.6.13 — one line, no prose (Ron)
       + '<span style="' + lab + '"> \u00b7 contributions</span> ' + money(contribP)
       + '<span style="' + lab + '"> \u00b7 redemptions</span> ' + money(-redeemP)
       + '<span style="' + lab + '"> \u00b7 SPY P&amp;L</span> ' + money(spyPnl) + ' (' + pf(yP(spyPnl)) + ')'
       + '<span style="' + lab + '"> \u00b7 CC P&amp;L</span> ' + money(grossP) + ' (' + pf(yP(grossP)) + ')'
       + '<span style="' + lab + '"> \u00b7 ending balance</span> ' + money(L.amt)
-      + '<span style="' + lab + '"> \u00b7 statement yield</span> ' + pf(yP(gain))
-      + '<br><span style="' + lab + '">SPY buy/hold, same days</span> ' + (bhRet != null ? (bhRet >= 0 ? '+' : '') + bhRet.toFixed(1) + '% (' + pf(bhAnn) + ' ann., price only, ' + money(spy0) + ' \u2192 ' + money(spy1) + ')' : 'n/a')
-      + '<span style="' + lab + '"> \u00b7 strategy</span> ' + pf(yP(gain)) + '<span style="' + lab + '"> ann. on time-weighted capital</span>'
-      + (_perfRange === 'ytd' ? '<br><span style="' + lab + '">' + S.d + ' balance, computed from the ledger: ' + _bal(ytdB) + '</span>' : '')) // v7.6.11
-    + '<br><span style="' + lab + 'font-size:9px;">ledger-computed at ' + L.d + ': ' + (chkB.err ? _bal(chkB) : money(chkB.total) + ' \u00b7 \u0394 vs pinned statement ' + money(chkB.total - L.amt) + ' \u00b7 ' + _bal(chkB)) + '</span>' // v7.6.11 — tie-out for “computed balances stays pinned”
+      + (chkB.err ? '' : '<span style="' + lab + '"> (ledger ' + money(chkB.total) + ', \u0394 ' + money(chkB.total - L.amt) + ')</span>') // v7.6.11/13 — the tie-out, one parenthesis
+      + '<span style="' + lab + '"> \u00b7 strategy</span> <b>' + pf(yP(gain)) + '</b>'
+      + '<span style="' + lab + '"> \u00b7 SPY buy/hold</span> <b>' + pf(bhAnn) + '</b>' + '<span style="' + lab + '"> (same days, price only)</span>')
     + '</div>' // v7.1.0 — residual prose removed (Ron). Header + data line only.
     + '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:9px 0 3px;letter-spacing:.05em;">'
     + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 current model \u00b7 ' + winStart + ' \u2192 ' + endIso + ' \u00b7 sim = unpinned STD path (Conformance pins the first live trade)</span></div>'; // v7.6.8
@@ -8761,30 +8756,47 @@ function _paintBlotterViewToggle(effView) { // v6.33.0
 // construction: its cover closes the $740C cycle, its sell opens the $755C.
 function _pairLiveCycles(trades) {
   const toIso = d => { const m = (d || '').match(/^(\d{2})\/(\d{2})\/(\d{2})$/); return m ? '20' + m[3] + '-' + m[1] + '-' + m[2] : (d || ''); };
-  const asc = [...trades].sort((a, b) => (toIso(a.trade_date) < toIso(b.trade_date) ? -1 : 1));
+  // v7.6.13 — STABLE order: date, then id. The old comparator returned 1 on
+  // equal dates, so same-day rows landed in undefined order.
+  const asc = [...trades].sort((a, b) => { const x = toIso(a.trade_date), y = toIso(b.trade_date); return x < y ? -1 : x > y ? 1 : ((a.id || 0) - (b.id || 0)); });
   const cycles = [], open = [], other = [];
+  const closeBitsOf = (t, rt, isTerm) => ({
+    closeDate: t.trade_date,
+    coverPrice: t.coverPrice != null ? parseFloat(t.coverPrice) : null,
+    closeType: isTerm ? (rt === 'assigned' ? 'assigned' : 'expired') : 'cover',
+    trigger: t.trigger, triggerValue: t.triggerValue, triggerThreshold: t.triggerThreshold
+  });
+  const tryClose = t => { // → true if it closed an open position
+    const k = String(t.coverStrike) + '|' + (t.coverExpiry || '');
+    let idx = -1;
+    for (let i = open.length - 1; i >= 0; i--) if (open[i].key === k) { idx = i; break; } // most-recent-open
+    if (idx < 0) return false;
+    const rt = t.row_type || '', isTerm = rt === 'assigned' || rt === 'expired' || rt === 'expired worthless';
+    cycles.push(Object.assign(open.splice(idx, 1)[0], closeBitsOf(t, rt, isTerm)));
+    return true;
+  };
+  const orphanOf = t => { const rt = t.row_type || '', isTerm = rt === 'assigned' || rt === 'expired' || rt === 'expired worthless';
+    cycles.push(Object.assign({ orphan: true, strike: t.coverStrike, expiry: t.coverExpiry, // P2 — amber, never dropped
+      qty: t.coverContracts, openDate: null, sellPrice: null }, closeBitsOf(t, rt, isTerm))); };
+  // v7.6.13 — SAME-DAY ROUND TRIPS (0DTE: sold and bought back in one session).
+  // A cover that finds no open position is DEFERRED to the end of its day and
+  // retried against that day's sells; only then is it an orphan. Before this,
+  // a cover ordered ahead of its same-day sell became an orphan and the sell
+  // stayed OPEN forever (07/15/25 $628C, 07/24/25 $635C, 08/07/25 $637C).
+  let dayIso = null, deferred = [];
+  const flushDay = () => { deferred.forEach(t => { if (!tryClose(t)) orphanOf(t); }); deferred = []; };
   asc.forEach(t => {
+    const d = toIso(t.trade_date);
+    if (d !== dayIso) { flushDay(); dayIso = d; }
     const rt = t.row_type || '';
     if (rt === 'long_call') { other.push(t); return; } // P3 — not a cycle; CC P&L excludes it (§7, unchanged)
     const isTerm = rt === 'assigned' || rt === 'expired' || rt === 'expired worthless';
-    if (t.coverStrike || isTerm) {
-      const k = String(t.coverStrike) + '|' + (t.coverExpiry || '');
-      let idx = -1;
-      for (let i = open.length - 1; i >= 0; i--) if (open[i].key === k) { idx = i; break; } // most-recent-open
-      const closeBits = {
-        closeDate: t.trade_date,
-        coverPrice: t.coverPrice != null ? parseFloat(t.coverPrice) : null,
-        closeType: isTerm ? (rt === 'assigned' ? 'assigned' : 'expired') : 'cover',
-        trigger: t.trigger, triggerValue: t.triggerValue, triggerThreshold: t.triggerThreshold
-      };
-      if (idx >= 0) cycles.push(Object.assign(open.splice(idx, 1)[0], closeBits));
-      else cycles.push(Object.assign({ orphan: true, strike: t.coverStrike, expiry: t.coverExpiry, // P2 — amber, never dropped
-        qty: t.coverContracts, openDate: null, sellPrice: null }, closeBits));
-    }
+    if ((t.coverStrike || isTerm) && !tryClose(t)) deferred.push(t);
     if (t.sellStrike) open.push({ key: String(t.sellStrike) + '|' + (t.sellExpiry || ''),
       strike: t.sellStrike, expiry: t.sellExpiry, qty: t.sellContracts || t.coverContracts,
       openDate: t.trade_date, sellPrice: t.sellPrice != null ? parseFloat(t.sellPrice) : null });
   });
+  flushDay();
   return { cycles, open, other, toIso };
 }
 
