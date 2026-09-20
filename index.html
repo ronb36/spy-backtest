@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.13</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.15</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -720,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.13 · BLOTTER PAIRING — SAME-DAY ROUND TRIPS; STATEMENT LINE COMPACTED (S68, Ron). DISPLAY/STATE ONLY, sim untouched. DEFECT FIXED in _pairLiveCycles: (a) the date comparator returned 1 on ties, so same-day rows sorted in undefined order; (b) a cover processed before its same-day sell found no open position and became an ORPHAN while the sell stayed OPEN forever. Fidelity’s 0DTE round trips — sold and bought back the same session — were exactly this: the blotter showed 07/15/25 $628C, 07/24/25 $635C and 08/07/25 $637C as open for 400+ days beside “unpaired” covers, and the ledger balance carried them as short legs. Ron’s 07–08/2025 CSV confirms every one closed the same day. Sort is now stable (date, then id); a cover with no open position is DEFERRED to the end of its day and retried against that day’s sells; only then is it an orphan. Statement line: strategy and SPY on one line, prose dropped — starting balance · contributions · redemptions · SPY P&amp;L · CC P&amp;L · ending balance (ledger-computed beside it, with Δ) · strategy % · SPY buy/hold % (same days, price only). Base v7.6.12 (394ce3ec).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.15 · THE TIE-OUT MOVES WITH THE IMPORTS (S68, Ron). DISPLAY ONLY. CWIN_LAST_BALANCE retired — the last hand-pinned figure on the panel is gone. The tie-out is now at the LAST IMPORTED STATEMENT ROW and advances with every successful import: a CASH WALK over the whole ledger (opening cash of the first imported row + Σ amounts, balance-neutral memos excluded) against Fidelity’s running cash balance on the last row. Δ $0.00 means every imported file is complete and continuous end to end; a non-zero Δ names a gap the per-file tie-out cannot see. If the ledger balance cannot be computed at the last row the section prints the reason instead of a stale constant. Base v7.6.14 (4ae34cd8).</span></div>
 </div>
 
 <script>
@@ -907,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.13';
+const APP_VERSION = 'v7.6.15';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2065,8 +2065,23 @@ function _cwinTwCapital(startIso, endIso, flows, startAmt = CWIN_START_BALANCE.a
 const CWIN_START_BALANCE = { d: '2025-06-02', amt: 70348.68 }; // v6.20.6 — actual account value at program start (statement: FXAIX proceeds + residual cash)
 const CWIN_YTD_ANCHOR    = '2025-12-31';                       // v7.6.11 — YTD anchor DATE; the balance is COMPUTED from the ledger (_ledgerBalanceAt), never pinned
 let   _perfRange = 'all';                                       // v7.6.10 — 'all' | 'ytd' (header toggle)
-const CWIN_LAST_BALANCE  = { d: '2026-08-11', amt: 520144.00 }; // v6.20.6 — PINNED with as-of date, stale-stamped in the UI (v6.15.2 sim-reference precedent);
-// update on the record when it matters. Open item (S49): activity-table expansion (SPY lots · dividends · contributions) makes this a computed value with a Fidelity tie-out.
+// v7.6.15 — CWIN_LAST_BALANCE RETIRED. The end anchor is the last imported ledger
+// row (v7.6.14) and the tie-out is the ledger cash walk against Fidelity's running
+// balance on that row (_ledgerCashWalk). The S49 open item — computed balances
+// with a Fidelity tie-out — closes here; the last pinned figure on the panel is gone.
+function _ledgerCashWalk(trades) { // → { open, sum, close, resid, firstIso, lastIso, n } over every imported row
+  const iso = t => _wfIsoD(t.trade_date);
+  const rows = trades.filter(t => t.source === 'csv_import' && t.cash_balance != null && iso(t))
+    .sort((a, b) => { const x = iso(a), y = iso(b); return x < y ? -1 : x > y ? 1 : ((a.occ_seq || 0) - (b.occ_seq || 0)) || ((a.id || 0) - (b.id || 0)); });
+  if (!rows.length) return null;
+  const bn = t => IMP_BALANCE_NEUTRAL.has(t.cls); // sweeps and EXERCISED memos never move Fidelity's cash balance
+  const first = rows[0], last = rows[rows.length - 1];
+  const open = Number(first.cash_balance) - (bn(first) ? 0 : Number(first.amount || 0));
+  const sum  = rows.reduce((a, t) => a + (bn(t) ? 0 : Number(t.amount || 0)), 0);
+  const close = Number(last.cash_balance);
+  const r0 = open + sum - close;
+  return { open, sum, close, resid: Math.abs(r0) < 0.005 ? 0 : r0, firstIso: iso(first), lastIso: iso(last), n: rows.length };
+}
 // v7.6.11 — ACCOUNT VALUE FROM THE LEDGER at a date (Ron). Three legs, all on the
 // record: (1) CASH = Fidelity's running cash balance (core + SPAXX) on the last
 // imported row on/before d — the column every per-file tie-out foots to $0.00;
@@ -2163,10 +2178,15 @@ async function _cwinHtml() {
   catch (e) { return '<div style="color:var(--red);">\u2717 live_trades: ' + e.message + '</div>'; }
 
   const money = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
-  const L = CWIN_LAST_BALANCE;
+  // v7.6.14 — END ANCHOR = the last imported ledger row (what the last statement
+  // covered), balance COMPUTED there. The pinned statement balance is the tie-out.
+  const _lastLedger = trades.filter(t => t.source === 'csv_import' && t.cash_balance != null).map(t => _wfIsoD(t.trade_date)).filter(Boolean).sort().pop() || null;
+  const endB = _lastLedger ? _ledgerBalanceAt(_lastLedger, trades) : { err: 'no imported ledger rows' };
+  if (endB.err) return '<div style="color:#e0a020;">\u26a0 statement section: the account balance at the last imported row (' + (_lastLedger || 'none') + ') could not be computed \u2014 ' + endB.err + '</div>'; // v7.6.15 — no pinned fallback; say why
+  const L = { d: _lastLedger, amt: endB.total, computed: true };
   const ytdB = (_perfRange === 'ytd') ? _ledgerBalanceAt(CWIN_YTD_ANCHOR, trades) : null; // v7.6.11 — computed anchor
   const S = (_perfRange === 'ytd') ? { d: CWIN_YTD_ANCHOR, amt: (ytdB && !ytdB.err) ? ytdB.total : null } : CWIN_START_BALANCE; // v7.6.10 — ALL / YTD
-  const chkB = _ledgerBalanceAt(L.d, trades); // v7.6.11 — the same computation at the pinned anchor: tie-out for the open item
+  const walk = _ledgerCashWalk(trades); // v7.6.15 — the tie-out: cash walk vs Fidelity's running balance on the last imported row
   // v7.6.13 — the composition string (_bal) was dropped with the prose; _ledgerBalanceAt still returns legs/cash/shares for a future tie-out view.
   const flows = _cwinLedgerFlows(trades); // v6.23.0 — ledger-derived; guard: absence can never hide
   if (!flows.length) return '<div style="color:var(--red);">\u2717 ledger has no contribution/withdrawal rows \u2014 run the statement import (\u00a73 capital series is ledger-derived as of v6.23.0)</div>';
@@ -2177,7 +2197,7 @@ async function _cwinHtml() {
   // which is a RESIDUAL (gain − CC). Everything ticket-derived can run to the
   // present, and pinning it was what hid four closed model-era cycles behind a
   // month-old statement anchor.
-  //   TOP  · SPY/STATEMENT — pinned to CWIN_LAST_BALANCE. Captures dividends
+  //   TOP  · SPY/STATEMENT — ends at the last imported row (v7.6.14). Captures dividends
   //          and MM interest precisely because it is a residual (Ron).
   //   BTM  · ROLL ECONOMICS — ticket-derived, UNPINNED, runs to the last close.
   // CONSEQUENCE, STATED ON THE PANEL: the two sections span different windows,
@@ -2298,7 +2318,7 @@ async function _cwinHtml() {
   const lab = 'color:var(--muted);';
   const ctx = '<div style="font-family:var(--mono);font-size:10px;color:var(--text);padding:2px 0 4px;line-height:1.8;">'
     + '<span style="' + lab + 'letter-spacing:.05em;">SPY \u00b7 STATEMENT</span>'
-    + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (pinned to statement balance)</span>'
+    + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (last statement row imported \u00b7 balance from the ledger + DM marks)</span>'
     + (S.amt == null
       ? '<br><span style="color:#e0a020;">\u26a0 YTD anchor ' + S.d + ' could not be computed from the ledger: ' + (ytdB ? ytdB.err : 'n/a') + '</span>'
       : '<br><span style="' + lab + '">starting balance</span> ' + money(S.amt) // v7.6.10 — balance order: start + contributions − redemptions + SPY + CC = ending; v7.6.13 — one line, no prose (Ron)
@@ -2307,7 +2327,7 @@ async function _cwinHtml() {
       + '<span style="' + lab + '"> \u00b7 SPY P&amp;L</span> ' + money(spyPnl) + ' (' + pf(yP(spyPnl)) + ')'
       + '<span style="' + lab + '"> \u00b7 CC P&amp;L</span> ' + money(grossP) + ' (' + pf(yP(grossP)) + ')'
       + '<span style="' + lab + '"> \u00b7 ending balance</span> ' + money(L.amt)
-      + (chkB.err ? '' : '<span style="' + lab + '"> (ledger ' + money(chkB.total) + ', \u0394 ' + money(chkB.total - L.amt) + ')</span>') // v7.6.11/13 — the tie-out, one parenthesis
+      + (walk ? '<span style="' + (walk.resid === 0 ? 'color:var(--green);' : 'color:var(--red);') + '"> (tie-out ' + walk.lastIso + ': cash walk ' + money(walk.open + walk.sum) + ' vs statement ' + money(walk.close) + ' \u00b7 \u0394 $' + walk.resid.toFixed(2) + (walk.resid === 0 ? ' \u2713' : ' \u2717') + ')</span>' : '') // v7.6.15 — the tie-out moves with the imports
       + '<span style="' + lab + '"> \u00b7 strategy</span> <b>' + pf(yP(gain)) + '</b>'
       + '<span style="' + lab + '"> \u00b7 SPY buy/hold</span> <b>' + pf(bhAnn) + '</b>' + '<span style="' + lab + '"> (same days, price only)</span>')
     + '</div>' // v7.1.0 — residual prose removed (Ron). Header + data line only.
@@ -9095,7 +9115,7 @@ const _impSymOf = (und, expiry, strike) => { // ticket fields → CSV-style cont
   const e = (expiry || '').replace(/-/g, '').slice(2);
   return e ? '-' + und + e + 'C' + strike : null;
 };
-function _impReconSpy(rows, tickets) {
+function _impReconSpy(rows, tickets, span) { // v7.6.14 — span = [firstIso, lastIso] of the file(s): blotter legs outside it are out of scope
   // v6.22.2 — RULED: SPY option legs are NEVER inserted (blotter is the authoritative
   // source for SPY option facts). Per-leg date-matching retired — split fills and the
   // parallel-strike era (Feb–Apr 2026) make it structurally unmatchable and it answered
@@ -9106,6 +9126,7 @@ function _impReconSpy(rows, tickets) {
   const blot = new Map(); // symbol → contracts represented
   const add = (k, n) => { if (k && n) blot.set(k, (blot.get(k) || 0) + Number(n)); };
   for (const t of tickets) {
+    if (span) { const d = _impUsIso(t.trade_date); if (!d || d < span[0] || d > span[1]) continue; } // v7.6.14 — only legs the file could carry
     const sSym = _impSymOf('SPY', _impUsIso(t.sellExpiry), t.sellStrike);
     const cSym = _impSymOf('SPY', _impUsIso(t.coverExpiry), t.coverStrike);
     add(sSym, t.sellContracts); add(cSym, t.coverContracts);
@@ -9802,7 +9823,8 @@ async function impDryRun() {
     _impAssignOccSeq(all); // v7.2.4 — ONE sequence authority (was inline here)
     st.textContent = 'reconciling\u2026';
     const tickets = await sbGetLiveTrades(); // read-only blotter fetch
-    const reconGaps = _impReconSpy(all, tickets); // v6.22.2 — SPY legs → 'blotter ✓', never inserted
+    const _span = (() => { const ds = all.map(r => r.date).filter(Boolean).sort(); return ds.length ? [ds[0], ds[ds.length - 1]] : null; })(); // v7.6.14 — file date span
+    const reconGaps = _impReconSpy(all, tickets, _span); // v6.22.2 — SPY legs → 'blotter ✓', never inserted; v7.6.14 — scoped to the file span
     for (const r of all) { // final dispositions
       if (r.disposition) continue;
       if (r.cls === 'UNKNOWN') { r.disposition = 'FLAG unknown_action \u00b7 NOT inserted'; r.flag = 'unknown_action'; }
