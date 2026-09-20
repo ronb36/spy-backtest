@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.7</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.8</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -718,7 +718,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.7 · CONFORMANCE — ONE SCENARIO (S68, Ron). DISPLAY ONLY. The re-pin mode, the mode buttons and the start-date dropdown are removed: the tab has exactly one scenario — pin the first live entry on or after POLICY_REGIME_2 (the current model’s first trade) by contract and date, let the sim select forward on its own, and lay both records on one calendar. Anything before the current model has no meaning for this instrument. The run starts on tab open (0.2s); ▶ Run re-runs, ↻ reloads the blotter. p.pinExitOnly and the sandbox keys stay in simulate() (v7.6.1) for research. Base v7.6.6 (60608c5d).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.8 · ROLL ECONOMICS ON THE CURRENT MODEL’S WINDOW (S68, Ron). DISPLAY ONLY. The Performance panel’s roll grid now windows BOTH rows from the first live entry on or after POLICY_REGIME_2 — the same anchor the Conformance tab pins — to the last close: sim cycles with both legs inside that window, live cycles opened inside it, capital and span seeded there. The prior-regime row is removed (it has no meaning for this comparison) and with it the r1+r2 split guard; the header reads “current model · start → end”. WF_ERA_START is untouched — the walk-forward registrations and the era ledger still read it. Note stated on the panel: the sim row is the UNPINNED STD path (what the model does on this tape); the Conformance grid pins the first live trade (what it would have done from where Ron was) — different questions, and they converge on the same contracts by 09-16 (self-synchronization, S43). Conformance: ▶ Run and ↻ reload live collapse into one ↻ button (reload the blotter, re-run). Base v7.6.7 (97c95bad).</span></div>
 </div>
 
 <script>
@@ -905,7 +905,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.7';
+const APP_VERSION = 'v7.6.8';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2163,17 +2163,19 @@ async function _cwinHtml() {
   // v7.1.0 keyed this on the CLOSE date alone and kept a cycle the sim dropped:
   // the 07/09 -> 07/21 cycle opened twelve days before the pin. S33's
   // close-date rule governs ATTRIBUTION (which pool), not window membership.
-  const liveEraClose = liveAll.filter(c => c.iso >= WF_ERA_START); // close-keyed: ALARM SCOPE ONLY
+  // v7.6.8 — CURRENT-MODEL WINDOW (Ron): both rows start at the first live entry
+  // on or after POLICY_REGIME_2 — the anchor the Conformance tab pins — so the
+  // grid and the tab read the same dates. WF_ERA_START stays for the walk-
+  // forward registrations; this panel no longer reads it.
+  const winStart = liveAll.map(c => c.openIso).filter(d => d && d >= POLICY_REGIME_2).sort()[0] || POLICY_REGIME_2;
+  const liveEraClose = liveAll.filter(c => c.iso >= winStart); // close-keyed: ALARM SCOPE ONLY
   const orphanN = liveEraClose.filter(c => c.orphan).length; // v6.34.3 — counted, never silently dropped.
   // v7.1.1 — deliberately scoped to the close-keyed set: an orphan has NO open
   // leg, so scoping the alarm to the both-legs set would silence it forever.
-  const liveClosed = liveEraClose.filter(c => c.openIso && c.openIso >= WF_ERA_START);
-  // v7.3.3 — §4.3 SPLIT. Keyed on the OPEN date (the rules the cycle was SELECTED
-  // under), not the close date, which governs pool ATTRIBUTION and is a different
-  // question. The pooled row is retained ONLY as the identity check: r1+r2 must
-  // foot to it, and the sub-line says so when it does not.
-  const liveR1 = liveClosed.filter(c => c.openIso <  POLICY_REGIME_2);
-  const liveR2 = liveClosed.filter(c => c.openIso >= POLICY_REGIME_2);
+  const liveClosed = liveEraClose.filter(c => c.openIso && c.openIso >= winStart);
+  // v7.6.8 — the v7.3.3 prior/live regime split is gone with the prior row:
+  // every cycle in liveClosed opened under the current model by construction.
+  const liveR2 = liveClosed;
   const gross   = liveClosed.reduce((s, c) => s + c.pnl, 0);
   const liveWin = liveClosed.filter(c => c.pnl > 0).length;
   const lastIso  = liveClosed.length ? liveClosed[liveClosed.length - 1].iso : null; // close date — the column says LAST CLOSE
@@ -2199,7 +2201,7 @@ async function _cwinHtml() {
       // inside it. This replaces v6.25.1's anchor-and-skip, which existed only
       // because a ROLL charges a cover that may predate the window; a trade
       // cannot. Both legs in, or the cycle is out.
-      if (!c.entryDate || !c.exitDate || c.entryDate < WF_ERA_START) continue; // v6.34.5 — unpinned (Ron); v7.1.0 — RE-PINNED to the era so the sim overlay covers the same dates the live row does. Both legs inside the window (v6.34.3): a trade cannot charge a cover that predates it.
+      if (!c.entryDate || !c.exitDate || c.entryDate < winStart) continue; // v7.6.8 — current-model window (was WF_ERA_START). Both legs inside the window (v6.34.3): a trade cannot charge a cover that predates it.
       if (c.entryPx == null || c.exitPx == null) continue;
       const p = (c.entryPx - c.exitPx) * 100 * liveSize(c.entryDate);
       simCC += p; simN++; if (p > 0) simWin++; simLast = c.exitDate;
@@ -2215,9 +2217,9 @@ async function _cwinHtml() {
   // flows, so contributed capital is computable at ANY date without a second
   // statement anchor — which is why the roll grid can move and the SPY section
   // cannot. Short window: CC YIELD annualizes ~44 days and will swing.
-  const endIso = [lastIso, simLast].filter(Boolean).sort().pop() || WF_ERA_START;
-  const spanU  = Math.max(1, Math.round((new Date(endIso + 'T00:00:00Z') - new Date(WF_ERA_START + 'T00:00:00Z')) / 86400000));
-  const twcU   = _cwinTwCapital(WF_ERA_START, endIso, flows);
+  const endIso = [lastIso, simLast].filter(Boolean).sort().pop() || winStart;
+  const spanU  = Math.max(1, Math.round((new Date(endIso + 'T00:00:00Z') - new Date(winStart + 'T00:00:00Z')) / 86400000));
+  const twcU   = _cwinTwCapital(winStart, endIso, flows); // v7.6.8 — seeded at the current-model start
   const yU = v => twcU > 0 ? (v / twcU / spanU * 365 * 100) : null;
 
   // ── shared context: stated once, because both rows share it by construction ─
@@ -2234,7 +2236,7 @@ async function _cwinHtml() {
     + '<span style="' + lab + '"> \u00b7 statement yield</span> ' + pf(yP(gain))
     + '</div>' // v7.1.0 — residual prose removed (Ron). Header + data line only.
     + '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:9px 0 3px;letter-spacing:.05em;">'
-    + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 era-pinned \u00b7 ' + WF_ERA_START + ' \u2192 ' + endIso + '</span></div>';
+    + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 current model \u00b7 ' + winStart + ' \u2192 ' + endIso + ' \u00b7 sim = unpinned STD path (Conformance pins the first live trade)</span></div>'; // v7.6.8
     // v7.1.0 — BOTH HEADERS ARE DATED, which is what now carries the
     // non-additivity: two windows, readable off the dates, no prose line.
 
@@ -2293,8 +2295,7 @@ async function _cwinHtml() {
       shr(dC.length, cl), mean(dC), shr(dT.length, cl), mean(dT),
       money(g), '<span style="color:var(--accent);">' + pf(yU(g)) + '</span>', lc];
   };
-  const liveCellsR1 = liveRow('prior', liveR1);
-  const liveCellsR2 = liveRow('live',  liveR2);
+  const liveCellsR2 = liveRow('live',  liveR2); // v7.6.8 — prior row removed
 
   const sD = simPool.decay, sT = simPool.delta, sCls = sD.length + sT.length;
   const simCells = simN == null
@@ -2315,9 +2316,7 @@ async function _cwinHtml() {
   // v7.3.3 — identity: the two regime rows must foot to the pooled set they came
   // from. Silent when it holds; loud when it does not, because a cycle falling
   // through both filters would otherwise vanish without a trace.
-  const splitOk = (liveR1.length + liveR2.length) === liveClosed.length;
-  const warn = (!splitOk ? '<br><span style="color:#e0a020;">\u26a0 regime split does not foot: ' + liveR1.length + ' + ' + liveR2.length + ' \u2260 ' + liveClosed.length + ' \u2014 do not read either row.</span>' : '')
-    + (lUncl ? '<br><span style="color:#e0a020;">\u26a0 ' + lUncl + ' of ' + liveClosed.length + ' live cycles UNCLASSIFIED (no trigger recorded) \u2014 excluded from both pool shares, so the live mix is measured on ' + lCls + ' cycle' + (lCls !== 1 ? 's' : '') + ' only.</span>' : '')
+  const warn = (lUncl ? '<br><span style="color:#e0a020;">\u26a0 ' + lUncl + ' of ' + liveClosed.length + ' live cycles UNCLASSIFIED (no trigger recorded) \u2014 excluded from both pool shares, so the live mix is measured on ' + lCls + ' cycle' + (lCls !== 1 ? 's' : '') + ' only.</span>' : '')
     + (orphanN ? '<br><span style="color:#e0a020;">\u26a0 ' + orphanN + ' orphan close' + (orphanN !== 1 ? 's' : '') + ' in window (cover with no matching open) \u2014 counted, never dropped.</span>' : '');
   const sub = warn
     ? '<div style="color:var(--muted);font-size:8px;margin-top:4px;line-height:1.6;">' + warn + '</div>'
@@ -2327,7 +2326,6 @@ async function _cwinHtml() {
     + '<table style="border-collapse:collapse;font-family:var(--mono);font-size:10px;width:100%;table-layout:fixed;">'
     + '<thead><tr>' + hdr.map((h, k) => '<th style="' + th + (k === 0 ? 'text-align:left;width:4%;' : '') + '">' + h + '</th>').join('') + '</tr></thead>'
     + '<tbody><tr>' + simCells.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : (k === 1 && simCells[2] === '' ? 'text-align:left;white-space:nowrap;' : '')) + '">' + c + '</td>').join('') + '</tr>'
-    + '<tr>' + liveCellsR1.map((c, k) => '<td style="' + td + 'opacity:.62;' + (k === 0 ? 'text-align:left;' : '') + '">' + c + '</td>').join('') + '</tr>'
     + '<tr>' + liveCellsR2.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : '') + '">' + c + '</td>').join('') + '</tr></tbody></table>' // v6.34.4 — sim first (Ron); v7.3.3 — prior regime dimmed ABOVE current
     + sub;
 }
@@ -2549,8 +2547,7 @@ async function renderConfTab() {
   body.innerHTML =
     `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;font-family:var(--mono);font-size:10px;">
       <span style="color:var(--muted);">pin ${_confStart} \u00b7 ${_confContract(first.strike, first.expiry)} (first live entry under the current model, POLICY_REGIME_2 ${POLICY_REGIME_2}) \u00b7 sim selects forward on its own \u00b7 ${n} live cycle${n !== 1 ? 's' : ''} in window</span>
-      <button class="btn btn-primary" id="conf-run-btn" style="height:24px;padding:0 12px;font-size:9px;" onclick="runConformance()">\u25b6 Run</button>
-      <button class="btn" style="height:24px;padding:0 10px;font-size:9px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);" onclick="_confLive=null;_confRan=false;renderConfTab();">\u21bb reload live</button>
+      <button class="btn btn-primary" id="conf-run-btn" style="height:24px;padding:0 12px;font-size:9px;" onclick="_confLive=null;_confRan=false;renderConfTab();">\u21bb reload &amp; run</button><!-- v7.6.8 — one button: refetch the blotter, re-run -->
     </div>
     <div id="conf-table" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${_confLive.skipped.length ? '<span style="color:#e0a020;">\u26a0 ' + _confLive.skipped.length + ' live row(s) skipped: orphan cover or no sell leg.</span>' : ''}</div>`;
   if (st) st.textContent = `${rows.length} live cycles \u00b7 ${rows.filter(r => r.isOpen).length} open`;
