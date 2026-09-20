@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -707,7 +707,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.0 · exitDecayPct IN THE CYCLE RECORD (S68, Ron). SIM-REGION, MODEL_VERSION UNCHANGED at m7.5.0: a RECORDED field, not a trigger test — no test, scoring path or selection reads it. The realized TV-decay percentage was computed inside the trigger block and discarded, and a SECOND copy of the same formula lived in the daily debug log; both now read one per-day computation (tvDecay_ / curTv_), and the cycle record gains exitDecayPct, exitTv and entryTv beside the existing exitDelta. Prerequisite for the Conformance tab (SPEC_conformance_tab.md): the sim had no number to place beside the live 9.3–17.9% decay fires. Pack fingerprints are unaffected — exportLedgerPack serializes cycle fields by name. Gate region untouched. Base v7.5.1 (791c97c7).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.1 · PINNED OPENING IN simulate() (S68, Ron). SIM-REGION, MODEL_VERSION UNCHANGED at m7.5.0 — EMBEDDED NULL: p.pin absent → byte-identical run (defH/entryDteMin pattern). p.pin = {strike, expiry, entryDate, entryPx} skips the initial selection and opens THAT contract on THAT date through the existing openPosition path, at the live fill when given (the DM day-bar VWAP is recorded beside it as entryPxDm); p.pinExitOnly stops after the first close. The replay therefore runs the sim’s OWN trigger code — no second copy of the exit rules (the v1.7.16/v1.7.18 shadowing class). Fails LOUD, never substitutes: contract not in the DM, no DM bar on the entry date, or entry date not a DM trading day → run aborts with the reason; a contract the point-in-time mask says the collector could not have reached is run anyway and flagged (pinNote) — the live scan sold it, so the DM has it. Sandbox keys ?ovPin=STRIKE,EXPIRY,ENTRYDATE[,ENTRYPX] and ?ovPinExit=1 expose it for smoke and research (sandbox forces Debug); the Conformance tab (next release) passes p.pin directly. Prerequisite 2 of SPEC_conformance_tab.md. Gate region untouched. Base v7.6.0 (f4edc6fc).</span></div>
 </div>
 
 <script>
@@ -894,7 +894,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.0';
+const APP_VERSION = 'v7.6.1';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -3533,6 +3533,14 @@ async function simulate(p) {
   // Set UNCONDITIONALLY every run, same leak-proofing as _expFriGate.
   _pitGate = !!(p.pointInTime ?? true);
   _pitVis  = null;
+  // v7.6.1 — PINNED OPENING (embedded null). p.pin = {strike, expiry, entryDate,
+  // entryPx}: open THAT contract on THAT date instead of selecting one, then run
+  // the sim's own exit rules forward. p.pinExitOnly stops after the first close.
+  // Absent → every path below is the incumbent, byte-identical. Set
+  // UNCONDITIONALLY every run (no leak between runs).
+  const _pin         = p.pin ?? null;
+  const _pinExitOnly = !!(p.pinExitOnly ?? false);
+  let   _pinPxPending = null, pinNote = null;
   // Clear stale entryPx/entryDate/entrySPY stamped onto shared DM contract objects
   // by the pendingContract capture of a prior simulate() call — without this flush
   // a later run's OPEN row could inherit a previous run's entry price.
@@ -3566,9 +3574,10 @@ async function simulate(p) {
   const { spyMap, vixMap } = buildMaps();
   const spyDates = _simSpy.map(r => r.date).sort();
 
-  // Use (jittered) sim first day as start
-  const startDate = _simSpy[0].date;
-  const startSPY  = _simSpy[0].c;
+  // Use (jittered) sim first day as start — or the pinned entry date (v7.6.1)
+  const startDate = _pin ? _pin.entryDate : _simSpy[0].date;
+  const startSPY  = _pin ? (spyMap[_pin.entryDate]?.c ?? null) : _simSpy[0].c;
+  if (_pin && !(startSPY > 0)) { logMsg(`✗ PIN: ${_pin.entryDate} is not a DM trading day (no spy_daily row) — cannot open`, 'err'); return null; }
 
   // Pre-build expiry index for O(1) lookups in findNextContract.
   // Without this, every candidate search scans all DM contracts — O(n) per
@@ -3595,6 +3604,7 @@ async function simulate(p) {
   let posOpen = false, entryPrice = null, entryDate = null;
   let entryStrike = null, entrySPY = null, entryDelta_ = 0;
   let entryTimeValue = null; // time value at entry = entryPrice - max(0, entrySPY - strike)
+  let entryPxDm_ = null;     // v7.6.1 — the DM day-bar price on the entry date (≡ entryPrice unless pinned at a fill)
   let isInitial = true, pendingContract = null;
   const cycles = [];
   const equity = [];
@@ -3604,12 +3614,33 @@ async function simulate(p) {
   // daily until a candidate appears. Gate-0 execution path preserved exactly.
   let awaitingCandidate = false;
   _scratchArmed = false; // v6.18.0 — initial entry: no buyback, scratch is meaningless
+  if (_pin) {
+    // v7.6.1 — pinned opening: the contract is GIVEN, not selected. Fail loud
+    // on any gap; never substitute a neighbour (SPEC_conformance_tab §6.4).
+    const _pinTicker = buildScanTicker(_pin.expiry, _pin.strike);
+    const _pinC = DM.options[_pinTicker];
+    if (!_pinC) { logMsg(`✗ PIN: ${_pin.expiry} $${_pin.strike} C (${_pinTicker}) is not in the data mart — cannot open`, 'err'); return null; }
+    buildDayMap(_pinC);
+    if (!_pinC._dm[_pin.entryDate]) { logMsg(`✗ PIN: ${_pin.expiry} $${_pin.strike} C has no DM bar on ${_pin.entryDate} — cannot open`, 'err'); return null; }
+    if (_pitGate) {
+      const _fv = _pitVis[_pitKey(_pinC.expiry, _pinC.strike)];
+      if (_fv === undefined || _fv > _pin.entryDate) {
+        pinNote = `point-in-time mask: collector first reaches this contract ${_fv === undefined ? 'never' : _fv}, after the ${_pin.entryDate} entry — the live scan sold it, so it is run anyway`;
+        logMsg('⚠ PIN: ' + pinNote, 'err');
+      }
+    }
+    curC = _pinC;
+    _pinPxPending = (_pin.entryPx != null && Number.isFinite(_pin.entryPx)) ? _pin.entryPx : null;
+    const _pinDm = _pinC._dm[_pin.entryDate];
+    logMsg(`PIN: ${_pin.expiry} $${_pin.strike} C opens ${_pin.entryDate} @ ${_pinPxPending != null ? '$' + _pinPxPending.toFixed(2) + ' (live fill; DM ' : '$' + (_pinDm.vw || _pinDm.c).toFixed(2) + ' (DM '}${(_pinDm.vw || _pinDm.c).toFixed(2)})${_pinExitOnly ? ' · exit-only: stops after the first close' : ' · free-run: sim selects forward from here'}`);
+  } else {
   curC = findNextContract(startDate, startSPY, dtePenaltyAnchor, entryDteMin_, null, entryCap_, 0, vixMap[startDate] || 18); // v6.4.0 — candidate side uses entry params (≡ trigger twins when unset)
   if (!curC) { logMsg('✗ No initial contract found', 'err'); return null; }
   buildDayMap(curC);
   {
     const _initExpFmt = (s => { const d=new Date(s+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`; })(curC.expiry);
     logDbg(`Intl: selected ${_initExpFmt} $${curC.strike} C — opens same day (spread execution)`);
+  }
   }
   let iter = 0;
   const TNX = 4.5;
@@ -3625,7 +3656,9 @@ async function simulate(p) {
     const key = date.trim().slice(0,10);
     const day = curC._dm[key];
     if (!day) return false;
-    entryPrice      = day.vw || day.c;
+    entryPxDm_      = day.vw || day.c;
+    entryPrice      = (_pinPxPending != null) ? _pinPxPending : entryPxDm_; // v7.6.1 — pinned fill consumed ONCE, at the first open
+    _pinPxPending   = null;
     entryDate       = date;
     entrySPY        = spyMap[key]?.c || spy;
     entryStrike     = curC.strike;
@@ -3800,12 +3833,14 @@ async function simulate(p) {
       entryVix: vixMap[entryDate]||vix,
       entryDelta:eDelta, exitDelta:defDelta, // v6.3.0 — exit Δ in defense frame (≡ full-DTE at null)
       exitDecayPct: tvDecay_, exitTv: curTv_, entryTv: entryTimeValue, // v7.6.0 — realized TV decay at exit (null if no price that day)
+      entryPxDm: entryPxDm_, // v7.6.1 — DM day-bar price on the entry date (≡ entryPx unless pinned at a fill)
       approx: _gaps.some(g=>g.substituted),
     });
     logDbg(`  Position P&L: (sell $${entryPrice.toFixed(2)} − cover $${exitPx.toFixed(2)}) × ${contracts*100}ct = ${pnl>=0?'+':'-'}$${Math.abs(pnl).toFixed(0)}`);  // v5.5.1
 
     isInitial=false; posOpen=false; entryDelta_=0; entryTimeValue=null;
     entryPrice=entryDate=entryStrike=entrySPY=null;
+    if (_pinExitOnly) { logDbg('  PIN exit-only: first cycle closed — stopping'); break; } // v7.6.1
 
     // ── v5.4.1: Expiry re-entry semantics (Model Rules §3.2) ──────────────
     // Expiry always closes (settlement at intrinsic — no cover order exists).
@@ -4110,7 +4145,7 @@ async function simulate(p) {
   const spyRet     = (Math.pow(1 + rawSpyRet/100, 365/dayCount) - 1) * 100;
   const covRet     = (Math.pow(1 + ccTotalRet/100, 365/dayCount) - 1) * 100;
 
-  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, openMark, openMarkSrc, coreYld, coreSum, coreDays, coreStart, coreEnd, coreCycleCount, initPnl, openNetD };
+  return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, openMark, openMarkSrc, coreYld, coreSum, coreDays, coreStart, coreEnd, coreCycleCount, initPnl, openNetD, pin: _pin, pinNote }; // v7.6.1 — pin echoed for the caller
 }
 
 // ── Run simulation ─────────────────────────────────────────────────────────
@@ -4155,6 +4190,11 @@ async function runSimulation() {
   if ('skipMonths' in _ov && !(Number.isInteger(params.skipMonths) && params.skipMonths >= 1 && params.skipMonths <= 12)) {
     logMsg(`⚠ ovSkipm=${_ov.skipMonths} invalid (must be integer 1–12) — jitter NOT armed`, 'err');
     delete params.skipMonths;
+  }
+  // v7.6.1 — validate ovPin: malformed is dropped LOUDLY, never half-applied.
+  if ('pin' in _ov && _ov.pin && _ov.pin.invalid != null) {
+    logMsg(`⚠ ovPin=${_ov.pin.invalid} invalid (STRIKE,YYYY-MM-DD,YYYY-MM-DD[,PX]) — pin NOT armed`, 'err');
+    delete params.pin; delete params.pinExitOnly;
   }
 
   $('progress-log').textContent = ''; $('runlog-mirror').textContent = '';
@@ -4372,6 +4412,19 @@ function researchOverrides(search) {
     const v = parseFloat(q.get(k));
     if (Number.isFinite(v)) ov[map[k]] = v;
   }
+  // v7.6.1 — ?ovPin=STRIKE,EXPIRY,ENTRYDATE[,ENTRYPX] · ?ovPinExit=1 (sandbox
+  // research keys for the pinned opening; the Conformance tab passes p.pin
+  // directly). Malformed → {invalid} so runSimulation can drop it LOUDLY.
+  if (q.has('ovPin')) {
+    const parts = q.get('ovPin').split(',').map(x => x.trim());
+    const strike = parseFloat(parts[0]), expiry = parts[1] || '', entryDate = parts[2] || '';
+    const entryPx = parts.length > 3 ? parseFloat(parts[3]) : null;
+    const iso = /^\d{4}-\d{2}-\d{2}$/;
+    ov.pin = (Number.isFinite(strike) && iso.test(expiry) && iso.test(entryDate))
+      ? { strike, expiry, entryDate, entryPx: Number.isFinite(entryPx) ? entryPx : null }
+      : { invalid: q.get('ovPin') };
+  }
+  if (q.has('ovPinExit')) ov.pinExitOnly = (parseFloat(q.get('ovPinExit')) === 1);
   return ov;
 }
 
