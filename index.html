@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.8</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.9</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -718,7 +718,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.8 · ROLL ECONOMICS ON THE CURRENT MODEL’S WINDOW (S68, Ron). DISPLAY ONLY. The Performance panel’s roll grid now windows BOTH rows from the first live entry on or after POLICY_REGIME_2 — the same anchor the Conformance tab pins — to the last close: sim cycles with both legs inside that window, live cycles opened inside it, capital and span seeded there. The prior-regime row is removed (it has no meaning for this comparison) and with it the r1+r2 split guard; the header reads “current model · start → end”. WF_ERA_START is untouched — the walk-forward registrations and the era ledger still read it. Note stated on the panel: the sim row is the UNPINNED STD path (what the model does on this tape); the Conformance grid pins the first live trade (what it would have done from where Ron was) — different questions, and they converge on the same contracts by 09-16 (self-synchronization, S43). Conformance: ▶ Run and ↻ reload live collapse into one ↻ button (reload the blotter, re-run). Base v7.6.7 (97c95bad).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.9 · PERFORMANCE PANEL — POOL COUNTS, CC P&amp;L ON THE STATEMENT LINE, CO-FIRE FIX (S68, Ron). DISPLAY ONLY. DECAY% / DELTA% become DECAY N / DELTA N — the counts, which sum to CYCLES when every cycle is classified. The SPY · STATEMENT line gains CC P&amp;L (and its yield) over the statement window, so the three legs foot on the page: SPY leg + CC P&amp;L = statement gain. DEFECT FIXED: both pool classifiers on this panel tested for “decay” BEFORE “delta”, so a co-fire (delta AND decay on one close) landed in the DECAY pool — the v6.15.1/S44 co-fire substring bug, back in a third place. Sighted on the v7.6.8 render: the 09-16 $755C cycle (“delta 0.74 · 13% tv decay”, −$2,230) read as decay 100% / delta 0%. Delta-first precedence now, matching the exit-attribution pools and Model Rules §9. Division of labour, stated: Performance = the current era and the account; Conformance = whether sim and live track, contract by contract and trigger by trigger. Base v7.6.8 (b2b4fff9).</span></div>
 </div>
 
 <script>
@@ -905,7 +905,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.8';
+const APP_VERSION = 'v7.6.9';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2154,7 +2154,7 @@ async function _cwinHtml() {
     const tg = (c.trigger != null && String(c.trigger).trim()) ? String(c.trigger).trim().toLowerCase() : null;
     return { pnl: net != null ? net * 100 * (c.qty || 0) : null, orphan: !!c.orphan,
              iso: toIso(c.closeDate), openIso: toIso(c.openDate), // v7.1.1 — open leg carried for the both-legs window rule
-             pool: /decay/.test(tg||'') ? 'decay' : /delta/.test(tg||'') ? 'delta' : null };
+             pool: /delta/.test(tg||'') ? 'delta' : /decay/.test(tg||'') ? 'decay' : null }; // v7.6.9 — DELTA FIRST: a co-fire is a stop (Model Rules §9); decay-first put it in the harvest pool
   }).filter(c => c.pnl != null);
   if (!liveAll.length) return '<div style="color:var(--muted);">no closed cycles in the window yet</div>';
   const grossP  = liveAll.filter(c => c.iso <= L.d).reduce((s, c) => s + c.pnl, 0); // v6.34.5 — CC inside the ANCHOR window only; v7.1.0 — off liveAll, NEVER the era subset
@@ -2207,8 +2207,8 @@ async function _cwinHtml() {
       simCC += p; simN++; if (p > 0) simWin++; simLast = c.exitDate;
       if (simFirst == null) simFirst = c.entryDate; // v7.1.1 — START is an OPEN date on both rows
       const r = (c.reason || '').toLowerCase(); // v6.34.4 — same classifier shape as the exit-attribution pools
-      if (r.includes('decay')) simPool.decay.push(p);
-      else if (r.includes('delta')) simPool.delta.push(p);
+      if (r.includes('delta')) simPool.delta.push(p);      // v7.6.9 — DELTA FIRST (co-fire = stop), same precedence as logExitAttribution
+      else if (r.includes('decay')) simPool.decay.push(p);
     }
   }
 
@@ -2232,6 +2232,7 @@ async function _cwinHtml() {
     + '<br><span style="' + lab + '">start bal</span> ' + money(S.amt)
     + '<span style="' + lab + '"> \u00b7 contributions</span> ' + money(contribP)
     + '<span style="' + lab + '"> \u00b7 ending bal</span> ' + money(L.amt)
+    + '<span style="' + lab + '"> \u00b7 CC P&amp;L</span> ' + money(grossP) + ' (' + pf(yP(grossP)) + ')' // v7.6.9 — since the beginning; SPY leg + CC = gain
     + '<span style="' + lab + '"> \u00b7 SPY leg</span> ' + money(spyPnl) + ' (' + pf(yP(spyPnl)) + ')'
     + '<span style="' + lab + '"> \u00b7 statement yield</span> ' + pf(yP(gain))
     + '</div>' // v7.1.0 — residual prose removed (Ron). Header + data line only.
@@ -2258,7 +2259,7 @@ async function _cwinHtml() {
   // are named once, in the v7.1.0 version-header entry, which is the only
   // place a superseded number belongs.
   const hdr = ['', 'START', 'CYCLES', 'WIN%', 'MEAN P&L',
-               'DECAY%', 'DECAY P&L', 'DELTA%', 'DELTA P&L',
+               'DECAY N', 'DECAY P&L', 'DELTA N', 'DELTA P&L', // v7.6.9 — counts (sum to CYCLES when all classified), not shares
                'CC P&L', 'CC YIELD', 'LAST CLOSE'];
   const wr   = (w, n) => n > 0 ? Math.round(w / n * 100) + '%' : '\u2014';
   const mean = a => a.length ? money(a.reduce((s, v) => s + v, 0) / a.length) : '\u2014';
@@ -2292,7 +2293,7 @@ async function _cwinHtml() {
     const lc = set.map(c => c.iso).filter(Boolean).sort().pop() || '\u2014';
     return ['<span style="color:var(--accent);">' + label + '</span>',
       fo, String(set.length), wr(w, set.length), money(g / set.length),
-      shr(dC.length, cl), mean(dC), shr(dT.length, cl), mean(dT),
+      String(dC.length), mean(dC), String(dT.length), mean(dT), // v7.6.9 — counts
       money(g), '<span style="color:var(--accent);">' + pf(yU(g)) + '</span>', lc];
   };
   const liveCellsR2 = liveRow('live',  liveR2); // v7.6.8 — prior row removed
@@ -2305,8 +2306,8 @@ async function _cwinHtml() {
     : ['<span style="color:var(--muted);">sim</span>',
        simFirst || '\u2014', String(simN), wr(simWin, simN),
        simN ? money(simCC / simN) : '\u2014',
-       shr(sD.length, sCls), mean(sD),
-       shr(sT.length, sCls), mean(sT),
+       String(sD.length), mean(sD), // v7.6.9 — counts
+       String(sT.length), mean(sT),
        money(simCC), pf(yU(simCC)), simLast || '\u2014'];
 
   // v7.1.0 — DESCRIPTIVE SUB-LINES REMOVED (Ron). What remains are CONDITIONAL
