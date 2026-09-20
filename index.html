@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.9</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.10</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -402,6 +402,8 @@ select.display-box { cursor:pointer; outline:none; }
           <span class="chart-title">📊 Performance — sim vs live</span>
           <div style="display:flex;gap:6px;align-items:center;">
             <span id="perf-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
+            <button id="perf-rng-all" onclick="_perfRange='all';_perfRngPaint();renderPerfPanel(true)" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--accent);border:1px solid var(--accent);border-radius:3px;color:#fff;padding:3px 8px;cursor:pointer;">ALL</button><!-- v7.6.10 — statement range -->
+            <button id="perf-rng-ytd" onclick="_perfRange='ytd';_perfRngPaint();renderPerfPanel(true)" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 8px;cursor:pointer;">YTD</button>
             <button onclick="renderPerfPanel(true)" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⟳ Refresh</button>
             <button id="perf-exp" onclick="resExport('live_trades', 'perf-exp')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⬇ Export data</button>
           </div>
@@ -718,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.9 · PERFORMANCE PANEL — POOL COUNTS, CC P&amp;L ON THE STATEMENT LINE, CO-FIRE FIX (S68, Ron). DISPLAY ONLY. DECAY% / DELTA% become DECAY N / DELTA N — the counts, which sum to CYCLES when every cycle is classified. The SPY · STATEMENT line gains CC P&amp;L (and its yield) over the statement window, so the three legs foot on the page: SPY leg + CC P&amp;L = statement gain. DEFECT FIXED: both pool classifiers on this panel tested for “decay” BEFORE “delta”, so a co-fire (delta AND decay on one close) landed in the DECAY pool — the v6.15.1/S44 co-fire substring bug, back in a third place. Sighted on the v7.6.8 render: the 09-16 $755C cycle (“delta 0.74 · 13% tv decay”, −$2,230) read as decay 100% / delta 0%. Delta-first precedence now, matching the exit-attribution pools and Model Rules §9. Division of labour, stated: Performance = the current era and the account; Conformance = whether sim and live track, contract by contract and trigger by trigger. Base v7.6.8 (b2b4fff9).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.10 · STATEMENT LINE REORDERED + SPY BUY/HOLD + ALL/YTD RANGE (S68, Ron). DISPLAY ONLY. The SPY · STATEMENT line now reads in balance order — starting balance · contributions · redemptions · SPY P&amp;L · CC P&amp;L · ending balance — so the identity foots left to right (start + contributions − redemptions + SPY + CC = ending), then the statement yield, then SPY BUY/HOLD over the same days (price return from DM closes, simple-annualized on the same convention) so the strategy can be read against holding the shares. ALL / YTD toggle in the panel header: YTD starts the statement window at CWIN_YTD_START (2025-12-31 statement ending balance — a decision-controlled constant on the CWIN_START_BALANCE precedent) and reads every flow, cycle and price from there; until that balance is pinned the YTD view says so instead of printing a number. _cwinTwCapital gains a start-balance argument; flows before the window start are inside the start balance and are excluded. Roll Economics is unaffected by the range (current-model window). Base v7.6.9 (a5827c77).</span></div>
 </div>
 
 <script>
@@ -905,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.9';
+const APP_VERSION = 'v7.6.10';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2050,20 +2052,28 @@ function _cwinLedgerFlows(trades) { // mapped trades → sorted [{d: iso, amt}] 
     .filter(e => e.d)
     .sort((a, b) => a.d < b.d ? -1 : 1);
 }
-function _cwinTwCapital(startIso, endIso, flows) { // TW contributed capital: start balance + dated flows, daily steps
+function _cwinTwCapital(startIso, endIso, flows, startAmt = CWIN_START_BALANCE.amt, balIso = CWIN_START_BALANCE.d) { // TW contributed capital: start balance + dated flows, daily steps // v7.6.10 — the balance and its as-of date are arguments (YTD anchors at a later statement balance); flows on/before balIso are already inside that balance. Averaging window (startIso→endIso) and balance as-of date are DIFFERENT things: the roll section averages from 09-09 on the program-start balance plus every flow since.
   let tot = 0, n = 0;
   for (let t = new Date(startIso + 'T00:00:00Z'); t <= new Date(endIso + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + 1)) {
     const ds = t.toISOString().slice(0, 10);
-    let cap = CWIN_START_BALANCE.amt;
-    flows.forEach(e => { if (e.d <= ds) cap += e.amt; });
+    let cap = startAmt;
+    flows.forEach(e => { if (e.d <= ds && e.d > balIso) cap += e.amt; });
     tot += cap; n++;
   }
   return n ? tot / n : 0;
 }
 const CWIN_START_BALANCE = { d: '2025-06-02', amt: 70348.68 }; // v6.20.6 — actual account value at program start (statement: FXAIX proceeds + residual cash)
+const CWIN_YTD_START     = { d: '2025-12-31', amt: null };   // v7.6.10 — YTD anchor: the 2025-12-31 statement ENDING balance. Decision-controlled, same precedent as CWIN_START_BALANCE; null until pinned on the record — the YTD view says so rather than printing a number.
+let   _perfRange = 'all';                                       // v7.6.10 — 'all' | 'ytd' (header toggle)
 const CWIN_LAST_BALANCE  = { d: '2026-08-11', amt: 520144.00 }; // v6.20.6 — PINNED with as-of date, stale-stamped in the UI (v6.15.2 sim-reference precedent);
 // update on the record when it matters. Open item (S49): activity-table expansion (SPY lots · dividends · contributions) makes this a computed value with a Fidelity tie-out.
 let _perfBuilt = false; // v6.24.0 — lazy once per load; ⟳ forces re-fetch
+function _perfRngPaint() { // v7.6.10 — ALL / YTD pill state
+  const on = 'background:var(--accent);border:1px solid var(--accent);color:#fff;', off = 'background:var(--surface2);border:1px solid var(--border);color:var(--muted);';
+  const a = $('perf-rng-all'), y = $('perf-rng-ytd');
+  if (a) a.style.cssText += ';' + (_perfRange === 'all' ? on : off);
+  if (y) y.style.cssText += ';' + (_perfRange === 'ytd' ? on : off);
+}
 async function renderPerfPanel(force) {
   const body = $('perf-body'), st = $('perf-status');
   if (!body) return;
@@ -2110,7 +2120,7 @@ async function _cwinHtml() {
   catch (e) { return '<div style="color:var(--red);">\u2717 live_trades: ' + e.message + '</div>'; }
 
   const money = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
-  const S = CWIN_START_BALANCE, L = CWIN_LAST_BALANCE;
+  const S = (_perfRange === 'ytd') ? CWIN_YTD_START : CWIN_START_BALANCE, L = CWIN_LAST_BALANCE; // v7.6.10 — ALL / YTD
   const flows = _cwinLedgerFlows(trades); // v6.23.0 — ledger-derived; guard: absence can never hide
   if (!flows.length) return '<div style="color:var(--red);">\u2717 ledger has no contribution/withdrawal rows \u2014 run the statement import (\u00a73 capital series is ledger-derived as of v6.23.0)</div>';
   // v6.34.5 — TWO SECTIONS, TWO WINDOWS (Ron, S58). The fault line is real,
@@ -2126,11 +2136,24 @@ async function _cwinHtml() {
   // CONSEQUENCE, STATED ON THE PANEL: the two sections span different windows,
   // so CC yield and SPY yield are NO LONGER ADDITIVE. Ron accepted this; the
   // top section carries a statement yield so the account total is still there.
-  const contribP = flows.filter(e => e.d <= L.d).reduce((s, e) => s + e.amt, 0); // truncated to the anchor, or it cannot foot
-  const gain     = L.amt - S.amt - contribP;
+  // v7.6.10 — flows INSIDE the statement window (after the start balance, on or
+  // before the anchor). Contributions and redemptions are reported separately
+  // so the balance identity reads left to right on the line.
+  const flowsW   = flows.filter(e => e.d > S.d && e.d <= L.d);
+  const contribP = flowsW.filter(e => e.amt > 0).reduce((s, e) => s + e.amt, 0);
+  const redeemP  = -flowsW.filter(e => e.amt < 0).reduce((s, e) => s + e.amt, 0);
+  const netFlowP = contribP - redeemP;
+  const gain     = (S.amt != null) ? (L.amt - S.amt - netFlowP) : null;
   const spanP    = Math.max(1, Math.round((new Date(L.d + 'T00:00:00Z') - new Date(S.d + 'T00:00:00Z')) / 86400000));
-  const twcP     = _cwinTwCapital(S.d, L.d, flows);
-  const yP = v => twcP > 0 ? (v / twcP / spanP * 365 * 100) : null;
+  const twcP     = (S.amt != null) ? _cwinTwCapital(S.d, L.d, flows, S.amt, S.d) : 0;
+  const yP = v => (v != null && twcP > 0) ? (v / twcP / spanP * 365 * 100) : null;
+  // v7.6.10 — SPY BUY/HOLD over the same days: price return from DM closes
+  // (last close on/before each end), simple-annualized on the same convention
+  // as the statement yield. Price only — dividends sit in the SPY leg residual.
+  const _cAt = d => { const r = DM && DM.spy ? DM.spy.filter(x => x.date <= d).pop() : null; return r ? r.c : null; };
+  const spy0 = _cAt(S.d), spy1 = _cAt(L.d);
+  const bhRet = (spy0 && spy1) ? (spy1 / spy0 - 1) * 100 : null;
+  const bhAnn = bhRet != null ? bhRet / spanP * 365 : null;
   const pf = v => v != null ? v.toFixed(1) + '%' : 'n/a';
 
   // ── LIVE, trade basis ────────────────────────────────────────────────────
@@ -2157,8 +2180,8 @@ async function _cwinHtml() {
              pool: /delta/.test(tg||'') ? 'delta' : /decay/.test(tg||'') ? 'decay' : null }; // v7.6.9 — DELTA FIRST: a co-fire is a stop (Model Rules §9); decay-first put it in the harvest pool
   }).filter(c => c.pnl != null);
   if (!liveAll.length) return '<div style="color:var(--muted);">no closed cycles in the window yet</div>';
-  const grossP  = liveAll.filter(c => c.iso <= L.d).reduce((s, c) => s + c.pnl, 0); // v6.34.5 — CC inside the ANCHOR window only; v7.1.0 — off liveAll, NEVER the era subset
-  const spyPnl  = gain - grossP; // v6.34.5 — residual over the ANCHOR window: appreciation + dividends + MM interest
+  const grossP  = liveAll.filter(c => c.iso > S.d && c.iso <= L.d).reduce((s, c) => s + c.pnl, 0); // v6.34.5 — CC inside the ANCHOR window only; v7.1.0 — off liveAll, NEVER the era subset; v7.6.10 — lower bound = the window start (close-keyed)
+  const spyPnl  = gain != null ? gain - grossP : null; // v6.34.5 — residual over the ANCHOR window: appreciation + dividends + MM interest
   // v7.1.1 — ERA WINDOW, BOTH LEGS IN, matching the sim's own rule (v6.34.3).
   // v7.1.0 keyed this on the CLOSE date alone and kept a cycle the sim dropped:
   // the 07/09 -> 07/21 cycle opened twelve days before the pin. S33's
@@ -2228,13 +2251,18 @@ async function _cwinHtml() {
   const lab = 'color:var(--muted);';
   const ctx = '<div style="font-family:var(--mono);font-size:10px;color:var(--text);padding:2px 0 4px;line-height:1.8;">'
     + '<span style="' + lab + 'letter-spacing:.05em;">SPY \u00b7 STATEMENT</span>'
-    + '<span style="' + lab + '"> \u2014 ' + S.d + ' \u2192 ' + L.d + ' (pinned to statement balance)</span>'
-    + '<br><span style="' + lab + '">start bal</span> ' + money(S.amt)
-    + '<span style="' + lab + '"> \u00b7 contributions</span> ' + money(contribP)
-    + '<span style="' + lab + '"> \u00b7 ending bal</span> ' + money(L.amt)
-    + '<span style="' + lab + '"> \u00b7 CC P&amp;L</span> ' + money(grossP) + ' (' + pf(yP(grossP)) + ')' // v7.6.9 — since the beginning; SPY leg + CC = gain
-    + '<span style="' + lab + '"> \u00b7 SPY leg</span> ' + money(spyPnl) + ' (' + pf(yP(spyPnl)) + ')'
-    + '<span style="' + lab + '"> \u00b7 statement yield</span> ' + pf(yP(gain))
+    + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (pinned to statement balance)</span>'
+    + (S.amt == null
+      ? '<br><span style="color:#e0a020;">\u26a0 YTD needs the ' + S.d + ' statement ending balance pinned as CWIN_YTD_START \u2014 nothing to compute until then.</span>'
+      : '<br><span style="' + lab + '">starting balance</span> ' + money(S.amt) // v7.6.10 — balance order: start + contributions − redemptions + SPY + CC = ending
+      + '<span style="' + lab + '"> \u00b7 contributions</span> ' + money(contribP)
+      + '<span style="' + lab + '"> \u00b7 redemptions</span> ' + money(-redeemP)
+      + '<span style="' + lab + '"> \u00b7 SPY P&amp;L</span> ' + money(spyPnl) + ' (' + pf(yP(spyPnl)) + ')'
+      + '<span style="' + lab + '"> \u00b7 CC P&amp;L</span> ' + money(grossP) + ' (' + pf(yP(grossP)) + ')'
+      + '<span style="' + lab + '"> \u00b7 ending balance</span> ' + money(L.amt)
+      + '<span style="' + lab + '"> \u00b7 statement yield</span> ' + pf(yP(gain))
+      + '<br><span style="' + lab + '">SPY buy/hold, same days</span> ' + (bhRet != null ? (bhRet >= 0 ? '+' : '') + bhRet.toFixed(1) + '% (' + pf(bhAnn) + ' ann., price only, ' + money(spy0) + ' \u2192 ' + money(spy1) + ')' : 'n/a')
+      + '<span style="' + lab + '"> \u00b7 strategy</span> ' + pf(yP(gain)) + '<span style="' + lab + '"> ann. on time-weighted capital</span>')
     + '</div>' // v7.1.0 — residual prose removed (Ron). Header + data line only.
     + '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:9px 0 3px;letter-spacing:.05em;">'
     + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 current model \u00b7 ' + winStart + ' \u2192 ' + endIso + ' \u00b7 sim = unpinned STD path (Conformance pins the first live trade)</span></div>'; // v7.6.8
