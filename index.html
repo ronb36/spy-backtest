@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.19</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.20</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -720,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.19 · LEGS INSERT GATE 3 — CHECK THE POSITION AS OF THE FILE’S LAST DAY (S68). STATE ONLY, sim untouched. Gate 3 compared the assembler’s open position at the END OF THE FILE against roll_params.json — the CURRENT position — so any file that ends before the current entry (26Q3 ends 09-04, holding $775C; the live book holds $765C from 09-17) blocked on “strike 775 vs params 765”. The check now picks its third source by date: if the file reaches the current position’s entry date it checks roll_params as before; otherwise it checks the BLOTTER’s open position as of the file’s last day (the ticket open at that date), which is the independent source that actually existed then. Same block, right reference. Base v7.6.18 (dc0efd03).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.20 · STATEMENT LINE LABELS (S68, Ron). DISPLAY ONLY. Start Bal · Contrib · Redeem · SPY · Calls · End Bal · Strategy · SPY, one line; the cash tie-out moves to its own second line. Base v7.6.19 (85332f01).</span></div>
 </div>
 
 <script>
@@ -907,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.19';
+const APP_VERSION = 'v7.6.20';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2356,16 +2356,16 @@ async function _cwinHtml() {
     + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (last statement row \u00b7 balance = cash + SPY + open calls at DM marks)</span>'
     + (S.amt == null
       ? '<br><span style="color:#e0a020;">\u26a0 YTD anchor ' + S.d + ' could not be computed from the ledger: ' + (ytdB ? ytdB.err : 'n/a') + '</span>'
-      : '<br><span style="' + lab + '">start</span> ' + money(S.amt) // v7.6.16 — ONE line, short labels: start + in − out + CC + SPY = end (SPY last of the balance terms, Ron)
-      + '<span style="' + lab + '"> \u00b7 in</span> ' + money(contribP)
-      + '<span style="' + lab + '"> \u00b7 out</span> ' + money(-redeemP)
-      + '<span style="' + lab + '"> \u00b7 CC</span> ' + money(grossP) + ' (' + pf(yP(grossP)) + ')'
+      : '<br><span style="' + lab + '">Start Bal</span> ' + money(S.amt) // v7.6.20 — labels (Ron): Start Bal · Contrib · Redeem · SPY · Calls · End Bal · Strategy · SPY
+      + '<span style="' + lab + '"> \u00b7 Contrib</span> ' + money(contribP)
+      + '<span style="' + lab + '"> \u00b7 Redeem</span> ' + money(-redeemP)
       + '<span style="' + lab + '"> \u00b7 SPY</span> ' + money(spyPnl) + ' (' + pf(yP(spyPnl)) + ')'
-      + '<span style="' + lab + '"> \u00b7 end</span> ' + money(L.amt)
-      + (walk ? '<span style="' + (walk.resid === 0 ? 'color:var(--green);' : 'color:var(--red);') + '"> ' + (walk.resid === 0 ? '\u2713 cash ties ' + walk.lastIso : '\u2717 cash \u0394 $' + walk.resid.toFixed(2) + ' at ' + walk.lastIso) + '</span>' : '') // v7.6.15/16 — the tie-out, one glyph
-      + ((() => { const u = [...new Set(ledger.filter(r => r.unchained).map(r => r.iso))]; return u.length ? '<span style="color:#e0a020;"> \u26a0 unchained day' + (u.length > 1 ? 's' : '') + ' ' + u.join(', ') + '</span>' : ''; })()) // v7.6.17
-      + '<span style="' + lab + '"> \u00b7 strategy</span> <b>' + pf(yP(gain)) + '</b>'
-      + '<span style="' + lab + '"> \u00b7 SPY b/h</span> <b>' + pf(bhAnn) + '</b>')
+      + '<span style="' + lab + '"> \u00b7 Calls</span> ' + money(grossP) + ' (' + pf(yP(grossP)) + ')'
+      + '<span style="' + lab + '"> \u00b7 End Bal</span> ' + money(L.amt)
+      + '<span style="' + lab + '"> \u00b7 Strategy</span> <b>' + pf(yP(gain)) + '</b>'
+      + '<span style="' + lab + '"> \u00b7 SPY</span> <b>' + pf(bhAnn) + '</b>'
+      + '<br>' + (walk ? '<span style="' + (walk.resid === 0 ? 'color:var(--green);' : 'color:var(--red);') + '">' + (walk.resid === 0 ? '\u2713 cash ties ' + walk.lastIso : '\u2717 cash \u0394 $' + walk.resid.toFixed(2) + ' at ' + walk.lastIso) + '</span>' : '') // v7.6.15/16/20 — the tie-out, second line
+      + ((() => { const u = [...new Set(ledger.filter(r => r.unchained).map(r => r.iso))]; return u.length ? '<span style="color:#e0a020;"> \u26a0 unchained day' + (u.length > 1 ? 's' : '') + ' ' + u.join(', ') + '</span>' : ''; })())) // v7.6.17
     + '</div>' // v7.1.0 — residual prose removed (Ron). Header + data line only.
     + '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:9px 0 3px;letter-spacing:.05em;">'
     + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 current model \u00b7 ' + winStart + ' \u2192 ' + endIso + ' \u00b7 sim = unpinned STD path (Conformance pins the first live trade)</span></div>'; // v7.6.8
