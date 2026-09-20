@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.7</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -592,7 +592,7 @@ select.display-box { cursor:pointer; outline:none; }
           <span class="chart-title">🔬 Conformance — sim vs live, cycle by cycle</span>
           <span id="conf-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
         </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 10px;line-height:1.5;">Each live entry is replayed through simulate() at its own fill (v7.6.1 pin) and the sim's trades are laid on the same calendar as the live ones — one row per trading date. PIN FIRST, FREE-RUN (default) = the live sell on the start date is pinned at its contract and fill, then the sim selects forward on its own. RE-PIN = every cycle independently, exit rules only (leg A, selection held constant). Prior-regime rows (before POLICY_REGIME_2) are dimmed and excluded from the summary. Reads only.</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 10px;line-height:1.5;">The first live entry under the current model (on or after POLICY_REGIME_2) is pinned by contract and date; the sim opens it at its own DM price and selects forward on its own. Both records are laid on one calendar, one row per trading date, every price that side's actual. Reads only.</div>
         <div id="conf-body"></div>
       </div>
     </div>
@@ -718,7 +718,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.4 · CONFORMANCE GRID — TRIGGER COLUMNS, ONE LINE PER ROW, FREE-RUN DEFAULT (S68, Ron). DISPLAY ONLY — sim path, trigger tests, ranker and Gate region untouched. Each side gains a TRIGGER column (date · sim buy · px · trigger · sim sell · px · live buy · px · trigger · live sell · px) so every row is a single line; same-day same-side events join with a middle dot. Start selector lists DATES only; the sim is pinned to the live sell on that date at its contract AND its fill, then selects forward on its own (free-run is now the default — “pin the first line, see how the balance of the rows conform”); re-pin stays available. On the pinned row the sim sell px IS the fill; the DM day-bar VWAP for that contract/date is reported under the grid. Base v7.6.3 (822b793a).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.7 · CONFORMANCE — ONE SCENARIO (S68, Ron). DISPLAY ONLY. The re-pin mode, the mode buttons and the start-date dropdown are removed: the tab has exactly one scenario — pin the first live entry on or after POLICY_REGIME_2 (the current model’s first trade) by contract and date, let the sim select forward on its own, and lay both records on one calendar. Anything before the current model has no meaning for this instrument. The run starts on tab open (0.2s); ▶ Run re-runs, ↻ reloads the blotter. p.pinExitOnly and the sandbox keys stay in simulate() (v7.6.1) for research. Base v7.6.6 (60608c5d).</span></div>
 </div>
 
 <script>
@@ -905,7 +905,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.4';
+const APP_VERSION = 'v7.6.7';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2487,8 +2487,8 @@ function _resCounterHtml(n, minN, label) {
 // STATEMENT (§12.4: this edge is not verifiable on live data within any
 // reasonable horizon). Sixteen live cycles support a diagnostic, not a verdict.
 let _confRunning = false;
-let _confMode = 'free';    // 'free' (default, v7.6.4) | 'repin'
-let _confStart = null;     // ISO entry date of the first row
+let _confStart = null;     // ISO entry date of the pin: first live entry on/after POLICY_REGIME_2 (v7.6.7 — the only scenario)
+let _confRan = false;      // v7.6.7 — auto-run once per page load on tab open
 let _confLive = null;      // paired live cycles (closed + open), ascending
 
 function _confLiveType(t) { const s = (t || '').toLowerCase(); if (s.includes('delta')) return 'delta'; if (s.includes('decay')) return 'decay'; if (s.includes('dte')) return 'dte'; if (s.includes('expir') || s.includes('assign')) return 'expiry'; return '?'; }
@@ -2535,72 +2535,54 @@ async function renderConfTab() {
   if (_confRunning) return;
   if (!DM) { body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;padding:8px 0;">Data mart not loaded yet.</div>'; return; }
   try {
-    if (!_confLive) { if (st) st.textContent = 'loading live cycles…'; _confLive = await _confLoadLive(); }
+    if (!_confLive) { if (st) st.textContent = 'loading live cycles\u2026'; _confLive = await _confLoadLive(); }
   } catch (e) { body.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">\u2717 live_trades: ' + e.message + '</div>'; return; }
   const rows = _confLive.rows;
-  if (!rows.length) { body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;">No live cycles with a sell leg.</div>'; return; }
-  // Default start: the first entry on or after POLICY_REGIME_2. Earlier cycles
-  // ran the duration ratchet and prior axes — pinning into that era compares
-  // the CURRENT model against decisions made under rules that no longer exist.
-  if (!_confStart || !rows.some(r => r.open === _confStart)) {
-    const first = rows.find(r => r.open >= POLICY_REGIME_2) || rows[rows.length - 1];
-    _confStart = first.open;
-  }
-  const opts = rows.map(r => `<option value="${r.open}"${r.open === _confStart ? ' selected' : ''}>${r.open}</option>`).join(''); // v7.6.4 — dates only (each is a live sell date; the sim pins to that trade)
-  const pill = (id, on) => `background:${on ? 'var(--accent)' : 'var(--surface2)'};border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};color:${on ? '#fff' : 'var(--muted)'};`;
+  // v7.6.7 — ONE SCENARIO (Ron): the pin is the first live entry on or after
+  // POLICY_REGIME_2 — the current model's first trade. Earlier cycles ran the
+  // duration ratchet and prior axes; comparing the current model against them
+  // has no meaning for this instrument, so there is nothing to select.
+  const first = rows.find(r => r.open >= POLICY_REGIME_2);
+  if (!first) { body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;">No live entry on or after ' + POLICY_REGIME_2 + ' (POLICY_REGIME_2) \u2014 nothing to pin.</div>'; return; }
+  _confStart = first.open;
+  const n = rows.filter(r => r.open >= _confStart).length;
   body.innerHTML =
     `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;font-family:var(--mono);font-size:10px;">
-      <label style="color:var(--muted);">start <select id="conf-start" onchange="_confStart=this.value;renderConfTab();" style="font-family:var(--mono);font-size:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 6px;">${opts}</select></label>
-      <span style="color:var(--muted);">mode</span>
-      <button class="btn" style="height:24px;padding:0 10px;font-size:9px;${pill('', _confMode === 'free')}" onclick="_confMode='free';renderConfTab();">pin first, free-run</button>
-      <button class="btn" style="height:24px;padding:0 10px;font-size:9px;${pill('', _confMode === 'repin')}" onclick="_confMode='repin';renderConfTab();">re-pin each cycle</button>
+      <span style="color:var(--muted);">pin ${_confStart} \u00b7 ${_confContract(first.strike, first.expiry)} (first live entry under the current model, POLICY_REGIME_2 ${POLICY_REGIME_2}) \u00b7 sim selects forward on its own \u00b7 ${n} live cycle${n !== 1 ? 's' : ''} in window</span>
       <button class="btn btn-primary" id="conf-run-btn" style="height:24px;padding:0 12px;font-size:9px;" onclick="runConformance()">\u25b6 Run</button>
-      <button class="btn" style="height:24px;padding:0 10px;font-size:9px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);" onclick="_confLive=null;renderConfTab();">\u21bb reload live</button>
+      <button class="btn" style="height:24px;padding:0 10px;font-size:9px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);" onclick="_confLive=null;_confRan=false;renderConfTab();">\u21bb reload live</button>
     </div>
-    <div id="conf-table" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${rows.filter(r => r.open >= _confStart).length} live cycle(s) from ${_confStart} \u00b7 ${_confMode === 'repin' ? 'each entry pinned, exit rules only \u2014 independent tests of leg A' : 'the ' + _confStart + ' live sell is pinned (contract + fill); the sim selects forward on its own'}. Press Run.${_confLive.skipped.length ? '<br><span style="color:#e0a020;">\u26a0 ' + _confLive.skipped.length + ' live row(s) skipped: orphan cover or no sell leg.</span>' : ''}</div>`;
+    <div id="conf-table" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${_confLive.skipped.length ? '<span style="color:#e0a020;">\u26a0 ' + _confLive.skipped.length + ' live row(s) skipped: orphan cover or no sell leg.</span>' : ''}</div>`;
   if (st) st.textContent = `${rows.length} live cycles \u00b7 ${rows.filter(r => r.isOpen).length} open`;
+  if (!_confRan) { _confRan = true; runConformance(); } // v7.6.7 — the tab IS the run
 }
 
 async function runConformance() {
   if (_confRunning) return;
   if (_mode === 'optimize') { logMsg('\u26a0 Conformance: a sweep is in progress \u2014 not starting (a sweep on one build must not be interrupted)', 'err'); return; }
   const tbl = $('conf-table'); const st = $('conf-status'); const btn = $('conf-run-btn');
-  if (!_confLive || !tbl) return;
+  if (!_confLive || !tbl || !_confStart) return;
   const live = _confLive.rows.filter(r => r.open >= _confStart);
   if (!live.length) return;
   _confRunning = true; if (btn) btn.disabled = true;
   const shares = STD.shares || 600;
   const t0 = Date.now();
-  logMsg(`CONFORMANCE (${_confMode === 'repin' ? 're-pin each cycle' : 'free-run'}): replaying ${live.length} live cycle(s) from ${_confStart} through simulate() \u2014 STD params, live fills as the entry price`, '');
-  const results = []; // one per live row: { live, sim (cycle or null), err, note, nextSim }
+  logMsg(`CONFORMANCE: pin ${_confStart} (first live entry under the current model), sim selects forward \u2014 STD params, contract + date pinned, sim prices its own; ${live.length} live cycle(s) in window`, '');
+  const results = []; // one per calendar-ordered cycle: { live, sim (cycle or null), err, note, held }
   try {
-    if (_confMode === 'repin') {
-      for (let i = 0; i < live.length; i++) {
-        const L = live[i];
-        if (st) st.textContent = `re-pin ${i + 1}/${live.length} \u2014 ${L.open}`;
-        const pin = { strike: L.strike, expiry: L.expiry, entryDate: L.open, entryPx: L.sell };
-        const err = _confPinCheck(pin);
-        if (err) { results.push({ live: L, sim: null, err }); continue; }
-        _gaps = [];
-        const r = await simulate({ ...STD, shares, pin, pinExitOnly: true });
-        // simulate() returns null when NO cycle closed: with the three pin checks
-        // already passed, that is "still holding at DM end", not an error.
-        results.push({ live: L, sim: r && r.cycles && r.cycles[0] ? r.cycles[0] : null, err: null, note: r ? r.pinNote : null, held: !r });
-        await yield_();
-      }
-    } else {
-      const L0 = live[0];
-      const pin = { strike: L0.strike, expiry: L0.expiry, entryDate: L0.open, entryPx: L0.sell };
-      const err = _confPinCheck(pin);
-      if (err) { results.push({ live: L0, sim: null, err }); }
-      else {
-        if (st) st.textContent = `free-run from ${L0.open}\u2026`;
-        _gaps = [];
-        const r = await simulate({ ...STD, shares, pin });
-        const sc = (r && r.cycles) ? r.cycles : [];
-        const n = Math.max(live.length, sc.length);
-        for (let i = 0; i < n; i++) results.push({ live: live[i] || null, sim: sc[i] || null, err: null, note: (i === 0 && r) ? r.pinNote : null, held: (!r && i === 0) || (i === sc.length && !!(r && r.pendingContract)) });
-      }
+    const L0 = live[0];
+    const pin = { strike: L0.strike, expiry: L0.expiry, entryDate: L0.open, entryPx: null }; // v7.6.6 — contract + date only; the sim opens at its own DM price
+    const err = _confPinCheck(pin);
+    if (err) { results.push({ live: L0, sim: null, err }); }
+    else {
+      if (st) st.textContent = `running from ${L0.open}\u2026`;
+      _gaps = [];
+      const r = await simulate({ ...STD, shares, pin });
+      const sc = (r && r.cycles) ? r.cycles : [];
+      const n = Math.max(live.length, sc.length);
+      // simulate() returns null when NO cycle closed: with the three pin checks
+      // already passed, that is "still holding at DM end", not an error.
+      for (let i = 0; i < n; i++) results.push({ live: live[i] || null, sim: sc[i] || null, err: null, note: (i === 0 && r) ? r.pinNote : null, held: (!r && i === 0) || (i === sc.length && !!(r && r.pendingContract)) });
     }
   } catch (e) {
     logMsg('\u2717 Conformance: ' + e.message, 'err');
@@ -2622,6 +2604,15 @@ function _confRender(results) {
   const fmtPx = v => v == null ? '' : '$' + Number(v).toFixed(2);
   const fmtTv = (type, v) => v == null ? '' : type === 'decay' ? Number(v).toFixed(1) + '%' : type === 'delta' ? Number(v).toFixed(3) : String(v);
   // ── events by date ──
+  const spyC = {}; DM.spy.forEach(r => { spyC[r.date] = r.c; }); // v7.6.5 — DM closes for the fill-frame intrinsic
+  const liveVal = (L, lt) => { // v7.6.6 — what live actually GOT: fill-frame decay, or the recorded delta
+    if (lt === 'decay') {
+      if (L.cover == null || spyC[L.open] == null || spyC[L.close] == null) return null;
+      const tvE = L.sell - Math.max(0, spyC[L.open] - L.strike), tvX = Math.max(0, L.cover - Math.max(0, spyC[L.close] - L.strike));
+      return tvE > 0 ? (tvE - tvX) / tvE * 100 : null;
+    }
+    return L.tv != null ? L.tv : null;
+  };
   const ev = {}; // iso → { sb:[], ss:[], lb:[], ls:[] }  (sim buy / sim sell / live buy / live sell)
   const at = d => ev[d] || (ev[d] = { sb: [], ss: [], lb: [], ls: [] });
   const notes = [];
@@ -2635,18 +2626,27 @@ function _confRender(results) {
       at(L.open).ls.push({ c: _confContract(L.strike, L.expiry), px: L.sell, prior });
       if (!L.isOpen) {
         const lt = _confLiveType(L.trigger);
-        at(L.close).lb.push({ c: _confContract(L.strike, L.expiry), px: L.cover, tag: lt + (L.tv != null ? ' ' + fmtTv(lt, L.tv) : ''), prior });
+        // v7.6.6 — ACTUALS ONLY (Ron): the level we GOT, not the reading the agent
+        // fired on. Decay = fill-frame (the sim's arithmetic on the live fills, DM-
+        // close intrinsic); delta = the recorded scan value (no delta at a fill).
+        const lv = liveVal(L, lt);
+        at(L.close).lb.push({ c: _confContract(L.strike, L.expiry), px: L.cover, type: lt, val: lv, tag: lt + (lv != null ? ' ' + fmtTv(lt, lv) : ''), prior });
       }
     }
     if (x.err) notes.push(`<span style="${red}">\u2717 ${L ? L.open + ' ' + _confContract(L.strike, L.expiry) : 'row ' + (i + 1)}: ${x.err}</span>`);
     else if (C) {
       const stype = _confSimType(C.reason);
       const sv = stype === 'delta' ? C.exitDelta : stype === 'decay' ? C.exitDecayPct : null;
-      const pinned = (_confMode === 'repin') || i === 0;
+      const pinned = i === 0; // v7.6.7 — one scenario: only the first row is pinned
       // sim sell: pinned rows opened at the live fill; the sim's OWN mark that day is entryPxDm
       at(C.entryDate).ss.push({ c: _confContract(C.strike, C.expiry) + (pinned ? ' pin' : ''), px: C.entryPx, tag: '', prior }); // v7.6.4 — pinned row shows the FILL (the pin); VWAP goes to the notes
       if (pinned && C.entryPxDm != null && Math.abs(C.entryPxDm - C.entryPx) > 0.005) notes.push(`<span style="${muted}">pin ${C.entryDate} ${_confContract(C.strike, C.expiry)}: sim opened at the live fill ${fmtPx(C.entryPx)}; the DM day-bar VWAP that day was ${fmtPx(C.entryPxDm)}</span>`);
-      at(C.exitDate).sb.push({ c: _confContract(C.strike, C.expiry), px: C.exitPx, tag: stype + (sv != null ? ' ' + fmtTv(stype, sv) : '') + (stype === 'delta' && C.exitDecayPct != null ? ' (decay ' + Number(C.exitDecayPct).toFixed(1) + '%)' : ''), prior, note: x.note });
+      // v7.6.5 — carry BOTH readings; the render picks the one matching the live trigger on that date
+      const coFire = stype === 'delta' && (C.reason || '').toLowerCase().includes('tv decay');
+      at(C.exitDate).sb.push({ c: _confContract(C.strike, C.expiry), px: C.exitPx, type: stype, coFire,
+        tag: stype + (sv != null ? ' ' + fmtTv(stype, sv) : ''),
+        tagDecay: C.exitDecayPct != null ? 'decay ' + Number(C.exitDecayPct).toFixed(1) + '%' : null, vDecay: C.exitDecayPct,
+        tagDelta: C.exitDelta != null ? 'delta ' + Number(C.exitDelta).toFixed(3) : null, vDelta: C.exitDelta, prior, note: x.note });
     } else if (x.held) {
       const what = L ? _confContract(L.strike, L.expiry) : (x.pending ? _confContract(x.pending.strike, x.pending.expiry) : 'position');
       notes.push(`<span style="${amber}">no sim fire through ${DM.spy[DM.spy.length - 1].date} on ${what} \u2014 sim still holding${L && !L.isOpen ? ' (live exited ' + L.close + ')' : L && L.isOpen ? ' (live open too)' : ''}</span>`);
@@ -2658,11 +2658,11 @@ function _confRender(results) {
       const sv = stype === 'delta' ? C.exitDelta : stype === 'decay' ? C.exitDecayPct : null;
       if (!prior) {
         S.n++; S.days.push(Math.abs(dd)); if (dd > 0) S.late++; else if (dd < 0) S.early++;
-        if (lt === stype) { S.sameType++; const b = S[lt]; if (b) { b.n++; b.days.push(dd); if (L.tv != null && sv != null) b.gap.push(L.tv - sv); } }
+        if (lt === stype) { S.sameType++; const b = S[lt]; if (b) { b.n++; b.days.push(dd); const lv = liveVal(L, lt); if (lv != null && sv != null) b.gap.push(lv - sv); } } // v7.6.6 — actuals
       }
-      if (_confMode === 'free' && S.firstDiv == null && dd !== 0) S.firstDiv = { row: i + 1, why: 'exit day differs (' + C.exitDate + ' sim vs ' + L.close + ' live)' };
+      if (S.firstDiv == null && dd !== 0) S.firstDiv = { row: i + 1, why: 'exit day differs (' + C.exitDate + ' sim vs ' + L.close + ' live)' };
     }
-    if (_confMode === 'free' && i > 0 && L && C) {
+    if (i > 0 && L && C) {
       const same = (Math.abs(L.strike - C.strike) < 0.001 && L.expiry === C.expiry);
       if (!prior) { S.contractN++; if (same) S.sameContract++; }
       if (!same && S.firstDiv == null) S.firstDiv = { row: i + 1, why: 'different contract (sim ' + _confContract(C.strike, C.expiry) + ' vs live ' + _confContract(L.strike, L.expiry) + ')' };
@@ -2675,10 +2675,27 @@ function _confRender(results) {
   const axis = [...dates].sort();
   // v7.6.4 — ONE LINE PER ROW: contract / px / trigger are separate columns;
   // same-day same-side events join with a middle dot; pin-mask notes go below.
-  const cell = (arr, key) => arr.map(e => { const o = e.prior ? 'opacity:.62;' : '';
+  // v7.6.6 — BETTER LEVEL IN GREEN: on a date where both sides bought on the same
+  // trigger type, higher decay (more TV captured) or lower delta (out earlier) wins.
+  const simShown = (e, want) => { // which reading the sim cell shows, and its value
+    if (e.coFire && want === 'decay' && e.tagDecay) return { t: e.tagDecay + ' \u207a', type: 'decay', v: e.vDecay };
+    if (e.coFire && e.tagDelta) return { t: e.tagDelta + ' \u207a', type: 'delta', v: e.vDelta };
+    return { t: e.tag || '', type: e.type, v: e.type === 'decay' ? e.vDecay : e.type === 'delta' ? e.vDelta : null };
+  };
+  const better = (type, a, b) => (a == null || b == null) ? null : type === 'decay' ? (a > b) : type === 'delta' ? (a < b) : null;
+  const cell = (arr, key, other) => arr.map(e => { const o = e.prior ? 'opacity:.62;' : '';
     if (key === 'c')  return `<span style="${o}">${e.c}</span>`;
     if (key === 'px') return `<span style="${o}">${fmtPx(e.px)}</span>`;
-    return `<span style="${o}${muted}">${e.tag || ''}</span>`; }).join(' \u00b7 ');
+    if (key === 'stag') { // sim trigger, matched to the live buy on that date
+      const want = other && other.length ? other[0].type : null;
+      const sh = simShown(e, want);
+      const win = (other && other.length && other[0].type === sh.type) ? better(sh.type, sh.v, other[0].val) : null;
+      return `<span style="${o}${win ? green : muted}">${sh.t}</span>`;
+    }
+    // live trigger, compared to the sim buy on that date
+    let win = null;
+    if (other && other.length) { const sh = simShown(other[0], e.type); if (sh.type === e.type) win = better(e.type, e.val, sh.v); }
+    return `<span style="${o}${win ? green : muted}">${e.tag || ''}</span>`; }).join(' \u00b7 ');
   results.forEach(x => { if (x.sim && x.note) notes.push(`<span style="${amber}">\u26a0 ${x.sim.entryDate} ${_confContract(x.sim.strike, x.sim.expiry)}: ${x.note}</span>`); });
   let html = `<table style="border-collapse:collapse;width:100%;font-family:var(--mono);font-size:10px;"><thead><tr>
     <th style="${th}">date</th><th style="${th}">sim buy</th><th style="${th}">px</th><th style="${th}">trigger</th><th style="${th}">sim sell</th><th style="${th}">px</th><th style="${th}">live buy</th><th style="${th}">px</th><th style="${th}">trigger</th><th style="${th}">live sell</th><th style="${th}">px</th></tr></thead><tbody>`;
@@ -2689,12 +2706,12 @@ function _confRender(results) {
     const dateStyle = (anySim && !anyLive) || (!anySim && anyLive) ? amber : (anySim && anyLive ? green : '');
     const prior = d < POLICY_REGIME_2;
     html += `<tr style="${rowStyle}"><td style="${td}${dateStyle}">${d}${prior ? ` <span style="${amber}">prior</span>` : ''}${d > lastDm ? ` <span style="${amber}">no DM</span>` : ''}</td>`
-      + (e ? `<td style="${td}">${cell(e.sb, 'c')}</td><td style="${td}">${cell(e.sb, 'px')}</td><td style="${td}">${cell(e.sb, 'tag')}</td><td style="${td}">${cell(e.ss, 'c')}</td><td style="${td}">${cell(e.ss, 'px')}</td><td style="${td}">${cell(e.lb, 'c')}</td><td style="${td}">${cell(e.lb, 'px')}</td><td style="${td}">${cell(e.lb, 'tag')}</td><td style="${td}">${cell(e.ls, 'c')}</td><td style="${td}">${cell(e.ls, 'px')}</td>`
+      + (e ? `<td style="${td}">${cell(e.sb, 'c')}</td><td style="${td}">${cell(e.sb, 'px')}</td><td style="${td}">${cell(e.sb, 'stag', e.lb)}</td><td style="${td}">${cell(e.ss, 'c')}</td><td style="${td}">${cell(e.ss, 'px')}</td><td style="${td}">${cell(e.lb, 'c')}</td><td style="${td}">${cell(e.lb, 'px')}</td><td style="${td}">${cell(e.lb, 'ltag', e.sb)}</td><td style="${td}">${cell(e.ls, 'c')}</td><td style="${td}">${cell(e.ls, 'px')}</td>`
            : `<td style="${td}"></td>`.repeat(10))
       + '</tr>';
   });
   html += '</tbody></table>';
-  html += `<div style="margin-top:6px;font-size:9px;${muted}">date colour: <span style="${green}">both traded</span> \u00b7 <span style="${amber}">one side only</span> \u00b7 dim = no trade. \u201cpin\u201d = the sim opened at the live contract and fill, so decay is measured from the fill on both sides.${notes.length ? '<br>' + notes.join('<br>') : ''}</div>`;
+  html += `<div style="margin-top:6px;font-size:9px;${muted}">date colour: <span style="${green}">both traded</span> \u00b7 <span style="${amber}">one side only</span> \u00b7 dim = no trade. \u201cpin\u201d = the sim opened the live contract on that date at its OWN DM price. Every price is that side\u2019s actual. Live decay = the level actually got (fill-frame: the sim\u2019s arithmetic on the live fills, DM-close intrinsic); live delta = the recorded scan value. \u207a = sim co-fire; the reading shown matches the live trigger that day. <span style="${green}">green trigger</span> = the better level of the two (higher decay, lower delta).${notes.length ? '<br>' + notes.join('<br>') : ''}</div>`;
   // ── summary band ──
   const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
   const fm = (v, dd, suf) => v == null ? '\u2014' : (v >= 0 ? '+' : '') + v.toFixed(dd) + suf;
@@ -2705,8 +2722,7 @@ function _confRender(results) {
     sum += `decay rows n ${S.decay.n}: live fires ${S.decay.gap.length ? fm(mean(S.decay.gap), 1, 'pp') + ' vs the sim\u2019s own reading' : '\u2014'} \u00b7 mean ${fm(mean(S.decay.days), 1, 'd')} (+ = late)<br>`;
     sum += `delta rows n ${S.delta.n}: live fires ${S.delta.gap.length ? fm(mean(S.delta.gap), 3, '\u0394') + ' vs the sim\u2019s own reading' : '\u2014'} \u00b7 mean ${fm(mean(S.delta.days), 1, 'd')} (+ = late)<br>`;
   } else sum += 'no closed in-regime rows with a sim exit.<br>';
-  if (_confMode === 'free') sum += `ENTRY CONFORMANCE (leg B, free-run): same contract ${S.contractN ? S.sameContract + '/' + S.contractN : '\u2014'} \u00b7 first divergence: ${S.firstDiv ? 'row ' + S.firstDiv.row + ' \u2014 ' + S.firstDiv.why : 'none in window'}<br>`;
-  else sum += `<span style="${muted}">leg B (entry) is not measured in re-pin mode \u2014 selection is held constant by construction; switch to free-run.</span><br>`;
+  sum += `ENTRY CONFORMANCE (leg B): same contract ${S.contractN ? S.sameContract + '/' + S.contractN : '\u2014'} \u00b7 first divergence: ${S.firstDiv ? 'row ' + S.firstDiv.row + ' \u2014 ' + S.firstDiv.why : 'none in window'}<br>`;
   sum += `<span style="${muted}font-size:9px;">Not a P&amp;L verdict: the sim covers at the option day-bar VWAP (option_days.vw), unreachable by any order \u2014 S67 measured live fills at +5.7\u00a2/sh net in Ron\u2019s favour vs that benchmark. Not a conformance statement (\u00a712.4). Live trigger values are the agent\u2019s intraday readings; sim values are DM-close readings on the same calendar day \u2014 the gap IS the overshoot being measured. Reads only; never writes roll_params.</span>`;
   sum += '</div>';
   return html + sum;
