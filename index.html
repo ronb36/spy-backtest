@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.10</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.11</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -720,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.10 · STATEMENT LINE REORDERED + SPY BUY/HOLD + ALL/YTD RANGE (S68, Ron). DISPLAY ONLY. The SPY · STATEMENT line now reads in balance order — starting balance · contributions · redemptions · SPY P&amp;L · CC P&amp;L · ending balance — so the identity foots left to right (start + contributions − redemptions + SPY + CC = ending), then the statement yield, then SPY BUY/HOLD over the same days (price return from DM closes, simple-annualized on the same convention) so the strategy can be read against holding the shares. ALL / YTD toggle in the panel header: YTD starts the statement window at CWIN_YTD_START (2025-12-31 statement ending balance — a decision-controlled constant on the CWIN_START_BALANCE precedent) and reads every flow, cycle and price from there; until that balance is pinned the YTD view says so instead of printing a number. _cwinTwCapital gains a start-balance argument; flows before the window start are inside the start balance and are excluded. Roll Economics is unaffected by the range (current-model window). Base v7.6.9 (a5827c77).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.11 · LEDGER-COMPUTED ACCOUNT BALANCE (S68, Ron: “can’t you calculate the 2025 EOY balance from the live database”). DISPLAY ONLY. Yes: the activity table carries Fidelity’s running cash balance on every imported row (core + SPAXX, tied out to $0.00 per file), every SPY share lot, and the blotter carries every option leg. _ledgerBalanceAt(d) = cash balance of the last ledger row on/before d + shares held × DM SPY close − open short calls × DM option close, fail-loud on any missing mark. The YTD anchor is now COMPUTED at 2025-12-31 (the v7.6.10 pinned-constant approach retired before it was ever pinned) and its composition is printed so it can be tied to the December statement; on ALL the same computation runs at the pinned anchor date and prints its Δ vs the pinned $520,144 — the first data point for the open item “computed balances stays pinned”. rowToTrade passes cash_balance, cls, quantity and symbol through. Base v7.6.10 (703e3cc5).</span></div>
 </div>
 
 <script>
@@ -907,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.10';
+const APP_VERSION = 'v7.6.11';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2063,10 +2063,45 @@ function _cwinTwCapital(startIso, endIso, flows, startAmt = CWIN_START_BALANCE.a
   return n ? tot / n : 0;
 }
 const CWIN_START_BALANCE = { d: '2025-06-02', amt: 70348.68 }; // v6.20.6 — actual account value at program start (statement: FXAIX proceeds + residual cash)
-const CWIN_YTD_START     = { d: '2025-12-31', amt: null };   // v7.6.10 — YTD anchor: the 2025-12-31 statement ENDING balance. Decision-controlled, same precedent as CWIN_START_BALANCE; null until pinned on the record — the YTD view says so rather than printing a number.
+const CWIN_YTD_ANCHOR    = '2025-12-31';                       // v7.6.11 — YTD anchor DATE; the balance is COMPUTED from the ledger (_ledgerBalanceAt), never pinned
 let   _perfRange = 'all';                                       // v7.6.10 — 'all' | 'ytd' (header toggle)
 const CWIN_LAST_BALANCE  = { d: '2026-08-11', amt: 520144.00 }; // v6.20.6 — PINNED with as-of date, stale-stamped in the UI (v6.15.2 sim-reference precedent);
 // update on the record when it matters. Open item (S49): activity-table expansion (SPY lots · dividends · contributions) makes this a computed value with a Fidelity tie-out.
+// v7.6.11 — ACCOUNT VALUE FROM THE LEDGER at a date (Ron). Three legs, all on the
+// record: (1) CASH = Fidelity's running cash balance (core + SPAXX) on the last
+// imported row on/before d — the column every per-file tie-out foots to $0.00;
+// (2) SHARES = Σ SPY share quantities on/before d × the DM close on/before d;
+// (3) SHORT CALLS = every blotter cycle open at d (opened ≤ d, closed > d or
+// still open) × 100 × the DM option close that day. Fails LOUD on any missing
+// mark; never substitutes. Dividends and MM interest are inside (1) by
+// construction. Anything the ledger does not carry (a T-bill before its
+// redemption) is NOT in this number — the composition is printed so a
+// statement tie-out can say so.
+function _ledgerBalanceAt(d, trades) {
+  const iso = t => _wfIsoD(t.trade_date);
+  const imp = trades.filter(t => t.source === 'csv_import' && t.cash_balance != null && iso(t) && iso(t) <= d)
+    .sort((a, b) => { const x = iso(a), y = iso(b); return x < y ? -1 : x > y ? 1 : ((a.occ_seq || 0) - (b.occ_seq || 0)) || ((a.id || 0) - (b.id || 0)); });
+  if (!imp.length) return { err: 'no imported ledger row on or before ' + d };
+  const last = imp[imp.length - 1];
+  const cash = Number(last.cash_balance);
+  const shares = trades.filter(t => t.source === 'csv_import' && (t.symbol || '').trim() === 'SPY' && t.quantity && iso(t) && iso(t) <= d)
+    .reduce((s, t) => s + Number(t.quantity), 0);
+  const spyRow = (DM && DM.spy) ? DM.spy.filter(r => r.date <= d).pop() : null;
+  if (!spyRow) return { err: 'no DM SPY close on or before ' + d };
+  const { cycles, open, toIso } = _pairLiveCycles(trades);
+  const openAt = [...cycles, ...open].filter(c => !c.orphan && c.openDate && c.sellPrice != null && toIso(c.openDate) <= d && (c.closeDate == null || toIso(c.closeDate) > d));
+  let optMark = 0; const legs = [];
+  for (const c of openAt) {
+    const exp = toIso(c.expiry), K = parseFloat(c.strike), q = Number(c.qty || 0);
+    const cc = DM.options[buildScanTicker(exp, K)];
+    if (!cc) return { err: 'open $' + K + 'C ' + exp + ' is not in the data mart \u2014 cannot mark' };
+    buildDayMap(cc);
+    const bar = cc._dm[spyRow.date];
+    if (!bar) return { err: 'no DM bar for $' + K + 'C ' + exp + ' on ' + spyRow.date + ' \u2014 cannot mark' };
+    optMark += q * 100 * bar.c; legs.push({ K, exp, q, px: bar.c });
+  }
+  return { d, asOf: iso(last), cash, shares, spyPx: spyRow.c, spyDate: spyRow.date, optMark, legs, total: cash + shares * spyRow.c - optMark };
+}
 let _perfBuilt = false; // v6.24.0 — lazy once per load; ⟳ forces re-fetch
 function _perfRngPaint() { // v7.6.10 — ALL / YTD pill state
   const on = 'background:var(--accent);border:1px solid var(--accent);color:#fff;', off = 'background:var(--surface2);border:1px solid var(--border);color:var(--muted);';
@@ -2120,7 +2155,14 @@ async function _cwinHtml() {
   catch (e) { return '<div style="color:var(--red);">\u2717 live_trades: ' + e.message + '</div>'; }
 
   const money = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
-  const S = (_perfRange === 'ytd') ? CWIN_YTD_START : CWIN_START_BALANCE, L = CWIN_LAST_BALANCE; // v7.6.10 — ALL / YTD
+  const L = CWIN_LAST_BALANCE;
+  const ytdB = (_perfRange === 'ytd') ? _ledgerBalanceAt(CWIN_YTD_ANCHOR, trades) : null; // v7.6.11 — computed anchor
+  const S = (_perfRange === 'ytd') ? { d: CWIN_YTD_ANCHOR, amt: (ytdB && !ytdB.err) ? ytdB.total : null } : CWIN_START_BALANCE; // v7.6.10 — ALL / YTD
+  const chkB = _ledgerBalanceAt(L.d, trades); // v7.6.11 — the same computation at the pinned anchor: tie-out for the open item
+  const _bal = B => B.err ? '<span style="color:#e0a020;">\u26a0 ' + B.err + '</span>'
+    : 'cash ' + money(B.cash) + ' (ledger row ' + B.asOf + ') + ' + B.shares + ' SPY \u00d7 ' + money(B.spyPx) + ' (' + B.spyDate + ')'
+      + (B.legs.length ? ' \u2212 short ' + B.legs.map(l => l.q + '\u00d7 $' + l.K + 'C ' + l.exp + ' @ ' + money(l.px)).join(', ') + ' = ' + money(B.optMark) : ' \u00b7 no open calls')
+      + ' = <b>' + money(B.total) + '</b>';
   const flows = _cwinLedgerFlows(trades); // v6.23.0 — ledger-derived; guard: absence can never hide
   if (!flows.length) return '<div style="color:var(--red);">\u2717 ledger has no contribution/withdrawal rows \u2014 run the statement import (\u00a73 capital series is ledger-derived as of v6.23.0)</div>';
   // v6.34.5 — TWO SECTIONS, TWO WINDOWS (Ron, S58). The fault line is real,
@@ -2253,7 +2295,7 @@ async function _cwinHtml() {
     + '<span style="' + lab + 'letter-spacing:.05em;">SPY \u00b7 STATEMENT</span>'
     + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (pinned to statement balance)</span>'
     + (S.amt == null
-      ? '<br><span style="color:#e0a020;">\u26a0 YTD needs the ' + S.d + ' statement ending balance pinned as CWIN_YTD_START \u2014 nothing to compute until then.</span>'
+      ? '<br><span style="color:#e0a020;">\u26a0 YTD anchor ' + S.d + ' could not be computed from the ledger: ' + (ytdB ? ytdB.err : 'n/a') + '</span>'
       : '<br><span style="' + lab + '">starting balance</span> ' + money(S.amt) // v7.6.10 — balance order: start + contributions − redemptions + SPY + CC = ending
       + '<span style="' + lab + '"> \u00b7 contributions</span> ' + money(contribP)
       + '<span style="' + lab + '"> \u00b7 redemptions</span> ' + money(-redeemP)
@@ -2262,7 +2304,9 @@ async function _cwinHtml() {
       + '<span style="' + lab + '"> \u00b7 ending balance</span> ' + money(L.amt)
       + '<span style="' + lab + '"> \u00b7 statement yield</span> ' + pf(yP(gain))
       + '<br><span style="' + lab + '">SPY buy/hold, same days</span> ' + (bhRet != null ? (bhRet >= 0 ? '+' : '') + bhRet.toFixed(1) + '% (' + pf(bhAnn) + ' ann., price only, ' + money(spy0) + ' \u2192 ' + money(spy1) + ')' : 'n/a')
-      + '<span style="' + lab + '"> \u00b7 strategy</span> ' + pf(yP(gain)) + '<span style="' + lab + '"> ann. on time-weighted capital</span>')
+      + '<span style="' + lab + '"> \u00b7 strategy</span> ' + pf(yP(gain)) + '<span style="' + lab + '"> ann. on time-weighted capital</span>'
+      + (_perfRange === 'ytd' ? '<br><span style="' + lab + '">' + S.d + ' balance, computed from the ledger: ' + _bal(ytdB) + '</span>' : '')) // v7.6.11
+    + '<br><span style="' + lab + 'font-size:9px;">ledger-computed at ' + L.d + ': ' + (chkB.err ? _bal(chkB) : money(chkB.total) + ' \u00b7 \u0394 vs pinned statement ' + money(chkB.total - L.amt) + ' \u00b7 ' + _bal(chkB)) + '</span>' // v7.6.11 — tie-out for “computed balances stays pinned”
     + '</div>' // v7.1.0 — residual prose removed (Ron). Header + data line only.
     + '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:9px 0 3px;letter-spacing:.05em;">'
     + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 current model \u00b7 ' + winStart + ' \u2192 ' + endIso + ' \u00b7 sim = unpinned STD path (Conformance pins the first live trade)</span></div>'; // v7.6.8
@@ -8609,6 +8653,7 @@ function rowToTrade(r) {
     triggerThreshold: r.trigger_threshold,  // v6.32.0
     source:          r.source, // v6.22.2 — imported facts distinguishable from tickets
     amount:          r.amount, // v6.23.0 — ledger cash column (capital-series reader)
+    cash_balance:    r.cash_balance, cls: r.cls, quantity: r.quantity, symbol: r.symbol, occ_seq: r.occ_seq, // v7.6.11 — ledger balance reader (_ledgerBalanceAt)
     note:            r.note
   };
 }
