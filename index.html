@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.18</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.19</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -720,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.18 · LEGS INSERT — TRIGGER SEED SCOPED TO THE FILE SPAN (S68). STATE ONLY, sim untouched. DEFECT: v7.2.5’s seed step was written for a full re-import: it CLEARED every era trigger in live_legs (trade_date ≥ WF_ERA_START), then re-seeded only from legs present in the loaded file’s payload, and verified two fixed dates (08-03, 08-04). On an incremental file (08-18 → 09-17) that cleared the July and early-August triggers, re-seeded none of them (“no closing leg — trigger NOT seeded” ×6) and failed its own verification — facts untouched, triggers on 07-21…08-04 legs in live_legs left NULL. live_trades (the blotter’s source) was never touched. Now: the clear, the ticket read and the seed are all bounded to [dMin, dMax] of the loaded file; the 08-03/08-04 verification runs only when those dates are inside the span, otherwise it reports “outside this file — not verified here”. Re-running the insert on the July–August file restores the cleared triggers; every run still writes ZERO fact rows. Base v7.6.17 (8546860e).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.19 · LEGS INSERT GATE 3 — CHECK THE POSITION AS OF THE FILE’S LAST DAY (S68). STATE ONLY, sim untouched. Gate 3 compared the assembler’s open position at the END OF THE FILE against roll_params.json — the CURRENT position — so any file that ends before the current entry (26Q3 ends 09-04, holding $775C; the live book holds $765C from 09-17) blocked on “strike 775 vs params 765”. The check now picks its third source by date: if the file reaches the current position’s entry date it checks roll_params as before; otherwise it checks the BLOTTER’s open position as of the file’s last day (the ticket open at that date), which is the independent source that actually existed then. Same block, right reference. Base v7.6.18 (dc0efd03).</span></div>
 </div>
 
 <script>
@@ -907,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.18';
+const APP_VERSION = 'v7.6.19';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -9652,9 +9652,17 @@ async function impLegsInsert() {
       + multiEra.map(x => x.d).join(', ') + ') — trigger attachment is ambiguous, BLOCKED');
     L.push('\u2713 gate 2 — closing groups: ' + multi.length + ' date(s) >1, 0 in era');
 
-    // GATE 3 — open position 0-or-1, reconciled against roll_params.json.
+    // GATE 3 — open position 0-or-1, reconciled against an independent third source.
+    // v7.6.19 — the source depends on WHEN the file ends: reaching the current
+    // entry → roll_params.json (as before); ending earlier → the blotter's open
+    // position AS OF the file's last day. A historical file can never agree with
+    // today's position, and blocking on that was blocking on the calendar.
     if (stillOpen.length > 1) die('assembler carries ' + stillOpen.length + ' open positions — BLOCKED');
-    if (stillOpen.length === 1 && STD && STD.shortStrike) {
+    const fileDates = live.map(r => r.date).filter(Boolean).sort();
+    const fileEnd = fileDates[fileDates.length - 1] || null;
+    const curEntry = (STD && STD.entryDate) ? String(STD.entryDate).slice(0, 10) : null;
+    const reachesCurrent = !!(fileEnd && curEntry && fileEnd >= curEntry);
+    if (stillOpen.length === 1 && reachesCurrent && STD && STD.shortStrike) {
       const o = stillOpen[0];
       const mismatch = [];
       if (Number(o.strike) !== Number(STD.shortStrike)) mismatch.push('strike ' + o.strike + ' vs params ' + STD.shortStrike);
@@ -9663,6 +9671,20 @@ async function impLegsInsert() {
       if (mismatch.length) die('open position disagrees with roll_params.json — ' + mismatch.join(' \u00b7 ') + ' — BLOCKED');
       L.push('\u2713 gate 3 — open position $' + o.strike + ' ' + o.expiry + ' \u00d7' + o.qty
         + ' agrees with roll_params.json (independent third source)');
+    } else if (stillOpen.length === 1 && fileEnd) {
+      const o = stillOpen[0];
+      const bt = await sbGetLiveTrades();
+      const { cycles, open, toIso } = _pairLiveCycles(bt);
+      const asOf = [...cycles, ...open].filter(c => !c.orphan && c.openDate && toIso(c.openDate) <= fileEnd && (c.closeDate == null || toIso(c.closeDate) > fileEnd));
+      if (asOf.length !== 1) die('blotter shows ' + asOf.length + ' open position(s) as of ' + fileEnd + ' vs assembler 1 — BLOCKED');
+      const b = asOf[0];
+      const mismatch = [];
+      if (Number(o.strike) !== Number(b.strike)) mismatch.push('strike ' + o.strike + ' vs blotter ' + b.strike);
+      if (toIso(b.expiry) && o.expiry !== toIso(b.expiry)) mismatch.push('expiry ' + o.expiry + ' vs blotter ' + toIso(b.expiry));
+      if (b.qty && Number(o.qty) !== Number(b.qty)) mismatch.push('qty ' + o.qty + ' vs blotter ' + b.qty);
+      if (mismatch.length) die('open position as of ' + fileEnd + ' disagrees with the blotter — ' + mismatch.join(' \u00b7 ') + ' — BLOCKED');
+      L.push('\u2713 gate 3 — open position $' + o.strike + ' ' + o.expiry + ' \u00d7' + o.qty
+        + ' agrees with the blotter as of ' + fileEnd + ' (file ends before the current ' + (curEntry || '?') + ' entry; roll_params not applicable)');
     } else {
       L.push('\u2713 gate 3 — open positions ' + stillOpen.length + ' (params check skipped: no shortStrike loaded)');
     }
