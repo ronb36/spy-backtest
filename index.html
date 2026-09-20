@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -381,6 +381,7 @@ select.display-box { cursor:pointer; outline:none; }
       <button class="tab-btn" id="tab-btn-scan" onclick="showTab('scan')" style="display:none">🔍 Scan</button>
       <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
       <button class="tab-btn" id="tab-btn-gate" onclick="showTab('gate')">⚖️ Gate</button>
+      <button class="tab-btn" id="tab-btn-conf" onclick="showTab('conf')">🔬 Conformance</button><!-- v7.6.2 — sim vs live, cycle by cycle (SPEC_conformance_tab) -->
       <!-- v7.3.3 — Research tab RETIRED (S67, Ron): no open research projects. Phase B
            H-tournament closed with a NEGATIVE verdict at 11/10 cycles (H=6 and H-infinity
            picked the IDENTICAL contract in all 83 era scans with shadow_topk — the horizon
@@ -585,6 +586,16 @@ select.display-box { cursor:pointer; outline:none; }
 </div>
     </div>
 
+    <div id="tab-conf" style="display:none"><!-- v7.6.2 — CONFORMANCE: sim vs live, cycle by cycle -->
+      <div class="chart-panel">
+        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="chart-title">🔬 Conformance — sim vs live, cycle by cycle</span>
+          <span id="conf-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 10px;line-height:1.5;">Each live entry is replayed through simulate() at its own fill (v7.6.1 pin) and the sim's exit is placed beside the live one. RE-PIN = every cycle independently, exit rules only (leg A, selection held constant). FREE-RUN = first entry pinned, sim selects forward (compounding). Prior-regime rows (before POLICY_REGIME_2) are dimmed and excluded from the summary. Reads only.</div>
+        <div id="conf-body"></div>
+      </div>
+    </div>
     <div id="tab-research" style="display:none"><!-- v6.7.0 — walk-forward registry watcher -->
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
@@ -705,9 +716,9 @@ select.display-box { cursor:pointer; outline:none; }
 
   <div class="footer">
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
-    Option prices are EOD close (spy_daily.c — there is no vw column; the long-standing "EOD VWAP" description was a doc-class falsification, corrected S57). P&amp;L reflects premium collected net of buybacks.
+    SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.1 · PINNED OPENING IN simulate() (S68, Ron). SIM-REGION, MODEL_VERSION UNCHANGED at m7.5.0 — EMBEDDED NULL: p.pin absent → byte-identical run (defH/entryDteMin pattern). p.pin = {strike, expiry, entryDate, entryPx} skips the initial selection and opens THAT contract on THAT date through the existing openPosition path, at the live fill when given (the DM day-bar VWAP is recorded beside it as entryPxDm); p.pinExitOnly stops after the first close. The replay therefore runs the sim’s OWN trigger code — no second copy of the exit rules (the v1.7.16/v1.7.18 shadowing class). Fails LOUD, never substitutes: contract not in the DM, no DM bar on the entry date, or entry date not a DM trading day → run aborts with the reason; a contract the point-in-time mask says the collector could not have reached is run anyway and flagged (pinNote) — the live scan sold it, so the DM has it. Sandbox keys ?ovPin=STRIKE,EXPIRY,ENTRYDATE[,ENTRYPX] and ?ovPinExit=1 expose it for smoke and research (sandbox forces Debug); the Conformance tab (next release) passes p.pin directly. Prerequisite 2 of SPEC_conformance_tab.md. Gate region untouched. Base v7.6.0 (f4edc6fc).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.2 · CONFORMANCE TAB (S68, Ron). DISPLAY ONLY — sim path, trigger tests, ranker and Gate region untouched; the one edit inside simulate() is a log string branched on the pin flag (STD-inert). SPEC_conformance_tab.md built: 🔬 Conformance tab, one row per live cycle with the sim’s replay beside it. RE-PIN (default, the diagnostic): every live entry pinned in turn at its fill, exit rules only — independent tests of leg A with selection held constant. FREE-RUN: first entry pinned, sim selects forward — compounding divergence; the honest outputs are cycles-until-first-divergence and its cause. Start-date dropdown is populated from the live entries themselves (default: first on/after POLICY_REGIME_2; earlier rows selectable, dimmed, excluded from the summary). Δ column: live days early/late vs the sim’s exit day, trigger type agreement, live-minus-sim trigger value (decay pp / delta), cover vs the sim’s VWAP. Summary splits decay and delta, never pooled. A pinned run that never closes reads “still holding”, not an error; a contract the DM lacks reads WHY. Reads only — never writes roll_params. Not a P&L verdict (sim covers at option_days.vw, unreachable by any order — S67) and not a conformance statement (§12.4); the tab says both. The retired Research tab body is left in place, unreferenced. ALSO: override banner prints ovPin as STRIKE/EXPIRY/DATE/PX instead of [object Object]; exit-only end-of-run line says the pin stopped it; footer §6.18 corrected — SPY spot and trigger evaluation read spy_daily.c (no vw column), option marks and exits read option_days.vw (day-bar VWAP, c fallback); the S57 “no vw column” correction was about the wrong table. Base v7.6.1 (feebc24e).</span></div>
 </div>
 
 <script>
@@ -894,7 +905,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.1';
+const APP_VERSION = 'v7.6.2';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -1742,11 +1753,11 @@ function showTab(tab) {
   if (tab === 'log')        { _tradesView = 'sim';  tab = 'trades'; }
   else if (tab === 'live')  { _tradesView = 'live'; tab = 'trades'; }
   else if (tab === 'chart') { _tradesChartOpen = true; tab = 'trades'; }
-  ['trades','heatmap','gaps','runlog','scan','mart','research','gate'].forEach(t => {
+  ['trades','heatmap','gaps','runlog','scan','mart','research','gate','conf'].forEach(t => { // v7.6.2 — conf
     const btn = $('tab-btn-' + t);
     if (btn) btn.classList.toggle('active', t === tab);
   });
-  ['heatmap','gaps','runlog','scan','mart','research','gate'].forEach(t => {
+  ['heatmap','gaps','runlog','scan','mart','research','gate','conf'].forEach(t => { // v7.6.2 — conf
     const el = $('tab-' + t);
     if (el) el.style.display = t === tab ? 'block' : 'none';
   });
@@ -1761,6 +1772,7 @@ function showTab(tab) {
   }
   if (tab === 'mart') renderMartCards();
   if (tab === 'research') renderResearchTab(); // v6.7.0
+  if (tab === 'conf') renderConfTab(); // v7.6.2
   if (tab === 'runlog') {
     // Sync mirror with live progress-log content
     const src = $('progress-log');
@@ -2451,6 +2463,233 @@ function _resCounterHtml(n, minN, label) {
   const enough = n >= minN;
   return '<div style="margin:6px 0;padding:5px 8px;border-radius:4px;border:1px solid ' + (enough ? 'var(--green)' : 'var(--border)') + ';color:' + (enough ? 'var(--green)' : 'var(--yellow)') + ';">'
     + (enough ? '✓ ' + label : 'Not enough data yet — ' + label) + '</div>';
+}
+
+// ── v7.6.2 · CONFORMANCE TAB — sim vs live, cycle by cycle (SPEC_conformance_tab) ──
+// The question: "match the sim — identify where we are missing." Three legs can
+// diverge: A exit (did the trigger fire when the model says?), B entry (did we
+// pick what the model picks?), C execution (did we fill where the sim fills?).
+// S67 closed C (net +5.7¢ in Ron's favour on the era rolls) and found B close;
+// A was UNMEASURED because the sim never recorded its own decay at exit.
+// v7.6.0 records it (exitDecayPct); v7.6.1 lets simulate() open a GIVEN
+// contract on a GIVEN date (p.pin) and run its own exit rules forward.
+// This tab is the reader. It READS; it never writes roll_params.json.
+//   RE-PIN (default, the diagnostic): every live entry is pinned in turn and
+//     only the exit runs forward — no compounding; each row is an independent
+//     test of leg A with selection held constant.
+//   FREE-RUN (Ron's original): pin the first live entry, let the sim select
+//     forward on its own. Measures compounding divergence; honest output is
+//     "cycles until first divergence and what caused it", not the row-by-row
+//     match further down (once the sim exits a day early, its next entry is a
+//     different date against a different chain).
+// NOT a P&L verdict: the sim fills at the option day-bar VWAP, unreachable by
+// any order (S67: mean vw−c −7.4¢ in the $20+ bucket). NOT a conformance
+// STATEMENT (§12.4: this edge is not verifiable on live data within any
+// reasonable horizon). Sixteen live cycles support a diagnostic, not a verdict.
+let _confRunning = false;
+let _confMode = 'repin';   // 'repin' | 'free'
+let _confStart = null;     // ISO entry date of the first row
+let _confLive = null;      // paired live cycles (closed + open), ascending
+
+function _confLiveType(t) { const s = (t || '').toLowerCase(); if (s.includes('delta')) return 'delta'; if (s.includes('decay')) return 'decay'; if (s.includes('dte')) return 'dte'; if (s.includes('expir') || s.includes('assign')) return 'expiry'; return '?'; }
+function _confSimType(reason) { const s = (reason || '').toLowerCase(); if (s.includes('delta')) return 'delta'; if (s.includes('tv decay')) return 'decay'; if (s.includes('dte')) return 'dte'; if (s.includes('expired')) return 'expiry'; return '?'; }
+function _confDays(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000); } // b − a, calendar days
+function _confMoney(v) { return v == null ? '—' : (v < 0 ? '-$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US'); }
+function _confFmtExp(iso) { const d = new Date(iso + 'T00:00:00'); return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}-${String(d.getFullYear()).slice(2)}`; }
+function _confContract(strike, expiryIso) { return '$' + strike + 'C ' + _confFmtExp(expiryIso); }
+
+// Pre-flight the pin so a failed row can say WHY (simulate() returns null and
+// logs the reason; the tab must not leave a blank cell). Same three checks, same
+// order, no substitution.
+function _confPinCheck(pin) {
+  if (!DM || !DM.spy) return 'data mart not loaded';
+  if (!DM.spy.some(r => r.date === pin.entryDate)) return pin.entryDate + ' is not a DM trading day';
+  const c = DM.options[buildScanTicker(pin.expiry, pin.strike)];
+  if (!c) return 'contract not in the data mart (' + buildScanTicker(pin.expiry, pin.strike) + ')';
+  buildDayMap(c);
+  if (!c._dm[pin.entryDate]) return 'no DM bar on ' + pin.entryDate;
+  return null;
+}
+
+async function _confLoadLive() {
+  const trades = await sbGetLiveTrades();
+  const { cycles, open, toIso } = _pairLiveCycles(trades);
+  const rows = [];
+  const skipped = [];
+  cycles.forEach(c => {
+    if (c.orphan || c.openDate == null || c.sellPrice == null) { skipped.push(c); return; }
+    rows.push({ open: toIso(c.openDate), close: toIso(c.closeDate), expiry: toIso(c.expiry), strike: parseFloat(c.strike), sell: c.sellPrice,
+      cover: c.coverPrice, qty: c.qty != null ? parseInt(c.qty, 10) : null, closeType: c.closeType, trigger: c.trigger, tv: c.triggerValue != null ? parseFloat(c.triggerValue) : null, tt: c.triggerThreshold != null ? parseFloat(c.triggerThreshold) : null, isOpen: false });
+  });
+  open.forEach(c => {
+    if (c.openDate == null || c.sellPrice == null) { skipped.push(c); return; }
+    rows.push({ open: toIso(c.openDate), close: null, expiry: toIso(c.expiry), strike: parseFloat(c.strike), sell: c.sellPrice, cover: null, qty: c.qty != null ? parseInt(c.qty, 10) : null, closeType: null, trigger: null, tv: null, tt: null, isOpen: true });
+  });
+  rows.sort((a, b) => a.open < b.open ? -1 : a.open > b.open ? 1 : 0);
+  return { rows, skipped };
+}
+
+async function renderConfTab() {
+  const body = $('conf-body'); if (!body) return;
+  const st = $('conf-status');
+  if (_confRunning) return;
+  if (!DM) { body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;padding:8px 0;">Data mart not loaded yet.</div>'; return; }
+  try {
+    if (!_confLive) { if (st) st.textContent = 'loading live cycles…'; _confLive = await _confLoadLive(); }
+  } catch (e) { body.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">\u2717 live_trades: ' + e.message + '</div>'; return; }
+  const rows = _confLive.rows;
+  if (!rows.length) { body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;">No live cycles with a sell leg.</div>'; return; }
+  // Default start: the first entry on or after POLICY_REGIME_2. Earlier cycles
+  // ran the duration ratchet and prior axes — pinning into that era compares
+  // the CURRENT model against decisions made under rules that no longer exist.
+  if (!_confStart || !rows.some(r => r.open === _confStart)) {
+    const first = rows.find(r => r.open >= POLICY_REGIME_2) || rows[rows.length - 1];
+    _confStart = first.open;
+  }
+  const opts = rows.map(r => `<option value="${r.open}"${r.open === _confStart ? ' selected' : ''}>${r.open} \u00b7 ${_confContract(r.strike, r.expiry)}${r.open < POLICY_REGIME_2 ? ' \u00b7 prior regime' : ''}${r.isOpen ? ' \u00b7 OPEN' : ''}</option>`).join('');
+  const pill = (id, on) => `background:${on ? 'var(--accent)' : 'var(--surface2)'};border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};color:${on ? '#fff' : 'var(--muted)'};`;
+  body.innerHTML =
+    `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;font-family:var(--mono);font-size:10px;">
+      <label style="color:var(--muted);">start <select id="conf-start" onchange="_confStart=this.value;renderConfTab();" style="font-family:var(--mono);font-size:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 6px;">${opts}</select></label>
+      <span style="color:var(--muted);">mode</span>
+      <button class="btn" style="height:24px;padding:0 10px;font-size:9px;${pill('', _confMode === 'repin')}" onclick="_confMode='repin';renderConfTab();">re-pin each cycle</button>
+      <button class="btn" style="height:24px;padding:0 10px;font-size:9px;${pill('', _confMode === 'free')}" onclick="_confMode='free';renderConfTab();">free-run</button>
+      <button class="btn btn-primary" id="conf-run-btn" style="height:24px;padding:0 12px;font-size:9px;" onclick="runConformance()">\u25b6 Run</button>
+      <button class="btn" style="height:24px;padding:0 10px;font-size:9px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);" onclick="_confLive=null;renderConfTab();">\u21bb reload live</button>
+    </div>
+    <div id="conf-table" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${rows.filter(r => r.open >= _confStart).length} live cycle(s) from ${_confStart} \u00b7 ${_confMode === 'repin' ? 'each entry pinned, exit rules only \u2014 independent tests of leg A' : 'first entry pinned, sim selects forward \u2014 compounding divergence'}. Press Run.${_confLive.skipped.length ? '<br><span style="color:#e0a020;">\u26a0 ' + _confLive.skipped.length + ' live row(s) skipped: orphan cover or no sell leg.</span>' : ''}</div>`;
+  if (st) st.textContent = `${rows.length} live cycles \u00b7 ${rows.filter(r => r.isOpen).length} open`;
+}
+
+async function runConformance() {
+  if (_confRunning) return;
+  if (_mode === 'optimize') { logMsg('\u26a0 Conformance: a sweep is in progress \u2014 not starting (a sweep on one build must not be interrupted)', 'err'); return; }
+  const tbl = $('conf-table'); const st = $('conf-status'); const btn = $('conf-run-btn');
+  if (!_confLive || !tbl) return;
+  const live = _confLive.rows.filter(r => r.open >= _confStart);
+  if (!live.length) return;
+  _confRunning = true; if (btn) btn.disabled = true;
+  const shares = STD.shares || 600;
+  const t0 = Date.now();
+  logMsg(`CONFORMANCE (${_confMode === 'repin' ? 're-pin each cycle' : 'free-run'}): replaying ${live.length} live cycle(s) from ${_confStart} through simulate() \u2014 STD params, live fills as the entry price`, '');
+  const results = []; // one per live row: { live, sim (cycle or null), err, note, nextSim }
+  try {
+    if (_confMode === 'repin') {
+      for (let i = 0; i < live.length; i++) {
+        const L = live[i];
+        if (st) st.textContent = `re-pin ${i + 1}/${live.length} \u2014 ${L.open}`;
+        const pin = { strike: L.strike, expiry: L.expiry, entryDate: L.open, entryPx: L.sell };
+        const err = _confPinCheck(pin);
+        if (err) { results.push({ live: L, sim: null, err }); continue; }
+        _gaps = [];
+        const r = await simulate({ ...STD, shares, pin, pinExitOnly: true });
+        // simulate() returns null when NO cycle closed: with the three pin checks
+        // already passed, that is "still holding at DM end", not an error.
+        results.push({ live: L, sim: r && r.cycles && r.cycles[0] ? r.cycles[0] : null, err: null, note: r ? r.pinNote : null, held: !r });
+        await yield_();
+      }
+    } else {
+      const L0 = live[0];
+      const pin = { strike: L0.strike, expiry: L0.expiry, entryDate: L0.open, entryPx: L0.sell };
+      const err = _confPinCheck(pin);
+      if (err) { results.push({ live: L0, sim: null, err }); }
+      else {
+        if (st) st.textContent = `free-run from ${L0.open}\u2026`;
+        _gaps = [];
+        const r = await simulate({ ...STD, shares, pin });
+        const sc = (r && r.cycles) ? r.cycles : [];
+        const n = Math.max(live.length, sc.length);
+        for (let i = 0; i < n; i++) results.push({ live: live[i] || null, sim: sc[i] || null, err: null, note: (i === 0 && r) ? r.pinNote : null, held: (!r && i === 0) || (i === sc.length && !!(r && r.pendingContract)) });
+      }
+    }
+  } catch (e) {
+    logMsg('\u2717 Conformance: ' + e.message, 'err');
+  }
+  _confRunning = false; if (btn) btn.disabled = false;
+  if (st) st.textContent = `done \u00b7 ${results.length} row(s) \u00b7 ${((Date.now() - t0) / 1000).toFixed(1)}s`;
+  logMsg(`CONFORMANCE: ${results.length} row(s) in ${((Date.now() - t0) / 1000).toFixed(1)}s \u2014 read the tab`, 'ok');
+  tbl.innerHTML = _confRender(results);
+}
+
+function _confRender(results) {
+  const td = 'padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:top;white-space:nowrap;';
+  const th = 'padding:5px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:normal;text-align:left;font-size:9px;letter-spacing:.06em;text-transform:uppercase;';
+  const amber = 'color:#e0a020;', green = 'color:var(--green);', red = 'color:var(--red);';
+  const fmtPx = v => v == null ? '\u2014' : '$' + Number(v).toFixed(2);
+  const fmtTv = (type, v) => v == null ? '\u2014' : type === 'decay' ? Number(v).toFixed(1) + '%' : type === 'delta' ? Number(v).toFixed(3) : String(v);
+  let html = `<table style="border-collapse:collapse;width:100%;font-family:var(--mono);font-size:10px;"><thead><tr>
+    <th style="${th}">opened</th><th style="${th}">contract</th><th style="${th}">live</th><th style="${th}">sim</th><th style="${th}">\u0394</th></tr></thead><tbody>`;
+  // summary accumulators — closed-both, in-regime rows only; decay and delta NEVER pooled
+  const S = { n: 0, days: [], late: 0, early: 0, sameType: 0, decay: { n: 0, gap: [], days: [] }, delta: { n: 0, gap: [], days: [] }, sameContract: 0, contractN: 0, firstDiv: null };
+  const priorAny = results.some(x => x.live && x.live.open < POLICY_REGIME_2);
+  results.forEach((x, i) => {
+    const L = x.live, C = x.sim;
+    const prior = L && L.open < POLICY_REGIME_2;
+    const dim = prior ? 'opacity:.62;' : '';
+    // ── LIVE cell ──
+    let liveCell = '\u2014 (sim only)';
+    if (L) {
+      const lt = L.isOpen ? null : _confLiveType(L.trigger);
+      liveCell = `sell ${fmtPx(L.sell)} \u00b7 ${L.open}` + (L.isOpen ? `<br><span style="${amber}">OPEN</span>` : `<br>cover ${fmtPx(L.cover)} \u00b7 ${L.close} (${_confDays(L.open, L.close)}d)<br>${lt}${L.tv != null ? ' ' + fmtTv(lt, L.tv) : ''}${L.tt != null ? ' \u2265 ' + fmtTv(lt, L.tt) : ''} \u00b7 ${_confMoney((L.sell - L.cover) * 100 * (L.qty || ((STD.shares || 600) / 100)))}`);
+    }
+    // ── SIM cell ──
+    let simCell = '\u2014 (live only)';
+    if (x.err) simCell = `<span style="${red}">\u2717 ${x.err}</span>`;
+    else if (C) {
+      const stype = _confSimType(C.reason);
+      const sv = stype === 'delta' ? C.exitDelta : stype === 'decay' ? C.exitDecayPct : null;
+      const entryNote = (_confMode === 'free' && i > 0) ? `sell ${fmtPx(C.entryPx)} \u00b7 ${C.entryDate}<br>` : (C.entryPxDm != null && Math.abs(C.entryPxDm - C.entryPx) > 0.005 ? `<span style="color:var(--muted);">DM vw ${fmtPx(C.entryPxDm)} (live fill ${fmtPx(C.entryPx)})</span><br>` : '');
+      simCell = entryNote + `cover ${fmtPx(C.exitPx)} \u00b7 ${C.exitDate} (${C.daysHeld}d)<br>${stype}${sv != null ? ' ' + fmtTv(stype, sv) : ''}${stype === 'delta' && C.exitDecayPct != null ? ' <span style="color:var(--muted);">(decay ' + Number(C.exitDecayPct).toFixed(1) + '%)</span>' : ''} \u00b7 ${_confMoney(C.pnl)}` + (x.note ? `<br><span style="${amber}">\u26a0 ${x.note}</span>` : '');
+    } else if (x.held) simCell = `<span style="${amber}">no sim fire through ${DM.spy[DM.spy.length - 1].date} \u2014 still holding</span>`;
+    // ── Δ cell ──
+    let dCell = '';
+    const parts = [];
+    if (L && C && !L.isOpen) {
+      const dd = _confDays(C.exitDate, L.close); // live − sim: + = live fired LATE
+      parts.push(dd === 0 ? `<span style="${green}">same day</span>` : dd > 0 ? `<span style="${amber}">live +${dd}d late</span>` : `<span style="${amber}">live ${dd}d early</span>`);
+      const lt = _confLiveType(L.trigger), stype = _confSimType(C.reason);
+      parts.push(lt === stype ? `<span style="${green}">${lt} both</span>` : `<span style="${red}">${lt} vs ${stype}</span>`);
+      const sv = stype === 'delta' ? C.exitDelta : stype === 'decay' ? C.exitDecayPct : null;
+      if (lt === stype && L.tv != null && sv != null) {
+        const g = L.tv - sv;
+        parts.push((lt === 'decay' ? (g >= 0 ? '+' : '') + g.toFixed(1) + 'pp' : (g >= 0 ? '+' : '') + g.toFixed(3) + '\u0394') + ' vs sim');
+      }
+      parts.push(`cover ${(L.cover - C.exitPx) >= 0 ? '+' : ''}${(L.cover - C.exitPx).toFixed(2)} vs vw`);
+      if (!prior) {
+        S.n++; S.days.push(Math.abs(dd)); if (dd > 0) S.late++; else if (dd < 0) S.early++;
+        if (lt === stype) { S.sameType++; const b = S[lt]; if (b) { b.n++; b.days.push(dd); if (L.tv != null && sv != null) b.gap.push(L.tv - sv); } }
+      }
+    } else if (L && L.isOpen && C) {
+      const dd = _confDays(C.exitDate, DM.spy[DM.spy.length - 1].date);
+      parts.push(`<span style="${amber}">sim exited ${C.exitDate} (${_confSimType(C.reason)}) \u2014 live still open ${dd}d later</span>`);
+    } else if (L && L.isOpen && x.held) parts.push(`<span style="${green}">both open</span>`);
+    else if (L && !L.isOpen && !C && !x.err) parts.push(`<span style="${amber}">sim still holding \u2014 live exited ${L.close}</span>`);
+    if (_confMode === 'free' && i > 0 && L && C) {
+      const same = (Math.abs(L.strike - C.strike) < 0.001 && L.expiry === C.expiry);
+      parts.push(same ? `<span style="${green}">same contract</span>` : `<span style="${red}">picked ${_confContract(C.strike, C.expiry)}</span>`);
+      if (!prior) { S.contractN++; if (same) S.sameContract++; }
+      if (!same && S.firstDiv == null) S.firstDiv = { row: i + 1, why: 'different contract' };
+    }
+    if (_confMode === 'free' && S.firstDiv == null && L && C && !L.isOpen && _confDays(C.exitDate, L.close) !== 0) S.firstDiv = { row: i + 1, why: 'exit day differs' };
+    dCell = parts.join('<br>');
+    html += `<tr style="${dim}"><td style="${td}">${L ? L.open : (C ? C.entryDate : '\u2014')}${prior ? ' <span style="' + amber + '">prior</span>' : ''}</td><td style="${td}">${L ? _confContract(L.strike, L.expiry) : (C ? _confContract(C.strike, C.expiry) : '\u2014')}</td><td style="${td}">${liveCell}</td><td style="${td}">${simCell}</td><td style="${td}">${dCell}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  // ── summary band ──
+  const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
+  const fm = (v, d, suf) => v == null ? '\u2014' : (v >= 0 ? '+' : '') + v.toFixed(d) + suf;
+  let sum = `<div style="margin-top:10px;padding:8px 10px;border:1px solid var(--border);border-radius:4px;line-height:1.7;">`;
+  sum += `<div style="color:var(--text);">EXIT CONFORMANCE (leg A) \u00b7 ${S.n} closed cycle${S.n !== 1 ? 's' : ''} from ${POLICY_REGIME_2}${priorAny ? ' (prior-regime rows dimmed, excluded)' : ''}</div>`;
+  if (S.n) {
+    sum += `mean |days| ${mean(S.days).toFixed(1)} \u00b7 worst ${Math.max(...S.days)}d \u00b7 live late ${S.late} / early ${S.early} / same day ${S.n - S.late - S.early} \u00b7 same trigger type ${S.sameType}/${S.n}<br>`;
+    sum += `decay rows n ${S.decay.n}: live fires ${S.decay.gap.length ? fm(mean(S.decay.gap), 1, 'pp') + ' vs the sim\u2019s own reading' : '\u2014'} \u00b7 mean ${fm(mean(S.decay.days), 1, 'd')} (+ = late)<br>`;
+    sum += `delta rows n ${S.delta.n}: live fires ${S.delta.gap.length ? fm(mean(S.delta.gap), 3, '\u0394') + ' vs the sim\u2019s own reading' : '\u2014'} \u00b7 mean ${fm(mean(S.delta.days), 1, 'd')} (+ = late)<br>`;
+  } else sum += 'no closed in-regime rows with a sim exit.<br>';
+  if (_confMode === 'free') sum += `ENTRY CONFORMANCE (leg B, free-run): same contract ${S.contractN ? S.sameContract + '/' + S.contractN : '\u2014'} \u00b7 first divergence: ${S.firstDiv ? 'row ' + S.firstDiv.row + ' \u2014 ' + S.firstDiv.why : 'none in window'}<br>`;
+  else sum += `<span style="color:var(--muted);">leg B (entry) is not measured in re-pin mode \u2014 selection is held constant by construction; switch to free-run.</span><br>`;
+  sum += `<span style="color:var(--muted);font-size:9px;">Not a P&amp;L verdict: the sim covers at the option day-bar VWAP (option_days.vw), unreachable by any order \u2014 S67 measured live fills at +5.7\u00a2/sh net in Ron\u2019s favour vs that benchmark; read \u201ccover vs vw\u201d as execution, not model. Not a conformance statement (\u00a712.4). Live trigger values are the agent\u2019s intraday readings; sim values are DM-close readings on the same calendar day \u2014 the gap IS the overshoot being measured. Reads only; never writes roll_params.</span>`;
+  sum += '</div>';
+  return html + sum;
 }
 
 function renderResearchTab() {
@@ -3903,7 +4142,7 @@ async function simulate(p) {
       // opens in the same iteration. Reaching here means the final cycle
       // closed and findNextContract found no candidate (loop broke) — curC is
       // the stale just-closed contract, NOT a pending position. Sim ends flat.
-      if (_mode !== 'optimize') logMsg(`  No position at end — final close with no re-entry candidate found`, 'ok');
+      if (_mode !== 'optimize') logMsg(_pinExitOnly ? `  Pinned cycle closed — exit-only stop, no re-entry attempted` : `  No position at end — final close with no re-entry candidate found`, 'ok'); // v7.6.2 — exit-only wording
     }
   }
 
@@ -4211,7 +4450,8 @@ async function runSimulation() {
   + `the far-dated ratchet, and the sim can neither be assigned nor run out of cash, so the benefit it targets is invisible `
   + `to core yield.`, 'warn'); // v6.18.0
 logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.decayTrigger}% decay · ${params.dteFloor}d floor · Δ${params.deltaThreshold} · ${params.dtePenaltyAnchor}d penalty anchor · grace ${params.graceDays ?? 3}d${(params.defHorizon || 0) > 0 ? ` · defH ${params.defHorizon}d` : ''}${params.expiryFriday != null ? ` · expF${params.expiryFriday}` : ''}${params.skipMonths != null ? ` · skip ${params.skipMonths}mo` : ''}`);
-  if (_ovKeys.length) logMsg(`⚠ RESEARCH OVERRIDE (URL): ${_ovKeys.map(f => f + '=' + _ov[f]).join(' · ')} — NOT PUBLISHED · not a baseline`, 'err'); // v6.7.19 tripwire
+  const _ovStr = f => (f === 'pin' && _ov.pin && typeof _ov.pin === 'object') ? (_ov.pin.invalid != null ? 'INVALID' : `${_ov.pin.strike}/${_ov.pin.expiry}/${_ov.pin.entryDate}${_ov.pin.entryPx != null ? '/' + _ov.pin.entryPx : ''}`) : String(_ov[f]); // v7.6.2 — pin is an object, not a number
+  if (_ovKeys.length) logMsg(`⚠ RESEARCH OVERRIDE (URL): ${_ovKeys.map(f => f + '=' + _ovStr(f)).join(' · ')} — NOT PUBLISHED · not a baseline`, 'err'); // v6.7.19 tripwire
   // v6.11.0 — expiry cohort census: printed ONLY when ovExpfri was supplied
   // (valid or not) so plain STD logs stay byte-identical to baseline. Verifies
   // the Friday-only DM assumption empirically instead of trusting memory.
