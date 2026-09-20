@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.16</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.17</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -720,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.16 · STATEMENT SECTION READS live_legs — THE COMPLETE LEDGER (S68, Ron: “9/17 is the last row imported, that should reflect, not 9/08”). DISPLAY ONLY. Diagnosis: the ledger insert never writes SPY option legs to live_trades (S50 ruling), so live_trades carried this file’s interest, sweep and 09-08 withdrawal and nothing after — the panel read 09-08 as the last row and its cash walk was missing every premium, hence Δ −$59,952. live_legs (S64/65) receives EVERY statement row, option legs included, with Fidelity’s running cash balance on each. It is the ledger. The statement section now reads live_legs for the last row, the cash walk, the flows and the share count; the blotter (live_trades) still supplies cycles and the open calls for the mark, unchanged. Statement line is ONE line with short labels — start · +in · −out · CC · SPY · end · tie ✓/✗ · strategy % · SPY b/h % — SPY P&amp;L last of the balance terms, as ruled. Base v7.6.15 (7970c8d6).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.17 · LEDGER ROWS ORDERED BY CASH CONTINUITY (S68). DISPLAY ONLY. The v7.6.16 tie-out read ✗ Δ $20,995.58 at 2026-09-04 — exactly the 09-04 sell — because two rows on one day have no order the table can give: occ_seq is per contract group, ids are hashes, and Postgres returned the day’s rows in an order that put the sell before the cover it followed, so the “last row” closed on the wrong balance. Within a day the order is now DERIVED FROM THE CASH: starting at the prior day’s close, the next row is the one whose (cash_balance − amount) equals the running cash (balance-neutral memos: cash_balance equals it). A day that cannot be chained keeps its input order and is flagged on the panel. The order is therefore a property of the statement, never of the index. Base v7.6.16 (e62c013c).</span></div>
 </div>
 
 <script>
@@ -907,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.16';
+const APP_VERSION = 'v7.6.17';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2076,10 +2076,31 @@ async function sbGetLiveLegs() {
   if (rows.length === 1000) throw new Error('live_legs hit the 1000-row window \u2014 raise the limit or paginate');
   return rows;
 }
-function _legsLedger(legs) { // → normalized statement rows, chronological
-  return legs.filter(r => r.cash_balance != null && /^\d{4}-\d{2}-\d{2}/.test(r.trade_date || ''))
-    .map(r => ({ iso: r.trade_date.slice(0, 10), cls: r.cls, symbol: r.symbol, quantity: r.quantity, amount: r.amount, cash_balance: r.cash_balance, occ_seq: r.occ_seq || 0 }))
-    .sort((a, b) => a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : (a.occ_seq - b.occ_seq));
+function _legsLedger(legs) { // → normalized statement rows, chronological; within a day ordered by CASH CONTINUITY (v7.6.17)
+  const rows = legs.filter(r => r.cash_balance != null && /^\d{4}-\d{2}-\d{2}/.test(r.trade_date || ''))
+    .map(r => ({ iso: r.trade_date.slice(0, 10), cls: r.cls, symbol: r.symbol, quantity: r.quantity, amount: r.amount, cash_balance: r.cash_balance, occ_seq: r.occ_seq || 0, unchained: false }));
+  const byDay = new Map();
+  rows.forEach(r => { if (!byDay.has(r.iso)) byDay.set(r.iso, []); byDay.get(r.iso).push(r); });
+  const out = []; let run = null; // running cash: the previous row's balance
+  const near = (a, b) => Math.abs(a - b) < 0.005;
+  const bn = r => IMP_BALANCE_NEUTRAL.has(r.cls);
+  for (const d of [...byDay.keys()].sort()) {
+    const pool = byDay.get(d).slice();
+    if (run == null) { // opening cash of the first day ever: the start that chains the WHOLE day (input order is not evidence)
+      const chains = start => { let c = Number(start.cash_balance) - (bn(start) ? 0 : Number(start.amount || 0)), left = pool.slice();
+        while (left.length) { const k = left.findIndex(r => near(bn(r) ? Number(r.cash_balance) : Number(r.cash_balance) - Number(r.amount || 0), c)); if (k < 0) return null; c = Number(left.splice(k, 1)[0].cash_balance); } return Number(start.cash_balance) - (bn(start) ? 0 : Number(start.amount || 0)); };
+      let op = null; for (const r of pool) { op = chains(r); if (op != null) break; }
+      run = op != null ? op : Number(pool[0].cash_balance) - (bn(pool[0]) ? 0 : Number(pool[0].amount || 0));
+    }
+    const ordered = [];
+    while (pool.length) {
+      const k = pool.findIndex(r => near(bn(r) ? Number(r.cash_balance) : Number(r.cash_balance) - Number(r.amount || 0), run));
+      if (k < 0) { pool.forEach(r => { r.unchained = true; }); ordered.push(...pool); run = Number(pool[pool.length - 1].cash_balance); break; } // cannot chain: keep input order, flag
+      const r = pool.splice(k, 1)[0]; ordered.push(r); run = Number(r.cash_balance);
+    }
+    out.push(...ordered);
+  }
+  return out;
 }
 function _ledgerFlows(ledger) { // external flows, same classes as _cwinLedgerFlows
   return ledger.filter(r => (r.cls === 'contribution' || r.cls === 'withdrawal') && r.amount != null).map(r => ({ d: r.iso, amt: Number(r.amount) }));
@@ -2342,6 +2363,7 @@ async function _cwinHtml() {
       + '<span style="' + lab + '"> \u00b7 SPY</span> ' + money(spyPnl) + ' (' + pf(yP(spyPnl)) + ')'
       + '<span style="' + lab + '"> \u00b7 end</span> ' + money(L.amt)
       + (walk ? '<span style="' + (walk.resid === 0 ? 'color:var(--green);' : 'color:var(--red);') + '"> ' + (walk.resid === 0 ? '\u2713 cash ties ' + walk.lastIso : '\u2717 cash \u0394 $' + walk.resid.toFixed(2) + ' at ' + walk.lastIso) + '</span>' : '') // v7.6.15/16 — the tie-out, one glyph
+      + ((() => { const u = [...new Set(ledger.filter(r => r.unchained).map(r => r.iso))]; return u.length ? '<span style="color:#e0a020;"> \u26a0 unchained day' + (u.length > 1 ? 's' : '') + ' ' + u.join(', ') + '</span>' : ''; })()) // v7.6.17
       + '<span style="' + lab + '"> \u00b7 strategy</span> <b>' + pf(yP(gain)) + '</b>'
       + '<span style="' + lab + '"> \u00b7 SPY b/h</span> <b>' + pf(bhAnn) + '</b>')
     + '</div>' // v7.1.0 — residual prose removed (Ron). Header + data line only.
