@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.11</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.12</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -720,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.11 · LEDGER-COMPUTED ACCOUNT BALANCE (S68, Ron: “can’t you calculate the 2025 EOY balance from the live database”). DISPLAY ONLY. Yes: the activity table carries Fidelity’s running cash balance on every imported row (core + SPAXX, tied out to $0.00 per file), every SPY share lot, and the blotter carries every option leg. _ledgerBalanceAt(d) = cash balance of the last ledger row on/before d + shares held × DM SPY close − open short calls × DM option close, fail-loud on any missing mark. The YTD anchor is now COMPUTED at 2025-12-31 (the v7.6.10 pinned-constant approach retired before it was ever pinned) and its composition is printed so it can be tied to the December statement; on ALL the same computation runs at the pinned anchor date and prints its Δ vs the pinned $520,144 — the first data point for the open item “computed balances stays pinned”. rowToTrade passes cash_balance, cls, quantity and symbol through. Base v7.6.10 (703e3cc5).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.12 · LEDGER BALANCE — LEGS AT OR PAST EXPIRY MARK BY INTRINSIC, NOT THE DM (S68). DISPLAY ONLY. The first live render of v7.6.11 failed both anchors on legs the blotter still carries as open: a $692C expiring 2025-12-31 (the anchor day itself) and a $628C expiring 2025-07-15 (never closed in the blotter — an expiration with no closing row). A leg at its expiry is worth its intrinsic at that close; a leg past it is worth zero (expired, or assigned — and an assignment’s share and cash effects are already in the ledger rows). Neither needs a DM bar, and the DM would not have them anyway (pre-universe contracts). _ledgerBalanceAt now marks expiry ≤ d by intrinsic from the SPY close, tags those legs “expiry”/“expired” in the printed composition, and asks the DM only for live contracts. Base v7.6.11 (c791076e).</span></div>
 </div>
 
 <script>
@@ -907,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.11';
+const APP_VERSION = 'v7.6.12';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2093,12 +2093,20 @@ function _ledgerBalanceAt(d, trades) {
   let optMark = 0; const legs = [];
   for (const c of openAt) {
     const exp = toIso(c.expiry), K = parseFloat(c.strike), q = Number(c.qty || 0);
+    // v7.6.12 — at or past expiry the mark is intrinsic at that close (zero once
+    // past it: expired, or assigned with the share effect already in the ledger).
+    // No DM bar needed, and pre-universe contracts have none.
+    if (exp <= spyRow.date) {
+      const px = exp < spyRow.date ? 0 : Math.max(0, spyRow.c - K);
+      optMark += q * 100 * px; legs.push({ K, exp, q, px, tag: exp < spyRow.date ? 'expired' : 'expiry' });
+      continue;
+    }
     const cc = DM.options[buildScanTicker(exp, K)];
     if (!cc) return { err: 'open $' + K + 'C ' + exp + ' is not in the data mart \u2014 cannot mark' };
     buildDayMap(cc);
     const bar = cc._dm[spyRow.date];
     if (!bar) return { err: 'no DM bar for $' + K + 'C ' + exp + ' on ' + spyRow.date + ' \u2014 cannot mark' };
-    optMark += q * 100 * bar.c; legs.push({ K, exp, q, px: bar.c });
+    optMark += q * 100 * bar.c; legs.push({ K, exp, q, px: bar.c, tag: '' });
   }
   return { d, asOf: iso(last), cash, shares, spyPx: spyRow.c, spyDate: spyRow.date, optMark, legs, total: cash + shares * spyRow.c - optMark };
 }
@@ -2161,7 +2169,7 @@ async function _cwinHtml() {
   const chkB = _ledgerBalanceAt(L.d, trades); // v7.6.11 — the same computation at the pinned anchor: tie-out for the open item
   const _bal = B => B.err ? '<span style="color:#e0a020;">\u26a0 ' + B.err + '</span>'
     : 'cash ' + money(B.cash) + ' (ledger row ' + B.asOf + ') + ' + B.shares + ' SPY \u00d7 ' + money(B.spyPx) + ' (' + B.spyDate + ')'
-      + (B.legs.length ? ' \u2212 short ' + B.legs.map(l => l.q + '\u00d7 $' + l.K + 'C ' + l.exp + ' @ ' + money(l.px)).join(', ') + ' = ' + money(B.optMark) : ' \u00b7 no open calls')
+      + (B.legs.length ? ' \u2212 short ' + B.legs.map(l => l.q + '\u00d7 $' + l.K + 'C ' + l.exp + ' @ ' + money(l.px) + (l.tag ? ' (' + l.tag + ')' : '')).join(', ') + ' = ' + money(B.optMark) : ' \u00b7 no open calls')
       + ' = <b>' + money(B.total) + '</b>';
   const flows = _cwinLedgerFlows(trades); // v6.23.0 — ledger-derived; guard: absence can never hide
   if (!flows.length) return '<div style="color:var(--red);">\u2717 ledger has no contribution/withdrawal rows \u2014 run the statement import (\u00a73 capital series is ledger-derived as of v6.23.0)</div>';
