@@ -13,5 +13,12 @@
   "graceDays": 1,
   "costBasis": 742.4833,
   "sharesHeld": 600,
-  "basisAsOf": "2026-08-12"
+  "basisAsOf": "2026-08-12",
+  "shortStrike": 775,
+  "shortExpiry": "2027-01-29",
+  "entryDate": "2026-09-22",
+  "entrySpy": 773.79,
+  "coverPrice": 0,
+  "sellPrice": 31.26,
+  "netPremium": 31.26
 }
