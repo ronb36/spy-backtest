@@ -14,11 +14,11 @@
   "costBasis": 742.4833,
   "sharesHeld": 600,
   "basisAsOf": "2026-08-12",
-  "shortStrike": 770,
-  "shortExpiry": "2027-01-29",
-  "entryDate": "2026-09-24",
-  "entrySpy": 764.65,
-  "coverPrice": 26.65,
-  "sellPrice": 29.68,
-  "netPremium": 3.03
+  "shortStrike": 780,
+  "shortExpiry": "2027-03-19",
+  "entryDate": "2026-10-06",
+  "entrySpy": 779.91,
+  "coverPrice": 36.1,
+  "sellPrice": 38.27,
+  "netPremium": 2.17
 }
