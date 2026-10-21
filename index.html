@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.20</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.22</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -720,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.20 · STATEMENT LINE LABELS (S68, Ron). DISPLAY ONLY. Start Bal · Contrib · Redeem · SPY · Calls · End Bal · Strategy · SPY, one line; the cash tie-out moves to its own second line. Base v7.6.19 (85332f01).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.22 · SCAN TRUTHFULNESS (S69, Ron). DISPLAY ONLY. Net Credit prints when flat (header reads Premium — no buyback to net against) instead of —; the worst-case shadow stops blaming after-hours for a dormancy that is structural: no last_quote on this entitlement, so it has never run. Base v7.6.21 (7b8b4501).</span></div>
 </div>
 
 <script>
@@ -907,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.20';
+const APP_VERSION = 'v7.6.22';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -7780,9 +7780,12 @@ async function runRollScan() {
   .sort((a,b) => b.rollAdjYield - a.rollAdjYield);
 
   // v6.4.13 — worst-case shadow re-rank (same qualifying set, wcAdjYield order).
-  // Only meaningful when every qualifying row carries a real book — after-hours
-  // rows fall back to day-close mids with no bid/ask, and fabricated worst-case
-  // ranks would false-flag fragility. Missing books ⇒ shadow declines to rule.
+  // Only meaningful when every qualifying row carries a real book, and fabricated
+  // worst-case ranks would false-flag fragility. Missing books ⇒ shadow declines.
+  // v7.6.22 — the old note here blamed after-hours. It is not after-hours: bid/ask
+  // have ONE source (last_quote, fetchContractSnapshot ~7296) and this Polygon
+  // entitlement never returns it, so _wcEligible has been false on every scan this
+  // code has ever run. The shadow is dormant by entitlement, not by clock.
   const _wcEligible = scored.length > 0 && scored.every(r => r.bid && r.ask);
   const _wcOrder = _wcEligible ? scored.slice().sort((a,b) => b.wcAdjYield - a.wcAdjYield) : [];
   const _fragileKeys = new Set();
@@ -8118,7 +8121,11 @@ async function runRollScan() {
       ' | px cand:' + (best.pxSrc || 'mid') + ' · cover:' + (_coverSrc || '—'), 'ok'); // v6.31.0 — frame of the verdict, in the verdict
     // v6.4.13 — shadow verdict: does the mid ordering survive bid×ask economics?
     if (!_wcEligible) {
-      logMsg('  Worst-case shadow: skipped — ' + scored.filter(r => !(r.bid && r.ask)).length + '/' + scored.length + ' candidates missing books (day-close mids, likely after-hours)', 'dbg');
+      const _noBook = scored.filter(r => !(r.bid && r.ask)).length; // v7.6.22 (Ron, S69)
+      logMsg('  Worst-case shadow: cannot rule — ' + _noBook + '/' + scored.length + ' candidates carry no book. '
+        + (_noBook === scored.length
+           ? 'Polygon returns no last_quote on this entitlement, so every mid is day.close and bid\u00d7ask NEVER arrives — this shadow has not run once and cannot until the $129 tier (Foundation §3.1). Structural, not after-hours.'
+           : 'Partial book coverage — the shadow declines rather than rank on fabricated worst-case economics.'), 'dbg');
     } else if (_wcOrder.length && (_wcOrder[0].exp !== best.exp || _wcOrder[0].strike !== best.strike)) {
       logMsg('  ⚠ Worst-case shadow: BEST would change under bid×ask — $' + best.strike + 'C ' + best.exp + ' → $' + _wcOrder[0].strike + 'C ' + _wcOrder[0].exp + ' (evidence for a friction term in the scorer redesign)', 'err');
     } else if (_fragileKeys.size) {
@@ -8269,9 +8276,10 @@ function _renderScanUI() { // v6.1.9 — banner + table from stash + selection
   const hasCoverPrice = currentCallMid > 0;
 
   if (!rows.length) {
-    if (summaryEl) summaryEl.innerHTML = '<div class="roll-best-summary" style="border-left-color:var(--yellow);">No qualifying candidates — all rolls are debits or above delta threshold (\u0394 ' + deltaThres.toFixed(3) + ') at current SPY level.<br>Consider waiting for a SPY pullback or higher VIX to open credit opportunities.'
-      + (STD.shortStrike ? '<br><button onclick="openCoverOnlyModal()" style="margin-top:8px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:5px 14px;border-radius:4px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;">\u2715 Cover Only \u2014 exit without a new leg</button>' : '')
-      + '</div>'; // v6.7.15 — menu-0 + short: the cover-only path lives on the scan (the 1:30 PM state, self-evident next time)
+    if (summaryEl) summaryEl.innerHTML = '<div class="roll-best-summary" style="display:flex;align-items:center;gap:12px;border-left-color:var(--yellow);">'
+      + '<div style="flex:1;">No qualifying candidates — all rolls are debits or above delta threshold (\u0394 ' + deltaThres.toFixed(3) + ') at current SPY level.<br>Consider waiting for a SPY pullback or higher VIX to open credit opportunities.</div>'
+      + (STD.shortStrike ? '<button onclick="openCoverOnlyModal()" style="font-family:var(--mono);font-size:10px;padding:8px 16px;border-radius:4px;border:1px solid var(--green);background:rgba(42,157,92,0.10);color:var(--green);cursor:pointer;letter-spacing:.05em;white-space:nowrap;">Trade</button>' : '')
+      + '</div>'; // v7.6.21 — ONE TRADE BUTTON, ONE SLOT (Ron, S69). Geometry copied verbatim from the candidate branch so the control never moves between menu-0 and menu-N; the modal declares the mode (entry · roll · cover-only). GREEN, not red: the button RECORDS a fill already executed at the broker, so there is no mis-click to guard against — green means an action is green-lighted. Supersedes v6.7.15, which put the cover-only path on the scan but in a slot of its own.
     if (tableEl)   tableEl.innerHTML   = '';
     return;
   }
@@ -8322,7 +8330,7 @@ function _renderScanUI() { // v6.1.9 — banner + table from stash + selection
   const thead = '<thead><tr>'
     + '<th>Cover</th>'
     + '<th>Sell</th>'
-    + '<th>Net Credit</th>'
+    + '<th>' + (hasCoverPrice ? 'Net Credit' : 'Premium') + '</th>' // v7.6.22 — flat: no buyback to net against, so the column is gross premium and says so. Same "it should know I'm flat" rule as the ticket (v6.7.15).
     + '<th>Ann. Yield</th>'
     + '<th>Trigger</th>'
     + '<th>Edge</th>'
@@ -8333,7 +8341,7 @@ function _renderScanUI() { // v6.1.9 — banner + table from stash + selection
     const rowClass = (i === _scanSel ? 'best-row' : ''); // v6.1.9 — highlight follows the selection
     const badge    = isTop ? '<span class="best-badge">BEST</span>' : '';
     const yldClass = r.rollAdjYield >= 3 ? 'green' : r.rollAdjYield >= 1 ? 'yellow' : 'muted';
-    const creditDisp = hasCoverPrice ? '+$' + r.netCredit.toFixed(2) : '\u2014';
+    const creditDisp = '+$' + r.netCredit.toFixed(2); // v7.6.22 — FLAT MODE SHOWED — (Ron, S69). netCredit is r.mid when there is no cover leg: a real figure, not an absence. The COLUMN was gated on hasCoverPrice while the banner 50 lines up printed the same number unconditionally, so the table contradicted the summary on every flat scan.
     const yldDisp    = r.rollAdjYield.toFixed(1) + '%';
 
     // Contextual trigger — show all triggers with spelled-out labels
