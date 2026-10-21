@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.22</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.23</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -720,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.22 · SCAN TRUTHFULNESS (S69, Ron). DISPLAY ONLY. Net Credit prints when flat (header reads Premium — no buyback to net against) instead of —; the worst-case shadow stops blaming after-hours for a dormancy that is structural: no last_quote on this entitlement, so it has never run. Base v7.6.21 (7b8b4501).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.23 · HEADROOM CROSS-TAB + CO-FIRE ECONOMICS (S69, Ron). LOG ONLY, no MODEL_VERSION. The Headroom Look splits each bucket by VIX regime and prints a calm-only controlled contrast with its own standard error — the σ axis is part regime proxy, so the raw buckets cannot attribute anything to headroom. Exit Attribution splits the delta-stop pool into pure Δ vs Δ+decay co-fires. Base v7.6.22 (767e80ee).</span></div>
 </div>
 
 <script>
@@ -907,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.22';
+const APP_VERSION = 'v7.6.23';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -4747,7 +4747,14 @@ function headroomStats(cycles, deltaThreshold) {
     { label: '0.5–1σ',  lo: 0.5,       hi: 1.0 },
     { label: '1–1.5σ',  lo: 1.0,       hi: 1.5 },
     { label: '>1.5σ',   lo: 1.5,       hi: Infinity },
-  ].map(b => ({ ...b, n: 0, dStop: 0, wins: 0, hold: 0, dIn: 0, pnl: 0 }));
+  // v7.6.23 — REGIME CROSS-TAB (Ron, S69). The bucket is (Δ-headroom / weeklyσ), so a
+  // LOW-VIX entry lands high in it WITHOUT the entry delta changing at all — the axis is
+  // part regime proxy by construction. calm/strs split at VIX 20, the same threshold the
+  // regime split above uses. pnl2 carries Σx² so the table can print its own standard
+  // error: the S69 reading of this table took a 13-cycle mean at face value.
+  ].map(b => ({ ...b, n: 0, dStop: 0, wins: 0, hold: 0, dIn: 0, pnl: 0, pnl2: 0,
+                calm: { n:0, dStop:0, wins:0, hold:0, dIn:0, pnl:0, pnl2:0 },
+                strs: { n:0, dStop:0, wins:0, hold:0, dIn:0, pnl:0, pnl2:0 } }));
   let used = 0;
   (cycles || []).forEach(c => {
     if (c.entryDelta == null || !c.entrySPY || !c.entryVix || !c.strike ||
@@ -4764,12 +4771,16 @@ function headroomStats(cycles, deltaThreshold) {
     const b = buckets.find(b => hSig >= b.lo && hSig < b.hi);
     if (!b) return;
     used++;
-    b.n++;
-    if ((c.reason || '').includes('delta')) b.dStop++;
-    if (c.pnl > 0) b.wins++;
-    b.hold += c.daysHeld || 0;
-    b.dIn  += c.entryDelta;
-    b.pnl  += c.pnl || 0;
+    const _p  = c.pnl || 0;
+    const _ds = (c.reason || '').includes('delta') ? 1 : 0;
+    const _sub = (c.entryVix >= 20) ? b.strs : b.calm; // v7.6.23 — same threshold as the regime split
+    [b, _sub].forEach(tt => {                           // bucket total and its regime half
+      tt.n++; if (_ds) tt.dStop++; if (_p > 0) tt.wins++;
+      tt.hold += c.daysHeld || 0;
+      tt.dIn  += c.entryDelta;
+      tt.pnl  += _p;
+      tt.pnl2 += _p * _p;
+    });
   });
   if (!used) return null;
   return { buckets, used, total: (cycles || []).length };
@@ -4780,17 +4791,43 @@ function logHeadroomTable(result) {
   if (thres == null) return;
   const hs = headroomStats(result.cycles, thres);
   if (!hs) return;
+  const money = v => (v < 0 ? '-$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US');
+  // v7.6.23 — SE of the mean from Σx²; sample variance, so n≥2.
+  const seOf = g => {
+    if (!g || g.n < 2) return null;
+    const m = g.pnl / g.n;
+    const v = Math.max(0, (g.pnl2 - g.n * m * m) / (g.n - 1));
+    return Math.sqrt(v / g.n);
+  };
   logMsg(`── Headroom Look (entry Δ-headroom vs Δ${thres} stop, weekly-σ units; ${hs.used}/${hs.total} cycles) ──`, '');
-  logMsg('  bucket    n   Δstop%  win%  hold(d)  meanΔin  meanP&L', '');
+  logMsg('  bucket      n   Δstop%  win%  hold(d)  meanΔin  meanP&L', '');
+  const row = (label, g) => {
+    if (!g || !g.n) { logMsg(`  ${label.padEnd(10)}  0      —     —      —       —        —`, ''); return; }
+    const mp = Math.round(g.pnl / g.n);
+    logMsg(`  ${label.padEnd(10)}${String(g.n).padStart(3)}   ${String(Math.round(g.dStop / g.n * 100)).padStart(3)}%   ${String(Math.round(g.wins / g.n * 100)).padStart(3)}%   ${(g.hold / g.n).toFixed(1).padStart(5)}    ${(g.dIn / g.n).toFixed(2)}    ${mp >= 0 ? '+' : '-'}$${Math.abs(mp).toLocaleString()}`, '');
+  };
   hs.buckets.forEach(b => {
-    if (!b.n) { logMsg(`  ${b.label.padEnd(8)}  0      —     —      —       —        —`, ''); return; }
-    const ds = Math.round(b.dStop / b.n * 100);
-    const wr = Math.round(b.wins / b.n * 100);
-    const hd = (b.hold / b.n).toFixed(1);
-    const di = (b.dIn / b.n).toFixed(2);
-    const mp = Math.round(b.pnl / b.n);
-    logMsg(`  ${b.label.padEnd(8)} ${String(b.n).padStart(3)}   ${String(ds).padStart(3)}%   ${String(wr).padStart(3)}%   ${hd.padStart(5)}    ${di}    ${mp >= 0 ? '+' : '-'}$${Math.abs(mp).toLocaleString()}`, '');
+    row(b.label, b);
+    if (b.n) { row('  · calm', b.calm); row('  · strs', b.strs); }   // v7.6.23
   });
+  // ── v7.6.23 · THE CONTROLLED CONTRAST (Ron, S69) ─────────────────────────
+  // Holds regime FIXED and lets headroom vary, which is the only comparison that
+  // can attribute anything to headroom. Prints its own SE so the next reader cannot
+  // repeat S69's error of treating a 13-cycle mean as a finding.
+  const A = hs.buckets.find(b => b.label === '0.5–1σ');
+  const B = hs.buckets.find(b => b.label === '1–1.5σ');
+  if (A && B && A.calm.n >= 2 && B.calm.n >= 2) {
+    const mA = A.calm.pnl / A.calm.n, mB = B.calm.pnl / B.calm.n;
+    const sA = seOf(A.calm), sB = seOf(B.calm);
+    const d  = mB - mA, sd = Math.sqrt(sA * sA + sB * sB);
+    const z  = sd > 0 ? d / sd : 0;
+    const hard = Math.abs(z) >= 2;
+    logMsg('  → CONTROLLED CONTRAST (calm only — regime fixed, headroom varying):', '');
+    logMsg(`     0.5–1σ n=${A.calm.n} mean ${money(mA)} · 1–1.5σ n=${B.calm.n} mean ${money(mB)}`, '');
+    logMsg(`     headroom effect net of regime: ${money(d)}/cycle ± $${Math.round(sd).toLocaleString()} (${z.toFixed(2)} SE) — ${hard ? 'SIGNIFICANT' : 'NOT significant — do not tune entry delta on this'}`, hard ? 'ok' : 'dbg');
+  } else {
+    logMsg('  → controlled contrast unavailable — needs n≥2 in both calm sub-buckets', 'dbg');
+  }
 }
 
 // ── v6.7.18 — Exit Attribution (DISPLAY ONLY; SPEC_exit_attribution.md) ─────
@@ -4874,6 +4911,11 @@ function logExitAttribution(result) {
     return 'other';
   };
   const agg = {}; let pureStops = 0;
+  // v7.6.23 — CO-FIRE ECONOMICS (Ron, S69: "a Delta stop trumps a Decay Stop").
+  // DELTA-FIRST (Model Rules §9, v7.6.9) already books a co-fire as a stop; what was
+  // missing is whether co-fires EARN that label. The pool mean averaged two populations.
+  const dsPure = { n:0, sum:0, wins:0, hold:0, itm:0, itmN:0 };
+  const dsCo   = { n:0, sum:0, wins:0, hold:0, itm:0, itmN:0 };
   for (const c of core) {
     const t = poolOf(c);
     const a = agg[t] || (agg[t] = { n:0, sum:0, wins:0, hold:0, itm:0, itmN:0 });
@@ -4883,7 +4925,12 @@ function logExitAttribution(result) {
     if (im != null) { a.itm += im; a.itmN++; }
     if (t === 'delta-stop') {
       const r = (c.reason || '').toLowerCase();
-      if (!r.includes('tv decay') && !r.includes('dte')) pureStops++;
+      const isPure = !r.includes('tv decay') && !r.includes('dte');
+      if (isPure) pureStops++;
+      const sa = isPure ? dsPure : dsCo;   // v7.6.23
+      sa.n++; sa.sum += c.pnl || 0; if ((c.pnl || 0) > 0) sa.wins++;
+      sa.hold += c.daysHeld || 0;
+      if (im != null) { sa.itm += im; sa.itmN++; }
     }
   }
   const money = v => (v < 0 ? '-$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US');
@@ -4901,7 +4948,16 @@ function logExitAttribution(result) {
     logMsg(`  ${t.padEnd(11)}${String(a.n).padStart(4)}   ${String(wr).padStart(3)}%${money(mp).padStart(11)}${hd.padStart(11)}${mi.padStart(13)}`, '');
   }
   const dsN = agg['delta-stop']?.n || 0;
-  if (dsN) logMsg(`  (pure delta-stops: ${pureStops} of ${dsN} — co-fires attributed to delta-stop per Δstop total(pure))`, '');
+  if (dsN) {
+    logMsg(`  (pure delta-stops: ${pureStops} of ${dsN} — co-fires attributed to delta-stop per Δstop total(pure))`, '');
+    const subRow = (lbl, a) => {   // v7.6.23 — same columns as the pool table above
+      if (!a.n) return;
+      const mi = a.itmN ? ((a.itm / a.itmN >= 0 ? '+' : '') + (a.itm / a.itmN).toFixed(1) + '%') : '—';
+      logMsg(`    ${lbl.padEnd(9)}${String(a.n).padStart(4)}   ${String(Math.round(100 * a.wins / a.n)).padStart(3)}%${money(a.sum / a.n).padStart(11)}${((a.hold / a.n).toFixed(1) + 'd').padStart(11)}${mi.padStart(13)}`, '');
+    };
+    subRow('pure Δ', dsPure);
+    subRow('Δ+decay', dsCo);
+  }
   const coreN   = result.coreCycleCount != null ? result.coreCycleCount : core.length;
   const coreSum = result.coreSum != null ? result.coreSum : pnlSum;
   const nOk   = nSum === coreN;
