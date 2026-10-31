@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.24</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.26</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -355,6 +355,7 @@ select.display-box { cursor:pointer; outline:none; }
   <div style="display:none"><div id="progress-log"></div></div>
 
   <!-- Summary stats -->
+  <div id="summary-window" style="display:none;margin-bottom:8px;"></div>
   <div class="summary-grid" id="summary-grid"></div>
 
   <!-- Results tabs -->
@@ -720,7 +721,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.24 · DEBUG NO LONGER ARMS THE SWEEP (S69, Ron). UI ONLY, no MODEL_VERSION. Toggling Debug off armed decay×delta and queued 120 evals nobody asked for, claiming a "home state" that _sweepVars never boots into; the same branch also armed a second var when you armed one while Debug was on. Debug now leaves the sweep selection alone in both directions. Base v7.6.23 (0fddefe0).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.26 · ALL / YTD SUMMARY WINDOW (S69, Ron). DISPLAY ONLY, no MODEL_VERSION. Yield, Credit, Win Rate and Roll Frequency window to the data's current calendar year, annualised Jan 1 → last exit, each carrying its n. Covered Call Return and Max Drawdown are NOT windowed — one reads an equity path, the other is cumulative and would flatter any shorter window — and both say so. Base v7.6.25 (33044f2b).</span></div>
 </div>
 
 <script>
@@ -907,7 +908,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.24';
+const APP_VERSION = 'v7.6.26';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -4917,6 +4918,15 @@ function logExitAttribution(result) {
   // missing is whether co-fires EARN that label. The pool mean averaged two populations.
   const dsPure = { n:0, sum:0, wins:0, hold:0, itm:0, itmN:0 };
   const dsCo   = { n:0, sum:0, wins:0, hold:0, itm:0, itmN:0 };
+  // v7.6.25 — DECAY VALIDITY DOMAIN (Ron, S69). While the call is OTM at BOTH ends,
+  // price IS time value, so an 8% TV decay is arithmetically an 8% gain on premium:
+  // OTM-exit decay cannot lose. Once it is through the strike, intrinsic eats the TV
+  // and the 8% reading no longer tracks P&L — the trigger fires on a call whose PRICE
+  // ROSE. The pool mean (-1.2% ITM) averaged those two populations and hid it, the
+  // same way the delta pool hid pure-Δ. Split, do not merge.
+  const dcOtm  = { n:0, sum:0, wins:0, hold:0, itm:0, itmN:0 };
+  const dcItm  = { n:0, sum:0, wins:0, hold:0, itm:0, itmN:0 };
+  let decayNoMark = 0;   // decay cycles with no exitSPY — classified into neither
   for (const c of core) {
     const t = poolOf(c);
     const a = agg[t] || (agg[t] = { n:0, sum:0, wins:0, hold:0, itm:0, itmN:0 });
@@ -4924,6 +4934,13 @@ function logExitAttribution(result) {
     a.hold += c.daysHeld || 0;
     const im = itmPct(c);
     if (im != null) { a.itm += im; a.itmN++; }
+    if (t === 'decay') {                       // v7.6.25
+      if (im == null) { decayNoMark++; } else {
+        const sa = im > 0 ? dcItm : dcOtm;       // >0 = spot through the strike at exit
+        sa.n++; sa.sum += c.pnl || 0; if ((c.pnl || 0) > 0) sa.wins++;
+        sa.hold += c.daysHeld || 0; sa.itm += im; sa.itmN++;
+      }
+    }
     if (t === 'delta-stop') {
       const r = (c.reason || '').toLowerCase();
       const isPure = !r.includes('tv decay') && !r.includes('dte');
@@ -4937,6 +4954,11 @@ function logExitAttribution(result) {
   const money = v => (v < 0 ? '-$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US');
   logMsg(`── Exit Attribution (post-hoc aggregation of cycle records; core cycles — initial excluded) ──`, '');
   logMsg(`  pool          n   win%    meanP&L   meanHold   meanITM@exit`, '');
+  const subRow = (lbl, a) => {   // v7.6.23; hoisted out of the dsN block in v7.6.25
+    if (!a.n) return;
+    const mi = a.itmN ? ((a.itm / a.itmN >= 0 ? '+' : '') + (a.itm / a.itmN).toFixed(1) + '%') : '—';
+    logMsg(`    ${lbl.padEnd(9)}${String(a.n).padStart(4)}   ${String(Math.round(100 * a.wins / a.n)).padStart(3)}%${money(a.sum / a.n).padStart(11)}${((a.hold / a.n).toFixed(1) + 'd').padStart(11)}${mi.padStart(13)}`, '');
+  };
   const ORDER = ['decay', 'delta-stop', 'dte-floor', 'expiry', 'other']; // v6.34.0 — 'opp' pool retired with the θ trigger; the sim can no longer emit that reason string
   let nSum = 0, pnlSum = 0;
   for (const t of ORDER) {
@@ -4947,17 +4969,19 @@ function logExitAttribution(result) {
     const hd  = (a.hold / a.n).toFixed(1) + 'd';
     const mi  = a.itmN ? ((a.itm / a.itmN >= 0 ? '+' : '') + (a.itm / a.itmN).toFixed(1) + '%') : '—';
     logMsg(`  ${t.padEnd(11)}${String(a.n).padStart(4)}   ${String(wr).padStart(3)}%${money(mp).padStart(11)}${hd.padStart(11)}${mi.padStart(13)}`, '');
-  }
-  const dsN = agg['delta-stop']?.n || 0;
-  if (dsN) {
-    logMsg(`  (pure delta-stops: ${pureStops} of ${dsN} — co-fires attributed to delta-stop per Δstop total(pure))`, '');
-    const subRow = (lbl, a) => {   // v7.6.23 — same columns as the pool table above
-      if (!a.n) return;
-      const mi = a.itmN ? ((a.itm / a.itmN >= 0 ? '+' : '') + (a.itm / a.itmN).toFixed(1) + '%') : '—';
-      logMsg(`    ${lbl.padEnd(9)}${String(a.n).padStart(4)}   ${String(Math.round(100 * a.wins / a.n)).padStart(3)}%${money(a.sum / a.n).padStart(11)}${((a.hold / a.n).toFixed(1) + 'd').padStart(11)}${mi.padStart(13)}`, '');
-    };
-    subRow('pure Δ', dsPure);
-    subRow('Δ+decay', dsCo);
+    // v7.6.25 — sub-rows print INSIDE the loop now, directly under their parent pool.
+    // v7.6.23 printed the Δ sub-rows after the whole loop, which read correctly only
+    // because no run has yet produced a dte-floor or expiry row to sit between them.
+    if (t === 'decay' && (dcOtm.n || dcItm.n)) {
+      subRow('OTM exit', dcOtm);
+      subRow('ITM exit', dcItm);
+      if (decayNoMark) logMsg(`    (${decayNoMark} decay cycle(s) carry no exit mark — in the pool total, in neither sub-row)`, '');
+    }
+    if (t === 'delta-stop') {
+      logMsg(`    (pure delta-stops: ${pureStops} of ${a.n} — co-fires attributed to delta-stop per Δstop total(pure))`, '');
+      subRow('pure Δ', dsPure);
+      subRow('Δ+decay', dsCo);
+    }
   }
   const coreN   = result.coreCycleCount != null ? result.coreCycleCount : core.length;
   const coreSum = result.coreSum != null ? result.coreSum : pnlSum;
@@ -6218,8 +6242,81 @@ async function exportLedgerPack() {
   }
 }
 
+// ── v7.6.26 · ALL / YTD WINDOW (Ron, S69) ──────────────────────────────────
+// Four cards are rates or sums over cycles and window cleanly. TWO DO NOT and
+// are NOT windowed: Covered Call Return reads an equity path (dayCount-based,
+// built outside the cycle list) and Max Drawdown is cumulative and
+// path-dependent — a YTD drawdown is "the worst run that both began and ended
+// inside the window", which is smaller BY CONSTRUCTION on every window and
+// would flatter the number on a shorter one. Both stay all-time and say so.
+// Every windowed card carries its n: at these sample sizes a win rate moves
+// several points on noise, and a card without n invites reading that as trend.
+let _summaryWindow = 'all';   // 'all' | 'ytd'
+let _summaryCtx    = null;    // last result, so the toggle re-renders without a re-run
+
+function setSummaryWindow(w) {
+  if (w !== 'all' && w !== 'ytd') return;
+  _summaryWindow = w;
+  if (_summaryCtx) renderSummary(_summaryCtx);
+}
+
+// YTD = core cycles whose EXIT (the date P&L is realised) falls in the calendar
+// year of the LAST core exit — the data's own current year, not the wall clock,
+// so a historical run windows to its own final year. Annualised over Jan 1 → that
+// last exit, NOT first-to-last cycle: a year with one December cycle must not
+// report a wild rate off a three-day span.
+function _summaryYTD(r) {
+  const cyc = r.cycles || [];
+  if (cyc.length < 2) return null;
+  const core = cyc.slice(1).filter(c => c.exitDate);           // same frame as coreYld
+  if (!core.length) return null;
+  const yr = Number(String(core[core.length - 1].exitDate).slice(0, 4));
+  if (!yr) return null;
+  const win = core.filter(c => Number(String(c.exitDate).slice(0, 4)) === yr);
+  if (!win.length) return null;
+  const start = yr + '-01-01', end = win[win.length - 1].exitDate;
+  const days  = Math.max(1, Math.round((new Date(end + 'T00:00:00') - new Date(start + 'T00:00:00')) / 86400000));
+  const shares = STD.shares || 600;
+  const scored = win.filter(c => c.entrySPY > 0);              // cycles with no entrySPY cannot be
+  const dropped = win.length - scored.length;                  // scored on their own capital — excluded, reported
+  const held = win.filter(c => c.daysHeld != null);
+  return {
+    year: yr, n: win.length, dropped, days, start, end,
+    coreSum: win.reduce((s, c) => s + (c.pnl || 0), 0),
+    coreYld: (scored.length && shares > 0)
+      ? scored.reduce((s, c) => s + c.pnl / (c.entrySPY * shares), 0) * (365 / days) * 100 : null,
+    winRate: win.filter(c => (c.pnl || 0) > 0).length / win.length * 100,
+    freqYr:  win.length / days * 365,
+    held: held.length ? held.reduce((s, c) => s + c.daysHeld, 0) / held.length : null
+  };
+}
+
 // ── Render: Summary ────────────────────────────────────────────────────────
 function renderSummary(r) {
+  _summaryCtx = r;                                   // v7.6.26
+  const _ytd = _summaryYTD(r);                       // v7.6.26 — null when the year has no closed core cycle
+  if (!_ytd && _summaryWindow === 'ytd') _summaryWindow = 'all';   // never show an empty window
+  const _isY = _summaryWindow === 'ytd' && !!_ytd;
+  {                                                  // v7.6.26 — the toggle
+    const wrap = $('summary-window');
+    if (wrap) {
+      if (!_ytd) { wrap.style.display = 'none'; }
+      else {
+        wrap.style.display = '';
+        const btn = (w, lbl) => `<button onclick="setSummaryWindow('${w}')" style="font-family:var(--mono);`
+          + `font-size:9px;letter-spacing:.08em;padding:3px 12px;border-radius:3px;cursor:pointer;`
+          + `border:1px solid ${_summaryWindow === w ? 'var(--accent)' : 'var(--border)'};`
+          + `background:${_summaryWindow === w ? 'rgba(91,138,245,.10)' : 'var(--surface2)'};`
+          + `color:${_summaryWindow === w ? 'var(--accent)' : 'var(--muted)'};">${lbl}</button>`;
+        wrap.innerHTML = `<div style="display:flex;align-items:center;gap:6px;">`
+          + btn('all', 'ALL') + btn('ytd', 'YTD ' + _ytd.year)
+          + `<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">`
+          + (_isY ? `${_ytd.n} core cycles · ${_ytd.start} → ${_ytd.end} (${_ytd.days}d)`
+                  : `${r.coreCycleCount != null ? r.coreCycleCount : '—'} core cycles · all time`)
+          + `</span></div>`;
+      }
+    }
+  }
   // v7.1.1 — ROLL FREQUENCY replaces the raw Total Cycles head (agreed form,
   // prior session; never built). Every other card on this row is a RATE.
   // COMPUTED FROM r EVERY RUN — coreCycleCount, coreDays and the cycles' own
@@ -6237,13 +6334,26 @@ function renderSummary(r) {
   })();
   const yClass = r.avgYld>=5?'green':r.avgYld>=0?'yellow':'red';
   const ddClass = r.maxDD>20?'red':r.maxDD>10?'yellow':'green';
+  // v7.6.26 — values + sub-lines per window. n rides on every windowed card.
+  const _tag  = _isY ? `YTD ${_ytd.year} · n=${_ytd.n}` : 'all time';
+  const _yld  = _isY ? _ytd.coreYld : r.coreYld;
+  const _sum  = _isY ? _ytd.coreSum : r.coreSum;
+  const _wr   = _isY ? _ytd.winRate : r.winRate;
+  const _mean = _isY && _ytd.n ? _ytd.coreSum / _ytd.n
+              : (r.coreSum != null && r.coreCycleCount) ? r.coreSum / r.coreCycleCount : null;
+  const _yldSub = _isY
+    ? `Ann. · ${_tag}${_ytd.dropped ? ' · ' + _ytd.dropped + ' no entrySPY' : ''}`
+    : 'Ann. core rolls · excl. initial + open MTM';
+  const _sumSub = `${_isY ? _tag : 'Closed core rolls only'}`
+    + (_mean != null ? ` · mean ${_mean >= 0 ? '+' : '-'}$${Math.abs(Math.round(_mean)).toLocaleString()}/cycle` : '');
+  const _frqY = _isY ? _ytd.freqYr : null;
   $('summary-grid').innerHTML = `
-    <div class="stat-card"><div class="stat-label">Core Roll Yield</div><div class="stat-value ${(r.coreYld??0)>=0?'green':'red'}">${r.coreYld!=null?fmt(r.coreYld,1)+'%':'n/a'}</div><div class="stat-sub">Ann. core rolls · excl. initial + open MTM</div></div>
-    <div class="stat-card"><div class="stat-label">Core Roll Credit</div><div class="stat-value ${(r.coreSum??0)>=0?'green':'red'}">${r.coreSum!=null?fmtD(r.coreSum):'n/a'}</div><div class="stat-sub">Closed core rolls only</div></div>
-    <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${r.winRate>=70?'green':'yellow'}">${fmt(r.winRate,0)}%</div><div class="stat-sub">Cycles with positive P&L</div></div>
-    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmt(r.covRet,1)}%</div><div class="stat-sub">Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.</div></div>
-    <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity</div></div>
-    <div class="stat-card"><div class="stat-label">Roll Frequency</div><div class="stat-value accent">${_freq.yr}</div><div class="stat-sub">${_freq.sub}</div></div>
+    <div class="stat-card"><div class="stat-label">Core Roll Yield</div><div class="stat-value ${(_yld??0)>=0?'green':'red'}">${_yld!=null?fmt(_yld,1)+'%':'n/a'}</div><div class="stat-sub">${_yldSub}</div></div>
+    <div class="stat-card"><div class="stat-label">Core Roll Credit</div><div class="stat-value ${(_sum??0)>=0?'green':'red'}">${_sum!=null?fmtD(_sum):'n/a'}</div><div class="stat-sub">${_sumSub}</div></div>
+    <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${_wr>=70?'green':'yellow'}">${fmt(_wr,0)}%</div><div class="stat-sub">Positive P&L · ${_tag}</div></div>
+    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmt(r.covRet,1)}%</div><div class="stat-sub">Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.${_isY?' · <span style="color:var(--yellow);">all time — equity path</span>':''}</div></div>
+    <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity${_isY?' · <span style="color:var(--yellow);">all time — path-dependent</span>':''}</div></div>
+    <div class="stat-card"><div class="stat-label">Roll Frequency</div><div class="stat-value accent">${_frqY!=null?fmt(_frqY,0)+' /yr':_freq.yr}</div><div class="stat-sub">${_isY?`${_ytd.n} core in ${_ytd.days}d`+(_ytd.held!=null?` · ${fmt(_ytd.held,1)}d held`:''):_freq.sub}</div></div>
   `;
 }
 
