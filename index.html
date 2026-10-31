@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.23</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.24</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -720,7 +720,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.23 · HEADROOM CROSS-TAB + CO-FIRE ECONOMICS (S69, Ron). LOG ONLY, no MODEL_VERSION. The Headroom Look splits each bucket by VIX regime and prints a calm-only controlled contrast with its own standard error — the σ axis is part regime proxy, so the raw buckets cannot attribute anything to headroom. Exit Attribution splits the delta-stop pool into pure Δ vs Δ+decay co-fires. Base v7.6.22 (767e80ee).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.24 · DEBUG NO LONGER ARMS THE SWEEP (S69, Ron). UI ONLY, no MODEL_VERSION. Toggling Debug off armed decay×delta and queued 120 evals nobody asked for, claiming a "home state" that _sweepVars never boots into; the same branch also armed a second var when you armed one while Debug was on. Debug now leaves the sweep selection alone in both directions. Base v7.6.23 (0fddefe0).</span></div>
 </div>
 
 <script>
@@ -907,7 +907,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.23';
+const APP_VERSION = 'v7.6.24';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -1195,17 +1195,18 @@ function toggleDebug() {
   _debugMode = !_debugMode;
   // v6.0.4 — debug ON disarms any active sweeps (the reverse guard: arming a
   // sweep already auto-disables debug). Debug is a pure STD run, always.
-  // v6.0.5 — debug OFF returns to the app's home state: OPT-first, decay×delta
-  // re-armed with the persisted ranges. Symmetric with the on-branch disarm.
-  if (typeof _sweepVars === 'object') {
-    if (_debugMode) {
-      Object.keys(_sweepVars).forEach(v => { if (_sweepVars[v]) toggleVar(v, true); });
-    } else {
-      if (!_sweepVars.decay) toggleVar('decay');
-      if (!_sweepVars.delta) toggleVar('delta');
-      updateSweepRange('decay');
-      updateSweepRange('delta');
-    }
+  // v7.6.24 — THE OFF BRANCH IS GONE (Ron, S69). It armed decay+delta on every
+  // Debug-OFF and called that "the app's home state: OPT-first". The initializer
+  // says otherwise: _sweepVars boots ALL-FALSE and the armed flags are never
+  // persisted (only the ranges are), so that state existed nowhere but here —
+  // toggling Debug off queued 120 evals the user never asked for. Nor was it
+  // "symmetric": ON disarms WHATEVER was armed, OFF armed two NAMED vars
+  // regardless, so any selection (including none) round-tripped into decay×delta.
+  // Second face, same cause: toggleVar() calls toggleDebug() when you arm a var
+  // while Debug is on; that landed HERE and armed the OTHER var too — one click,
+  // two cards. Debug now leaves the sweep selection alone in both directions.
+  if (typeof _sweepVars === 'object' && _debugMode) {
+    Object.keys(_sweepVars).forEach(v => { if (_sweepVars[v]) toggleVar(v, true); });
   }
   const btn = $('debug-btn');
   if (btn) {
