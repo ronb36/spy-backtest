@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.26</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.27</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -721,7 +721,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.26 · ALL / YTD SUMMARY WINDOW (S69, Ron). DISPLAY ONLY, no MODEL_VERSION. Yield, Credit, Win Rate and Roll Frequency window to the data's current calendar year, annualised Jan 1 → last exit, each carrying its n. Covered Call Return and Max Drawdown are NOT windowed — one reads an equity path, the other is cumulative and would flatter any shorter window — and both say so. Base v7.6.25 (33044f2b).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.27 · ONE YTD, ROLLING (S69, Ron). DISPLAY ONLY, no MODEL_VERSION. The Performance panel's YTD anchor was the literal '2025-12-31' and would have drifted to 13 months on 2027-01-01; the summary cards derived their year from the data. Both now read _ytdYear() and both print the year, so the two toggles always name the same span. January shows one month. Base v7.6.26 (c250bc03).</span></div>
 </div>
 
 <script>
@@ -908,7 +908,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.26';
+const APP_VERSION = 'v7.6.27';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2059,7 +2059,16 @@ function _cwinTwCapital(startIso, endIso, flows, startAmt = CWIN_START_BALANCE.a
   return n ? tot / n : 0;
 }
 const CWIN_START_BALANCE = { d: '2025-06-02', amt: 70348.68 }; // v6.20.6 — actual account value at program start (statement: FXAIX proceeds + residual cash)
-const CWIN_YTD_ANCHOR    = '2025-12-31';                       // v7.6.11 — YTD anchor DATE; the balance is COMPUTED from the ledger (_ledgerBalanceAt), never pinned
+// ── v7.6.27 · ONE YTD, ROLLING (Ron, S69) ─────────────────────────────────
+// Two YTD toggles shipped on one page with different meanings. This panel's
+// anchor was the LITERAL '2025-12-31' (v7.6.11) with no roll: on 2027-01-01 its
+// "YTD" would have become thirteen months to date, then fourteen, silently and
+// forever. The summary cards' YTD (v7.6.26) derived its year from the data.
+// Both now read _ytdYear(), so they always name the same span, and both print
+// the year so the span is never inferred. January shows one month — Ron's
+// ruling, and the n on each card is what keeps that readable.
+function _ytdYear() { return new Date().getFullYear(); }
+function _cwinYtdAnchor() { return (_ytdYear() - 1) + '-12-31'; } // Dec-31 close == Jan-1 open
 let   _perfRange = 'all';                                       // v7.6.10 — 'all' | 'ytd' (header toggle)
 // v7.6.15 — CWIN_LAST_BALANCE RETIRED. The end anchor is the last imported ledger
 // row (v7.6.14) and the tie-out is the ledger cash walk against Fidelity's running
@@ -2166,7 +2175,8 @@ function _perfRngPaint() { // v7.6.10 — ALL / YTD pill state
   const on = 'background:var(--accent);border:1px solid var(--accent);color:#fff;', off = 'background:var(--surface2);border:1px solid var(--border);color:var(--muted);';
   const a = $('perf-rng-all'), y = $('perf-rng-ytd');
   if (a) a.style.cssText += ';' + (_perfRange === 'all' ? on : off);
-  if (y) y.style.cssText += ';' + (_perfRange === 'ytd' ? on : off);
+  if (y) { y.style.cssText += ';' + (_perfRange === 'ytd' ? on : off);
+           y.textContent = 'YTD ' + _ytdYear(); }   // v7.6.27 — the pill names its year
 }
 async function renderPerfPanel(force) {
   const body = $('perf-body'), st = $('perf-status');
@@ -2221,8 +2231,9 @@ async function _cwinHtml() {
   const endB = _ledgerBalanceAt(_lastLedger, ledger, trades);
   if (endB.err) return '<div style="color:#e0a020;">\u26a0 statement section: the account balance at the last imported row (' + (_lastLedger || 'none') + ') could not be computed \u2014 ' + endB.err + '</div>'; // v7.6.15 — no pinned fallback; say why
   const L = { d: _lastLedger, amt: endB.total, computed: true };
-  const ytdB = (_perfRange === 'ytd') ? _ledgerBalanceAt(CWIN_YTD_ANCHOR, ledger, trades) : null; // v7.6.11 — computed anchor
-  const S = (_perfRange === 'ytd') ? { d: CWIN_YTD_ANCHOR, amt: (ytdB && !ytdB.err) ? ytdB.total : null } : CWIN_START_BALANCE; // v7.6.10 — ALL / YTD
+  const _ytdAnchor = _cwinYtdAnchor(); // v7.6.27 — rolls with the calendar
+  const ytdB = (_perfRange === 'ytd') ? _ledgerBalanceAt(_ytdAnchor, ledger, trades) : null; // v7.6.11 — computed anchor
+  const S = (_perfRange === 'ytd') ? { d: _ytdAnchor, amt: (ytdB && !ytdB.err) ? ytdB.total : null } : CWIN_START_BALANCE; // v7.6.10 — ALL / YTD
   const walk = _ledgerCashWalk(ledger); // v7.6.15 — the tie-out: cash walk vs Fidelity's running balance on the last statement row
   // v7.6.13 — the composition string (_bal) was dropped with the prose; _ledgerBalanceAt still returns legs/cash/shares for a future tie-out view.
   const flows = _ledgerFlows(ledger); // v6.23.0 — ledger-derived; guard: absence can never hide; v7.6.16 — from live_legs
@@ -2355,7 +2366,7 @@ async function _cwinHtml() {
   const lab = 'color:var(--muted);';
   const ctx = '<div style="font-family:var(--mono);font-size:10px;color:var(--text);padding:2px 0 4px;line-height:1.8;">'
     + '<span style="' + lab + 'letter-spacing:.05em;">SPY \u00b7 STATEMENT</span>'
-    + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (last statement row \u00b7 balance = cash + SPY + open calls at DM marks)</span>'
+    + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD ' + _ytdYear() + ' \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (last statement row \u00b7 balance = cash + SPY + open calls at DM marks)</span>'
     + (S.amt == null
       ? '<br><span style="color:#e0a020;">\u26a0 YTD anchor ' + S.d + ' could not be computed from the ledger: ' + (ytdB ? ytdB.err : 'n/a') + '</span>'
       : '<br><span style="' + lab + '">Start Bal</span> ' + money(S.amt) // v7.6.20 — labels (Ron): Start Bal · Contrib · Redeem · SPY · Calls · End Bal · Strategy · SPY
@@ -6270,8 +6281,8 @@ function _summaryYTD(r) {
   if (cyc.length < 2) return null;
   const core = cyc.slice(1).filter(c => c.exitDate);           // same frame as coreYld
   if (!core.length) return null;
-  const yr = Number(String(core[core.length - 1].exitDate).slice(0, 4));
-  if (!yr) return null;
+  const yr = _ytdYear();   // v7.6.27 — shared with the Performance panel; was the data's
+  if (!yr) return null;    // last-exit year, which could disagree with it across a new year
   const win = core.filter(c => Number(String(c.exitDate).slice(0, 4)) === yr);
   if (!win.length) return null;
   const start = yr + '-01-01', end = win[win.length - 1].exitDate;
