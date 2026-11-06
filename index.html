@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.27</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.28</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -721,7 +721,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.27 · ONE YTD, ROLLING (S69, Ron). DISPLAY ONLY, no MODEL_VERSION. The Performance panel's YTD anchor was the literal '2025-12-31' and would have drifted to 13 months on 2027-01-01; the summary cards derived their year from the data. Both now read _ytdYear() and both print the year, so the two toggles always name the same span. January shows one month. Base v7.6.26 (c250bc03).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.28 · EVALUATION MODE §4.1 (S69, Ron). INSTRUMENT, NOT a model change: MODEL_VERSION unchanged, Gate region untouched, nothing here writes roll_params.json. Eval is not a mode with a button — it runs on load from the single DM-resolved path (_debugMode untouched, scan keeps its run-button state machine); refreshing the browser re-runs it. Writes the §4.1 divergence log to Logs: every date one side traded and the other did not, with the quiet side's reading in the sim's OWN frame (day-bar VWAP vw||c, defH delta) and its distance from the threshold. Window left AS-IS per Ron — _confStart (first live entry on/after POLICY_REGIME_2) IS the current model's start point; sim and live spans differ by a day and BOTH print rather than being averaged away. Cause attribution is flagged UNKNOWN until the agent run log exists (SPEC agent run log, pending). §4.2 mix/severity → v7.6.29; §4.3 wedge + §4.4 agreement → v7.6.30. Base v7.6.27 (1157c52f).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.27 · ONE YTD, ROLLING (S69, Ron). DISPLAY ONLY, no MODEL_VERSION. The Performance panel's YTD anchor was the literal '2025-12-31' and would have drifted to 13 months on 2027-01-01; the summary cards derived their year from the data. Both now read _ytdYear() and both print the year, so the two toggles always name the same span. January shows one month. Base v7.6.26 (c250bc03).</span></div>
 </div>
 
 <script>
@@ -908,7 +908,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.27';
+const APP_VERSION = 'v7.6.28';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2670,6 +2670,175 @@ async function _confLoadLive() {
   });
   rows.sort((a, b) => a.open < b.open ? -1 : a.open > b.open ? 1 : 0);
   return { rows, skipped };
+}
+
+
+// ── v7.6.28 · EVALUATION MODE (S69, Ron) ──────────────────────────────────
+// SPEC evaluation mode Rev 3. The PRODUCTION question — "is execution TRACKING
+// the model?" — as distinct from the Gate ("should the model CHANGE?") and from
+// Conformance (raw pairing, no verdict). INSTRUMENT, NOT A MODEL CHANGE:
+// MODEL_VERSION unchanged, Gate region untouched, reads only.
+//
+// §2 — Eval is NOT a mode with a button. It is what the app does on load, once.
+// No new mode flag: _debugMode is untouched and the scan keeps its existing
+// run-button state machine. The spec said "gated on dmReady"; there is nothing
+// to gate on — dmReady is an options flag passed to setRunButtonState at six
+// sites, not a promise. The hook is instead the ONE path where the DM actually
+// resolved (after fetchDM + loadRollParams), so it fires once by construction
+// rather than by guard. _evalRan is belt-and-braces on top of that.
+//
+// WINDOW (Ron, S69): left AS-IS, deliberately NOT re-aligned between sides.
+// _confStart — the first live entry on or after POLICY_REGIME_2 — IS the
+// current model's start point. The two spans differ by a day; the header prints
+// BOTH (§3.2: an 11-cycle window swings, so every section carries its n).
+//
+// THIS RELEASE IS §4.1 ONLY. §4.2 mix/severity -> v7.6.29; §4.3 execution wedge
+// and §4.4 trigger agreement -> v7.6.30. Their lines print as "staged" so the
+// report's shape is visible without inventing numbers for them.
+const _EVAL_TNX = 4.5;      // pinned — mirrors simulate()'s local TNX
+let _evalRan     = false;   // set at the DM hook; guards a second fire
+let _evalRunning = false;
+
+// Intrinsic-stripped TV decay — the SAME formula simulate() records as
+// exitDecayPct (v7.6.0). One function, so a divergence reading and the sim's
+// own trigger can never drift apart.
+function _evalTvDecay(sell, strike, spyAtOpen, px, spyNow) {
+  if (sell == null || px == null || spyAtOpen == null || spyNow == null) return null;
+  const tvE = sell - Math.max(0, spyAtOpen - strike);
+  const tvN = Math.max(0, px - Math.max(0, spyNow - strike));
+  return tvE > 0 ? ((tvE - tvN) / tvE) * 100 : null;
+}
+
+// What an open position READ on `iso`, in the sim's own frame: day-bar VWAP
+// (callPx = vw||c) and the defense-horizon delta. Using the sim's price source
+// is deliberate — the reading must be comparable to the sim's THRESHOLD, not to
+// a mark neither side trades at.
+function _evalReadingOn(pos, iso, maps) {
+  if (!pos || !DM || !DM.options) return null;
+  const c = DM.options[buildScanTicker(pos.expiry, pos.strike)];
+  if (!c) return null;
+  buildDayMap(c);
+  const bar = c._dm[iso], spyRow = maps.spyMap[iso], openRow = maps.spyMap[pos.open];
+  if (!bar || !spyRow) return null;
+  const px = (bar.vw || bar.c), spyNow = spyRow.c, vix = maps.vixMap[iso];
+  const dte = _confDays(iso, pos.expiry);
+  const dd  = (STD.defHorizon > 0) ? Math.min(STD.defHorizon, dte) : dte;
+  return {
+    px: px, spy: spyNow, dte: dte,
+    decay: _evalTvDecay(pos.sell, pos.strike, openRow ? openRow.c : null, px, spyNow),
+    delta: (vix != null && dte > 0) ? callDelta(spyNow, pos.strike, dd, vix, _EVAL_TNX) : null
+  };
+}
+
+// §4.1 — every date one side traded and the other did not. A "trade" is a cycle
+// ENTRY on either side (a roll closes one and opens the next). The quiet side's
+// open position on that date is read, and what it did NEXT is carried, because
+// the mechanism this section exists to catch is: a late entry resets the decay
+// basis lower, desensitising the trigger for the remainder of the cycle.
+function _evalDivergence(live, sim, maps) {
+  const L = live.map(function (r) {
+    return { side: 'live', open: r.open, close: r.close, strike: r.strike, expiry: r.expiry, sell: r.sell,
+      outcome: r.isOpen ? 'live still open'
+        : 'live closed ' + (r.close || '?') + ' · ' + _confLiveType(r.trigger)
+          + ' · ' + _confMoney((r.cover != null && r.sell != null) ? (r.sell - r.cover) * 100 * (r.qty || 0) : null) };
+  });
+  const S = sim.map(function (c) {
+    return { side: 'sim', open: c.entryDate, close: c.exitDate, strike: c.strike, expiry: c.expiry, sell: c.entryPx,
+      outcome: 'sim closed ' + c.exitDate + ' · ' + _confSimType(c.reason) + ' · ' + _confMoney(c.pnl) };
+  });
+  const lOpens = {}; L.forEach(function (r) { lOpens[r.open] = true; });
+  const sOpens = {}; S.forEach(function (r) { sOpens[r.open] = true; });
+  const heldOn = function (arr, d) {
+    return arr.filter(function (r) { return r.open <= d && (r.close == null || r.close > d); })[0] || null;
+  };
+  const out = [];
+  S.forEach(function (r) { if (!lOpens[r.open]) out.push({ date: r.open, traded: 'sim', quiet: 'live', pos: heldOn(L, r.open) }); });
+  L.forEach(function (r) { if (!sOpens[r.open]) out.push({ date: r.open, traded: 'live', quiet: 'sim', pos: heldOn(S, r.open) }); });
+  out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  out.forEach(function (d) { d.read = _evalReadingOn(d.pos, d.date, maps); });
+  return out;
+}
+
+function _evalReport(live, sim, start, ms) {
+  const maps = buildMaps();
+  const sp = function (a, b) { return (a && b) ? _confDays(a, b) + 'd' : '?'; };
+  const lFirst = live.length ? live[0].open : null;
+  const lLast  = live.length ? (live[live.length - 1].close || live[live.length - 1].open) : null;
+  const sFirst = sim.length ? sim[0].entryDate : null;
+  const sLast  = sim.length ? sim[sim.length - 1].exitDate : null;
+
+  logMsg('', '');
+  logMsg('══ EVALUATION · sim ' + (sFirst || '?') + ' → ' + (sLast || '?') + ' (' + sp(sFirst, sLast) + ')'
+       + ' · live ' + (lFirst || '?') + ' → ' + (lLast || '?') + ' (' + sp(lFirst, lLast) + ')'
+       + ' · n=' + live.length + ' live / ' + sim.length + ' sim ══', 'ok');
+  logMsg('  WINDOW                 pin ' + start + ' — first live entry under the current model (POLICY_REGIME_2 '
+       + POLICY_REGIME_2 + '). Spans NOT re-aligned (Ron, S69); both print.', '');
+  if (live.length < 20) {
+    logMsg('  ⚠ n=' + live.length + ' — under ~20 cycles. Treat a gap that moves between runs as noise (§6).', '');
+  }
+
+  const dv = _evalDivergence(live, sim, maps);
+  logMsg('  DIVERGENCE LOG         ' + dv.length + ' date' + (dv.length === 1 ? '' : 's'), dv.length ? 'err' : 'ok');
+  if (!dv.length) {
+    logMsg('    none — both sides entered on the same dates in this window', '');
+  }
+  dv.forEach(function (d) {
+    const r = d.read;
+    let dec = '—', del = '—';
+    if (r && r.decay != null) {
+      const g = r.decay - STD.decayTrigger;
+      dec = r.decay.toFixed(2) + '% (' + (g >= 0 ? '+' : '') + g.toFixed(2) + 'pp vs ' + STD.decayTrigger + '%)';
+    }
+    if (r && r.delta != null) {
+      const g = r.delta - STD.deltaThreshold;
+      del = r.delta.toFixed(3) + ' (' + (g >= 0 ? '+' : '') + g.toFixed(3) + ' vs ' + STD.deltaThreshold + ')';
+    }
+    logMsg('    ' + d.date + '  ' + d.traded + ' traded, ' + d.quiet + ' did not', '');
+    logMsg('      ' + d.quiet + ' held ' + (d.pos ? _confContract(d.pos.strike, d.pos.expiry) + ' (opened ' + d.pos.open + ')' : 'nothing'), '');
+    logMsg('      read: decay ' + dec + ' · Δ ' + del + (r ? ' · px $' + r.px.toFixed(2) + ' · ' + r.dte + 'd' : ''), '');
+    logMsg('      → ' + (d.pos ? d.pos.outcome : 'no open position on that date'), '');
+  });
+  if (dv.length) {
+    logMsg('    cause: UNKNOWN — this shows THAT a side did not trade, not whether the agent fired and was', '');
+    logMsg('           missed or never fired. Needs the agent run log (SPEC agent run log, pending).', '');
+  }
+
+  logMsg('  CC YIELD / GAP         staged — §4.2 mix vs severity, v7.6.29', '');
+  logMsg('  EXECUTION WEDGE        staged — §4.3 paired fills, decay vs stop never pooled, v7.6.30', '');
+  logMsg('  TRIGGER AGREEMENT      staged — §4.4, v7.6.30', '');
+  logMsg('  — evaluation ' + (ms / 1000).toFixed(1) + 's · reads only; never writes roll_params.json', '');
+  showTab('log'); // §5 — eval writes to Logs and shows that tab, as Debug does
+}
+
+async function runEval() {
+  if (_evalRunning) return;
+  if (_mode === 'optimize') return; // a sweep on one build must not be interrupted
+  if (!DM || !DM.spy) return;
+  _evalRunning = true;
+  const t0 = Date.now();
+  try {
+    if (!_confLive) _confLive = await _confLoadLive();
+    const rows = _confLive.rows;
+    const first = rows.filter(function (r) { return r.open >= POLICY_REGIME_2; })[0];
+    if (!first) {
+      logMsg('EVALUATION: no live entry on or after ' + POLICY_REGIME_2 + ' (POLICY_REGIME_2) — nothing to evaluate.', '');
+      _evalRunning = false; return;
+    }
+    const start = first.open;
+    const live = rows.filter(function (r) { return r.open >= start; });
+    const pin = { strike: first.strike, expiry: first.expiry, entryDate: start, entryPx: null };
+    const err = _confPinCheck(pin);
+    if (err) { logMsg('EVALUATION: pin unusable — ' + err, 'err'); _evalRunning = false; return; }
+    _gaps = [];
+    const r = await simulate(Object.assign({}, STD, { shares: STD.shares || 600, pin: pin }));
+    // simulate() returns null when NO cycle closed — "still holding at DM end",
+    // not an error. lastResult is set by runBacktest, never by simulate, so this
+    // pinned run cannot clobber the panels' full-backtest state.
+    _evalReport(live, (r && r.cycles) ? r.cycles : [], start, Date.now() - t0);
+  } catch (e) {
+    logMsg('✗ EVALUATION: ' + e.message, 'err');
+  }
+  _evalRunning = false;
 }
 
 async function renderConfTab() {
@@ -7404,6 +7573,7 @@ async function loadData() {
     status.style.color='var(--green)';
     setRunButtonState('idle', { dmReady: true });
     await loadRollParams(); // reload to ensure STD is fully synced after DM available
+    if (!_evalRan) { _evalRan = true; runEval(); } // v7.6.28 — §2 eval-on-load: the ONE path where the DM resolved; fires once by construction
     // Restore sweep ranges from localStorage (persisted from last session)
     try {
       const saved = localStorage.getItem('sweepConfig');
