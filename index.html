@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.28</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.29</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -721,7 +721,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.28 · EVALUATION MODE §4.1 (S69, Ron). INSTRUMENT, NOT a model change: MODEL_VERSION unchanged, Gate region untouched, nothing here writes roll_params.json. Eval is not a mode with a button — it runs on load from the single DM-resolved path (_debugMode untouched, scan keeps its run-button state machine); refreshing the browser re-runs it. Writes the §4.1 divergence log to Logs: every date one side traded and the other did not, with the quiet side's reading in the sim's OWN frame (day-bar VWAP vw||c, defH delta) and its distance from the threshold. Window left AS-IS per Ron — _confStart (first live entry on/after POLICY_REGIME_2) IS the current model's start point; sim and live spans differ by a day and BOTH print rather than being averaged away. Cause attribution is flagged UNKNOWN until the agent run log exists (SPEC agent run log, pending). §4.2 mix/severity → v7.6.29; §4.3 wedge + §4.4 agreement → v7.6.30. Base v7.6.27 (1157c52f).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.27 · ONE YTD, ROLLING (S69, Ron). DISPLAY ONLY, no MODEL_VERSION. The Performance panel's YTD anchor was the literal '2025-12-31' and would have drifted to 13 months on 2027-01-01; the summary cards derived their year from the data. Both now read _ytdYear() and both print the year, so the two toggles always name the same span. January shows one month. Base v7.6.26 (c250bc03).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.29 · EVAL RUNS LIKE A RUN (S69, Ron). INSTRUMENT, no MODEL_VERSION, Gate untouched. Eval now calls runSimulation() FIRST, so loading the page drives the progress bar and fills the performance panels exactly as a Debug run does — the visible signal that eval ran. The panels come from that FULL run and never from the pinned divergence run, whose window is ~2 months: its core yield is not the lifetime figure and would read as roughly 24% in a 10.4% field. Because runSimulation() clears the log at its start and eval prints after it, the §4.1 block now survives instead of being wiped by the next run (v7.6.28 shipped with eval output that any Debug or Scan press erased — found on first contact). The full run also supplies §3 Core Roll Yield as the reference line, absent in .28 for want of a full run. Divergence rows are BANDED past / near / benign / flat: .28 printed 11 rows flat where 2 carried signal, and a divergence only means a miss when the quiet side was at or past a threshold. A FRAME caveat now prints on the header — readings are the sim day-bar VWAP, not the agent intraday NBBO mark, so a past-threshold row is the sim price source putting a position past its trigger, NOT proof the agent saw that number. The three silent early returns in runEval each log. §4.2 mix/severity → v7.6.30. Base v7.6.28 (4a72be39).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.28 · EVALUATION MODE §4.1 (S69, Ron). INSTRUMENT, NOT a model change: MODEL_VERSION unchanged, Gate region untouched, nothing here writes roll_params.json. Eval is not a mode with a button — it runs on load from the single DM-resolved path (_debugMode untouched, scan keeps its run-button state machine); refreshing the browser re-runs it. Writes the §4.1 divergence log to Logs: every date one side traded and the other did not, with the quiet side's reading in the sim's OWN frame (day-bar VWAP vw||c, defH delta) and its distance from the threshold. Window left AS-IS per Ron — _confStart (first live entry on/after POLICY_REGIME_2) IS the current model's start point; sim and live spans differ by a day and BOTH print rather than being averaged away. Cause attribution is flagged UNKNOWN until the agent run log exists (SPEC agent run log, pending). §4.2 mix/severity → v7.6.29; §4.3 wedge + §4.4 agreement → v7.6.30. Base v7.6.27 (1157c52f).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.27 · ONE YTD, ROLLING (S69, Ron). DISPLAY ONLY, no MODEL_VERSION. The Performance panel's YTD anchor was the literal '2025-12-31' and would have drifted to 13 months on 2027-01-01; the summary cards derived their year from the data. Both now read _ytdYear() and both print the year, so the two toggles always name the same span. January shows one month. Base v7.6.26 (c250bc03).</span></div>
 </div>
 
 <script>
@@ -908,7 +908,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.28';
+const APP_VERSION = 'v7.6.29';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2735,6 +2735,28 @@ function _evalReadingOn(pos, iso, maps) {
 // open position on that date is read, and what it did NEXT is carried, because
 // the mechanism this section exists to catch is: a late entry resets the decay
 // basis lower, desensitising the trigger for the remainder of the cycle.
+// Banding (v7.6.29, Ron S69). The .28 log printed every divergence flat: on
+// the first real run that was 11 rows where 2 carried signal. A divergence only
+// means a MISS when the quiet side was at or past a threshold and did not fire;
+// everything else is ordinary desynchronisation between two schedules.
+//   past   - at or past its decay or delta trigger
+//   near   - inside the margin below one
+//   benign - priced, nowhere near either trigger
+//   flat   - held nothing: out of position, not a miss
+const _EVAL_NEAR_DECAY_PP = 2.0;
+const _EVAL_NEAR_DELTA    = 0.05;
+function _evalBand(pos, read) {
+  if (!pos || !read) return 'flat';
+  if (read.decay == null && read.delta == null) return 'flat';
+  const dPast = (read.decay != null) && (read.decay >= STD.decayTrigger);
+  const kPast = (read.delta != null) && (read.delta >= STD.deltaThreshold);
+  if (dPast || kPast) return 'past';
+  const dNear = (read.decay != null) && (read.decay >= STD.decayTrigger - _EVAL_NEAR_DECAY_PP);
+  const kNear = (read.delta != null) && (read.delta >= STD.deltaThreshold - _EVAL_NEAR_DELTA);
+  if (dNear || kNear) return 'near';
+  return 'benign';
+}
+
 function _evalDivergence(live, sim, maps) {
   const L = live.map(function (r) {
     return { side: 'live', open: r.open, close: r.close, strike: r.strike, expiry: r.expiry, sell: r.sell,
@@ -2755,11 +2777,11 @@ function _evalDivergence(live, sim, maps) {
   S.forEach(function (r) { if (!lOpens[r.open]) out.push({ date: r.open, traded: 'sim', quiet: 'live', pos: heldOn(L, r.open) }); });
   L.forEach(function (r) { if (!sOpens[r.open]) out.push({ date: r.open, traded: 'live', quiet: 'sim', pos: heldOn(S, r.open) }); });
   out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-  out.forEach(function (d) { d.read = _evalReadingOn(d.pos, d.date, maps); });
+  out.forEach(function (d) { d.read = _evalReadingOn(d.pos, d.date, maps); d.band = _evalBand(d.pos, d.read); });
   return out;
 }
 
-function _evalReport(live, sim, start, ms) {
+function _evalReport(live, sim, start, ms, full) {
   const maps = buildMaps();
   const sp = function (a, b) { return (a && b) ? _confDays(a, b) + 'd' : '?'; };
   const lFirst = live.length ? live[0].open : null;
@@ -2776,13 +2798,30 @@ function _evalReport(live, sim, start, ms) {
   if (live.length < 20) {
     logMsg('  ⚠ n=' + live.length + ' — under ~20 cycles. Treat a gap that moves between runs as noise (§6).', '');
   }
+  // §3 reference line. Comes from the FULL run (lastResult), never from the
+  // pinned run: Core Yield is a lifetime figure and the pin spans ~2 months.
+  // It has NO live counterpart by construction and is never set against one.
+  if (full && full.coreYld != null) {
+    logMsg('  TARGET                 Core Roll Yield (sim, lifetime) ' + full.coreYld.toFixed(1) + '%'
+         + ' \u00b7 ' + full.coreStart + ' \u2192 ' + full.coreEnd
+         + ' (' + full.coreDays + 'd, ' + full.coreCycleCount + ' cycles) \u2014 reference only', '');
+  } else {
+    logMsg('  TARGET                 Core Roll Yield unavailable \u2014 the full run returned none', '');
+  }
 
   const dv = _evalDivergence(live, sim, maps);
-  logMsg('  DIVERGENCE LOG         ' + dv.length + ' date' + (dv.length === 1 ? '' : 's'), dv.length ? 'err' : 'ok');
+  const bands = { past: [], near: [], benign: [], flat: [] };
+  dv.forEach(function (d) { (bands[d.band] || bands.flat).push(d); });
+  logMsg('  DIVERGENCE LOG         ' + dv.length + ' date' + (dv.length === 1 ? '' : 's')
+       + '  \u00b7  ' + bands.past.length + ' past threshold \u00b7 ' + bands.near.length + ' near \u00b7 '
+       + bands.benign.length + ' benign \u00b7 ' + bands.flat.length + ' flat', bands.past.length ? 'err' : 'ok');
+  logMsg("    FRAME: readings below are the SIM day-bar VWAP (vw||c), not the agent intraday NBBO mark.", '');
+  logMsg("           A past-threshold row says the sim price source puts that position past its trigger.", '');
+  logMsg("           It is NOT evidence the agent saw the same number and did not act on it.", '');
   if (!dv.length) {
-    logMsg('    none — both sides entered on the same dates in this window', '');
+    logMsg('    none \u2014 both sides entered on the same dates in this window', '');
   }
-  dv.forEach(function (d) {
+  bands.past.concat(bands.near).forEach(function (d) {
     const r = d.read;
     let dec = '—', del = '—';
     if (r && r.decay != null) {
@@ -2793,17 +2832,26 @@ function _evalReport(live, sim, start, ms) {
       const g = r.delta - STD.deltaThreshold;
       del = r.delta.toFixed(3) + ' (' + (g >= 0 ? '+' : '') + g.toFixed(3) + ' vs ' + STD.deltaThreshold + ')';
     }
-    logMsg('    ' + d.date + '  ' + d.traded + ' traded, ' + d.quiet + ' did not', '');
+    logMsg('    [' + d.band.toUpperCase() + '] ' + d.date + '  ' + d.traded + ' traded, ' + d.quiet + ' did not',
+           d.band === 'past' ? 'err' : '');
     logMsg('      ' + d.quiet + ' held ' + (d.pos ? _confContract(d.pos.strike, d.pos.expiry) + ' (opened ' + d.pos.open + ')' : 'nothing'), '');
     logMsg('      read: decay ' + dec + ' · Δ ' + del + (r ? ' · px $' + r.px.toFixed(2) + ' · ' + r.dte + 'd' : ''), '');
     logMsg('      → ' + (d.pos ? d.pos.outcome : 'no open position on that date'), '');
   });
+  if (bands.benign.length) {
+    logMsg('    benign (' + bands.benign.length + '): ' + bands.benign.map(function (d) { return d.date; }).join(', ')
+         + '  \u2014 quiet side priced but nowhere near either trigger; ordinary desync, not a miss', '');
+  }
+  if (bands.flat.length) {
+    logMsg('    flat   (' + bands.flat.length + '): ' + bands.flat.map(function (d) { return d.date; }).join(', ')
+         + '  \u2014 quiet side held nothing: out of position, not a trigger event', '');
+  }
   if (dv.length) {
     logMsg('    cause: UNKNOWN — this shows THAT a side did not trade, not whether the agent fired and was', '');
     logMsg('           missed or never fired. Needs the agent run log (SPEC agent run log, pending).', '');
   }
 
-  logMsg('  CC YIELD / GAP         staged — §4.2 mix vs severity, v7.6.29', '');
+  logMsg('  CC YIELD / GAP         staged — §4.2 mix vs severity, v7.6.30', '');
   logMsg('  EXECUTION WEDGE        staged — §4.3 paired fills, decay vs stop never pooled, v7.6.30', '');
   logMsg('  TRIGGER AGREEMENT      staged — §4.4, v7.6.30', '');
   logMsg('  — evaluation ' + (ms / 1000).toFixed(1) + 's · reads only; never writes roll_params.json', '');
@@ -2811,12 +2859,30 @@ function _evalReport(live, sim, start, ms) {
 }
 
 async function runEval() {
-  if (_evalRunning) return;
-  if (_mode === 'optimize') return; // a sweep on one build must not be interrupted
-  if (!DM || !DM.spy) return;
+  // v7.6.29 — these three returns were SILENT in .28, which made "eval did not
+  // appear" indistinguishable from "eval ran and something erased it". An
+  // instrument whose absence cannot be diagnosed is not an instrument.
+  if (_evalRunning) { logMsg('EVALUATION: already running \u2014 skipped', ''); return; }
+  if (_mode === 'optimize') { logMsg('EVALUATION: a sweep is in progress \u2014 not running', ''); return; }
+  if (!DM || !DM.spy) { logMsg('EVALUATION: data mart not loaded \u2014 not running', 'err'); return; }
   _evalRunning = true;
   const t0 = Date.now();
+  let full = null;
   try {
+    await yield_(); // let the remainder of the boot block finish before a 5s run starts
+    // v7.6.29 (Ron, S69) — the FULL STD run first. It drives the progress bar,
+    // fills the performance panels and sets lastResult, exactly as a Debug run
+    // does, so that eval having run is visible and not merely textual.
+    //
+    // Two reasons the order is this way round and not the other:
+    //   1. runSimulation() CLEARS the log at its start. Eval printing after it
+    //      is what stops the §4.1 block being wiped by the next run.
+    //   2. The panels must read this run, NEVER the pinned run below. The pin
+    //      spans ~2 months; its coreYld is not the lifetime figure and would
+    //      sit in a 10.4% field reading roughly 24%.
+    await runSimulation();
+    full = lastResult;
+    setProgress(97); // the eval phase owns the last of the bar
     if (!_confLive) _confLive = await _confLoadLive();
     const rows = _confLive.rows;
     const first = rows.filter(function (r) { return r.open >= POLICY_REGIME_2; })[0];
@@ -2834,7 +2900,8 @@ async function runEval() {
     // simulate() returns null when NO cycle closed — "still holding at DM end",
     // not an error. lastResult is set by runBacktest, never by simulate, so this
     // pinned run cannot clobber the panels' full-backtest state.
-    _evalReport(live, (r && r.cycles) ? r.cycles : [], start, Date.now() - t0);
+    _evalReport(live, (r && r.cycles) ? r.cycles : [], start, Date.now() - t0, full);
+    setProgress(100);
   } catch (e) {
     logMsg('✗ EVALUATION: ' + e.message, 'err');
   }
