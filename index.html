@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.33</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.34</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -721,7 +721,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.33 · §4.3 EXECUTION WEDGE (S70). Live fills against the sim day-bar VWAP for the SAME contract on the SAME date — measured, never repriced. Sign convention throughout: POSITIVE = live worse. The exit leg is cover − mark, the entry leg mark − sell, so both legs read in one direction and sum to a cycle total. EXIT is split by trigger and the pooled figure prints only under a do-not-read label: S67 headlined +5.7¢ in Ron’s favour, a pooled average concealing a sign flip, because live beats the VWAP on quiet decay days and loses badly on stop days where the VWAP averages in a cheap morning that is unreachable once delta has breached. ENTRY is NOT split — entries are chosen, not forced, so the trigger that ended a cycle says nothing about how it began, and splitting on it would invent a mechanism. The wedge total is set against §4.2 severity in the same units, since explaining that term is the whole point of the section. Standard errors on every line; a pool under n=2 says so rather than printing a bare mean. No MODEL_VERSION change, Gate untouched, reads only. §4.4 trigger agreement → v7.6.34. Base v7.6.32 (98a7c288).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.32 · §4.2 MIX vs SEVERITY (S70). Shift-share decomposition of the sim/live gap, the measurement S69 did by hand. MIX is live’s own per-cycle severity carried onto the SIM’s exit-pool split — you took a different number of stops; SEVERITY is the sim’s severity on that same split — each pool cost differently. They sum to the gap EXACTLY and a checksum asserts it on every run, because a decomposition that does not close is not a decomposition. Pools come from the existing DELTA-FIRST classifier (Model Rules §9 — a co-fire books as a stop) and are NOT hard-coded to two: a dte or expiry cycle gets its own row rather than being folded into decay where it would be silently mis-attributed. A pool with no live cycles imputes live’s OVERALL mean and says so on the line, keeping the identity exact while making the imputation visible. Standard errors on both terms per SPEC §6, treating pools as independent and counts as fixed, and printed as approximate because they are; a pool under n=2 has no sd and is named rather than dropped silently. No MODEL_VERSION change, Gate untouched, reads only. §4.3 wedge and §4.4 agreement → v7.6.33. Base v7.6.31 (aeac6d7e).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.31 · THE BOUNDARY RELEASE (S70, Ron). §4.1 was sound in the interior of its window and blind at the edge, in two ways that are the same defect. (1) OPEN NOW: cycles.push() fires at EXIT, so neither side’s currently-open cycle had a record and the divergence happening right now could not appear — on 2026-11-10 the sim held $755C 04-30-27 against a live $765C 04-30-27 with no row for it. Both open positions and their readings now print, from the PINNED run’s pendingContract and the blotter’s isOpen row. (2) PROVISIONAL: a row on the last DM date is not yet a finding — the quiet side has not been evaluated past it. Friday’s 2026-11-05 row vanished on Tuesday once the DM advanced and the sim’s own 11-05 entry existed. Such rows are now marked. (3) POLICY: Ron selects HIGHER strikes by choice and does not target the sim’s trades, only its performance — so selection divergence is EXPECTED and benign/flat rows are not misses. Only [PAST] rows bear on trigger integrity. The report says so rather than leaving the reader to infer it. No MODEL_VERSION change, Gate untouched, reads only. §4.2 mix/severity → v7.6.32. Base v7.6.30 (4fbccc58).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.30 · EVAL RUNS THE BACKTEST, NOT THE HUNT (S69, Ron). Fixes a defect shipped in .29: runSimulation() ends by calling runRollScan() whenever the app is not in debug or sandbox mode, so eval calling runSimulation() on load fired a live 454-contract Polygon scan at every page load and blocked the §4.1 report behind it. That contradicts SPEC §2, which holds that the scan is not needed on every run and stays an explicit action. runSimulation now takes an optional opts.noScan and eval passes it; the trailing hunt is gated on it. The three pre-existing call sites pass no argument, so opts is undefined, _noScan is false and their behaviour is byte-identical — asserted as a post-condition, not assumed. The Scan tab stays visible and Scan pressed still runs a scan. Root cause worth recording: .29 verified that runSimulation would not clobber lastResult with pinned numbers, which was the imagined hazard, and never read the function tail, where the real one was. §4.2 mix/severity → v7.6.31. Base v7.6.29 (5bfee4a6).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.29 · EVAL RUNS LIKE A RUN (S69, Ron). INSTRUMENT, no MODEL_VERSION, Gate untouched. Eval now calls runSimulation() FIRST, so loading the page drives the progress bar and fills the performance panels exactly as a Debug run does — the visible signal that eval ran. The panels come from that FULL run and never from the pinned divergence run, whose window is ~2 months: its core yield is not the lifetime figure and would read as roughly 24% in a 10.4% field. Because runSimulation() clears the log at its start and eval prints after it, the §4.1 block now survives instead of being wiped by the next run (v7.6.28 shipped with eval output that any Debug or Scan press erased — found on first contact). The full run also supplies §3 Core Roll Yield as the reference line, absent in .28 for want of a full run. Divergence rows are BANDED past / near / benign / flat: .28 printed 11 rows flat where 2 carried signal, and a divergence only means a miss when the quiet side was at or past a threshold. A FRAME caveat now prints on the header — readings are the sim day-bar VWAP, not the agent intraday NBBO mark, so a past-threshold row is the sim price source putting a position past its trigger, NOT proof the agent saw that number. The three silent early returns in runEval each log. §4.2 mix/severity → v7.6.30. Base v7.6.28 (4a72be39).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.28 · EVALUATION MODE §4.1 (S69, Ron). INSTRUMENT, NOT a model change: MODEL_VERSION unchanged, Gate region untouched, nothing here writes roll_params.json. Eval is not a mode with a button — it runs on load from the single DM-resolved path (_debugMode untouched, scan keeps its run-button state machine); refreshing the browser re-runs it. Writes the §4.1 divergence log to Logs: every date one side traded and the other did not, with the quiet side's reading in the sim's OWN frame (day-bar VWAP vw||c, defH delta) and its distance from the threshold. Window left AS-IS per Ron — _confStart (first live entry on/after POLICY_REGIME_2) IS the current model's start point; sim and live spans differ by a day and BOTH print rather than being averaged away. Cause attribution is flagged UNKNOWN until the agent run log exists (SPEC agent run log, pending). §4.2 mix/severity → v7.6.29; §4.3 wedge + §4.4 agreement → v7.6.30. Base v7.6.27 (1157c52f).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.27 · ONE YTD, ROLLING (S69, Ron). DISPLAY ONLY, no MODEL_VERSION. The Performance panel's YTD anchor was the literal '2025-12-31' and would have drifted to 13 months on 2027-01-01; the summary cards derived their year from the data. Both now read _ytdYear() and both print the year, so the two toggles always name the same span. January shows one month. Base v7.6.26 (c250bc03).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.34 · §4.4 TRIGGER AGREEMENT + RANGE POSITION (S70). §4.4: where BOTH sides closed on the same date, did they fire on the same trigger and at what reading. Live reading is the RECORDED scan value (triggerValue on the blotter row), not a reconstruction. Reading differences are grouped by trigger type and NEVER pooled — decay is a percentage and delta a probability, so a pooled mean would be a units error. One rule reads both: a HIGHER reading means that side fired LATER, since both triggers are threshold-crossings. The section exists to stop the intraday-noise hypothesis being re-invented: S69 found live fires at 0.719 against the sim 0.739, if anything MORE conservative than the model. RANGE POSITION answers the objection v7.6.33 shipped with: the entry wedge read +$0.40/sh over 12 sells, the tightest estimate in the evaluation, but the day-bar VWAP is no more reachable on entry than on exit, so the number had no mechanism. Each sell is now located in its own day range as a percentile of (low, high) beside the VWAP’s percentile: fills sitting BELOW the VWAP in-range is execution, fills tracking it is time-of-day. Same bars, already fetched. Also reworded the §4.3 line that claimed the wedge ACCOUNTS for a share of §4.2 severity — it bounds it. The wedge prices live fills against live’s OWN contracts, while severity compares live to the sim on DIFFERENT contracts, since live selects higher strikes by choice. No MODEL_VERSION change, Gate untouched, reads only. Base v7.6.33 (7599f962).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.33 · §4.3 EXECUTION WEDGE (S70). Live fills against the sim day-bar VWAP for the SAME contract on the SAME date — measured, never repriced. Sign convention throughout: POSITIVE = live worse. The exit leg is cover − mark, the entry leg mark − sell, so both legs read in one direction and sum to a cycle total. EXIT is split by trigger and the pooled figure prints only under a do-not-read label: S67 headlined +5.7¢ in Ron’s favour, a pooled average concealing a sign flip, because live beats the VWAP on quiet decay days and loses badly on stop days where the VWAP averages in a cheap morning that is unreachable once delta has breached. ENTRY is NOT split — entries are chosen, not forced, so the trigger that ended a cycle says nothing about how it began, and splitting on it would invent a mechanism. The wedge total is set against §4.2 severity in the same units, since explaining that term is the whole point of the section. Standard errors on every line; a pool under n=2 says so rather than printing a bare mean. No MODEL_VERSION change, Gate untouched, reads only. §4.4 trigger agreement → v7.6.34. Base v7.6.32 (98a7c288).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.32 · §4.2 MIX vs SEVERITY (S70). Shift-share decomposition of the sim/live gap, the measurement S69 did by hand. MIX is live’s own per-cycle severity carried onto the SIM’s exit-pool split — you took a different number of stops; SEVERITY is the sim’s severity on that same split — each pool cost differently. They sum to the gap EXACTLY and a checksum asserts it on every run, because a decomposition that does not close is not a decomposition. Pools come from the existing DELTA-FIRST classifier (Model Rules §9 — a co-fire books as a stop) and are NOT hard-coded to two: a dte or expiry cycle gets its own row rather than being folded into decay where it would be silently mis-attributed. A pool with no live cycles imputes live’s OVERALL mean and says so on the line, keeping the identity exact while making the imputation visible. Standard errors on both terms per SPEC §6, treating pools as independent and counts as fixed, and printed as approximate because they are; a pool under n=2 has no sd and is named rather than dropped silently. No MODEL_VERSION change, Gate untouched, reads only. §4.3 wedge and §4.4 agreement → v7.6.33. Base v7.6.31 (aeac6d7e).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.31 · THE BOUNDARY RELEASE (S70, Ron). §4.1 was sound in the interior of its window and blind at the edge, in two ways that are the same defect. (1) OPEN NOW: cycles.push() fires at EXIT, so neither side’s currently-open cycle had a record and the divergence happening right now could not appear — on 2026-11-10 the sim held $755C 04-30-27 against a live $765C 04-30-27 with no row for it. Both open positions and their readings now print, from the PINNED run’s pendingContract and the blotter’s isOpen row. (2) PROVISIONAL: a row on the last DM date is not yet a finding — the quiet side has not been evaluated past it. Friday’s 2026-11-05 row vanished on Tuesday once the DM advanced and the sim’s own 11-05 entry existed. Such rows are now marked. (3) POLICY: Ron selects HIGHER strikes by choice and does not target the sim’s trades, only its performance — so selection divergence is EXPECTED and benign/flat rows are not misses. Only [PAST] rows bear on trigger integrity. The report says so rather than leaving the reader to infer it. No MODEL_VERSION change, Gate untouched, reads only. §4.2 mix/severity → v7.6.32. Base v7.6.30 (4fbccc58).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.30 · EVAL RUNS THE BACKTEST, NOT THE HUNT (S69, Ron). Fixes a defect shipped in .29: runSimulation() ends by calling runRollScan() whenever the app is not in debug or sandbox mode, so eval calling runSimulation() on load fired a live 454-contract Polygon scan at every page load and blocked the §4.1 report behind it. That contradicts SPEC §2, which holds that the scan is not needed on every run and stays an explicit action. runSimulation now takes an optional opts.noScan and eval passes it; the trailing hunt is gated on it. The three pre-existing call sites pass no argument, so opts is undefined, _noScan is false and their behaviour is byte-identical — asserted as a post-condition, not assumed. The Scan tab stays visible and Scan pressed still runs a scan. Root cause worth recording: .29 verified that runSimulation would not clobber lastResult with pinned numbers, which was the imagined hazard, and never read the function tail, where the real one was. §4.2 mix/severity → v7.6.31. Base v7.6.29 (5bfee4a6).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.29 · EVAL RUNS LIKE A RUN (S69, Ron). INSTRUMENT, no MODEL_VERSION, Gate untouched. Eval now calls runSimulation() FIRST, so loading the page drives the progress bar and fills the performance panels exactly as a Debug run does — the visible signal that eval ran. The panels come from that FULL run and never from the pinned divergence run, whose window is ~2 months: its core yield is not the lifetime figure and would read as roughly 24% in a 10.4% field. Because runSimulation() clears the log at its start and eval prints after it, the §4.1 block now survives instead of being wiped by the next run (v7.6.28 shipped with eval output that any Debug or Scan press erased — found on first contact). The full run also supplies §3 Core Roll Yield as the reference line, absent in .28 for want of a full run. Divergence rows are BANDED past / near / benign / flat: .28 printed 11 rows flat where 2 carried signal, and a divergence only means a miss when the quiet side was at or past a threshold. A FRAME caveat now prints on the header — readings are the sim day-bar VWAP, not the agent intraday NBBO mark, so a past-threshold row is the sim price source putting a position past its trigger, NOT proof the agent saw that number. The three silent early returns in runEval each log. §4.2 mix/severity → v7.6.30. Base v7.6.28 (4a72be39).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.28 · EVALUATION MODE §4.1 (S69, Ron). INSTRUMENT, NOT a model change: MODEL_VERSION unchanged, Gate region untouched, nothing here writes roll_params.json. Eval is not a mode with a button — it runs on load from the single DM-resolved path (_debugMode untouched, scan keeps its run-button state machine); refreshing the browser re-runs it. Writes the §4.1 divergence log to Logs: every date one side traded and the other did not, with the quiet side's reading in the sim's OWN frame (day-bar VWAP vw||c, defH delta) and its distance from the threshold. Window left AS-IS per Ron — _confStart (first live entry on/after POLICY_REGIME_2) IS the current model's start point; sim and live spans differ by a day and BOTH print rather than being averaged away. Cause attribution is flagged UNKNOWN until the agent run log exists (SPEC agent run log, pending). §4.2 mix/severity → v7.6.29; §4.3 wedge + §4.4 agreement → v7.6.30. Base v7.6.27 (1157c52f).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.27 · ONE YTD, ROLLING (S69, Ron). DISPLAY ONLY, no MODEL_VERSION. The Performance panel's YTD anchor was the literal '2025-12-31' and would have drifted to 13 months on 2027-01-01; the summary cards derived their year from the data. Both now read _ytdYear() and both print the year, so the two toggles always name the same span. January shows one month. Base v7.6.26 (c250bc03).</span></div>
 </div>
 
 <script>
@@ -908,7 +908,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.33';
+const APP_VERSION = 'v7.6.34';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2953,33 +2953,46 @@ function _evalRenderDecomp(d) {
 // invent a mechanism the data does not contain.
 function _evalWedge(live) {
   const obs = [], unpriced = [];
-  const markOn = function (strike, expiry, iso) {
+  // v7.6.34 — the whole bar, not just the mark: RANGE POSITION needs h/l.
+  const barOn = function (strike, expiry, iso) {
     if (!iso || !DM || !DM.options) return null;
     const c = DM.options[buildScanTicker(expiry, strike)];
     if (!c) return null;
     buildDayMap(c);
     const bar = c._dm[iso];
     if (!bar) return null;
-    const m = (bar.vw || bar.c);
-    return (m == null) ? null : m;
+    return ((bar.vw || bar.c) == null) ? null : bar;
+  };
+  const markOf = function (b) { return b ? (b.vw || b.c) : null; };
+  // Where a fill sat in its own day range, as a percentile of (low, high).
+  // The companion number is the VWAP's own percentile: a fill BELOW the VWAP
+  // in-range is execution; a fill tracking it is time-of-day. Null when the
+  // bar has no range to speak of — never 50 by default.
+  const posIn = function (b, px) {
+    if (!b || b.h == null || b.l == null || !(b.h > b.l) || px == null) return null;
+    return (px - b.l) / (b.h - b.l) * 100;
   };
   live.forEach(function (r) {
     if (r.isOpen) return;
     const qty = r.qty || 0;
-    const mx = markOn(r.strike, r.expiry, r.close);
+    const bx = barOn(r.strike, r.expiry, r.close), mx = markOf(bx);
     if (r.cover != null && r.close) {
       if (mx == null) unpriced.push('exit ' + r.close);
       else obs.push({ leg: 'exit', date: r.close, pool: _confLiveType(r.trigger),
                       live: r.cover, mark: mx, per: r.cover - mx,
                       dollars: (r.cover - mx) * 100 * qty,
+                      fillPos: posIn(bx, r.cover), markPos: posIn(bx, mx),
+                      range: (bx && bx.h != null && bx.l != null) ? (bx.h - bx.l) : null,
                       contract: _confContract(r.strike, r.expiry) });
     }
-    const mn = markOn(r.strike, r.expiry, r.open);
+    const bn = barOn(r.strike, r.expiry, r.open), mn = markOf(bn);
     if (r.sell != null && r.open) {
       if (mn == null) unpriced.push('entry ' + r.open);
       else obs.push({ leg: 'entry', date: r.open, pool: 'entry',
                       live: r.sell, mark: mn, per: mn - r.sell,
                       dollars: (mn - r.sell) * 100 * qty,
+                      fillPos: posIn(bn, r.sell), markPos: posIn(bn, mn),
+                      range: (bn && bn.h != null && bn.l != null) ? (bn.h - bn.l) : null,
                       contract: _confContract(r.strike, r.expiry) });
     }
   });
@@ -3003,6 +3016,9 @@ function _evalWedge(live) {
     exitRows: group(isExit),
     exitPooledPer: stat(isExit, per), exitPooledDol: stat(isExit, dol),
     entryPer: stat(isEntry, per),     entryDol: stat(isEntry, dol),
+    entryFillPos: _evalStat(obs.filter(isEntry).map(function (o) { return o.fillPos; }).filter(function (v) { return v != null; })),
+    entryMarkPos: _evalStat(obs.filter(isEntry).map(function (o) { return o.markPos; }).filter(function (v) { return v != null; })),
+    entryRange:   _evalStat(obs.filter(isEntry).map(function (o) { return o.range; }).filter(function (v) { return v != null; })),
     allDol: stat(function () { return true; }, dol)
   };
 }
@@ -3037,17 +3053,91 @@ function _evalRenderWedge(w, dec) {
        + '   ' + se(w.entryPer).padStart(8)
        + '   ' + (w.entryPer.mean != null ? verdict(w.entryPer.mean) : ''), '');
 
+  if (w.entryFillPos.n > 0 && w.entryMarkPos.n > 0) {
+    logMsg('      range position  fill at ' + w.entryFillPos.mean.toFixed(0) + '% of the day range \u00b7 VWAP at '
+         + w.entryMarkPos.mean.toFixed(0) + '% \u00b7 n=' + w.entryFillPos.n
+         + (w.entryRange.n ? ' \u00b7 mean range $' + w.entryRange.mean.toFixed(2) : ''), '');
+    logMsg('                      fills sitting BELOW the VWAP in-range = execution; tracking it = time-of-day.', '');
+    logMsg('                      The day-bar VWAP is no more reachable on entry than on exit (\u00a74.3).', '');
+  }
   logMsg('    BOTH LEGS              total ' + _confMoney(w.allDol.sum) + ' over ' + w.allDol.n + ' fills', '');
   if (dec && dec.sev != null) {
     const pct = (dec.sev !== 0) ? Math.round(w.allDol.sum / dec.sev * 100) : null;
     logMsg('    vs \u00a74.2 SEVERITY ' + _confMoney(dec.sev)
-         + (pct != null ? ': the wedge accounts for ' + pct + '% of it' : '')
-         + ' \u2014 same units, independent data (fills, not cycle means)', '');
+         + (pct != null ? ': the wedge BOUNDS ' + pct + '% of it' : '')
+         + ' \u2014 bounds, does NOT account for. The wedge prices live fills against', '');
+    logMsg('                           live\u0027s OWN contracts; severity compares live to the sim on DIFFERENT'
+         + ' ones, since live selects higher strikes by choice.', '');
   }
   if (w.unpriced.length) {
     logMsg('    ' + w.unpriced.length + ' fill(s) not priceable in the DM on their own date \u2014 EXCLUDED, not zeroed: '
          + w.unpriced.slice(0, 6).join(', ') + (w.unpriced.length > 6 ? ' \u2026' : ''), '');
   }
+}
+
+// v7.6.34 — SPEC evaluation mode §4.4. Trigger agreement.
+//
+// Where BOTH sides closed a cycle on the same date: same trigger type, and at
+// what reading. The live reading is the RECORDED scan value (triggerValue on
+// the blotter row) — what the agent actually saw — not a reconstruction.
+//
+// Reading differences are grouped by TYPE and never pooled: decay is a
+// percentage and delta a probability, so a pooled mean would be a units error.
+// One rule reads both, because both triggers are threshold-crossings:
+// a HIGHER reading means that side fired LATER.
+//
+// This section exists to stop a dead hypothesis being re-invented. S69 looked
+// for live stopping early on intraday noise and found the opposite: live fired
+// at Δ 0.719 against the sim's 0.739, and 0.727 against 0.765 — if anything
+// MORE conservative than the model.
+function _evalAgreement(live, sim) {
+  const byDate = {};
+  sim.forEach(function (c) { if (c.exitDate) byDate[c.exitDate] = c; });
+  const rows = [];
+  live.forEach(function (r) {
+    if (r.isOpen || !r.close) return;
+    const c = byDate[r.close];
+    if (!c) return;
+    const lt = _confLiveType(r.trigger), st = _confSimType(c.reason);
+    const sr = (st === 'delta') ? c.exitDelta : (st === 'decay' ? c.exitDecayPct : null);
+    rows.push({ date: r.close, liveType: lt, simType: st, agree: lt === st,
+                liveRead: (r.tv != null ? r.tv : null), simRead: (sr != null ? sr : null),
+                thresh: (r.tt != null ? r.tt : null) });
+  });
+  const byType = {};
+  rows.forEach(function (x) {
+    if (!x.agree || x.liveRead == null || x.simRead == null) return;
+    (byType[x.simType] = byType[x.simType] || []).push(x.liveRead - x.simRead);
+  });
+  return {
+    rows: rows,
+    n: rows.length,
+    nAgree: rows.filter(function (x) { return x.agree; }).length,
+    deltas: Object.keys(byType).sort().map(function (t) { return { type: t, stat: _evalStat(byType[t]) }; })
+  };
+}
+
+function _evalRenderAgreement(a) {
+  logMsg('  TRIGGER AGREEMENT      dates where BOTH sides closed \u00b7 live reading is the RECORDED scan value', '');
+  if (!a.n) {
+    logMsg('    no dates in this window where both sides closed a cycle', '');
+    return;
+  }
+  logMsg('    ' + a.nAgree + '/' + a.n + ' agree on trigger type', a.nAgree === a.n ? 'ok' : 'err');
+  a.rows.forEach(function (x) {
+    logMsg('    ' + x.date + '  sim ' + x.simType + (x.simRead != null ? ' ' + x.simRead.toFixed(3) : ' \u2014')
+         + '   live ' + x.liveType + (x.liveRead != null ? ' ' + x.liveRead.toFixed(3) : ' \u2014')
+         + (x.agree ? '' : '   \u2717 TYPES DIFFER'), x.agree ? '' : 'err');
+  });
+  a.deltas.forEach(function (d) {
+    if (d.stat.mean == null) return;
+    const later = d.stat.mean > 0;
+    logMsg('    ' + d.type + ': live \u2212 sim mean ' + (d.stat.mean >= 0 ? '+' : '') + d.stat.mean.toFixed(3)
+         + (d.stat.sd != null && d.stat.n > 1 ? ' \u00b1' + (d.stat.sd / Math.sqrt(d.stat.n)).toFixed(3) : ' (n<2)')
+         + ' \u00b7 n=' + d.stat.n + '  \u2014 live fired ' + (later ? 'LATER' : 'EARLIER')
+         + ' than the model', '');
+  });
+  logMsg('    (readings never pooled across types: decay is a percentage, delta a probability)', '');
 }
 
 function _evalReport(live, sim, start, ms, full, pend) {
@@ -3139,7 +3229,7 @@ function _evalReport(live, sim, start, ms, full, pend) {
   const _dec = _evalGapDecomp(live, sim);
   _evalRenderDecomp(_dec);
   _evalRenderWedge(_evalWedge(live), _dec);
-  logMsg('  TRIGGER AGREEMENT      staged — §4.4, v7.6.34', '');
+  _evalRenderAgreement(_evalAgreement(live, sim));
   logMsg('  — evaluation ' + (ms / 1000).toFixed(1) + 's · reads only; never writes roll_params.json', '');
   showTab('log'); // §5 — eval writes to Logs and shows that tab, as Debug does
 }
