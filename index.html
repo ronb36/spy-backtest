@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.7.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.7.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -406,7 +406,7 @@ select.display-box { cursor:pointer; outline:none; }
             <button id="perf-rng-all" onclick="_perfRange='all';_perfRngPaint();renderPerfPanel(true)" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--accent);border:1px solid var(--accent);border-radius:3px;color:#fff;padding:3px 8px;cursor:pointer;">ALL</button><!-- v7.6.10 — statement range -->
             <button id="perf-rng-ytd" onclick="_perfRange='ytd';_perfRngPaint();renderPerfPanel(true)" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 8px;cursor:pointer;">YTD</button>
             <button onclick="renderPerfPanel(true)" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⟳ Refresh</button>
-            <button id="perf-exp" onclick="resExport('live_trades', 'perf-exp')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⬇ Export data</button>
+            <button id="perf-exp" onclick="resExport('account_activity', 'perf-exp')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⬇ Export data</button>
           </div>
         </div>
         <div id="perf-body" style="padding:2px 10px 6px;"></div>
@@ -650,7 +650,7 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="file" id="imp-files" accept=".csv" multiple style="font-family:var(--mono);font-size:10px;color:var(--muted);">
           <button onclick="impDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Dry Run</button>
           <button onclick="impComputeBasis()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⟳ Cost Basis</button><!-- v6.26.0 — ledger FIFO walk, no import needed -->
-          <button onclick="impLegsDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Legs Dry Run</button><!-- v7.2.0 — statement-authored conversion, READ-ONLY --><button onclick="impLegsCompare()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Compare</button><!-- v7.2.4 — parallel run, READ-ONLY --><button onclick="impActivityCompare()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Activity Compare</button><!-- v7.7.0 — adapter vs live_trades, READ-ONLY --><button id="exp-lt-btn" onclick="resExport('live_trades','exp-lt-btn')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⇩ Export live_trades</button><button id="exp-ll-btn" onclick="resExport('live_legs','exp-ll-btn')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⇩ Export live_legs</button><!-- v7.7.0 — backups before the cutover; reuses the exhaustive paginated exporter --><button onclick="impLegsInsert()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:rgba(224,160,32,.10);border:1px solid #e0a020;border-radius:3px;color:#e0a020;padding:4px 12px;cursor:pointer;">▲ Insert → live_legs</button><!-- v7.2.4 — WRITES. live_trades untouched. -->
+          <button onclick="impLegsDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Legs Dry Run</button><!-- v7.2.0 — statement-authored conversion, READ-ONLY --><button onclick="impLegsCompare()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Compare</button><!-- v7.2.4 — parallel run, READ-ONLY --><button onclick="impActivityCompare()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Activity Compare</button><!-- v7.7.0 — adapter vs live_trades, READ-ONLY --><button id="exp-lt-btn" onclick="resExport('live_trades','exp-lt-btn')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⇩ Export live_trades</button><button onclick="impBackfillTriggers()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:rgba(224,160,32,.10);border:1px solid #e0a020;border-radius:3px;color:#e0a020;padding:4px 12px;cursor:pointer;">⇪ Backfill triggers</button><!-- v7.7.2 — one-time, decision columns only --><button id="exp-ll-btn" onclick="resExport('account_activity','exp-ll-btn')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⇩ Export account_activity</button><!-- v7.7.0 — backups before the cutover; reuses the exhaustive paginated exporter --><button onclick="impLegsInsert()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:rgba(224,160,32,.10);border:1px solid #e0a020;border-radius:3px;color:#e0a020;padding:4px 12px;cursor:pointer;">▲ Insert → live_legs</button><!-- v7.2.4 — WRITES. live_trades untouched. -->
           <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">Parses Fidelity history CSVs · classifies · reconciles SPY option legs vs blotter · dedupes · tie-out. Dry run writes nothing; Insert appears after.</span>
         </div>
         <div id="imp-basis" style="padding:0 16px 6px;font-family:var(--mono);font-size:9px;color:var(--muted);"></div><!-- v6.26.0 -->
@@ -747,6 +747,7 @@ const PARAMS_FILE = 'roll_params.json';
 // legacy GitHub JSON consts (DATA_URL/DATA_FILE) removed v5.2.1
 // Polygon key lives in localStorage only ('polygon_key') — never in code
 const SB_URL      = 'https://pepdnkwytziegjvgkofq.supabase.co/rest/v1';
+const ACT_TABLE   = 'account_activity'; // v7.7.2 — THE activity table (SPEC single trades table). live_legs is the frozen rollback copy; live_trades is retired.
 const SB_ANON     = 'sb_publishable_k2TqNhnYKZYUBicrpsRflw_tlODD6Ma';
 
 // UTF-8-safe base64 for GitHub publish payloads. btoa() throws on any
@@ -908,7 +909,17 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.7.1';
+const APP_VERSION = 'v7.7.2';
+// v7.7.2 (S70, Ron) — THE CUTOVER to one activity table, account_activity
+// (SPEC single trades table). Every reader takes trades from the ledger through
+// _activityToTrades; tickets write legs only; live_trades is frozen and retired;
+// the statement insert corrects tickets (date, contract, price, quantity) and no
+// longer re-seeds triggers from live_trades; blotter delete works on a ticket's
+// own leg rows and refuses statement rows; Cover Only finds the open position in
+// the ledger; cost basis reads the ledger's share lots; one-time ⇪ Backfill
+// triggers copies pre-era close reasons. Activity Compare: priced late covers
+// stay covers, date mis-punches are paired, every cycle difference is traced.
+// No MODEL_VERSION change, Gate untouched. Base v7.7.1 (848aaa8a).
 // v7.7.1 (S70, Ron) — release notes live in the session summaries and chats; the
 // footer carries none. This release: Activity Compare matches EXPIRIES and
 // ASSIGNMENTS by contract rather than date (v7.7.0 reported 3 identity and 14
@@ -2088,7 +2099,7 @@ let   _perfRange = 'all';                                       // v7.6.10 — '
 // quantity, amount, cash_balance, occ_seq}; ticket-basis rows (no cash balance)
 // are not statement facts and are excluded.
 async function sbGetLiveLegs() {
-  const res = await fetch(`${SB_URL}/live_legs?select=*&order=trade_date.asc,occ_seq.asc&limit=1000`, { headers: _sbHeaders });
+  const res = await fetch(`${SB_URL}/${ACT_TABLE}?select=*&order=trade_date.asc,occ_seq.asc&limit=1000`, { headers: _sbHeaders });
   if (!res.ok) throw new Error('live_legs read failed: ' + res.status);
   const rows = await res.json();
   if (rows.length === 1000) throw new Error('live_legs hit the 1000-row window \u2014 raise the limit or paginate');
@@ -9533,7 +9544,21 @@ function rowToTrade(r) {
   };
 }
 
+// v7.7.2 — EVERY reader's trades now come from the ledger through the adapter.
+// The return shape is rowToTrade's, so no reader changes; what changed is that
+// a statement correction now reaches the blotter, Conformance, eval and Roll
+// Economics, because there is one record and they all read it (SPEC §9).
 async function sbGetLiveTrades() {
+  const res = await fetch(`${SB_URL}/${ACT_TABLE}?select=*&order=trade_date.asc,occ_seq.asc&limit=2000`, { headers: _sbHeaders });
+  if (!res.ok) throw new Error(ACT_TABLE + ' read failed: ' + res.status);
+  const rows = await res.json();
+  if (rows.length === 2000) throw new Error(ACT_TABLE + ' hit the 2000-row window — blotter would be silently truncated (raise the limit or paginate)');
+  return _activityToTrades(_actShape(rows));
+}
+
+// v7.7.2 — the RETIRED blotter, frozen. Read only by Activity Compare and the
+// one-time trigger backfill. Nothing writes live_trades any more.
+async function sbGetLiveTradesRetired() {
   const res = await fetch(
     `${SB_URL}/live_trades?order=trade_date.asc,id.asc&limit=1000`,
     { headers: _sbHeaders }
@@ -9545,6 +9570,11 @@ async function sbGetLiveTrades() {
 }
 
 async function sbUpsertTrade(trade) {
+  // v7.7.2 — RETIRED. Every ticket writes its legs to ACT_TABLE (_legsWriteTicket);
+  // status is derived by cycle assembly, so there is no open row to close. Kept as
+  // a tripwire: anything still calling it fails loudly instead of writing a table
+  // no reader takes.
+  throw new Error('sbUpsertTrade is retired (v7.7.2) — tickets write legs to ' + ACT_TABLE);
   // Close any existing open positions first if this one is open
   if (trade.status === 'open') {
     await fetch(`${SB_URL}/live_trades?status=eq.open`, {
@@ -9565,8 +9595,16 @@ async function sbUpsertTrade(trade) {
   }
 }
 
+// v7.7.2 — delete a ticket ON ITS OWN LEG ROWS, and only while it is still a
+// ticket. A row the statement has converted is a broker fact: it is corrected by
+// the next statement upload, never by hand (SPEC §5.3).
 async function sbDeleteTrade(id) {
-  const res = await fetch(`${SB_URL}/live_trades?id=eq.${encodeURIComponent(id)}`, {
+  const t = (_liveTradesCache || []).find(x => x.id === id);
+  if (!t) throw new Error('ticket ' + id + ' not found — reload the blotter');
+  if (t._basis !== 'ticket') throw new Error('this trade is on the statement (' + (t._basis || 'unknown') + ') — the next statement upload corrects it; it cannot be deleted by hand');
+  const ids = (t._legIds || []).filter(Boolean);
+  if (!ids.length) throw new Error('no leg rows found for this ticket');
+  const res = await fetch(`${SB_URL}/${ACT_TABLE}?basis=eq.ticket&id=in.(${ids.map(encodeURIComponent).join(',')})`, {
     method: 'DELETE',
     headers: _sbHeaders
   });
@@ -10176,7 +10214,7 @@ function _legsCloseGroups(spyLegs, protection) {
 // v7.2.4 — read live_legs back as parse-shaped rows so the SAME assembler runs on
 // both sides of the parallel run. A second assembler would be a second truth.
 async function legsGetFromTable() {
-  const res = await fetch(`${SB_URL}/live_legs?order=trade_date.asc,occ_seq.asc&limit=2000`,
+  const res = await fetch(`${SB_URL}/${ACT_TABLE}?order=trade_date.asc,occ_seq.asc&limit=2000`,
     { headers: _sbHeaders });
   if (!res.ok) throw new Error('live_legs read failed: ' + res.status);
   const rows = await res.json();
@@ -10209,7 +10247,7 @@ function _tktRowId(date, cls, sym, n) {
 // convert regardless, and _legsAggregate takes Math.abs for cycle arithmetic.
 async function _legsSignFor(cls) {
   try {
-    const r = await fetch(`${SB_URL}/live_legs?cls=eq.${cls}&basis=eq.statement&select=quantity,amount&limit=1`,
+    const r = await fetch(`${SB_URL}/${ACT_TABLE}?cls=eq.${cls}&basis=eq.statement&select=quantity,amount&limit=1`,
       { headers: _sbHeaders });
     if (!r.ok) return null;
     const rows = await r.json();
@@ -10227,17 +10265,18 @@ async function _ticketToLegs(t) {
     // but a ticket field can arrive MM/DD/YY, and _impSymOf slices blindly: an
     // unnormalized '02/26/27' yields '-SPY/26/27C775' and a date column Postgres
     // cannot parse. _impUsIso passes ISO through unchanged, so this is safe either way.
-    const expiry = _impUsIso(expiryIn);
+    const expiry = _isoAny(expiryIn); // v7.7.2 — MM/DD/YYYY too
     const strike = strikeIn;
     const sym = _impSymOf(und, expiry, strike);
     const sg = await _legsSignFor(cls);
     const qty = Math.abs(Number(contracts) || 0);
     const gross = Math.abs(Number(price) * qty * 100);
     legs.push({
-      id: _tktRowId(t.trade_date, cls, sym, legs.length),
-      trade_date: t.trade_date,
+      id: _tktRowId(_isoAny(t.trade_date), cls, sym, legs.length),
+      trade_date: _isoAny(t.trade_date), // v7.7.2 — the column is a date; a manual entry can arrive MM/DD/YY
       settlement_date: null,
-      action_raw: (cls === 'opt_buy_close' ? 'TICKET BOUGHT TO CLOSE ' : 'TICKET SOLD TO OPEN ') + (sym || ''),
+      action_raw: (cls === 'opt_buy_close' ? 'TICKET BOUGHT TO CLOSE ' : cls === 'opt_sell_open' ? 'TICKET SOLD TO OPEN '
+        : 'TICKET ' + cls.toUpperCase() + ' ') + (sym || ''), // v7.7.2 — terminal and long-call tickets name themselves
       cls, symbol: sym, underlying: und,
       expiry: expiry || null, strike: Number(strike),
       quantity: sg ? sg.q * qty : qty,
@@ -10260,8 +10299,12 @@ async function _ticketToLegs(t) {
   };
   // A roll is one ticket and two legs. Cover first: it is the leg the trigger
   // belongs to, and _legsToCycles orders closers ahead of opens anyway.
-  await add('opt_buy_close', t.coverStrike, t.coverExpiry, t.coverContracts, t.coverPrice);
-  await add('opt_sell_open', t.sellStrike,  t.sellExpiry,  t.sellContracts,  t.sellPrice);
+  // v7.7.2 — an expiry or assignment ticket is a TERMINAL close at zero, and a long
+  // call is a BUY to open; before the cutover these never reached the ledger.
+  const _rt = t.row_type || '';
+  const _term = _rt === 'assigned' ? 'opt_assigned' : (_rt === 'expired' || _rt === 'expired worthless') ? 'opt_expired' : null;
+  await add(_term || 'opt_buy_close', t.coverStrike, t.coverExpiry, t.coverContracts, _term ? 0 : t.coverPrice);
+  await add(_rt === 'long_call' ? 'opt_buy_open' : 'opt_sell_open', t.sellStrike,  t.sellExpiry,  t.sellContracts,  t.sellPrice);
   // The trigger rides the CLOSING leg only — an opening ticket has no close
   // reason. This is the same rule the v7.2.5 seed enforces, applied at the source.
   const closer = legs.find(l => LEG_CLOSERS.has(l.cls));
@@ -10288,7 +10331,7 @@ async function _legsWriteTicket(t) {
       throw new Error('leg key mismatch at leg ' + i + ' (' + legs[i].cls + '): ' + diff.join(', '));
     }
   }
-  const res = await fetch(`${SB_URL}/live_legs?on_conflict=id`, {
+  const res = await fetch(`${SB_URL}/${ACT_TABLE}?on_conflict=id`, {
     method: 'POST',
     headers: { ..._sbHeaders, 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
     body: JSON.stringify(legs) });
@@ -10437,7 +10480,7 @@ async function impLegsInsert() {
   const st = $('imp-status'), host = $('imp-results');
   const files = $('imp-files').files;
   if (!files || !files.length) { st.textContent = 'no files selected'; return; }
-  if (!confirm('WRITE to live_legs. live_trades is untouched. Proceed?')) return;
+  if (!confirm('WRITE to ' + ACT_TABLE + '. Tickets in the file span are corrected to the statement. Proceed?')) return;
   st.textContent = 'parsing (insert)\u2026'; host.innerHTML = '';
   const L = [];
   const die = (msg) => { throw new Error(msg); };
@@ -10511,20 +10554,37 @@ async function impLegsInsert() {
 
     // DISPOSITION 2 — ticket rows in range convert IN PLACE. Never deleted.
     st.textContent = 'checking ticket rows\u2026';
-    const tres = await fetch(`${SB_URL}/live_legs?basis=eq.ticket&trade_date=gte.${dMin}&trade_date=lte.${dMax}&limit=1000`,
+    // v7.7.2 — the window is the span WIDENED by the 7-day date-correction reach, so a
+    // ticket typed a few days outside the file still finds its statement row.
+    const _wd = (d, n) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+    const tres = await fetch(`${SB_URL}/${ACT_TABLE}?basis=eq.ticket&trade_date=gte.${_wd(dMin, -7)}&trade_date=lte.${_wd(dMax, 7)}&limit=1000`,
       { headers: _sbHeaders });
     if (!tres.ok) die('live_legs ticket read failed: ' + tres.status);
     const tkts = await tres.json();
-    const converted = new Set(); const held = [];
+    const converted = new Set(); const held = []; const corr = [];
+    // v7.7.2 — MATCHING, in order: same date + class; if several, narrowed by
+    // contract symbol; if none on the date, the same contract within 7 days (a
+    // DATE mis-punch — Activity Compare found three). Statement wins on every fact
+    // it carries: date, contract, price, quantity, cash (SPEC §5.3).
+    const _sym = x => String(x || '').trim();
     for (const t of tkts) {
-      const cands = payload.filter(p => p.trade_date === t.trade_date && p.cls === t.cls && !converted.has(p.id));
-      if (cands.length > 1) die('ticket row ' + t.id + ' matches ' + cands.length + ' statement slots on '
+      let cands = payload.filter(p => p.trade_date === t.trade_date && p.cls === t.cls && !converted.has(p.id));
+      if (cands.length > 1) cands = cands.filter(p => _sym(p.symbol) === _sym(t.symbol));
+      if (!cands.length) cands = payload.filter(p => p.cls === t.cls && _sym(p.symbol) === _sym(t.symbol) && !converted.has(p.id)
+        && _actDays(p.trade_date, t.trade_date) <= 7);
+      if (cands.length > 1) die('ticket row ' + t.id + ' matches ' + cands.length + ' statement slots near '
         + t.trade_date + ' — ambiguous, BLOCKED');
-      if (!cands.length) { held.push(t); continue; } // recorded, never cleared — flags and HOLDS
+      if (!cands.length) { held.push(t); continue; } // SPEC §5.4 — no fill: FLAG and HOLD, never delete
       const p = cands[0];
+      const _ch = [];
+      if (p.trade_date !== t.trade_date) _ch.push('date ' + t.trade_date + ' \u2192 ' + p.trade_date);
+      if (_sym(p.symbol) !== _sym(t.symbol)) _ch.push('contract ' + _sym(t.symbol) + ' \u2192 ' + _sym(p.symbol));
+      if (Math.abs(Number(p.price) - Number(t.price)) >= 0.005) _ch.push('price ' + Number(t.price).toFixed(2) + ' \u2192 ' + Number(p.price).toFixed(2));
+      if (Math.abs(Math.abs(Number(p.quantity)) - Math.abs(Number(t.quantity))) > 0) _ch.push('qty ' + Math.abs(t.quantity) + ' \u2192 ' + Math.abs(p.quantity));
+      if (_ch.length) corr.push(p.trade_date + ' ' + p.cls + ' ' + _sym(p.symbol) + ': ' + _ch.join(' \u00b7 '));
       const upd = { ...p }; // triggers deliberately absent from the payload object
       delete upd.trigger; delete upd.trigger_value; delete upd.trigger_threshold; delete upd.note;
-      const ur = await fetch(`${SB_URL}/live_legs?id=eq.${encodeURIComponent(t.id)}`, {
+      const ur = await fetch(`${SB_URL}/${ACT_TABLE}?id=eq.${encodeURIComponent(t.id)}`, {
         method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
         body: JSON.stringify(upd) });
       if (!ur.ok) die('ticket convert PATCH failed on ' + t.id + ': ' + ur.status + ' ' + await ur.text());
@@ -10532,77 +10592,31 @@ async function impLegsInsert() {
     }
     L.push('\u2713 ticket rows in range ' + tkts.length + ' \u00b7 converted in place ' + converted.size
       + ' \u00b7 held (recorded, never cleared) ' + held.length);
-    if (held.length) L.push('\u26a0 HELD, not swept: ' + held.map(h => h.trade_date + ' ' + h.cls).join(', '));
+    if (held.length) L.push('\u26a0 HELD, not swept (SPEC \u00a75.4 \u2014 a ticket with no fill on the statement): ' + held.map(h => h.trade_date + ' ' + h.cls + ' ' + _sym(h.symbol)).join(', '));
+    L.push('\u2713 ' + corr.length + ' ticket(s) corrected to the statement' + (corr.length ? ':' : ''));
+    corr.forEach(c => L.push('\u00b7 corrected ' + c));
 
     // INSERT — one POST, one transaction, ids deterministic so a re-pull is free.
     st.textContent = 'inserting ' + payload.length + ' rows\u2026';
     const body = payload.filter(p => !converted.has(p.id));
-    const ins = await fetch(`${SB_URL}/live_legs?on_conflict=id`, {
+    const ins = await fetch(`${SB_URL}/${ACT_TABLE}?on_conflict=id`, {
       method: 'POST',
       headers: { ..._sbHeaders, 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
       body: JSON.stringify(body) });
     if (!ins.ok) die('insert failed: ' + ins.status + ' ' + await ins.text());
     L.push('\u2713 POST ' + body.length + ' rows \u00b7 ' + converted.size + ' already written by convert');
 
-    // MIGRATION SEED — the statement carries WHAT; only the ticket carries WHY.
-    st.textContent = 'seeding triggers\u2026';
-    // v7.6.18 — SCOPED TO THE FILE: tickets, clear and seed all bounded to [dMin, dMax].
-    // A whole-era clear followed by a file-only re-seed nulled every trigger the
-    // file did not carry (S68, incremental import) — the seed must never reach
-    // past the legs it can re-seed.
+    // v7.7.2 — NO SEED. Through v7.7.1 every insert cleared the span's triggers and
+    // re-seeded them from live_trades. live_trades is retired, so that step would now
+    // ERASE every close reason entered after the cutover. The ticket's trigger rides
+    // its own leg row and survives convert-in-place (the PATCH omits the trigger
+    // columns), so there is nothing to seed. Pre-era history: ⇪ Backfill triggers.
     const seedLo = dMin > WF_ERA_START ? dMin : WF_ERA_START, seedHi = dMax;
-    const trs = await fetch(`${SB_URL}/live_trades?select=id,trade_date,trigger,trigger_value,trigger_threshold&trade_date=gte.${seedLo}&trade_date=lte.${seedHi}&order=trade_date.asc&limit=1000`,
-      { headers: _sbHeaders });
-    if (!trs.ok) die('live_trades trigger read failed: ' + trs.status);
-    // v7.2.5 — ENTRY TICKETS EXCLUDED. An opening ticket has no close reason
-    // (S55 ruled msdd7kopu1a4 'entry' for exactly this). v7.2.4 seeded every
-    // ticket carrying any trigger, so on a date holding both an entry and a
-    // cover the entry landed last and buried the correction — which is how the
-    // 08-03 verification failed. The spec said closer-only; the code did not.
-    const allTk = (await trs.json()).filter(t => t.trigger);
-    const tickets = allTk.filter(t => String(t.trigger).toLowerCase() !== 'entry');
-    L.push('\u2713 seed set ' + tickets.length + ' of ' + allTk.length
-      + ' era tickets \u00b7 ' + (allTk.length - tickets.length) + ' entry tickets excluded (no close reason)');
-
-    // v7.2.5 — date-only attachment assumes ONE non-entry ticket per date.
-    // If that ever fails, BLOCK. Picking one is how a trigger lands on the
-    // wrong leg and pool statistics go quietly wrong.
-    const perDate = new Map();
-    for (const t of tickets) perDate.set(t.trade_date, (perDate.get(t.trade_date) || 0) + 1);
-    const dupTk = [...perDate.entries()].filter(e => e[1] > 1);
-    if (dupTk.length) die('seed ambiguity: ' + dupTk.map(e => e[0] + ' \u00d7' + e[1]).join(', ')
-      + ' \u2014 more than one closing ticket on a date, BLOCKED');
-
-    // v7.2.5 — clear era triggers before re-seeding. This rolls back OUR OWN bad
-    // write (v7.2.4's mis-seed), never a fact: identity, price, quantity and cash
-    // are untouched, so a re-run of Insert still writes ZERO fact rows.
-    const clr = await fetch(`${SB_URL}/live_legs?trade_date=gte.${seedLo}&trade_date=lte.${seedHi}`, { // v7.6.18 — file span only
-      method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ trigger: null, trigger_value: null, trigger_threshold: null }) });
-    if (!clr.ok) die('era trigger clear failed: ' + clr.status);
-    L.push('\u2713 triggers cleared ' + seedLo + ' \u2192 ' + seedHi + ' before re-seed \u2014 facts untouched, nothing outside the file span'); // v7.6.18
-
-    let seeded = 0;
-    for (const t of tickets) {
-      // date-only attachment — PROVEN by gate 2, one closing group per era date.
-      const grp = payload.filter(p => p.trade_date === t.trade_date && LEG_CLOSERS.has(p.cls)
-        && p.underlying === 'SPY');
-      if (!grp.length) { L.push('\u26a0 ticket ' + t.id + ' (' + t.trade_date + ') has no closing leg — trigger NOT seeded'); continue; }
-      grp.sort((a, b) => (a.occ_seq || 0) - (b.occ_seq || 0));
-      const target = grp[0]; // group property, carried on its first execution
-      const pr = await fetch(`${SB_URL}/live_legs?id=eq.${encodeURIComponent(target.id)}`, {
-        method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
-        body: JSON.stringify({ trigger: t.trigger,
-          trigger_value: t.trigger_value === undefined ? null : t.trigger_value, // NULL IS DATA
-          trigger_threshold: t.trigger_threshold === undefined ? null : t.trigger_threshold }) });
-      if (!pr.ok) die('trigger seed PATCH failed on ' + target.id + ': ' + pr.status);
-      seeded++;
-    }
-    L.push('\u2713 triggers seeded ' + seeded + ' of ' + tickets.length + ' era tickets carrying one');
+    L.push('\u2713 close reasons carried on the converted ticket rows \u2014 no seed, nothing cleared');
 
     // VERIFY — the two hand-corrected S55 rows, by direct read. Neither is
     // recoverable from the statement. A miss means ROLL BACK, not patch by hand.
-    const vr = await fetch(`${SB_URL}/live_legs?trade_date=in.(2026-08-03,2026-08-04)&select=trade_date,cls,trigger,trigger_value,trigger_threshold&order=trade_date.asc`,
+    const vr = await fetch(`${SB_URL}/${ACT_TABLE}?trade_date=in.(2026-08-03,2026-08-04)&select=trade_date,cls,trigger,trigger_value,trigger_threshold&order=trade_date.asc`,
       { headers: _sbHeaders });
     const vrows = vr.ok ? (await vr.json()).filter(r => r.trigger) : [];
     const chk = (d, val) => {
@@ -10622,7 +10636,7 @@ async function impLegsInsert() {
     host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;">'
       + '<div style="color:' + (bad ? 'var(--red)' : 'var(--green)') + ';margin-bottom:6px;">'
       + (bad ? 'INSERT COMPLETE \u2014 VERIFICATION FAILED \u00b7 ROLL BACK, do not hand-patch'
-             : 'INSERT COMPLETE \u00b7 live_trades untouched') + '</div>'
+             : 'INSERT COMPLETE \u00b7 ' + ACT_TABLE + ' tied to the statement') + '</div>'
       + L.map(x => '<div style="color:' + (x.startsWith('\u2717') ? 'var(--red)'
           : x.startsWith('\u26a0') ? '#e0a020' : 'var(--muted)') + ';">' + x + '</div>').join('')
       + '<div style="color:var(--muted);font-size:9px;margin-top:8px;">Re-run this button on the same '
@@ -10654,7 +10668,7 @@ async function impLegsCompare() {
       && c.closeDate && c.closeDate <= bound);
     const tblPnl = tblEra.reduce((s, c) => s + (c.spx - c.cpx) * 100 * c.qty, 0);
 
-    const trades = await sbGetLiveTrades();
+    const trades = await sbGetLiveTradesRetired(); // v7.7.2 — the frozen blotter
     const { cycles: bc, toIso } = _pairLiveCycles(trades);
     const bEra = bc.filter(c => c.openDate && toIso(c.openDate) >= WF_ERA_START
       && c.closeDate && toIso(c.closeDate) <= bound
@@ -10684,29 +10698,38 @@ async function impLegsCompare() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// v7.7.0 — ACTIVITY ADAPTER + COMPARE (S70, Ron). SPEC single trades table §7.
-// READ-ONLY. Nothing here writes; no reader is repointed. This release proves
-// the adapter before anything depends on it.
+// v7.7.2 — THE CUTOVER (S70, Ron). SPEC single trades table §3, §5, §7.
+// ONE table: account_activity (ACT_TABLE). Leg-grained, one row per statement
+// row; the ticket IMPUTES rows at basis='ticket', the statement ARBITRATES by
+// converting them in place. live_trades is frozen and retired: nothing writes
+// it, and it is read only by Activity Compare and the one-time trigger backfill.
 //
-// _activityToTrades rebuilds TICKET rows — the exact shape rowToTrade emits —
-// from the leg-grained ledger. Ticket semantics are DERIVED, never stored:
-//   status       — from cycle assembly (_legsToCycles stillOpen), not a column
-//   coverPrice   — the closer's size-weighted statement price (_legsAggregate)
-//   sellPrice    — the opener's, likewise
-//   rollCredit   — the ticket formula at 9404/11251, from those prices
-//   trigger*     — the closer's own columns (seeded by every statement import)
-// It reuses the CERTIFIED assembler (_legsAggregate, _legsToCycles) rather
-// than a second one: a second assembler would be a second truth.
-//
-// Ticket formation per date: closers and opens are zipped in strike order, so
-// a roll is one ticket with both legs, a flat gap is a cover-only ticket then a
-// sell-only ticket on a later date. Which cover is zipped with which sell on a
-// multi-roll day changes only rollCredit's split across tickets, never a
-// cycle: _pairLiveCycles pairs by CONTRACT IDENTITY, not by ticket.
+// _activityToTrades (v7.7.0) rebuilds TICKET rows in the exact rowToTrade shape
+// from the ledger, and sbGetLiveTrades now returns it — so every reader (blotter,
+// Conformance, eval, Roll Economics, Performance) sees one record and none of
+// them knows the grain underneath. Ticket semantics are DERIVED, never stored:
+// status from cycle assembly, prices from the size-weighted legs, rollCredit by
+// the ticket formula, triggers from the closing leg's own columns. It reuses the
+// certified assembler (_legsAggregate, _legsToCycles) — a second assembler would
+// be a second truth.
 // ═══════════════════════════════════════════════════════════════════════
 function _actUs(iso) { // ISO → MM/DD/YY, the rowToTrade convention
   const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) : (iso || null);
+}
+function _isoAny(d) { // v7.7.2 — MM/DD/YY, MM/DD/YYYY or ISO → ISO (a ticket field can be any of the three)
+  const s = String(d || '').trim();
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+  if (m) return (m[3].length === 2 ? '20' + m[3] : m[3]) + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0');
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? m[0] : (s || null);
+}
+function _actShape(rows) { // table rows → parse-shaped rows (the assembler's input), carrying id and basis
+  return rows.map(r => ({ id: r.id, date: String(r.trade_date || '').slice(0, 10), cls: r.cls, symbol: r.symbol,
+    quantity: r.quantity, price: r.price, commission: r.commission, fees: r.fees,
+    amount: r.amount, occ_seq: r.occ_seq, basis: r.basis,
+    trigger: r.trigger, trigger_value: r.trigger_value, trigger_threshold: r.trigger_threshold,
+    opt: r.strike != null ? { und: r.underlying, strike: Number(r.strike), expiry: String(r.expiry).slice(0, 10) } : null }));
 }
 
 function _activityToTrades(shaped) {
@@ -10714,13 +10737,20 @@ function _activityToTrades(shaped) {
   const { stillOpen } = _legsToCycles(legs);
   const openKeys = new Set(stillOpen.map(o => o.date + '|' + o.strike + '|' + o.expiry));
   // Trigger fields live on the CLOSING leg's raw row(s); split fills share them.
-  const trig = new Map();
+  // v7.7.2 — row ids and basis per aggregated leg, so a ticket still awaiting its
+  // statement can be deleted on its own rows (sbDeleteTrade).
+  const trig = new Map(), ids = new Map();
   for (const r of shaped) {
-    if (!r.opt || !LEG_CLOSERS.has(r.cls)) continue;
+    if (!r.opt) continue;
     const k = r.date + '|' + r.cls + '|' + r.symbol;
-    if (!trig.has(k) && (r.trigger != null || r.trigger_value != null))
+    if (!ids.has(k)) ids.set(k, { ids: [], basis: new Set() });
+    ids.get(k).ids.push(r.id); ids.get(k).basis.add(r.basis);
+    if (LEG_CLOSERS.has(r.cls) && !trig.has(k) && (r.trigger != null || r.trigger_value != null))
       trig.set(k, { trigger: r.trigger, tv: r.trigger_value, tt: r.trigger_threshold });
   }
+  const meta = (...Ls) => { const a = [], b = new Set();
+    for (const L of Ls) { if (!L) continue; const x = ids.get(L.date + '|' + L.cls + '|' + L.sym); if (x) { a.push(...x.ids); x.basis.forEach(v => b.add(v)); } }
+    return { _legIds: a.filter(Boolean), _basis: b.size === 1 ? [...b][0] : (b.size ? 'mixed' : null) }; };
   const byDate = new Map();
   for (const L of legs) { if (!byDate.has(L.date)) byDate.set(L.date, []); byDate.get(L.date).push(L); }
   const byStrike = (a, b) => (a.strike - b.strike) || String(a.expiry).localeCompare(String(b.expiry));
@@ -10741,14 +10771,14 @@ function _activityToTrades(shaped) {
       out.push({
         id: ++id, trade_date: _actUs(d),
         status: (o && openKeys.has(d + '|' + o.strike + '|' + o.expiry)) ? 'open' : 'closed',
-        row_type: c ? (c.cls === 'opt_expired' ? 'expired' : c.cls === 'opt_assigned' ? 'assigned' : 'roll') : 'roll',
+        row_type: c ? (c.cls === 'opt_expired' ? 'expired' : c.cls === 'opt_assigned' ? 'assigned' : o ? 'roll' : 'cover_only') : 'sell_only',
         coverExpiry: c ? _actUs(c.expiry) : null, coverStrike: c ? c.strike : null,
         coverPrice: cpx, coverContracts: c ? c.qty : null,
         sellExpiry: o ? _actUs(o.expiry) : null, sellStrike: o ? o.strike : null,
         sellPrice: spx, sellContracts: o ? o.qty : null,
         rollCredit: r2(rc),
         trigger: t ? t.trigger : null, triggerValue: t ? t.tv : null, triggerThreshold: t ? t.tt : null,
-        source: 'activity', note: null
+        source: 'activity', note: null, ...meta(c, o)
       });
     }
     // Bought protection is not a cycle; it rides as long_call, which every
@@ -10756,17 +10786,16 @@ function _activityToTrades(shaped) {
     for (const p of P) out.push({ id: ++id, trade_date: _actUs(d), status: 'closed', row_type: 'long_call',
       coverExpiry: null, coverStrike: null, coverPrice: null, coverContracts: null,
       sellExpiry: _actUs(p.expiry), sellStrike: p.strike, sellPrice: r2(p.px), sellContracts: p.qty,
-      rollCredit: null, trigger: null, triggerValue: null, triggerThreshold: null, source: 'activity', note: 'protection' });
+      rollCredit: null, trigger: null, triggerValue: null, triggerThreshold: null, source: 'activity', note: 'protection', ...meta(p) });
   }
   return out;
 }
 
+// ── Activity Compare: the RETIRED blotter (live_trades) against the ledger ──
 // Leg-grain view of ONE side, aggregated by the spec §5.2 key
-// (trade_date, side, expiry, strike). side C = close, O = open.
-// v7.7.1 — side X = a TERMINAL close (expired / assigned). Keyed by CONTRACT only,
-// no date: the blotter dates an expiry on the day it was ENTERED, the statement on
-// its own processing day, and v7.7.0 keyed both on date — so one expiry read as two
-// events, and the identity pass then paired unrelated expiries sharing a date.
+// (trade_date, side, expiry, strike). side C = close, O = open, X = terminal
+// close (expired / assigned), keyed by CONTRACT only: the blotter dates an expiry
+// on the day it was entered, the statement on its own processing day (v7.7.1).
 function _actLegKey(d, side, exp, k) { return (side === 'X' ? '*' : d) + '|' + side + '|' + exp + '|' + Number(k); }
 function _actBlotterLegs(trades) {
   const m = new Map();
@@ -10775,7 +10804,7 @@ function _actBlotterLegs(trades) {
     const key = _actLegKey(d, side, exp, k);
     let a = m.get(key);
     if (!a) { a = { d, side, exp, k: Number(k), q: 0, pq: 0, n: 0, tickets: [], trig: null }; m.set(key, a); }
-    else if (d > a.d) a.d = d; // v7.7.1 — terminal legs aggregate across dates
+    else if (d > a.d) a.d = d;
     const qq = Math.abs(Number(q) || 0);
     a.q += qq; a.pq += (px == null ? 0 : Number(px)) * qq; a.n++; a.tickets.push(t.id);
     if (side === 'C' && t.trigger) a.trig = t.trigger;
@@ -10784,14 +10813,14 @@ function _actBlotterLegs(trades) {
     if (t.source === 'csv_import' || t.row_type === 'long_call') continue;
     const d = _impUsIso(t.trade_date);
     const rt = t.row_type || '', term = rt === 'assigned' || rt === 'expired' || rt === 'expired worthless';
-    // v7.7.1 — terminal if the ticket SAYS so, or if it is dated AFTER its own
-    // expiry (no buy-to-close can happen then). A priced cover dated after expiry
-    // keeps its price, so it surfaces as a price mismatch rather than vanishing.
+    // v7.7.2 — terminal if the ticket SAYS so, or if it is UNPRICED and dated after
+    // its own expiry. A PRICED cover is a real buy-to-close whatever its date: v7.7.1
+    // read three late-dated covers as expiries, which hid date mis-punches.
     const cExp = _impUsIso(t.coverExpiry);
-    const late = !!(cExp && d && d > cExp);
+    const unpricedLate = !!(cExp && d && d > cExp && !(Number(t.coverPrice) > 0));
     if (t.coverStrike != null && t.coverStrike !== '')
-      add(d, (term || late) ? 'X' : 'C', cExp, t.coverStrike, t.coverContracts || t.sellContracts,
-        term ? 0 : (late && t.coverPrice == null ? 0 : t.coverPrice), t);
+      add(d, (term || unpricedLate) ? 'X' : 'C', cExp, t.coverStrike, t.coverContracts || t.sellContracts,
+        (term || unpricedLate) ? 0 : t.coverPrice, t);
     if (t.sellStrike != null && t.sellStrike !== '')
       add(d, 'O', _impUsIso(t.sellExpiry), t.sellStrike, t.sellContracts || t.coverContracts, t.sellPrice, t);
   }
@@ -10803,24 +10832,21 @@ function _actLedgerLegs(shaped) {
   for (const L of _legsAggregate(shaped)) {
     if (L.und !== 'SPY') continue;
     const side = (L.cls === 'opt_expired' || L.cls === 'opt_assigned') ? 'X'
-      : L.cls === 'opt_buy_close' ? 'C' : L.cls === 'opt_sell_open' ? 'O' : null; // v7.7.1 — X: terminal
+      : L.cls === 'opt_buy_close' ? 'C' : L.cls === 'opt_sell_open' ? 'O' : null;
     if (!side) continue; // protection legs are not CC legs
     const key = _actLegKey(L.date, side, String(L.expiry).slice(0, 10), L.strike);
-    const prev = m.get(key); // v7.7.1 — a terminal key can recur across dates; aggregate it
+    const prev = m.get(key); // a terminal key can recur across dates; aggregate it
     if (prev) { prev.q += L.qty; if (L.date > prev.d) prev.d = L.date; continue; }
     m.set(key, { d: L.date, side, exp: String(L.expiry).slice(0, 10), k: Number(L.strike), q: L.qty,
       px: side === 'X' ? 0 : L.px, cls: L.cls });
   }
   return m;
 }
+const _actDays = (a, b) => Math.abs((new Date(a + 'T00:00:00Z') - new Date(b + 'T00:00:00Z')) / 86400000);
 
-// Pure comparison — testable without the network.
+// Pure comparison — testable without the network. trades = the retired blotter.
 function _activityCompare(trades, rows, std) {
-  const shaped = rows.map(r => ({ date: r.trade_date, cls: r.cls, symbol: r.symbol,
-    quantity: r.quantity, price: r.price, commission: r.commission, fees: r.fees,
-    amount: r.amount, occ_seq: r.occ_seq, basis: r.basis,
-    trigger: r.trigger, trigger_value: r.trigger_value, trigger_threshold: r.trigger_threshold,
-    opt: r.strike != null ? { und: r.underlying, strike: Number(r.strike), expiry: String(r.expiry).slice(0, 10) } : null }));
+  const shaped = _actShape(rows);
   const stmt = shaped.filter(r => r.basis === 'statement');
   const sDates = stmt.map(r => r.date).filter(Boolean).sort();
   const lo = sDates[0], bound = sDates[sDates.length - 1];
@@ -10834,18 +10860,31 @@ function _activityCompare(trades, rows, std) {
   const same = [], price = [], qty = [], bOnly = [], sOnly = [];
   for (const [k, b] of B) {
     const s = S.get(k);
-    if (!inSpan(b) && !(s && inSpan(s))) continue; // v7.7.1 — a terminal leg is in span if EITHER side dates it there
+    if (!inSpan(b) && !(s && inSpan(s))) continue; // a terminal leg is in span if EITHER side dates it there
     if (!s) { bOnly.push(b); continue; }
     if (Math.abs(b.q - s.q) > 0) qty.push({ b, s });
     else if (b.px == null || Math.abs(b.px - s.px) >= 0.005) price.push({ b, s });
     else same.push(b);
   }
   for (const [k, s] of S) if (!B.has(k)) sOnly.push(s);
+  // v7.7.2 — DATE mis-punch: same contract, side, quantity and price, entered on a
+  // different day (within a week). Paired BEFORE the identity pass, which would
+  // otherwise match them to unrelated legs sharing a date.
+  const dated = [];
+  for (const b of bOnly.slice()) {
+    if (b.side === 'X') continue;
+    const cand = sOnly.filter(s => s.side === b.side && s.exp === b.exp && s.k === b.k && s.q === b.q
+      && b.px != null && Math.abs(b.px - s.px) < 0.005 && _actDays(s.d, b.d) <= 7);
+    if (cand.length === 1) {
+      dated.push({ b, s: cand[0] });
+      bOnly.splice(bOnly.indexOf(b), 1); sOnly.splice(sOnly.indexOf(cand[0]), 1);
+    }
+  }
   // An identity mis-punch (wrong strike or expiry typed) shows as one blotter-only
   // and one statement-only leg on the same date and side. Pair those exactly once.
   const ident = [];
   for (const b of bOnly.slice()) {
-    if (b.side === 'X') continue; // v7.7.1 — expiries are matched by contract; never re-paired by date
+    if (b.side === 'X') continue; // expiries are matched by contract; never re-paired by date
     const cand = sOnly.filter(s => s.d === b.d && s.side === b.side);
     const bc = bOnly.filter(x => x.d === b.d && x.side === b.side);
     if (cand.length === 1 && bc.length === 1) {
@@ -10854,28 +10893,57 @@ function _activityCompare(trades, rows, std) {
     }
   }
   const before = bOnly.filter(b => b.d < lo).length; // tickets older than the first statement row
+  // v7.7.2 — for each statement-only leg, the blotter tickets that name the same
+  // contract: what the blotter DID record for it, so the row shape can be seen.
+  const sOnlyWhy = sOnly.map(s => ({ s, tickets: tk.filter(t =>
+    (Number(t.coverStrike) === s.k && _impUsIso(t.coverExpiry) === s.exp) ||
+    (Number(t.sellStrike) === s.k && _impUsIso(t.sellExpiry) === s.exp)) }));
 
   // ── cycle grain: the adapter's tickets through the SAME pairing the blotter uses
   const adapted = _activityToTrades(shaped.filter(r => r.basis === 'statement' || r.date > bound));
   const P1 = _pairLiveCycles(tk), P2 = _pairLiveCycles(adapted), toIso = P1.toIso;
   // An expiry closes at zero on both sides (the blotter may store null, the ledger
   // emits px 0); an ASSIGNED close has no option P&L on either — excluded on both.
-  // v7.7.1 — a close dated AFTER its expiry with no price is an expiry, whatever the ticket's row_type says.
   const cpx = c => c.coverPrice != null ? Number(c.coverPrice)
     : (c.closeType === 'expired' || (c.closeDate && c.expiry && toIso(c.closeDate) > _impUsIso(c.expiry))) ? 0 : null;
   const cyc = (P, from) => P.cycles.filter(c => !c.orphan && c.closeType !== 'assigned' && c.openDate && toIso(c.openDate) >= from
     && c.closeDate && toIso(c.closeDate) <= bound && cpx(c) != null && c.sellPrice != null);
   const ck = c => toIso(c.openDate) + '|' + Number(c.strike) + '|' + _impUsIso(c.expiry);
   const pnl = c => (Number(c.sellPrice) - cpx(c)) * 100 * (Number(c.qty) || 0);
+  // v7.7.2 — TRACE every cycle difference to the legs listed above, mechanically.
+  // A price mis-punch moves a cycle by its own effect; a date mis-punch moves only
+  // the close date; a split-fill average moves it by under a cent a share.
+  const effect = new Map(); // leg key → expected (adapter − blotter) P&L
+  for (const x of price) effect.set(_actLegKey(x.b.d, x.b.side, x.b.exp, x.b.k),
+    (x.b.side === 'O' ? -1 : 1) * (x.b.px - x.s.px) * x.b.q * 100);
+  const datedClose = new Set(dated.filter(x => x.b.side === 'C').map(x => x.b.exp + '|' + x.b.k));
+  const trace = (c, d) => {
+    const exp = _impUsIso(c.expiry), k = Number(c.strike), q = Number(c.qty) || 0;
+    const legs = [_actLegKey(toIso(c.openDate), 'O', exp, k), _actLegKey(toIso(c.closeDate), 'C', exp, k), _actLegKey(null, 'X', exp, k)];
+    const want = legs.reduce((s, L) => s + (effect.get(L) || 0), 0);
+    const got = pnl(d) - pnl(c), resid = got - want;
+    const tol = q * 100 * 0.01;
+    const dateOk = toIso(c.closeDate) === toIso(d.closeDate) || datedClose.has(exp + '|' + k);
+    if (!dateOk) return 'UNEXPLAINED close date';
+    const openMoved = datedOpen.has(ck(c));
+    if (Math.abs(resid) < 0.005) return want ? 'price mis-punch' : (toIso(c.closeDate) !== toIso(d.closeDate) || openMoved ? 'date mis-punch' : 'explained');
+    if (Math.abs(resid) <= tol) return 'rounding (split-fill average)';
+    return 'UNEXPLAINED';
+  };
+  // An OPEN leg entered on the wrong day moves the blotter cycle's key; re-key it to
+  // the statement's date so the cycle pairs, and the trace below names the cause.
+  const datedOpen = new Map(dated.filter(x => x.b.side === 'O').map(x => [x.b.d + '|' + x.b.k + '|' + x.b.exp, x.s.d]));
+  const ckB = c => { const k = ck(c), r = datedOpen.get(k); return r ? r + '|' + Number(c.strike) + '|' + _impUsIso(c.expiry) : k; };
   const cycDiff = (from) => {
-    const a = new Map(cyc(P1, from).map(c => [ck(c), c])), b = new Map(cyc(P2, from).map(c => [ck(c), c]));
+    const a = new Map(cyc(P1, from).map(c => [ckB(c), c])), b = new Map(cyc(P2, from).map(c => [ck(c), c]));
     const diffs = [];
     for (const [k, c] of a) { const d = b.get(k);
-      if (!d) diffs.push({ k, blot: pnl(c), act: null });
-      else if (Math.abs(pnl(c) - pnl(d)) >= 0.005 || (c.closeType === 'cover' && toIso(c.closeDate) !== toIso(d.closeDate))) diffs.push({ k, blot: pnl(c), act: pnl(d), cb: toIso(c.closeDate), ca: toIso(d.closeDate) }); }
-    for (const [k, d] of b) if (!a.has(k)) diffs.push({ k, blot: null, act: pnl(d) });
+      if (!d) diffs.push({ k, blot: pnl(c), act: null, why: 'UNEXPLAINED — no adapter cycle' });
+      else if (Math.abs(pnl(c) - pnl(d)) >= 0.005 || datedOpen.has(ck(c)) || (c.closeType === 'cover' && toIso(c.closeDate) !== toIso(d.closeDate)))
+        diffs.push({ k, blot: pnl(c), act: pnl(d), cb: toIso(c.closeDate), ca: toIso(d.closeDate), why: trace(c, d) }); }
+    for (const [k, d] of b) if (!a.has(k)) diffs.push({ k, blot: null, act: pnl(d), why: 'UNEXPLAINED — no blotter cycle' });
     const sum = m => [...m.values()].reduce((s, c) => s + pnl(c), 0);
-    return { nB: a.size, nA: b.size, pB: sum(a), pA: sum(b), diffs };
+    return { nB: a.size, nA: b.size, pB: sum(a), pA: sum(b), diffs, unexplained: diffs.filter(x => x.why.startsWith('UNEXPLAINED')).length };
   };
   const era = cycDiff(WF_ERA_START), all = cycDiff(lo);
   const oB = P1.open.map(o => Number(o.strike) + ' ' + _impUsIso(o.expiry) + ' ×' + o.qty + ' @' + o.sellPrice);
@@ -10894,7 +10962,7 @@ function _activityCompare(trades, rows, std) {
   }
   return { lo, bound, nRows: rows.length, nTk: tk.length, nAdapted: adapted.length,
     stale: stale.length, pending: pending.length,
-    same: same.length, price, qty, ident, bOnly, sOnly, before, era, all, oB, oA, rp };
+    same: same.length, price, qty, dated, ident, bOnly, sOnly, sOnlyWhy, before, era, all, oB, oA, rp };
 }
 
 async function impActivityCompare() {
@@ -10902,8 +10970,8 @@ async function impActivityCompare() {
   st.textContent = 'comparing (activity)…'; host.innerHTML = '';
   try {
     const { rows } = await legsGetFromTable();
-    if (!rows.length) throw new Error('live_legs is empty');
-    const trades = await sbGetLiveTrades();
+    if (!rows.length) throw new Error(ACT_TABLE + ' is empty');
+    const trades = await sbGetLiveTradesRetired(); // v7.7.2 — the frozen blotter, read-only
     const R = _activityCompare(trades, rows, STD);
     const px = v => v == null ? '—' : '$' + Number(v).toFixed(2);
     const money = v => v == null ? '—' : (v < 0 ? '−$' : '$') + Math.abs(v).toFixed(2);
@@ -10911,41 +10979,52 @@ async function impActivityCompare() {
     const G = 'var(--green)', A = '#e0a020', M = 'var(--muted)', Rd = 'var(--red)';
     const L = [];
     const ln = (c, s) => L.push('<div style="color:' + c + ';">' + s + '</div>');
-    L.push('<div style="color:var(--accent);">ACTIVITY COMPARE · live_trades vs the ledger · ' + R.lo + ' → ' + R.bound + ' (statement span) · READ-ONLY</div>');
-    ln(M, 'live_trades tickets ' + R.nTk + ' · live_legs rows ' + R.nRows + ' · adapter rebuilt ' + R.nAdapted + ' tickets');
+    const pl = (n, w) => n + ' ' + w + (n === 1 ? '' : (w.endsWith('h') ? 'es' : 's'));
+    L.push('<div style="color:var(--accent);">ACTIVITY COMPARE · retired live_trades vs ' + ACT_TABLE + ' · ' + R.lo + ' → ' + R.bound + ' (statement span) · READ-ONLY</div>');
+    ln(M, 'live_trades tickets ' + R.nTk + ' (frozen) · ' + ACT_TABLE + ' rows ' + R.nRows + ' · adapter rebuilt ' + R.nAdapted + ' tickets');
+    ln(M, 'Every item below is a blotter error the ledger has ALREADY corrected — the screens read ' + ACT_TABLE + '. This is the audit of what was typed.');
 
     L.push('<div style="margin-top:8px;color:var(--text);">LEGS — every ticket leg against the statement, key (date, side, expiry, strike), aggregated</div>');
     ln(G, '✓ ' + R.same + ' legs identical (identity, quantity, price to the cent)');
-    ln(R.price.length ? A : G, (R.price.length ? '⚠ ' : '✓ ') + R.price.length + ' PRICE mis-punch' + (R.price.length === 1 ? '' : 'es') + ' — blotter vs statement');
+    ln(R.price.length ? A : G, (R.price.length ? '⚠ ' : '✓ ') + pl(R.price.length, 'PRICE mis-punch') + ' — blotter vs statement');
     R.price.forEach(x => ln(A, '&nbsp;&nbsp;' + legTxt(x.b) + ' · blotter ' + px(x.b.px) + ' → statement ' + px(x.s.px)
       + ' · ' + money((x.b.side === 'O' ? 1 : -1) * (x.b.px - x.s.px) * x.b.q * 100) + ' on cycle P&L'
       + (x.b.side === 'X' ? ' · statement ' + x.s.cls + ' ' + x.s.d : '')));
-    ln(R.ident.length ? A : G, (R.ident.length ? '⚠ ' : '✓ ') + R.ident.length + ' IDENTITY mis-punch' + (R.ident.length === 1 ? '' : 'es') + ' — wrong strike/expiry typed');
+    ln(R.dated.length ? A : G, (R.dated.length ? '⚠ ' : '✓ ') + pl(R.dated.length, 'DATE mis-punch') + ' — same contract, quantity and price, entered on another day');
+    R.dated.forEach(x => ln(A, '&nbsp;&nbsp;' + (x.b.side === 'C' ? 'cover' : 'sell') + ' $' + x.b.k + 'C ' + x.b.exp + ' ×' + x.b.q + ' @' + px(x.b.px)
+      + ' · blotter ' + x.b.d + ' → statement ' + x.s.d));
+    ln(R.ident.length ? A : G, (R.ident.length ? '⚠ ' : '✓ ') + pl(R.ident.length, 'IDENTITY mis-punch') + ' — wrong strike/expiry typed');
     R.ident.forEach(x => ln(A, '&nbsp;&nbsp;' + x.b.d + ' ' + (x.b.side === 'C' ? 'cover' : 'sell') + ' blotter $' + x.b.k + 'C ' + x.b.exp + ' ×' + x.b.q + ' @' + px(x.b.px)
       + ' → statement $' + x.s.k + 'C ' + x.s.exp + ' ×' + x.s.q + ' @' + px(x.s.px)));
-    ln(R.qty.length ? A : G, (R.qty.length ? '⚠ ' : '✓ ') + R.qty.length + ' QUANTITY mismatch' + (R.qty.length === 1 ? '' : 'es'));
+    ln(R.qty.length ? A : G, (R.qty.length ? '⚠ ' : '✓ ') + pl(R.qty.length, 'QUANTITY mismatch'));
     R.qty.forEach(x => ln(A, '&nbsp;&nbsp;' + legTxt(x.b) + ' · statement ×' + x.s.q));
     const bIn = R.bOnly.filter(b => b.d >= R.lo);
-    ln(bIn.length ? Rd : G, (bIn.length ? '✗ ' : '✓ ') + bIn.length + ' blotter-only leg' + (bIn.length === 1 ? '' : 's') + ' inside the span (SPEC §5.4 — a ticket with no fill: FLAG, never delete)');
+    ln(bIn.length ? Rd : G, (bIn.length ? '✗ ' : '✓ ') + pl(bIn.length, 'blotter-only leg') + ' inside the span (SPEC §5.4 — a ticket with no fill: FLAG, never delete)');
     bIn.forEach(b => ln(Rd, '&nbsp;&nbsp;' + legTxt(b) + ' @' + px(b.px)));
-    ln(R.sOnly.length ? A : G, (R.sOnly.length ? '⚠ ' : '✓ ') + R.sOnly.length + ' statement-only leg' + (R.sOnly.length === 1 ? '' : 's') + ' — a fill with no ticket');
-    R.sOnly.forEach(s => ln(A, '&nbsp;&nbsp;' + legTxt(s) + ' @' + px(s.px) + ' (' + s.cls + ')'));
+    ln(R.sOnly.length ? A : G, (R.sOnly.length ? '⚠ ' : '✓ ') + pl(R.sOnly.length, 'statement-only leg') + ' — a fill with no matching ticket leg');
+    R.sOnlyWhy.forEach(w => {
+      ln(A, '&nbsp;&nbsp;' + legTxt(w.s) + ' @' + px(w.s.px) + ' (' + w.s.cls + ')');
+      if (!w.tickets.length) ln(M, '&nbsp;&nbsp;&nbsp;&nbsp;no blotter ticket names this contract');
+      w.tickets.forEach(t => ln(M, '&nbsp;&nbsp;&nbsp;&nbsp;blotter ' + t.trade_date + ' · row_type ' + (t.row_type || '—') + ' · status ' + (t.status || '—')
+        + ' · cover ' + (t.coverStrike != null ? '$' + t.coverStrike + ' ' + (t.coverExpiry || '?') + ' ×' + (t.coverContracts ?? '?') + ' @' + px(t.coverPrice) : '—')
+        + ' · sell ' + (t.sellStrike != null ? '$' + t.sellStrike + ' ' + (t.sellExpiry || '?') + ' ×' + (t.sellContracts ?? '?') + ' @' + px(t.sellPrice) : '—')));
+    });
     if (R.before) ln(M, R.before + ' blotter leg(s) dated before the first statement row — out of scope, not compared');
 
-    L.push('<div style="margin-top:8px;color:var(--text);">CYCLES — adapter tickets through the blotter’s own pairing (_pairLiveCycles)</div>');
+    L.push('<div style="margin-top:8px;color:var(--text);">CYCLES — adapter tickets through the blotter’s own pairing (_pairLiveCycles), each difference traced</div>');
     const cy = (lab, c) => {
-      const ok = c.diffs.length === 0;
-      ln(ok ? G : A, (ok ? '✓ ' : '⚠ ') + lab + ' — blotter ' + c.nB + ' cycles ' + money(c.pB) + ' · adapter ' + c.nA + ' cycles ' + money(c.pA)
-        + ' · Δ ' + money(c.pA - c.pB) + (ok ? ' — IDENTICAL' : ' — ' + c.diffs.length + ' cycle(s) differ'));
-      c.diffs.slice(0, 30).forEach(x => ln(A, '&nbsp;&nbsp;' + x.k + ' · blotter ' + money(x.blot) + ' → adapter ' + money(x.act)
-        + (x.cb && x.ca && x.cb !== x.ca ? ' · close ' + x.cb + ' vs ' + x.ca : '')));
-      if (c.diffs.length > 30) ln(M, '&nbsp;&nbsp;… ' + (c.diffs.length - 30) + ' more');
+      const ok = c.unexplained === 0;
+      ln(ok ? G : Rd, (ok ? '✓ ' : '✗ ') + lab + ' — blotter ' + c.nB + ' cycles ' + money(c.pB) + ' · adapter ' + c.nA + ' cycles ' + money(c.pA)
+        + ' · Δ ' + money(c.pA - c.pB) + ' · ' + c.diffs.length + ' differ, ' + c.unexplained + ' unexplained');
+      c.diffs.slice(0, 40).forEach(x => ln(x.why.startsWith('UNEXPLAINED') ? Rd : M, '&nbsp;&nbsp;' + x.k + ' · blotter ' + money(x.blot) + ' → adapter ' + money(x.act)
+        + (x.cb && x.ca && x.cb !== x.ca ? ' · close ' + x.cb + ' vs ' + x.ca : '') + ' · ' + x.why));
+      if (c.diffs.length > 40) ln(M, '&nbsp;&nbsp;… ' + (c.diffs.length - 40) + ' more');
     };
     cy('ERA (both legs ≥ ' + WF_ERA_START + ')', R.era);
     cy('ALL (both legs ≥ ' + R.lo + ')', R.all);
     const oSame = R.oB.join(';') === R.oA.join(';');
-    ln(oSame ? G : A, (oSame ? '✓ ' : '⚠ ') + 'open — blotter [' + (R.oB.join(', ') || 'flat') + '] · adapter [' + (R.oA.join(', ') || 'flat') + ']');
-    ln(M, 'Every cycle difference must trace to a leg listed above. One that does not is an ADAPTER defect, and blocks the cutover.');
+    ln(oSame ? G : A, (oSame ? '✓ ' : '⚠ ') + 'open — blotter [' + (R.oB.join(', ') || 'flat') + '] · ledger [' + (R.oA.join(', ') || 'flat') + ']');
+    ln(M, 'An UNEXPLAINED line is an ADAPTER defect: report it.');
 
     L.push('<div style="margin-top:8px;color:var(--text);">roll_params.json — the agent’s position, against the statement</div>');
     if (!R.rp) ln(M, 'no open position on one side — not compared');
@@ -10960,19 +11039,77 @@ async function impActivityCompare() {
     L.push('<div style="margin-top:8px;color:var(--text);">LEDGER HYGIENE</div>');
     ln(R.stale ? Rd : G, (R.stale ? '✗ ' : '✓ ') + R.stale + ' ticket-basis row(s) inside the statement span (should have converted in place)');
     ln(M, R.pending + ' ticket-basis row(s) after ' + R.bound + ' — awaiting a statement');
-    L.push('<div style="color:var(--muted);font-size:9px;margin-top:8px;">READ-ONLY — live_trades and live_legs untouched. '
-      + 'Statement prices are size-weighted per (date, side, expiry, strike). Readers still take live_trades until the cutover.</div>');
+    L.push('<div style="color:var(--muted);font-size:9px;margin-top:8px;">READ-ONLY. Statement prices are size-weighted per (date, side, expiry, strike).</div>');
     host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;">' + L.join('') + '</div>';
-    // v7.7.1 — the same report to Logs, so ⬇ Download captures all of it (the panel
-    // cannot be saved, and a phone screen cuts it off).
+    // the same report to Logs, so ⬇ Download captures all of it (v7.7.1)
     const _txt = h => h.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
     logMsg('');
     L.forEach(h => logMsg(_txt(h)));
-    const nIss = R.price.length + R.ident.length + R.qty.length + bIn.length;
-    st.textContent = '✓ activity compare — ' + nIss + ' blotter discrepanc' + (nIss === 1 ? 'y' : 'ies') + ' · nothing written · full report in Logs';
+    const nIss = R.price.length + R.dated.length + R.ident.length + R.qty.length + bIn.length;
+    st.textContent = '✓ activity compare — ' + nIss + ' blotter discrepanc' + (nIss === 1 ? 'y' : 'ies') + ' · '
+      + (R.era.unexplained + R.all.unexplained) + ' unexplained · nothing written · full report in Logs';
   } catch (e) {
     st.textContent = '✗ ' + e.message;
     host.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">' + e.message + '</div>';
+  }
+}
+
+// ── v7.7.2 — ONE-TIME TRIGGER BACKFILL (SPEC §3.3, §4) ──────────────────────
+// The statement imports seeded triggers onto closing legs for the ERA only, by
+// date (one closing group per era date, gate 2). Pre-era history — the 0DTE days
+// with several closes a date — carries its close reasons only in live_trades.
+// This copies them across by CONTRACT (strike + expiry) and the NEAREST closing
+// leg within 7 days, and never overwrites: a leg already carrying a trigger is
+// left alone, and a tie is skipped and named. Decision columns only — no fact
+// column is in the PATCH, so the cash walk cannot move.
+function _actTriggerPlan(trades, rows) {
+  const closers = rows.filter(r => LEG_CLOSERS.has(r.cls) && r.strike != null && r.underlying === 'SPY');
+  const taken = new Set(), plan = [], skipped = [];
+  const tk = trades.filter(t => t.source !== 'csv_import' && t.trigger && String(t.trigger).toLowerCase() !== 'entry' && t.coverStrike != null);
+  for (const t of tk) {
+    const d = _impUsIso(t.trade_date), exp = _impUsIso(t.coverExpiry), k = Number(t.coverStrike);
+    const c = closers.filter(r => Number(r.strike) === k && String(r.expiry).slice(0, 10) === exp && _actDays(String(r.trade_date).slice(0, 10), d) <= 7);
+    if (!c.length) { skipped.push({ t, why: 'no closing leg for this contract within 7 days' }); continue; }
+    const best = Math.min(...c.map(r => _actDays(String(r.trade_date).slice(0, 10), d)));
+    const near = c.filter(r => _actDays(String(r.trade_date).slice(0, 10), d) === best);
+    const dates = new Set(near.map(r => String(r.trade_date).slice(0, 10)));
+    if (dates.size > 1) { skipped.push({ t, why: 'two closing dates equally near' }); continue; }
+    near.sort((a, b) => (a.occ_seq || 0) - (b.occ_seq || 0));
+    const target = near[0]; // group property, carried on its first execution (the v7.2.5 rule)
+    if (taken.has(target.id)) { skipped.push({ t, why: 'leg already claimed by another ticket' }); continue; }
+    taken.add(target.id);
+    if (near.some(r => r.trigger != null)) continue; // already carries one — never overwrite
+    plan.push({ id: target.id, d: String(target.trade_date).slice(0, 10), k, exp,
+      trigger: t.trigger, trigger_value: t.triggerValue === undefined ? null : t.triggerValue,
+      trigger_threshold: t.triggerThreshold === undefined ? null : t.triggerThreshold });
+  }
+  return { plan, skipped, considered: tk.length };
+}
+
+async function impBackfillTriggers() {
+  const st = $('imp-status'), host = $('imp-results');
+  st.textContent = 'planning trigger backfill…'; host.innerHTML = '';
+  try {
+    const { rows } = await legsGetFromTable();
+    const trades = await sbGetLiveTradesRetired();
+    const P = _actTriggerPlan(trades, rows);
+    if (!P.plan.length) { st.textContent = '✓ nothing to backfill — every matched closing leg already carries its trigger'; return; }
+    if (!confirm('Write ' + P.plan.length + ' close reason(s) onto ' + ACT_TABLE + ' closing legs that have none? Decision columns only; facts untouched.')) { st.textContent = 'cancelled — nothing written'; return; }
+    let n = 0;
+    for (const p of P.plan) {
+      const r = await fetch(`${SB_URL}/${ACT_TABLE}?id=eq.${encodeURIComponent(p.id)}&trigger=is.null`, {
+        method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ trigger: p.trigger, trigger_value: p.trigger_value, trigger_threshold: p.trigger_threshold }) });
+      if (!r.ok) throw new Error('PATCH ' + p.id + ' failed: ' + r.status + ' (' + n + ' written before it)');
+      n++;
+    }
+    const L = ['✓ ' + n + ' close reason(s) written · ' + P.considered + ' blotter tickets carried one · ' + P.skipped.length + ' skipped'];
+    P.skipped.slice(0, 40).forEach(s => L.push('· ' + s.t.trade_date + ' $' + s.t.coverStrike + 'C ' + (s.t.coverExpiry || '?') + ' (' + s.t.trigger + ') — ' + s.why));
+    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;color:var(--muted);">' + L.join('<br>') + '</div>';
+    logMsg(''); L.forEach(x => logMsg(x));
+    st.textContent = '✓ trigger backfill complete — re-running writes zero';
+  } catch (e) {
+    st.textContent = '✗ ' + e.message;
   }
 }
 
@@ -11065,6 +11202,9 @@ async function impDryRun() {
 }
 
 async function impInsert() {
+  // v7.7.2 — RETIRED: this wrote non-option statement facts into live_trades. Every
+  // statement row now goes to ACT_TABLE through ▲ Insert.
+  $('imp-status').textContent = 'retired (v7.7.2) \u2014 use \u25b2 Insert \u2192 ' + ACT_TABLE; return;
   // v6.22.2 — the insert path. SAFETY INVARIANT: imported rows NEVER write roll_credit,
   // sell_*, cover_*, or status='open' — every existing exclusion-filter reader (§3,
   // credit curve, open-position path, agent) is untouched by construction.
@@ -11143,7 +11283,9 @@ async function impComputeBasis() {
     // S50 falsification #1). symbol=SPY returns only share + dividend rows
     // (blotter option rows carry no symbol — verified on the live table,
     // Ron's 08-12 export); quantity≠0 drops the dividend rows.
-    const res = await fetch(`${SB_URL}/live_trades?symbol=eq.SPY&quantity=neq.0&select=trade_date,quantity,amount&order=trade_date.asc,id.asc&limit=1000`, { headers: _sbHeaders });
+    // v7.7.2 — from the LEDGER: share lots by class, statement facts only. live_trades
+    // held only the pre-S64 share rows and is retired.
+    const res = await fetch(`${SB_URL}/${ACT_TABLE}?cls=in.(share_buy,share_sell)&basis=eq.statement&select=trade_date,quantity,amount,symbol&order=trade_date.asc,occ_seq.asc&limit=1000`, { headers: _sbHeaders });
     if (!res.ok) throw new Error('ledger read failed: ' + res.status);
     const rows = await res.json();
     if (rows.length === 1000) throw new Error('share ledger hit the 1000-row window \u2014 raise the limit or paginate'); // v6.18.11 — truncation can never hide
@@ -11229,18 +11371,13 @@ async function deleteLiveTrade(id) {
 
 // ── Append a completed roll to Supabase ────────────────────────────────────
 async function appendLiveTrade(tradeObj) {
-  await sbUpsertTrade(tradeObj);
-  // v7.2.6 — DUAL-WRITE. live_trades is written FIRST and stays authoritative;
-  // a live_legs failure must never block a trade, void an audit write, or throw
-  // into the ticket path. It warns, loudly and where Ron actually looks.
-  try {
-    const n = await _legsWriteTicket(tradeObj);
-    _legsDualWarn = null;
-    console.log('live_legs dual-write: ' + n + ' leg(s) for ' + tradeObj.id);
-  } catch (e) {
-    _legsDualWarn = tradeObj.trade_date + ' \u2014 ' + e.message;
-    console.warn('live_legs dual-write FAILED:', e.message);
-  }
+  // v7.7.2 — ONE WRITE. The legs ARE the record now, so a failure here is a failed
+  // ticket and must throw into the ticket path like any other save error. (v7.2.6
+  // swallowed it, correctly, while live_trades was the authority.)
+  const n = await _legsWriteTicket(tradeObj);
+  _legsDualWarn = null;
+  if (!n) throw new Error('ticket produced no legs — nothing was written');
+  console.log(ACT_TABLE + ' ticket write: ' + n + ' leg(s) for ' + tradeObj.trade_date);
 }
 
 // ── v6.1.0 audit_snapshot writes — trade-time only (Ron S33) ──
@@ -11413,17 +11550,12 @@ async function confirmCoverOnly() {
     // rowToTrade (the one mapper that knows the physical snake_case schema).
     // v6.7.12's select=sellStrike,sellExpiry was camelCase → PostgREST 400
     // (caught by the honest-error path on Ron's first re-drive; zero writes).
-    const openRes = await fetch(`${SB_URL}/live_trades?status=eq.open&limit=2`, { headers: _sbHeaders });
-    if (!openRes.ok) throw new Error('open-row lookup ' + openRes.status);
-    const openRows = (await openRes.json()).map(rowToTrade);
+    const openRows = (await sbGetLiveTrades()).filter(t => t.status === 'open'); // v7.7.2 — from the ledger
     if (openRows.length !== 1) throw new Error(openRows.length ? 'Multiple open rows — resolve manually' : 'No open row found to close');
     const orow = openRows[0];
     if (parseFloat(orow.sellStrike) !== strike || isoExp(orow.sellExpiry) !== isoExp(expiry))
       throw new Error(`Open row is $${orow.sellStrike}C ${orow.sellExpiry} — does not match this cover`);
-    const closeRes = await fetch(`${SB_URL}/live_trades?id=eq.${encodeURIComponent(orow.id)}`, {
-      method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ status: 'closed' }) });
-    if (!closeRes.ok) throw new Error('open-row close ' + closeRes.status);
+    // v7.7.2 — no PATCH: 'open' is derived by cycle assembly, so the cover leg below closes it.
 
     const trade = { // v6.1.10 — canonical rebuilt-schema names
       id:             makeLiveTradeId(),
@@ -11578,7 +11710,7 @@ async function confirmManualEntry() {
       rollCredit,
       trigger:        trigger || null
     };
-    await sbUpsertTrade(trade);
+    await _legsWriteTicket(trade); // v7.7.2 — legs to ACT_TABLE (was live_trades only: manual entries never reached the ledger)
     statusEl.textContent = '✓ Saved';
     statusEl.style.color = 'var(--green)';
     btn.textContent = '✓ Done';
