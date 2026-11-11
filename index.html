@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.6.34</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.7.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -650,7 +650,7 @@ select.display-box { cursor:pointer; outline:none; }
           <input type="file" id="imp-files" accept=".csv" multiple style="font-family:var(--mono);font-size:10px;color:var(--muted);">
           <button onclick="impDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Dry Run</button>
           <button onclick="impComputeBasis()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⟳ Cost Basis</button><!-- v6.26.0 — ledger FIFO walk, no import needed -->
-          <button onclick="impLegsDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Legs Dry Run</button><!-- v7.2.0 — statement-authored conversion, READ-ONLY --><button onclick="impLegsCompare()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Compare</button><!-- v7.2.4 — parallel run, READ-ONLY --><button onclick="impLegsInsert()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:rgba(224,160,32,.10);border:1px solid #e0a020;border-radius:3px;color:#e0a020;padding:4px 12px;cursor:pointer;">▲ Insert → live_legs</button><!-- v7.2.4 — WRITES. live_trades untouched. -->
+          <button onclick="impLegsDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Legs Dry Run</button><!-- v7.2.0 — statement-authored conversion, READ-ONLY --><button onclick="impLegsCompare()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Compare</button><!-- v7.2.4 — parallel run, READ-ONLY --><button onclick="impActivityCompare()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Activity Compare</button><!-- v7.7.0 — adapter vs live_trades, READ-ONLY --><button id="exp-lt-btn" onclick="resExport('live_trades','exp-lt-btn')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⇩ Export live_trades</button><button id="exp-ll-btn" onclick="resExport('live_legs','exp-ll-btn')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⇩ Export live_legs</button><!-- v7.7.0 — backups before the cutover; reuses the exhaustive paginated exporter --><button onclick="impLegsInsert()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:rgba(224,160,32,.10);border:1px solid #e0a020;border-radius:3px;color:#e0a020;padding:4px 12px;cursor:pointer;">▲ Insert → live_legs</button><!-- v7.2.4 — WRITES. live_trades untouched. -->
           <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">Parses Fidelity history CSVs · classifies · reconciles SPY option legs vs blotter · dedupes · tie-out. Dry run writes nothing; Insert appears after.</span>
         </div>
         <div id="imp-basis" style="padding:0 16px 6px;font-family:var(--mono);font-size:9px;color:var(--muted);"></div><!-- v6.26.0 -->
@@ -721,7 +721,7 @@ select.display-box { cursor:pointer; outline:none; }
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
     SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
-    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.34 · §4.4 TRIGGER AGREEMENT + RANGE POSITION (S70). §4.4: where BOTH sides closed on the same date, did they fire on the same trigger and at what reading. Live reading is the RECORDED scan value (triggerValue on the blotter row), not a reconstruction. Reading differences are grouped by trigger type and NEVER pooled — decay is a percentage and delta a probability, so a pooled mean would be a units error. One rule reads both: a HIGHER reading means that side fired LATER, since both triggers are threshold-crossings. The section exists to stop the intraday-noise hypothesis being re-invented: S69 found live fires at 0.719 against the sim 0.739, if anything MORE conservative than the model. RANGE POSITION answers the objection v7.6.33 shipped with: the entry wedge read +$0.40/sh over 12 sells, the tightest estimate in the evaluation, but the day-bar VWAP is no more reachable on entry than on exit, so the number had no mechanism. Each sell is now located in its own day range as a percentile of (low, high) beside the VWAP’s percentile: fills sitting BELOW the VWAP in-range is execution, fills tracking it is time-of-day. Same bars, already fetched. Also reworded the §4.3 line that claimed the wedge ACCOUNTS for a share of §4.2 severity — it bounds it. The wedge prices live fills against live’s OWN contracts, while severity compares live to the sim on DIFFERENT contracts, since live selects higher strikes by choice. No MODEL_VERSION change, Gate untouched, reads only. Base v7.6.33 (7599f962).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.33 · §4.3 EXECUTION WEDGE (S70). Live fills against the sim day-bar VWAP for the SAME contract on the SAME date — measured, never repriced. Sign convention throughout: POSITIVE = live worse. The exit leg is cover − mark, the entry leg mark − sell, so both legs read in one direction and sum to a cycle total. EXIT is split by trigger and the pooled figure prints only under a do-not-read label: S67 headlined +5.7¢ in Ron’s favour, a pooled average concealing a sign flip, because live beats the VWAP on quiet decay days and loses badly on stop days where the VWAP averages in a cheap morning that is unreachable once delta has breached. ENTRY is NOT split — entries are chosen, not forced, so the trigger that ended a cycle says nothing about how it began, and splitting on it would invent a mechanism. The wedge total is set against §4.2 severity in the same units, since explaining that term is the whole point of the section. Standard errors on every line; a pool under n=2 says so rather than printing a bare mean. No MODEL_VERSION change, Gate untouched, reads only. §4.4 trigger agreement → v7.6.34. Base v7.6.32 (98a7c288).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.32 · §4.2 MIX vs SEVERITY (S70). Shift-share decomposition of the sim/live gap, the measurement S69 did by hand. MIX is live’s own per-cycle severity carried onto the SIM’s exit-pool split — you took a different number of stops; SEVERITY is the sim’s severity on that same split — each pool cost differently. They sum to the gap EXACTLY and a checksum asserts it on every run, because a decomposition that does not close is not a decomposition. Pools come from the existing DELTA-FIRST classifier (Model Rules §9 — a co-fire books as a stop) and are NOT hard-coded to two: a dte or expiry cycle gets its own row rather than being folded into decay where it would be silently mis-attributed. A pool with no live cycles imputes live’s OVERALL mean and says so on the line, keeping the identity exact while making the imputation visible. Standard errors on both terms per SPEC §6, treating pools as independent and counts as fixed, and printed as approximate because they are; a pool under n=2 has no sd and is named rather than dropped silently. No MODEL_VERSION change, Gate untouched, reads only. §4.3 wedge and §4.4 agreement → v7.6.33. Base v7.6.31 (aeac6d7e).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.31 · THE BOUNDARY RELEASE (S70, Ron). §4.1 was sound in the interior of its window and blind at the edge, in two ways that are the same defect. (1) OPEN NOW: cycles.push() fires at EXIT, so neither side’s currently-open cycle had a record and the divergence happening right now could not appear — on 2026-11-10 the sim held $755C 04-30-27 against a live $765C 04-30-27 with no row for it. Both open positions and their readings now print, from the PINNED run’s pendingContract and the blotter’s isOpen row. (2) PROVISIONAL: a row on the last DM date is not yet a finding — the quiet side has not been evaluated past it. Friday’s 2026-11-05 row vanished on Tuesday once the DM advanced and the sim’s own 11-05 entry existed. Such rows are now marked. (3) POLICY: Ron selects HIGHER strikes by choice and does not target the sim’s trades, only its performance — so selection divergence is EXPECTED and benign/flat rows are not misses. Only [PAST] rows bear on trigger integrity. The report says so rather than leaving the reader to infer it. No MODEL_VERSION change, Gate untouched, reads only. §4.2 mix/severity → v7.6.32. Base v7.6.30 (4fbccc58).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.30 · EVAL RUNS THE BACKTEST, NOT THE HUNT (S69, Ron). Fixes a defect shipped in .29: runSimulation() ends by calling runRollScan() whenever the app is not in debug or sandbox mode, so eval calling runSimulation() on load fired a live 454-contract Polygon scan at every page load and blocked the §4.1 report behind it. That contradicts SPEC §2, which holds that the scan is not needed on every run and stays an explicit action. runSimulation now takes an optional opts.noScan and eval passes it; the trailing hunt is gated on it. The three pre-existing call sites pass no argument, so opts is undefined, _noScan is false and their behaviour is byte-identical — asserted as a post-condition, not assumed. The Scan tab stays visible and Scan pressed still runs a scan. Root cause worth recording: .29 verified that runSimulation would not clobber lastResult with pinned numbers, which was the imagined hazard, and never read the function tail, where the real one was. §4.2 mix/severity → v7.6.31. Base v7.6.29 (5bfee4a6).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.29 · EVAL RUNS LIKE A RUN (S69, Ron). INSTRUMENT, no MODEL_VERSION, Gate untouched. Eval now calls runSimulation() FIRST, so loading the page drives the progress bar and fills the performance panels exactly as a Debug run does — the visible signal that eval ran. The panels come from that FULL run and never from the pinned divergence run, whose window is ~2 months: its core yield is not the lifetime figure and would read as roughly 24% in a 10.4% field. Because runSimulation() clears the log at its start and eval prints after it, the §4.1 block now survives instead of being wiped by the next run (v7.6.28 shipped with eval output that any Debug or Scan press erased — found on first contact). The full run also supplies §3 Core Roll Yield as the reference line, absent in .28 for want of a full run. Divergence rows are BANDED past / near / benign / flat: .28 printed 11 rows flat where 2 carried signal, and a divergence only means a miss when the quiet side was at or past a threshold. A FRAME caveat now prints on the header — readings are the sim day-bar VWAP, not the agent intraday NBBO mark, so a past-threshold row is the sim price source putting a position past its trigger, NOT proof the agent saw that number. The three silent early returns in runEval each log. §4.2 mix/severity → v7.6.30. Base v7.6.28 (4a72be39).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.28 · EVALUATION MODE §4.1 (S69, Ron). INSTRUMENT, NOT a model change: MODEL_VERSION unchanged, Gate region untouched, nothing here writes roll_params.json. Eval is not a mode with a button — it runs on load from the single DM-resolved path (_debugMode untouched, scan keeps its run-button state machine); refreshing the browser re-runs it. Writes the §4.1 divergence log to Logs: every date one side traded and the other did not, with the quiet side's reading in the sim's OWN frame (day-bar VWAP vw||c, defH delta) and its distance from the threshold. Window left AS-IS per Ron — _confStart (first live entry on/after POLICY_REGIME_2) IS the current model's start point; sim and live spans differ by a day and BOTH print rather than being averaged away. Cause attribution is flagged UNKNOWN until the agent run log exists (SPEC agent run log, pending). §4.2 mix/severity → v7.6.29; §4.3 wedge + §4.4 agreement → v7.6.30. Base v7.6.27 (1157c52f).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.27 · ONE YTD, ROLLING (S69, Ron). DISPLAY ONLY, no MODEL_VERSION. The Performance panel's YTD anchor was the literal '2025-12-31' and would have drifted to 13 months on 2027-01-01; the summary cards derived their year from the data. Both now read _ytdYear() and both print the year, so the two toggles always name the same span. January shows one month. Base v7.6.26 (c250bc03).</span></div>
+    <br><span style="color:var(--muted);opacity:.6;">Full version history: the per-session summaries (CHANGELOG.md retired at S56 — referenced twice in three days, wrong once).</span><br><span style="color:var(--muted);opacity:.6;">v7.7.0 · ACTIVITY ADAPTER + COMPARE (S70, Ron). First release of SPEC single trades table — READ-ONLY: nothing is written and no reader is repointed. _activityToTrades rebuilds ticket rows in the exact rowToTrade shape from the leg-grained ledger: status from cycle assembly, cover and sell prices from the size-weighted statement legs, rollCredit by the ticket formula, triggers from the closing leg’s own columns. It reuses the certified assembler (_legsAggregate, _legsToCycles) — a second assembler would be a second truth. ▶ Activity Compare lays every live_trades leg against the statement inside the statement span, key (date, side, expiry, strike), aggregated before comparing, and names each PRICE, IDENTITY and QUANTITY mis-punch, each blotter-only leg (SPEC §5.4: flagged, never deleted) and each statement-only fill. It then runs the adapter’s tickets through the blotter’s OWN pairing (_pairLiveCycles) and diffs cycle by cycle, era and all — every cycle difference must trace to a listed leg, and one that does not is an adapter defect that blocks v7.7.1. It also checks roll_params.json against the statement’s fill on the open leg, which would have caught the 27.75 mis-punch. ⇩ Export live_trades / live_legs: JSON backups before the cutover, via the existing exhaustive paginated exporter (not the Supabase CSV export, which silently stops at 100 rows). Finding recorded with it: the Fidelity history CSV carries NO positions section, so SPEC §6.2 is a derived check. No MODEL_VERSION change, Gate untouched. Base v7.6.34 (9e27b887).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.34 · §4.4 TRIGGER AGREEMENT + RANGE POSITION (S70). §4.4: where BOTH sides closed on the same date, did they fire on the same trigger and at what reading. Live reading is the RECORDED scan value (triggerValue on the blotter row), not a reconstruction. Reading differences are grouped by trigger type and NEVER pooled — decay is a percentage and delta a probability, so a pooled mean would be a units error. One rule reads both: a HIGHER reading means that side fired LATER, since both triggers are threshold-crossings. The section exists to stop the intraday-noise hypothesis being re-invented: S69 found live fires at 0.719 against the sim 0.739, if anything MORE conservative than the model. RANGE POSITION answers the objection v7.6.33 shipped with: the entry wedge read +$0.40/sh over 12 sells, the tightest estimate in the evaluation, but the day-bar VWAP is no more reachable on entry than on exit, so the number had no mechanism. Each sell is now located in its own day range as a percentile of (low, high) beside the VWAP’s percentile: fills sitting BELOW the VWAP in-range is execution, fills tracking it is time-of-day. Same bars, already fetched. Also reworded the §4.3 line that claimed the wedge ACCOUNTS for a share of §4.2 severity — it bounds it. The wedge prices live fills against live’s OWN contracts, while severity compares live to the sim on DIFFERENT contracts, since live selects higher strikes by choice. No MODEL_VERSION change, Gate untouched, reads only. Base v7.6.33 (7599f962).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.33 · §4.3 EXECUTION WEDGE (S70). Live fills against the sim day-bar VWAP for the SAME contract on the SAME date — measured, never repriced. Sign convention throughout: POSITIVE = live worse. The exit leg is cover − mark, the entry leg mark − sell, so both legs read in one direction and sum to a cycle total. EXIT is split by trigger and the pooled figure prints only under a do-not-read label: S67 headlined +5.7¢ in Ron’s favour, a pooled average concealing a sign flip, because live beats the VWAP on quiet decay days and loses badly on stop days where the VWAP averages in a cheap morning that is unreachable once delta has breached. ENTRY is NOT split — entries are chosen, not forced, so the trigger that ended a cycle says nothing about how it began, and splitting on it would invent a mechanism. The wedge total is set against §4.2 severity in the same units, since explaining that term is the whole point of the section. Standard errors on every line; a pool under n=2 says so rather than printing a bare mean. No MODEL_VERSION change, Gate untouched, reads only. §4.4 trigger agreement → v7.6.34. Base v7.6.32 (98a7c288).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.32 · §4.2 MIX vs SEVERITY (S70). Shift-share decomposition of the sim/live gap, the measurement S69 did by hand. MIX is live’s own per-cycle severity carried onto the SIM’s exit-pool split — you took a different number of stops; SEVERITY is the sim’s severity on that same split — each pool cost differently. They sum to the gap EXACTLY and a checksum asserts it on every run, because a decomposition that does not close is not a decomposition. Pools come from the existing DELTA-FIRST classifier (Model Rules §9 — a co-fire books as a stop) and are NOT hard-coded to two: a dte or expiry cycle gets its own row rather than being folded into decay where it would be silently mis-attributed. A pool with no live cycles imputes live’s OVERALL mean and says so on the line, keeping the identity exact while making the imputation visible. Standard errors on both terms per SPEC §6, treating pools as independent and counts as fixed, and printed as approximate because they are; a pool under n=2 has no sd and is named rather than dropped silently. No MODEL_VERSION change, Gate untouched, reads only. §4.3 wedge and §4.4 agreement → v7.6.33. Base v7.6.31 (aeac6d7e).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.31 · THE BOUNDARY RELEASE (S70, Ron). §4.1 was sound in the interior of its window and blind at the edge, in two ways that are the same defect. (1) OPEN NOW: cycles.push() fires at EXIT, so neither side’s currently-open cycle had a record and the divergence happening right now could not appear — on 2026-11-10 the sim held $755C 04-30-27 against a live $765C 04-30-27 with no row for it. Both open positions and their readings now print, from the PINNED run’s pendingContract and the blotter’s isOpen row. (2) PROVISIONAL: a row on the last DM date is not yet a finding — the quiet side has not been evaluated past it. Friday’s 2026-11-05 row vanished on Tuesday once the DM advanced and the sim’s own 11-05 entry existed. Such rows are now marked. (3) POLICY: Ron selects HIGHER strikes by choice and does not target the sim’s trades, only its performance — so selection divergence is EXPECTED and benign/flat rows are not misses. Only [PAST] rows bear on trigger integrity. The report says so rather than leaving the reader to infer it. No MODEL_VERSION change, Gate untouched, reads only. §4.2 mix/severity → v7.6.32. Base v7.6.30 (4fbccc58).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.30 · EVAL RUNS THE BACKTEST, NOT THE HUNT (S69, Ron). Fixes a defect shipped in .29: runSimulation() ends by calling runRollScan() whenever the app is not in debug or sandbox mode, so eval calling runSimulation() on load fired a live 454-contract Polygon scan at every page load and blocked the §4.1 report behind it. That contradicts SPEC §2, which holds that the scan is not needed on every run and stays an explicit action. runSimulation now takes an optional opts.noScan and eval passes it; the trailing hunt is gated on it. The three pre-existing call sites pass no argument, so opts is undefined, _noScan is false and their behaviour is byte-identical — asserted as a post-condition, not assumed. The Scan tab stays visible and Scan pressed still runs a scan. Root cause worth recording: .29 verified that runSimulation would not clobber lastResult with pinned numbers, which was the imagined hazard, and never read the function tail, where the real one was. §4.2 mix/severity → v7.6.31. Base v7.6.29 (5bfee4a6).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.29 · EVAL RUNS LIKE A RUN (S69, Ron). INSTRUMENT, no MODEL_VERSION, Gate untouched. Eval now calls runSimulation() FIRST, so loading the page drives the progress bar and fills the performance panels exactly as a Debug run does — the visible signal that eval ran. The panels come from that FULL run and never from the pinned divergence run, whose window is ~2 months: its core yield is not the lifetime figure and would read as roughly 24% in a 10.4% field. Because runSimulation() clears the log at its start and eval prints after it, the §4.1 block now survives instead of being wiped by the next run (v7.6.28 shipped with eval output that any Debug or Scan press erased — found on first contact). The full run also supplies §3 Core Roll Yield as the reference line, absent in .28 for want of a full run. Divergence rows are BANDED past / near / benign / flat: .28 printed 11 rows flat where 2 carried signal, and a divergence only means a miss when the quiet side was at or past a threshold. A FRAME caveat now prints on the header — readings are the sim day-bar VWAP, not the agent intraday NBBO mark, so a past-threshold row is the sim price source putting a position past its trigger, NOT proof the agent saw that number. The three silent early returns in runEval each log. §4.2 mix/severity → v7.6.30. Base v7.6.28 (4a72be39).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.28 · EVALUATION MODE §4.1 (S69, Ron). INSTRUMENT, NOT a model change: MODEL_VERSION unchanged, Gate region untouched, nothing here writes roll_params.json. Eval is not a mode with a button — it runs on load from the single DM-resolved path (_debugMode untouched, scan keeps its run-button state machine); refreshing the browser re-runs it. Writes the §4.1 divergence log to Logs: every date one side traded and the other did not, with the quiet side's reading in the sim's OWN frame (day-bar VWAP vw||c, defH delta) and its distance from the threshold. Window left AS-IS per Ron — _confStart (first live entry on/after POLICY_REGIME_2) IS the current model's start point; sim and live spans differ by a day and BOTH print rather than being averaged away. Cause attribution is flagged UNKNOWN until the agent run log exists (SPEC agent run log, pending). §4.2 mix/severity → v7.6.29; §4.3 wedge + §4.4 agreement → v7.6.30. Base v7.6.27 (1157c52f).</span><br><span style="color:var(--muted);opacity:.6;">v7.6.27 · ONE YTD, ROLLING (S69, Ron). DISPLAY ONLY, no MODEL_VERSION. The Performance panel's YTD anchor was the literal '2025-12-31' and would have drifted to 13 months on 2027-01-01; the summary cards derived their year from the data. Both now read _ytdYear() and both print the year, so the two toggles always name the same span. January shows one month. Base v7.6.26 (c250bc03).</span></div>
 </div>
 
 <script>
@@ -908,7 +908,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.6.34';
+const APP_VERSION = 'v7.7.0';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -10672,6 +10672,276 @@ async function impLegsCompare() {
     st.textContent = '\u2713 compare complete \u2014 nothing written';
   } catch (e) {
     st.textContent = '\u2717 ' + e.message;
+    host.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">' + e.message + '</div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// v7.7.0 — ACTIVITY ADAPTER + COMPARE (S70, Ron). SPEC single trades table §7.
+// READ-ONLY. Nothing here writes; no reader is repointed. This release proves
+// the adapter before anything depends on it.
+//
+// _activityToTrades rebuilds TICKET rows — the exact shape rowToTrade emits —
+// from the leg-grained ledger. Ticket semantics are DERIVED, never stored:
+//   status       — from cycle assembly (_legsToCycles stillOpen), not a column
+//   coverPrice   — the closer's size-weighted statement price (_legsAggregate)
+//   sellPrice    — the opener's, likewise
+//   rollCredit   — the ticket formula at 9404/11251, from those prices
+//   trigger*     — the closer's own columns (seeded by every statement import)
+// It reuses the CERTIFIED assembler (_legsAggregate, _legsToCycles) rather
+// than a second one: a second assembler would be a second truth.
+//
+// Ticket formation per date: closers and opens are zipped in strike order, so
+// a roll is one ticket with both legs, a flat gap is a cover-only ticket then a
+// sell-only ticket on a later date. Which cover is zipped with which sell on a
+// multi-roll day changes only rollCredit's split across tickets, never a
+// cycle: _pairLiveCycles pairs by CONTRACT IDENTITY, not by ticket.
+// ═══════════════════════════════════════════════════════════════════════
+function _actUs(iso) { // ISO → MM/DD/YY, the rowToTrade convention
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? m[2] + '/' + m[3] + '/' + m[1].slice(2) : (iso || null);
+}
+
+function _activityToTrades(shaped) {
+  const legs = _legsAggregate(shaped).filter(L => L.und === 'SPY');
+  const { stillOpen } = _legsToCycles(legs);
+  const openKeys = new Set(stillOpen.map(o => o.date + '|' + o.strike + '|' + o.expiry));
+  // Trigger fields live on the CLOSING leg's raw row(s); split fills share them.
+  const trig = new Map();
+  for (const r of shaped) {
+    if (!r.opt || !LEG_CLOSERS.has(r.cls)) continue;
+    const k = r.date + '|' + r.cls + '|' + r.symbol;
+    if (!trig.has(k) && (r.trigger != null || r.trigger_value != null))
+      trig.set(k, { trigger: r.trigger, tv: r.trigger_value, tt: r.trigger_threshold });
+  }
+  const byDate = new Map();
+  for (const L of legs) { if (!byDate.has(L.date)) byDate.set(L.date, []); byDate.get(L.date).push(L); }
+  const byStrike = (a, b) => (a.strike - b.strike) || String(a.expiry).localeCompare(String(b.expiry));
+  const out = []; let id = 0;
+  const r2 = v => parseFloat(Number(v).toFixed(2));
+  for (const d of [...byDate.keys()].sort()) {
+    const day = byDate.get(d);
+    const C = day.filter(L => LEG_CLOSERS.has(L.cls)).sort(byStrike);
+    const O = day.filter(L => L.cls === 'opt_sell_open').sort(byStrike);
+    const P = day.filter(L => L.cls === 'opt_buy_open').sort(byStrike);
+    const n = Math.max(C.length, O.length);
+    for (let i = 0; i < n; i++) {
+      const c = C[i] || null, o = O[i] || null;
+      const term = c && c.cls !== 'opt_buy_close';
+      const cpx = c ? (term ? 0 : r2(c.px)) : null, spx = o ? r2(o.px) : null;
+      const t = c ? (trig.get(d + '|' + c.cls + '|' + c.sym) || null) : null;
+      const rc = (c && o) ? (spx - cpx) * o.qty * 100 : c ? -cpx * c.qty * 100 : spx * o.qty * 100;
+      out.push({
+        id: ++id, trade_date: _actUs(d),
+        status: (o && openKeys.has(d + '|' + o.strike + '|' + o.expiry)) ? 'open' : 'closed',
+        row_type: c ? (c.cls === 'opt_expired' ? 'expired' : c.cls === 'opt_assigned' ? 'assigned' : 'roll') : 'roll',
+        coverExpiry: c ? _actUs(c.expiry) : null, coverStrike: c ? c.strike : null,
+        coverPrice: cpx, coverContracts: c ? c.qty : null,
+        sellExpiry: o ? _actUs(o.expiry) : null, sellStrike: o ? o.strike : null,
+        sellPrice: spx, sellContracts: o ? o.qty : null,
+        rollCredit: r2(rc),
+        trigger: t ? t.trigger : null, triggerValue: t ? t.tv : null, triggerThreshold: t ? t.tt : null,
+        source: 'activity', note: null
+      });
+    }
+    // Bought protection is not a cycle; it rides as long_call, which every
+    // reader already routes to `other` (_pairLiveCycles P3).
+    for (const p of P) out.push({ id: ++id, trade_date: _actUs(d), status: 'closed', row_type: 'long_call',
+      coverExpiry: null, coverStrike: null, coverPrice: null, coverContracts: null,
+      sellExpiry: _actUs(p.expiry), sellStrike: p.strike, sellPrice: r2(p.px), sellContracts: p.qty,
+      rollCredit: null, trigger: null, triggerValue: null, triggerThreshold: null, source: 'activity', note: 'protection' });
+  }
+  return out;
+}
+
+// Leg-grain view of ONE side, aggregated by the spec §5.2 key
+// (trade_date, side, expiry, strike). side C = close, O = open.
+function _actLegKey(d, side, exp, k) { return d + '|' + side + '|' + exp + '|' + Number(k); }
+function _actBlotterLegs(trades) {
+  const m = new Map();
+  const add = (d, side, exp, k, q, px, t) => {
+    if (!d || k == null || k === '') return;
+    const key = _actLegKey(d, side, exp, k);
+    let a = m.get(key);
+    if (!a) { a = { d, side, exp, k: Number(k), q: 0, pq: 0, n: 0, tickets: [], trig: null }; m.set(key, a); }
+    const qq = Math.abs(Number(q) || 0);
+    a.q += qq; a.pq += (px == null ? 0 : Number(px)) * qq; a.n++; a.tickets.push(t.id);
+    if (side === 'C' && t.trigger) a.trig = t.trigger;
+  };
+  for (const t of trades) {
+    if (t.source === 'csv_import' || t.row_type === 'long_call') continue;
+    const d = _impUsIso(t.trade_date);
+    const rt = t.row_type || '', term = rt === 'assigned' || rt === 'expired' || rt === 'expired worthless';
+    if (t.coverStrike != null && t.coverStrike !== '')
+      add(d, 'C', _impUsIso(t.coverExpiry), t.coverStrike, t.coverContracts || t.sellContracts, term ? 0 : t.coverPrice, t);
+    if (t.sellStrike != null && t.sellStrike !== '')
+      add(d, 'O', _impUsIso(t.sellExpiry), t.sellStrike, t.sellContracts || t.coverContracts, t.sellPrice, t);
+  }
+  for (const a of m.values()) a.px = a.q ? a.pq / a.q : null;
+  return m;
+}
+function _actLedgerLegs(shaped) {
+  const m = new Map();
+  for (const L of _legsAggregate(shaped)) {
+    if (L.und !== 'SPY') continue;
+    const side = LEG_CLOSERS.has(L.cls) ? 'C' : L.cls === 'opt_sell_open' ? 'O' : null;
+    if (!side) continue; // protection legs are not CC legs
+    const key = _actLegKey(L.date, side, String(L.expiry).slice(0, 10), L.strike);
+    m.set(key, { d: L.date, side, exp: String(L.expiry).slice(0, 10), k: Number(L.strike), q: L.qty,
+      px: LEG_CLOSERS.has(L.cls) && L.cls !== 'opt_buy_close' ? 0 : L.px, cls: L.cls });
+  }
+  return m;
+}
+
+// Pure comparison — testable without the network.
+function _activityCompare(trades, rows, std) {
+  const shaped = rows.map(r => ({ date: r.trade_date, cls: r.cls, symbol: r.symbol,
+    quantity: r.quantity, price: r.price, commission: r.commission, fees: r.fees,
+    amount: r.amount, occ_seq: r.occ_seq, basis: r.basis,
+    trigger: r.trigger, trigger_value: r.trigger_value, trigger_threshold: r.trigger_threshold,
+    opt: r.strike != null ? { und: r.underlying, strike: Number(r.strike), expiry: String(r.expiry).slice(0, 10) } : null }));
+  const stmt = shaped.filter(r => r.basis === 'statement');
+  const sDates = stmt.map(r => r.date).filter(Boolean).sort();
+  const lo = sDates[0], bound = sDates[sDates.length - 1];
+  const stale = shaped.filter(r => r.basis === 'ticket' && r.date <= bound);   // should be 0: convert-in-place missed them
+  const pending = shaped.filter(r => r.basis === 'ticket' && r.date > bound);  // tickets awaiting a statement
+  const tk = trades.filter(t => t.source !== 'csv_import');
+
+  // ── leg grain: every ticket leg vs every statement leg, inside [lo, bound]
+  const B = _actBlotterLegs(tk), S = _actLedgerLegs(stmt);
+  const inSpan = a => a.d >= lo && a.d <= bound;
+  const same = [], price = [], qty = [], bOnly = [], sOnly = [];
+  for (const [k, b] of B) {
+    if (!inSpan(b)) continue;
+    const s = S.get(k);
+    if (!s) { bOnly.push(b); continue; }
+    if (Math.abs(b.q - s.q) > 0) qty.push({ b, s });
+    else if (b.px == null || Math.abs(b.px - s.px) >= 0.005) price.push({ b, s });
+    else same.push(b);
+  }
+  for (const [k, s] of S) if (!B.has(k)) sOnly.push(s);
+  // An identity mis-punch (wrong strike or expiry typed) shows as one blotter-only
+  // and one statement-only leg on the same date and side. Pair those exactly once.
+  const ident = [];
+  for (const b of bOnly.slice()) {
+    const cand = sOnly.filter(s => s.d === b.d && s.side === b.side);
+    const bc = bOnly.filter(x => x.d === b.d && x.side === b.side);
+    if (cand.length === 1 && bc.length === 1) {
+      ident.push({ b, s: cand[0] });
+      bOnly.splice(bOnly.indexOf(b), 1); sOnly.splice(sOnly.indexOf(cand[0]), 1);
+    }
+  }
+  const before = bOnly.filter(b => b.d < lo).length; // tickets older than the first statement row
+
+  // ── cycle grain: the adapter's tickets through the SAME pairing the blotter uses
+  const adapted = _activityToTrades(shaped.filter(r => r.basis === 'statement' || r.date > bound));
+  const P1 = _pairLiveCycles(tk), P2 = _pairLiveCycles(adapted), toIso = P1.toIso;
+  // An expiry closes at zero on both sides (the blotter may store null, the ledger
+  // emits px 0); an ASSIGNED close has no option P&L on either — excluded on both.
+  const cpx = c => c.coverPrice != null ? Number(c.coverPrice) : (c.closeType === 'expired' ? 0 : null);
+  const cyc = (P, from) => P.cycles.filter(c => !c.orphan && c.closeType !== 'assigned' && c.openDate && toIso(c.openDate) >= from
+    && c.closeDate && toIso(c.closeDate) <= bound && cpx(c) != null && c.sellPrice != null);
+  const ck = c => toIso(c.openDate) + '|' + Number(c.strike) + '|' + _impUsIso(c.expiry);
+  const pnl = c => (Number(c.sellPrice) - cpx(c)) * 100 * (Number(c.qty) || 0);
+  const cycDiff = (from) => {
+    const a = new Map(cyc(P1, from).map(c => [ck(c), c])), b = new Map(cyc(P2, from).map(c => [ck(c), c]));
+    const diffs = [];
+    for (const [k, c] of a) { const d = b.get(k);
+      if (!d) diffs.push({ k, blot: pnl(c), act: null });
+      else if (Math.abs(pnl(c) - pnl(d)) >= 0.005 || toIso(c.closeDate) !== toIso(d.closeDate)) diffs.push({ k, blot: pnl(c), act: pnl(d), cb: toIso(c.closeDate), ca: toIso(d.closeDate) }); }
+    for (const [k, d] of b) if (!a.has(k)) diffs.push({ k, blot: null, act: pnl(d) });
+    const sum = m => [...m.values()].reduce((s, c) => s + pnl(c), 0);
+    return { nB: a.size, nA: b.size, pB: sum(a), pA: sum(b), diffs };
+  };
+  const era = cycDiff(WF_ERA_START), all = cycDiff(lo);
+  const oB = P1.open.map(o => Number(o.strike) + ' ' + _impUsIso(o.expiry) + ' ×' + o.qty + ' @' + o.sellPrice);
+  const oA = P2.open.map(o => Number(o.strike) + ' ' + _impUsIso(o.expiry) + ' ×' + o.qty + ' @' + o.sellPrice);
+
+  // ── roll_params.json vs the statement's fill on the open leg (would have caught 27.75)
+  let rp = null;
+  const so = P2.open[P2.open.length - 1];
+  if (std && std.shortStrike && so) {
+    rp = { strikeOk: Number(std.shortStrike) === Number(so.strike),
+      expiryOk: String(std.shortExpiry || '').slice(0, 10) === _impUsIso(so.expiry),
+      qtyOk: Number(std.contracts || 0) === Number(so.qty),
+      jsonPx: std.sellPrice != null ? Number(std.sellPrice) : null, stmtPx: so.sellPrice,
+      openDate: toIso(so.openDate), stmtCovers: toIso(so.openDate) <= bound };
+    rp.pxOk = rp.jsonPx != null && Math.abs(rp.jsonPx - rp.stmtPx) < 0.005;
+  }
+  return { lo, bound, nRows: rows.length, nTk: tk.length, nAdapted: adapted.length,
+    stale: stale.length, pending: pending.length,
+    same: same.length, price, qty, ident, bOnly, sOnly, before, era, all, oB, oA, rp };
+}
+
+async function impActivityCompare() {
+  const st = $('imp-status'), host = $('imp-results');
+  st.textContent = 'comparing (activity)…'; host.innerHTML = '';
+  try {
+    const { rows } = await legsGetFromTable();
+    if (!rows.length) throw new Error('live_legs is empty');
+    const trades = await sbGetLiveTrades();
+    const R = _activityCompare(trades, rows, STD);
+    const px = v => v == null ? '—' : '$' + Number(v).toFixed(2);
+    const money = v => v == null ? '—' : (v < 0 ? '−$' : '$') + Math.abs(v).toFixed(2);
+    const legTxt = a => a.d + ' ' + (a.side === 'C' ? 'cover' : 'sell ') + ' $' + a.k + 'C ' + a.exp + ' ×' + a.q;
+    const G = 'var(--green)', A = '#e0a020', M = 'var(--muted)', Rd = 'var(--red)';
+    const L = [];
+    const ln = (c, s) => L.push('<div style="color:' + c + ';">' + s + '</div>');
+    L.push('<div style="color:var(--accent);">ACTIVITY COMPARE · live_trades vs the ledger · ' + R.lo + ' → ' + R.bound + ' (statement span) · READ-ONLY</div>');
+    ln(M, 'live_trades tickets ' + R.nTk + ' · live_legs rows ' + R.nRows + ' · adapter rebuilt ' + R.nAdapted + ' tickets');
+
+    L.push('<div style="margin-top:8px;color:var(--text);">LEGS — every ticket leg against the statement, key (date, side, expiry, strike), aggregated</div>');
+    ln(G, '✓ ' + R.same + ' legs identical (identity, quantity, price to the cent)');
+    ln(R.price.length ? A : G, (R.price.length ? '⚠ ' : '✓ ') + R.price.length + ' PRICE mis-punch' + (R.price.length === 1 ? '' : 'es') + ' — blotter vs statement');
+    R.price.forEach(x => ln(A, '&nbsp;&nbsp;' + legTxt(x.b) + ' · blotter ' + px(x.b.px) + ' → statement ' + px(x.s.px)
+      + ' · ' + money((x.b.side === 'O' ? 1 : -1) * (x.b.px - x.s.px) * x.b.q * 100) + ' on cycle P&L'));
+    ln(R.ident.length ? A : G, (R.ident.length ? '⚠ ' : '✓ ') + R.ident.length + ' IDENTITY mis-punch' + (R.ident.length === 1 ? '' : 'es') + ' — wrong strike/expiry typed');
+    R.ident.forEach(x => ln(A, '&nbsp;&nbsp;' + x.b.d + ' ' + (x.b.side === 'C' ? 'cover' : 'sell') + ' blotter $' + x.b.k + 'C ' + x.b.exp + ' ×' + x.b.q + ' @' + px(x.b.px)
+      + ' → statement $' + x.s.k + 'C ' + x.s.exp + ' ×' + x.s.q + ' @' + px(x.s.px)));
+    ln(R.qty.length ? A : G, (R.qty.length ? '⚠ ' : '✓ ') + R.qty.length + ' QUANTITY mismatch' + (R.qty.length === 1 ? '' : 'es'));
+    R.qty.forEach(x => ln(A, '&nbsp;&nbsp;' + legTxt(x.b) + ' · statement ×' + x.s.q));
+    const bIn = R.bOnly.filter(b => b.d >= R.lo);
+    ln(bIn.length ? Rd : G, (bIn.length ? '✗ ' : '✓ ') + bIn.length + ' blotter-only leg' + (bIn.length === 1 ? '' : 's') + ' inside the span (SPEC §5.4 — a ticket with no fill: FLAG, never delete)');
+    bIn.forEach(b => ln(Rd, '&nbsp;&nbsp;' + legTxt(b) + ' @' + px(b.px)));
+    ln(R.sOnly.length ? A : G, (R.sOnly.length ? '⚠ ' : '✓ ') + R.sOnly.length + ' statement-only leg' + (R.sOnly.length === 1 ? '' : 's') + ' — a fill with no ticket');
+    R.sOnly.forEach(s => ln(A, '&nbsp;&nbsp;' + legTxt(s) + ' @' + px(s.px) + ' (' + s.cls + ')'));
+    if (R.before) ln(M, R.before + ' blotter leg(s) dated before the first statement row — out of scope, not compared');
+
+    L.push('<div style="margin-top:8px;color:var(--text);">CYCLES — adapter tickets through the blotter’s own pairing (_pairLiveCycles)</div>');
+    const cy = (lab, c) => {
+      const ok = c.diffs.length === 0;
+      ln(ok ? G : A, (ok ? '✓ ' : '⚠ ') + lab + ' — blotter ' + c.nB + ' cycles ' + money(c.pB) + ' · adapter ' + c.nA + ' cycles ' + money(c.pA)
+        + ' · Δ ' + money(c.pA - c.pB) + (ok ? ' — IDENTICAL' : ' — ' + c.diffs.length + ' cycle(s) differ'));
+      c.diffs.slice(0, 30).forEach(x => ln(A, '&nbsp;&nbsp;' + x.k + ' · blotter ' + money(x.blot) + ' → adapter ' + money(x.act)
+        + (x.cb && x.ca && x.cb !== x.ca ? ' · close ' + x.cb + ' vs ' + x.ca : '')));
+      if (c.diffs.length > 30) ln(M, '&nbsp;&nbsp;… ' + (c.diffs.length - 30) + ' more');
+    };
+    cy('ERA (both legs ≥ ' + WF_ERA_START + ')', R.era);
+    cy('ALL (both legs ≥ ' + R.lo + ')', R.all);
+    const oSame = R.oB.join(';') === R.oA.join(';');
+    ln(oSame ? G : A, (oSame ? '✓ ' : '⚠ ') + 'open — blotter [' + (R.oB.join(', ') || 'flat') + '] · adapter [' + (R.oA.join(', ') || 'flat') + ']');
+    ln(M, 'Every cycle difference must trace to a leg listed above. One that does not is an ADAPTER defect, and blocks v7.7.1.');
+
+    L.push('<div style="margin-top:8px;color:var(--text);">roll_params.json — the agent’s position, against the statement</div>');
+    if (!R.rp) ln(M, 'no open position on one side — not compared');
+    else if (!R.rp.stmtCovers) ln(M, 'open leg ' + R.rp.openDate + ' is after the last statement row — not yet arbitrable');
+    else {
+      const idOk = R.rp.strikeOk && R.rp.expiryOk && R.rp.qtyOk;
+      ln(idOk ? G : Rd, (idOk ? '✓' : '✗') + ' identity (strike, expiry, contracts)');
+      ln(R.rp.pxOk ? G : Rd, (R.rp.pxOk ? '✓' : '✗') + ' sellPrice ' + px(R.rp.jsonPx) + ' vs statement fill ' + px(R.rp.stmtPx)
+        + (R.rp.pxOk ? '' : ' — the agent’s decay trigger divides by this'));
+    }
+
+    L.push('<div style="margin-top:8px;color:var(--text);">LEDGER HYGIENE</div>');
+    ln(R.stale ? Rd : G, (R.stale ? '✗ ' : '✓ ') + R.stale + ' ticket-basis row(s) inside the statement span (should have converted in place)');
+    ln(M, R.pending + ' ticket-basis row(s) after ' + R.bound + ' — awaiting a statement');
+    L.push('<div style="color:var(--muted);font-size:9px;margin-top:8px;">READ-ONLY — live_trades and live_legs untouched. '
+      + 'Statement prices are size-weighted per (date, side, expiry, strike). Readers still take live_trades until v7.7.1.</div>');
+    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;">' + L.join('') + '</div>';
+    const nIss = R.price.length + R.ident.length + R.qty.length + bIn.length;
+    st.textContent = '✓ activity compare — ' + nIss + ' blotter discrepanc' + (nIss === 1 ? 'y' : 'ies') + ' · nothing written';
+  } catch (e) {
+    st.textContent = '✗ ' + e.message;
     host.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">' + e.message + '</div>';
   }
 }
