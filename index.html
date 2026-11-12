@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.7.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.7.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -909,7 +909,11 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.7.2';
+const APP_VERSION = 'v7.7.3';
+// v7.7.3 (S70, Ron) — the adapter gives an ASSIGNED close no price (blotter
+// convention, P&L '—'); v7.7.2 priced it at $0 and moved ~$25k of assigned premium
+// from the SPY residual into Calls on the statement line. Totals were unaffected.
+// One change in _activityToTrades. Base v7.7.2 (265a5ab2).
 // v7.7.2 (S70, Ron) — THE CUTOVER to one activity table, account_activity
 // (SPEC single trades table). Every reader takes trades from the ledger through
 // _activityToTrades; tickets write legs only; live_trades is frozen and retired;
@@ -10765,9 +10769,16 @@ function _activityToTrades(shaped) {
     for (let i = 0; i < n; i++) {
       const c = C[i] || null, o = O[i] || null;
       const term = c && c.cls !== 'opt_buy_close';
-      const cpx = c ? (term ? 0 : r2(c.px)) : null, spx = o ? r2(o.px) : null;
+      // v7.7.3 — an ASSIGNED close carries NO price (null), the convention the blotter
+      // always used: assigned P&L renders '—' and stays out of call P&L, because the
+      // economics ride the share delivery. v7.7.2 priced it at $0, which booked 38
+      // assigned premiums (~$25k) as call profit and moved them out of the SPY
+      // residual. An EXPIRY stays at $0 — the premium was kept.
+      const asg = !!(c && c.cls === 'opt_assigned');
+      const cpx = c ? (asg ? null : term ? 0 : r2(c.px)) : null, spx = o ? r2(o.px) : null;
       const t = c ? (trig.get(d + '|' + c.cls + '|' + c.sym) || null) : null;
-      const rc = (c && o) ? (spx - cpx) * o.qty * 100 : c ? -cpx * c.qty * 100 : spx * o.qty * 100;
+      const cc = cpx || 0; // roll credit is CASH: an assignment pays nothing for the call
+      const rc = (c && o) ? (spx - cc) * o.qty * 100 : c ? -cc * c.qty * 100 : spx * o.qty * 100;
       out.push({
         id: ++id, trade_date: _actUs(d),
         status: (o && openKeys.has(d + '|' + o.strike + '|' + o.expiry)) ? 'open' : 'closed',
