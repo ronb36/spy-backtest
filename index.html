@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.8.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.8.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -906,7 +906,16 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.8.0';
+const APP_VERSION = 'v7.8.1';
+// v7.8.1 (S71, Ron) — §4.1 CAUSE FROM THE AGENT RUN LOG. The divergence log's
+// "cause: UNKNOWN" is replaced, per divergence date, by what agent_runs (agent
+// v1.7.66, one row per scheduled job) recorded that day: FIRED (first ROLL, its
+// time, trigger, mark and whether the push showed it as provisional) / DID NOT
+// FIRE (that day's peak decay and Δ against their thresholds) / NOT WATCHING (no
+// scored run: only skips, errors or nothing) / PRE-LOG (before the log's first
+// row — derived from the table, not pinned). One anon read per load; a failed
+// read prints the reason and eval carries on. Reads only. No MODEL_VERSION
+// change, Gate untouched. Base v7.8.0 (cfd0a12d).
 // v7.8.0 (S70, Ron) — CYCLES FROM LEGS (SPEC cycles from legs). Every reader
 // (blotter, Conformance, eval, Roll Economics, Performance, Cover Only, import
 // gate 3) takes cycles from _legsToCycles via _liveBook; the synthetic tickets
@@ -3175,7 +3184,75 @@ function _evalRenderAgreement(a) {
   logMsg('    (readings never pooled across types: decay is a percentage, delta a probability)', '');
 }
 
-function _evalReport(live, sim, start, ms, full, pend) {
+// v7.8.1 — the agent run log for the eval window. NEVER throws: eval must
+// render whether or not the log is reachable. `first` is the log's earliest
+// trade_date over the WHOLE table (its own query): a date before it is PRE-LOG,
+// a date on or after it with no scored run is NOT WATCHING.
+async function _evalLoadRuns(start) {
+  try {
+    const cols = 'run_at,trade_date,slot,outcome,signal,signal_shown,provisional,trig_src,'
+               + 'tv_decay_pct,decay_threshold,delta_sim,delta_threshold,decay_fired,delta_fired,dte_fired,error';
+    const r1 = await fetch(`${SB_URL}/agent_runs?select=trade_date&order=run_at.asc&limit=1`, { headers: _sbHeaders });
+    if (!r1.ok) throw new Error('agent_runs read failed: ' + r1.status);
+    const f = await r1.json();
+    const r2 = await fetch(`${SB_URL}/agent_runs?select=${cols}&trade_date=gte.${start}&order=run_at.asc&limit=10000`, { headers: _sbHeaders });
+    if (!r2.ok) throw new Error('agent_runs read failed: ' + r2.status);
+    const rows = await r2.json();
+    if (rows.length === 10000) throw new Error('agent_runs hit the 10000-row window — truncation can never hide (paginate)');
+    return { rows: rows, first: f.length ? f[0].trade_date : null, err: null };
+  } catch (e) {
+    return { rows: [], first: null, err: e.message };
+  }
+}
+
+function _evalRunEt(ts) {
+  try { return new Date(ts).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); }
+  catch (e) { return '?'; }
+}
+
+// One cause per divergence date. The agent watches the LIVE position, so its
+// rows describe the live side whichever side traded.
+function _evalCause(d, runs) {
+  if (runs.err) return { tag: 'UNREADABLE', txt: 'run log unreadable (' + runs.err + ')', cls: '' };
+  if (!runs.first || d.date < runs.first) {
+    return { tag: 'PRE-LOG', txt: 'before the run log began' + (runs.first ? ' (' + runs.first + ')' : ' (no rows yet)')
+           + ' — permanently unknown', cls: '' };
+  }
+  const day = runs.rows.filter(function (r) { return r.trade_date === d.date; });
+  const scored = day.filter(function (r) { return r.outcome === 'scored'; });
+  if (!scored.length) {
+    const n = {}; day.forEach(function (r) { n[r.outcome] = (n[r.outcome] || 0) + 1; });
+    const parts = Object.keys(n).sort().map(function (k) { return n[k] + ' ' + k; });
+    return { tag: 'NOT WATCHING', txt: 'no scored run that day' + (parts.length ? ' (' + parts.join(', ') + ')' : ' (no rows)'),
+             cls: 'err' };
+  }
+  const fired = scored.filter(function (r) { return r.signal === 'ROLL'; });
+  if (fired.length) {
+    const f = fired[0];
+    const trig = [f.delta_fired ? 'delta' : null, f.decay_fired ? 'decay' : null, f.dte_fired ? 'DTE' : null]
+      .filter(Boolean).join('+') || '?';
+    const shown = f.provisional ? ' · shown ' + (f.signal_shown || '?') + ' (PROVISIONAL)' : '';
+    const acted = d.quiet === 'live' ? 'NOT ACTED' : 'live acted';
+    return { tag: 'FIRED · ' + acted,
+             txt: 'first ROLL ' + _evalRunEt(f.run_at) + ' ET (' + f.slot + ') · ' + trig
+                + (f.trig_src ? ' · mark ' + f.trig_src : '') + shown
+                + ' · ' + fired.length + '/' + scored.length + ' scored runs fired',
+             cls: d.quiet === 'live' ? 'err' : 'ok' };
+  }
+  const mx = function (k) {
+    const v = scored.map(function (r) { return r[k]; }).filter(function (x) { return x != null; });
+    return v.length ? Math.max.apply(null, v) : null;
+  };
+  const dk = mx('tv_decay_pct'), dl = mx('delta_sim');
+  const th = scored[scored.length - 1];
+  return { tag: 'DID NOT FIRE',
+           txt: 'peak decay ' + (dk == null ? '—' : dk.toFixed(1) + '%') + ' vs ' + (th.decay_threshold == null ? '?' : th.decay_threshold + '%')
+              + ' · peak Δ ' + (dl == null ? '—' : dl.toFixed(3)) + ' vs ' + (th.delta_threshold == null ? '?' : th.delta_threshold)
+              + ' · ' + scored.length + ' scored runs' + (d.quiet === 'sim' ? ' — live traded without an agent signal' : ''),
+           cls: '' };
+}
+
+function _evalReport(live, sim, start, ms, full, pend, runs) {
   const maps = buildMaps();
   const sp = function (a, b) { return (a && b) ? _confDays(a, b) + 'd' : '?'; };
   const lFirst = live.length ? live[0].open : null;
@@ -3257,8 +3334,14 @@ function _evalReport(live, sim, start, ms, full, pend) {
          + '  \u2014 quiet side held nothing: out of position, not a trigger event', '');
   }
   if (dv.length) {
-    logMsg('    cause: UNKNOWN — this shows THAT a side did not trade, not whether the agent fired and was', '');
-    logMsg('           missed or never fired. Needs the agent run log (SPEC agent run log, pending).', '');
+    // v7.8.1 — cause per date from the agent run log (agent_runs, agent v1.7.66).
+    runs = runs || { rows: [], first: null, err: 'not loaded' };
+    logMsg('    CAUSE — agent run log' + (runs.err ? ' UNREADABLE: ' + runs.err
+         : runs.first ? ' · first row ' + runs.first + ' · ' + runs.rows.length + ' rows in window' : ' · no rows yet'), '');
+    dv.forEach(function (d) {
+      const c = _evalCause(d, runs);
+      logMsg('      ' + d.date + '  ' + d.traded + ' traded  ' + c.tag + ' — ' + c.txt, c.cls);
+    });
   }
 
   const _dec = _evalGapDecomp(live, sim);
@@ -3311,8 +3394,9 @@ async function runEval() {
     // simulate() returns null when NO cycle closed — "still holding at DM end",
     // not an error. lastResult is set by runBacktest, never by simulate, so this
     // pinned run cannot clobber the panels' full-backtest state.
+    const _runs = await _evalLoadRuns(start);   // v7.8.1 — never throws
     _evalReport(live, (r && r.cycles) ? r.cycles : [], start, Date.now() - t0, full,
-                r ? r.pendingContract : null);
+                r ? r.pendingContract : null, _runs);
     setProgress(100);
   } catch (e) {
     logMsg('✗ EVALUATION: ' + e.message, 'err');
