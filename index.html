@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -518,71 +518,20 @@ select.display-box { cursor:pointer; outline:none; }
     <!-- Live Trades tab -->
     <div id="tab-gate" style="display:none">
 <div class="wrap">
-  <h1>Cycle-Ledger Bootstrap <span id="bs-ver" class="mono" style="font-weight:400;font-size:14px;color:var(--dim)"></span></h1>
-  <p class="sub">Circular moving-block bootstrap on Exit Attribution per-cycle rows.
-  Evaluation instrument only — no policy machinery. Load a certified STD log file,
-  or paste rows exactly as they appear in the log (timestamps optional).</p>
-
+  <h1>Gate <span id="bs-ver" class="mono"></span></h1>
+  <p class="sub">The Gate's report from the last one-pass optimizer run (▶ Run with sweep cards armed).
+  Circular calendar-block co-resampling, L ∈ {30, 61, 91}; publish needs P(Δ&gt;0) ≥ 90% and p05 ≥ −0.25pp at
+  every L. Adjudication only — no policy machinery. Nothing here is imported or exported by hand (v1.6.0).</p>
   <div class="card">
-    <h2>Ledger A — primary</h2>
-    <textarea id="txtA" placeholder="#1 2024-07-19 decay 3d P&amp;L +$5,841 ITM -2.8% Δin 0.68&#10;#2 ..."></textarea>
-    <div class="row">
-      <div><label>Observed core yield %</label><input type="number" id="yA" step="0.1"></div>
-      <button class="ghost" id="loadA">Load STD log…</button>
-      <input type="file" id="fileA" accept=".txt,text/plain">
-      <button class="ghost" id="parseA">Parse Ledger A</button>
+    <h2>Pack</h2>
+    <div class="parsebox" id="pboxP">— no Gate run yet this session —</div>
+    <div class="row" style="display:none"><!-- v1.6.0 — driven by the optimizer; never by hand -->
+      <input type="number" id="nBP" value="10000"><input type="number" id="seedP" value="42">
+      <button id="runP" disabled>Run pack bootstrap</button><span class="gatemsg" id="gateMsgP"></span>
     </div>
-    <div class="parsebox" id="pboxA">— not parsed —</div>
   </div>
-
-  <div class="card">
-    <h2>Ledger B — comparison (optional)</h2>
-    <textarea id="txtB" placeholder="Load or paste the sandbox run's log here, or leave empty and use the point-yield field below."></textarea>
-    <div class="row">
-      <div><label>Observed core yield %</label><input type="number" id="yB" step="0.1"></div>
-      <button class="ghost" id="loadB">Load STD log…</button>
-      <input type="file" id="fileB" accept=".txt,text/plain">
-      <button class="ghost" id="parseB">Parse Ledger B</button>
-    </div>
-    <div class="parsebox" id="pboxB">— not parsed —</div>
-  </div>
-
-  <div class="card">
-    <h2>Run</h2>
-    <div class="row">
-      <div><label>Resamples B</label><input type="number" id="nB" value="10000"></div>
-      <div><label>Seed</label><input type="number" id="seed" value="42"></div>
-      <div><label>Comparison yield % (P-B1)</label><input type="number" id="cmpY" step="0.01"></div>
-      <button id="run" disabled>Run bootstrap</button>
-      <span class="gatemsg" id="gateMsg"></span>
-    </div>
-    <p class="note">Block lengths L ∈ {3, 6, 10} always run together (P-B2). Seeded PRNG —
-    same seed + same rows reproduces the run exactly. Comparison yield defaults to
-    Ledger B's observed yield when B is parsed.</p>
-  </div>
-
-  <div class="card"><!-- ledger-pack N-way mode (v1.3.0+): separate path, legacy A/B untouched -->
-    <h2>Ledger Pack — N-way calendar-block</h2>
-    <div class="row">
-      <button class="ghost" id="loadP">Load ledger pack…</button>
-      <input type="file" id="fileP" accept=".json,application/json">
-      <div><label>Resamples B</label><input type="number" id="nBP" value="10000"></div>
-      <div><label>Seed</label><input type="number" id="seedP" value="42"></div>
-      <button id="runP" disabled>Run pack bootstrap</button>
-      <span class="gatemsg" id="gateMsgP"></span>
-    </div>
-    <div class="parsebox" id="pboxP">— no pack loaded —</div>
-    <p class="note">Import a <span class="mono">ledger-pack/2</span> JSON from the backtester
-    (v6.19.0+ Export Ledger Pack). Co-resampling: ONE shared sequence of circular
-    calendar-day blocks (L ∈ {30, 61, 91} ≈ 1/2/3 months) applied to every entry per
-    resample — shared history cancels; the Δ distribution reflects only where machines
-    diverge. Core cycles only (initial excluded), attributed to blocks by exit date.
-    Outputs: win-frequency ranking + paired Δ vs entry #0 (incumbent). Adjudication
-    instrument only — the shortlist still walks through walk-forward.</p>
-  </div>
-
   <div id="outP"></div>
-  <div id="out"></div>
+
 </div>
     </div>
 
@@ -903,7 +852,14 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.9.0';
+const APP_VERSION = 'v7.9.1';
+// v7.9.1 (S71, Ron) — GATE-ONLY RELEASE: GATE v1.6.0. The Gate tab is stripped
+// to the pack bootstrap and its report (Foundation §6.16). Retired: Ledger A/B
+// (paste/load an STD log, one- or two-ledger bootstrap — the pre-pack v1.2
+// path), manual pack import, both results-log downloads. GATE_LAST gains
+// `report` (the Gate's own plain-text report). The sim, the ranker and the app
+// are untouched — the Gate ships alone, per the standing rule. Base v7.9.0
+// (3fc99af7).
 // v7.9.0 (S71, Ron) — ONE-PASS OPTIMIZER (SPEC one-pass optimizer, Release B;
 // MODEL m7.6.0). ▶ Run (with sweep cards armed) now does preflight → sweep →
 // pack → Gate → verdict in one pass. THE PAIRED SCORE IS THE ONLY SELECTION KEY:
@@ -10472,7 +10428,7 @@ async function confirmManualEntry() {
 // collision ($, byte-identical semantics) — all verified before the splice.
 
 "use strict";
-const GATE_VERSION='v1.5.1'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
+const GATE_VERSION='v1.6.0'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
 document.addEventListener('DOMContentLoaded',()=>{const e=document.getElementById('bs-ver');if(e)e.textContent=GATE_VERSION;});
 /* Cycle-Ledger Bootstrap v1.4.0 — S66
    v1.4.0 (S66): LEDGER-PACK/2 ONLY. Backtester v7.2.13 retired the frozen
@@ -10501,60 +10457,9 @@ document.addEventListener('DOMContentLoaded',()=>{const e=document.getElementByI
    band values; sole report diff is the P-P1 line. Legacy A/B certified
    reference remains the 08-05 pair, band fp 22659242. */
 /* v7.4.0 merge: $ helper dropped — byte-identical to the host page’s own. */
-let A=null,Bl=null,reportTxt=null;
 
-function parseLedger(txt){
-  const rows=[];const errs=[];
-  const meta={yObs:null,coreLine:null,verLine:null,runLine:null};
-  const re=/#(\d+)\s+(\d{4}-\d{2}-\d{2})\s+(\S+)\s+(\d+)d\s+P&L\s+([+-])\$([\d,]+)\s+ITM\s+([+-][\d.]+)%\s+Δin\s+([\d.]+)/;
-  txt.replace(/[\u2028\u2029\r]/g,'\n').split(/\n/).forEach(line=>{
-    const t=line.replace(/^\[[^\]]*\]\s*/,'').trim();
-    if(!t)return;
-    // v1.2.1 — identity readers (first hit wins; stripped of timestamps)
-    if(!meta.verLine&&/^v[\d.]+\s+·\s+SPY Covered Call Backtest/.test(t))meta.verLine=t;
-    if(!meta.runLine&&/^Running — /.test(t))meta.runLine=t;
-    if(meta.coreLine===null){
-      // v1.2.2 — parse the REAL summary line ("127 cycles · 7.4% core yield · ...");
-      // the v1.2.1 pattern "Core yield: X.X%/yr" matched no line any log has ever emitted
-      const cy=t.match(/^\d+\s+cycles\s+·\s+(-?[\d.]+)%\s+core\s+yield\b/);
-      if(cy){meta.coreLine=t;meta.yObs=parseFloat(cy[1]);}
-    }
-    if(!t.includes('#'))return;
-    const m=t.match(re);
-    if(m){rows.push({i:+m[1],date:m[2],pool:m[3],days:+m[4],
-      pnl:(m[5]==='-'?-1:1)*parseInt(m[6].replace(/,/g,''),10)});}
-    else if(/^#\d+/.test(t))errs.push(t.slice(0,60));
-  });
-  return {rows,errs,meta};
-}
-function fingerprint(rows){ // small stable hash for the run header
-  let h=2166136261>>>0;
-  rows.forEach(r=>{const s=r.i+r.date+r.pool+r.days+r.pnl;
-    for(let k=0;k<s.length;k++){h^=s.charCodeAt(k);h=Math.imul(h,16777619);}});
-  return (h>>>0).toString(16).padStart(8,'0');
-}
-function summarize(rows){
-  const pools={};let pnl=0,days=0;
-  rows.forEach(r=>{pools[r.pool]=(pools[r.pool]||0)+1;pnl+=r.pnl;days+=r.days;});
-  return {n:rows.length,pools,pnl,days};
-}
-function showParse(which,res){
-  const box=which==='A'?$('pboxA'):$('pboxB');
-  if(!res.rows.length){box.innerHTML='<span class="bad">No rows parsed.</span> '
-    +'Expected rows like: <span class="mono">#1 2024-07-19 decay 3d P&amp;L +$5,841 ITM -2.8% Δin 0.68</span>'
-    +' — load the STD log file directly if pasting fails.';return null;}
-  const s=summarize(res.rows);
-  const p=Object.entries(s.pools).map(([k,v])=>k+' '+v).join(' · ');
-  box.innerHTML='rows <b>'+s.n+'</b> · '+p+' · ΣP&L <b>'
-    +(s.pnl<0?'−':'+')+'$'+Math.abs(s.pnl).toLocaleString()+'</b> · Σhold '
-    +s.days+'d · fp <b>'+fingerprint(res.rows)+'</b>'
-    +(res.meta.yObs!=null?' · yObs <b>'+res.meta.yObs.toFixed(1)+'%</b> (parsed from log)':
-      ' · <span class="wn">no Core-yield line — yObs MANUAL</span>')+'\n'
-    +'<span class="wn">Verify n and ΣP&L against the log checksum line before running.</span>'
-    +(res.errs.length?'\n<span class="bad">'+res.errs.length+' unparsed #-rows (first: '
-      +res.errs[0]+')</span>':'');
-  return {rows:res.rows,sum:s,meta:res.meta};
-}
+let PK=null,reportTxtP=null;
+
 function etStamp(d, forFilename){ // v1.2.1 — America/New_York, DST-correct via Intl (never hand-offset)
   const p = new Intl.DateTimeFormat('en-CA', { timeZone:'America/New_York', year:'numeric', month:'2-digit',
     day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }).formatToParts(d)
@@ -10563,225 +10468,9 @@ function etStamp(d, forFilename){ // v1.2.1 — America/New_York, DST-correct vi
   return forFilename ? `${p.year}-${p.month}-${p.day}_${hh}${p.minute}ET`
                      : `${p.year}-${p.month}-${p.day} ${hh}:${p.minute} ET`;
 }
-function autofillY(which){  // v1.2.1 — the log's Core-yield line wins the field
-  const L=which==='A'?A:Bl;
-  if(L&&L.meta&&L.meta.yObs!=null)$(which==='A'?'yA':'yB').value=L.meta.yObs;
-}
-function loadFile(which){
-  const inp=which==='A'?$('fileA'):$('fileB');
-  const f=inp.files&&inp.files[0];
-  if(!f)return;
-  const rd=new FileReader();
-  rd.onload=()=>{
-    const txt=String(rd.result);
-    if(which==='A'){$('txtA').value=txt;A=showParse('A',parseLedger(txt));autofillY('A');}
-    else{$('txtB').value=txt;Bl=showParse('B',parseLedger(txt));autofillY('B');
-      if(Bl&&$('yB').value&&!$('cmpY').value)$('cmpY').value=$('yB').value;}
-    gate();
-  };
-  rd.onerror=()=>{
-    const box=which==='A'?$('pboxA'):$('pboxB');
-    box.innerHTML='<span class="bad">File read failed.</span>';
-  };
-  rd.readAsText(f);
-  inp.value=''; // allow re-selecting the same file
-}
-$('loadA').onclick=()=>$('fileA').click();
-$('loadB').onclick=()=>$('fileB').click();
-$('fileA').onchange=()=>loadFile('A');
-$('fileB').onchange=()=>loadFile('B');
-$('parseA').onclick=()=>{A=showParse('A',parseLedger($('txtA').value));autofillY('A');gate();};
-$('parseB').onclick=()=>{Bl=showParse('B',parseLedger($('txtB').value));autofillY('B');
-  if(Bl&&$('yB').value&&!$('cmpY').value)$('cmpY').value=$('yB').value;gate();};
-function yMismatch(L,fld){ // v1.2.1 — parsed log value vs field, 0.05 tolerance
-  if(!L||!L.meta||L.meta.yObs==null)return false;
-  const v=+$(fld).value;
-  return !v||Math.abs(v-L.meta.yObs)>0.05;
-}
-function gate(){
-  let msg='';
-  if(!A||!A.rows.length)msg='Load or parse Ledger A first';
-  else if(A.meta.yObs==null&&!+$('yA').value)msg='Enter Ledger A observed yield (no Core-yield line in log — manual)';
-  else if(yMismatch(A,'yA'))msg='⚠ yObs field '+(+$('yA').value||'?')+' ≠ log Core yield '
-    +A.meta.yObs.toFixed(1)+' (Ledger A) — field must match the loaded log';
-  else if(Bl&&Bl.rows.length&&yMismatch(Bl,'yB'))msg='⚠ yObs field '+(+$('yB').value||'?')
-    +' ≠ log Core yield '+Bl.meta.yObs.toFixed(1)+' (Ledger B) — field must match the loaded log';
-  $('run').disabled=!!msg;
-  $('gateMsg').textContent=msg;
-}
-$('yA').oninput=gate;
-$('yB').oninput=gate;
-gate();
-
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;
   let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;
   return((t^t>>>14)>>>0)/4294967296;};}
-
-function bootstrapLedger(rows,yObs,L,B,rng){
-  const n=rows.length;
-  const Dobs=rows.reduce((a,r)=>a+r.days,0);
-  const Pobs=rows.reduce((a,r)=>a+r.pnl,0);
-  const ys=new Float64Array(B),ss=new Float64Array(B);
-  for(let b=0;b<B;b++){
-    let d=0,p=0,harv=0,stop=0;
-    while(d<Dobs){
-      const start=Math.floor(rng()*n);
-      for(let k=0;k<L&&d<Dobs;k++){
-        const r=rows[(start+k)%n];
-        d+=r.days;p+=r.pnl;
-        if(r.pool==='delta-stop')stop+=r.pnl;else harv+=r.pnl;
-      }
-    }
-    ys[b]=yObs*(p/Pobs)*(Dobs/d);
-    ss[b]=harv>0?(-stop/harv)*100:NaN;
-  }
-  ys.sort();const q=f=>ys[Math.min(B-1,Math.floor(f*B))];
-  const sv=Array.from(ss).filter(x=>!isNaN(x)).sort((a,b)=>a-b);
-  const sq=f=>sv.length?sv[Math.min(sv.length-1,Math.floor(f*sv.length))]:NaN;
-  return {p05:q(.05),p25:q(.25),p50:q(.50),p75:q(.75),p95:q(.95),
-          s25:sq(.25),s50:sq(.50),s75:sq(.75),
-          mean:ys.reduce((a,v)=>a+v,0)/B,
-          sd:Math.sqrt(ys.reduce((a,v)=>a+(v-ys.reduce((x,y)=>x+y,0)/B)**2,0)/B)};
-}
-function gauge(r,lo,hi,cmp,cmpLabel){
-  const X=v=>((v-lo)/(hi-lo)*100).toFixed(2)+'%';
-  const W=(a,b)=>((b-a)/(hi-lo)*100).toFixed(2)+'%';
-  let g='<div class="gauge">'
-    +'<div class="band" style="left:'+X(r.p05)+';width:'+W(r.p05,r.p95)+'"></div>'
-    +'<div class="iqr" style="left:'+X(r.p25)+';width:'+W(r.p25,r.p75)+'"></div>'
-    +'<div class="med" style="left:'+X(r.p50)+'"></div>';
-  if(cmp!=null&&cmp>=lo&&cmp<=hi)
-    g+='<div class="cmp" data-l="'+cmpLabel+' '+cmp.toFixed(2)+'" style="left:'+X(cmp)+'"></div>';
-  g+='</div><div class="axis"><span>'+lo.toFixed(1)+'%</span><span>'+hi.toFixed(1)+'%</span></div>';
-  return g;
-}
-
-$('run').onclick=()=>{
-  const B=Math.max(100,+$('nB').value||10000);
-  const seed=+$('seed').value||42;
-  const Ls=[3,6,10];
-  const cmp=$('cmpY').value?+$('cmpY').value:null;
-  const out=[];
-  const stamp=etStamp(new Date(), false); // v1.2.1 — ET-labeled (was unlabeled UTC)
-  const yTagA=A.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
-  const yTagB=Bl&&Bl.meta&&Bl.meta.yObs!=null?'(log)':'(MANUAL — unverified)';
-  const hdr='bootstrap '+GATE_VERSION+' · '+stamp // v1.2.3 — single writer: artifacts can never carry a stale version
-    +' · seed '+seed+' · B '+B+' · L {3,6,10}\n'
-    +'A: n '+A.sum.n+' · ΣP&L '+(A.sum.pnl<0?'−':'+')+'$'+Math.abs(A.sum.pnl).toLocaleString()
-    +' · Σhold '+A.sum.days+'d · yObs '+(+$('yA').value).toFixed(1)+'% '+yTagA+' · fp '+fingerprint(A.rows)
-    +(Bl&&Bl.rows.length?'\nB: n '+Bl.sum.n+' · ΣP&L '+(Bl.sum.pnl<0?'−':'+')
-      +'$'+Math.abs(Bl.sum.pnl).toLocaleString()+' · Σhold '+Bl.sum.days+'d · yObs '
-      +($('yB').value?(+$('yB').value).toFixed(1)+'% '+yTagB:'?')+' · fp '+fingerprint(Bl.rows):'')
-    +(cmp!=null?'\ncomparison yield (P-B1): '+cmp.toFixed(2)+'%':'');
-  out.push('<div class="card"><h2>Run header — copy into the session record</h2>'
-    +'<div class="runhdr">'+hdr+'</div>');
-
-  const resA={},resB={};
-  Ls.forEach(L=>{resA[L]=bootstrapLedger(A.rows,+$('yA').value,L,B,mulberry32(seed*100+L));});
-  if(Bl&&Bl.rows.length&&$('yB').value)
-    Ls.forEach(L=>{resB[L]=bootstrapLedger(Bl.rows,+$('yB').value,L,B,mulberry32(seed*100+L+50));});
-
-  const allv=[];Ls.forEach(L=>{allv.push(resA[L].p05,resA[L].p95);
-    if(resB[L])allv.push(resB[L].p05,resB[L].p95);});
-  if(cmp!=null)allv.push(cmp);
-  const lo=Math.floor(Math.min(...allv))-1,hi=Math.ceil(Math.max(...allv))+1;
-
-  let tbl='<table><tr><th>Ledger·L</th><th>p05</th><th>p25</th><th>median</th>'
-    +'<th>p75</th><th>p95</th><th>90% CI width</th><th>stop-share med (IQR)</th></tr>';
-  Ls.forEach(L=>{const r=resA[L];
-    tbl+='<tr><td>A · L='+L+'</td><td>'+r.p05.toFixed(2)+'</td><td>'+r.p25.toFixed(2)
-      +'</td><td><b>'+r.p50.toFixed(2)+'</b></td><td>'+r.p75.toFixed(2)+'</td><td>'
-      +r.p95.toFixed(2)+'</td><td>'+(r.p95-r.p05).toFixed(2)+'pp</td><td>'
-      +r.s50.toFixed(0)+'% ('+r.s25.toFixed(0)+'–'+r.s75.toFixed(0)+')</td></tr>';});
-  Ls.forEach(L=>{const r=resB[L];if(!r)return;
-    tbl+='<tr><td>B · L='+L+'</td><td>'+r.p05.toFixed(2)+'</td><td>'+r.p25.toFixed(2)
-      +'</td><td><b>'+r.p50.toFixed(2)+'</b></td><td>'+r.p75.toFixed(2)+'</td><td>'
-      +r.p95.toFixed(2)+'</td><td>'+(r.p95-r.p05).toFixed(2)+'pp</td><td>'
-      +r.s50.toFixed(0)+'% ('+r.s25.toFixed(0)+'–'+r.s75.toFixed(0)+')</td></tr>';});
-  tbl+='</table>';
-  out.push('<h2 style="margin-top:14px">Ledger A · L=6 (primary)</h2>'
-    +gauge(resA[6],lo,hi,cmp,'cmp')
-    +(resB[6]?'<h2>Ledger B · L=6</h2>'+gauge(resB[6],lo,hi,null,''):'')
-    +tbl);
-
-  // Verdicts (plain-text copies collected for the report)
-  const vTxt=[];
-  const rA=resA[6];
-  if(cmp!=null){
-    const inCI=cmp>=rA.p05&&cmp<=rA.p95;
-    const v='P-B1 — comparison '+cmp.toFixed(2)+'% '+(inCI?'INSIDE':'OUTSIDE')
-      +' A\u2019s 90% interval ['+rA.p05.toFixed(2)+', '+rA.p95.toFixed(2)+'] at L=6 → '
-      +(inCI?'gap NOT resolvable at this resolution':'gap IS resolvable — a real distinction');
-    vTxt.push(v);
-    out.push('<div class="verdict '+(inCI?'pass':'fail')+'">'+v+'</div>');
-  }
-  const l3=resA[3],l10=resA[10];
-  const stable=Math.abs(l3.p05-l10.p05)<=1.0&&Math.abs(l3.p95-l10.p95)<=1.0
-    &&(cmp==null||((cmp>=l3.p05&&cmp<=l3.p95)===(cmp>=l10.p05&&cmp<=l10.p95)));
-  const v2='P-B2 — endpoints across L {3,6,10}: p05 {'+l3.p05.toFixed(2)+', '
-    +rA.p05.toFixed(2)+', '+l10.p05.toFixed(2)+'} · p95 {'+l3.p95.toFixed(2)+', '
-    +rA.p95.toFixed(2)+', '+l10.p95.toFixed(2)+'} → '
-    +(stable?'STABLE (≤1.0pp drift, same P-B1 verdict)':'BLOCK-LENGTH FRAGILE');
-  vTxt.push(v2);
-  out.push('<div class="verdict '+(stable?'pass':'fail')+'">'+v2+'</div>');
-  const v3='P-B3 — stop-share dispersion: IQR '+(rA.s75-rA.s25).toFixed(0)
-    +'pp on median '+rA.s50.toFixed(0)+'% (record vs harvest dispersion in the session log)';
-  vTxt.push(v3);
-  out.push('<div class="verdict">'+v3+'</div>');
-  const methodLine='Method: circular moving-block bootstrap · clock-filled to Σhold '
-    +A.sum.days+'d (truncate at boundary) · y = yObs·(P&L_b/P&L_obs)·(D_obs/D_b) · '
-    +'unpaired A/B comparison by interval overlap only.';
-  out.push('<p class="note">'+methodLine+'</p>'
-    +'<div class="row" style="margin-top:10px"><button class="ghost" id="dl">Download results log</button></div></div>');
-  $('out').innerHTML=out.join('');
-
-  // v1.2.1 — plain-text report (the downloadable artifact)
-  const idLines=(tag,L)=>{
-    if(!L||!L.meta)return [];
-    const ls=[];
-    if(L.meta.verLine)ls.push('  source:  '+L.meta.verLine);
-    if(L.meta.runLine)ls.push('  params:  '+L.meta.runLine);
-    if(L.meta.coreLine)ls.push('  yield:   '+L.meta.coreLine);
-    return ls.length?['Ledger '+tag+' source identity:'].concat(ls):[
-      'Ledger '+tag+' source identity: (none parsed — pasted rows only)'];
-  };
-  const pad=(s,w)=>String(s).padStart(w);
-  const rep=[];
-  rep.push('═══════════════════════════════════════════════════════════');
-  rep.push('CYCLE-LEDGER BOOTSTRAP — RESULTS REPORT');
-  rep.push('═══════════════════════════════════════════════════════════');
-  rep.push(hdr);
-  rep.push('');
-  rep.push(...idLines('A',A));
-  if(Bl&&Bl.rows.length){rep.push('');rep.push(...idLines('B',Bl));}
-  rep.push('');
-  rep.push('Ledger·L     p05     p25  median     p75     p95   90%CIw   stop-share med (IQR)');
-  rep.push('───────────────────────────────────────────────────────────────────────────────');
-  const repRow=(tag,L,r)=>rep.push(tag+' · L='+String(L).padEnd(3)
-    +pad(r.p05.toFixed(2),8)+pad(r.p25.toFixed(2),8)+pad(r.p50.toFixed(2),8)
-    +pad(r.p75.toFixed(2),8)+pad(r.p95.toFixed(2),8)
-    +pad((r.p95-r.p05).toFixed(2)+'pp',9)
-    +'   '+r.s50.toFixed(0)+'% ('+r.s25.toFixed(0)+'–'+r.s75.toFixed(0)+')');
-  Ls.forEach(L=>repRow('A',L,resA[L]));
-  Ls.forEach(L=>{if(resB[L])repRow('B',L,resB[L]);});
-  rep.push('');
-  vTxt.forEach(v=>rep.push(v));
-  rep.push('');
-  rep.push(methodLine);
-  reportTxt=rep.join('\n')+'\n';
-  const fn='bootstrap_'+etStamp(new Date(), true)+'.txt'; // v1.2.1 — ET-labeled filename
-  $('dl').onclick=()=>{
-    const blob=new Blob([reportTxt],{type:'text/plain'});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);a.download=fn;
-    document.body.appendChild(a);a.click();
-    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
-  };
-};
-
-// ═══ v1.3.0 — Ledger-Pack N-way calendar-block mode ═══════════════════════
-// Separate path end-to-end: legacy A/B machinery above is byte-untouched.
-let PK=null,reportTxtP=null;
 
 function fpPack(cycles){ // must match the backtester's _fpLedger exactly (djb2 over entry|exit|round(pnl))
   let h=5381;
@@ -10843,14 +10532,6 @@ function gateP(){
   $('runP').disabled=!!msg;
   $('gateMsgP').textContent=msg;
 }
-$('loadP').onclick=()=>$('fileP').click();
-$('fileP').onchange=()=>{
-  const f=$('fileP').files&&$('fileP').files[0];if(!f)return;
-  const rd=new FileReader();
-  rd.onload=()=>{PK=showPack(parsePack(String(rd.result)));gateP();};
-  rd.onerror=()=>{$('pboxP').innerHTML='<span class="bad">File read failed.</span>';};
-  rd.readAsText(f);$('fileP').value='';
-};
 gateP();
 
 $('runP').onclick=()=>{
@@ -10988,8 +10669,7 @@ $('runP').onclick=()=>{
   const mth='Method: circular calendar-day moving-block · ONE shared draw sequence per resample across all entries '
     +'(paired) · exit-date attribution · core cycles only · y = coreYld·(P&L_b/P&L_obs)·(W/(nb·L)) · '
     +'strict argmax (ties → lower id) · adjudication only, no policy machinery.';
-  out.push('<p class="note">'+mth+'</p>'
-    +'<div class="row" style="margin-top:10px"><button class="ghost" id="dlP">Download pack results log</button></div></div>');
+  out.push('<p class="note">'+mth+'</p></div>'); // v1.6.0 — results-log download retired (the optimizer prints this report to Logs)
   $('outP').innerHTML=out.join('');
 
   // Plain-text report
@@ -11016,15 +10696,8 @@ $('runP').onclick=()=>{
   // renders changes. Released alone: the Gate is never edited in the same
   // release as the ranker.
   window.GATE_LAST={gate:GATE_VERSION,B,seed,winner,gv,near,stab,
-    dmUpdated:j.dmUpdated,app:j.app,at:new Date().toISOString()};
-  const fn='bootstrap_pack_'+etStamp(new Date(),true)+'.txt';
-  $('dlP').onclick=()=>{
-    const blob=new Blob([reportTxtP],{type:'text/plain'});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);a.download=fn;
-    document.body.appendChild(a);a.click();
-    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
-  };
+    dmUpdated:j.dmUpdated,app:j.app,at:new Date().toISOString(),
+    report:reportTxtP}; // v1.6.0 — the plain-text report, for the optimizer to print to Logs
 };
 
 </script>
