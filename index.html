@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.8.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.8.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -906,7 +906,16 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.8.1';
+const APP_VERSION = 'v7.8.2';
+// v7.8.2 (S71, Ron) — §6.11 UTC IN THE SCAN REPRICE PATH. _tradeAnchoredReprice
+// built its same-day minute-bar range from toISOString(), a UTC date, which
+// rolls at 7 PM ET in winter (8 PM in summer). After that a scan asked Polygon
+// for TOMORROW's bars, got none, returned null, and the caller silently kept the
+// day-close mid — wrong rung, no flag. Now _etToday(), the helper every other
+// "what day is it" path already uses. The UTC-literal class, third instance.
+// The SPY aggregate fallback (5-day window, latest bar) was checked and is
+// unaffected: a UTC upper bound only widens a window whose newest bar wins.
+// No MODEL_VERSION change, Gate untouched. Base v7.8.1 (e92dea3c).
 // v7.8.1 (S71, Ron) — §4.1 CAUSE FROM THE AGENT RUN LOG. The divergence log's
 // "cause: UNKNOWN" is replaced, per divergence date, by what agent_runs (agent
 // v1.7.66, one row per scheduled job) recorded that day: FIRED (first ROLL, its
@@ -8346,7 +8355,7 @@ function _implyIvBisect(S, K, dteDays, px, r) {
 async function _tradeAnchoredReprice(expiryISO, strike, dte, spyFresh, polygonKey, spyBarCache) {
   try {
     const occ = buildScanTicker(expiryISO, strike);
-    const day = new Date().toISOString().slice(0, 10);
+    const day = _etToday(); // v7.8.2 — ET trading date; UTC rolled to tomorrow after 7 PM ET (§6.11)
     const r1 = await fetch('https://api.polygon.io/v2/aggs/ticker/' + occ + '/range/1/minute/'
       + day + '/' + day + '?adjusted=true&sort=desc&limit=1&apiKey=' + polygonKey);
     if (!r1.ok) return null;
