@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -381,18 +381,7 @@ select.display-box { cursor:pointer; outline:none; }
       <button class="tab-btn" id="tab-btn-runlog" onclick="showTab('runlog')">📄 Logs</button>
       <button class="tab-btn" id="tab-btn-scan" onclick="showTab('scan')" style="display:none">🔍 Scan</button>
       <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
-      <button class="tab-btn" id="tab-btn-gate" onclick="showTab('gate')">⚖️ Gate</button>
       <button class="tab-btn" id="tab-btn-conf" onclick="showTab('conf')">🔬 Conformance</button><!-- v7.6.2 — sim vs live, cycle by cycle (SPEC_conformance_tab) -->
-      <!-- v7.3.3 — Research tab RETIRED (S67, Ron): no open research projects. Phase B
-           H-tournament closed with a NEGATIVE verdict at 11/10 cycles (H=6 and H-infinity
-           picked the IDENTICAL contract in all 83 era scans with shadow_topk — the horizon
-           rescales every candidate by a near-constant factor, mean H6/Hinf 0.506, so the
-           argmax cannot move). The flip-rate probe cleared its gate (M1 74.1% vs a predicted
-           20% [10–35]) but measures a frame nobody trades — candidates are never generated
-           from prior-day data — and its one actionable finding is already banked in v7.3.2.
-           The tab BODY, renderResearchTab, the probe and the registry code are all LEFT IN
-           PLACE, unreferenced: re-add this button to bring it back. shadow_topk collection
-           continues in scan_snapshot, so a future regime change is still recorded. -->
     </div>
 
     <!-- v6.24.1 — Performance panel: directly below the tab row (Ron respec), compact height,
@@ -543,28 +532,6 @@ select.display-box { cursor:pointer; outline:none; }
         </div>
         <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 10px;line-height:1.5;">The first live entry under the current model (on or after POLICY_REGIME_2) is pinned by contract and date; the sim opens it at its own DM price and selects forward on its own. Both records are laid on one calendar, one row per trading date, every price that side's actual. Reads only.</div>
         <div id="conf-body"></div>
-      </div>
-    </div>
-    <div id="tab-research" style="display:none"><!-- v6.7.0 — walk-forward registry watcher -->
-      <div class="chart-panel">
-        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="chart-title">🔬 Research — Walk-Forward Registry</span>
-          <span id="res-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
-        </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 10px;line-height:1.5;">Per-track instrument state · counters vs pre-registered targets · collection health. The tool reports WHETHER there is enough data; interpretation is Ask Claude's job. Verdicts are event-driven, never calendar-driven.</div>
-        <div id="research-body"></div>
-      </div>
-      <div class="chart-panel"><!-- v6.27.0 — flip-rate probe (S53 registered study) -->
-        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="chart-title">🔀 Flip-Rate Probe — stale-anchor sensitivity</span>
-          <span id="fr-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
-        </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 10px;line-height:1.5;">Per STD selection event: Frame B = the sim's own pick (same-day close) · Frame A = identical ranker at the full t−1 input vector. M1 = pick flip · M2 = A-pick ≥ entry cap at fresh inputs. Debug mode required; runs the standard STD sim with the probe wrapper armed. Registered gates: proceed if M1&gt;10% or M2&gt;2% · predictions M1 20% [10–35] · M2 4% [1–8] · Ron's declared prior: fresh-input scan likely proceeds regardless (frame consistency).</div>
-        <div style="display:flex;gap:8px;margin-bottom:8px;">
-          <button class="btn" id="fr-run-btn" onclick="runFlipRateProbe()">🔀 Run Probe (STD, Debug)</button>
-          <button class="btn" id="fr-csv-btn" onclick="frExportCsv()" disabled>⬇ CSV</button>
-        </div>
-        <div id="fr-results" style="font-family:var(--mono);font-size:10px;line-height:1.6;"></div>
       </div>
     </div>
     <div id="tab-live" style="display:none">
@@ -852,7 +819,20 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.9.1';
+const APP_VERSION = 'v7.9.2';
+// v7.9.2 (S71, Ron) — PREFLIGHT ON THE EFFECTIVE AXIS + LEGACY CLEANUP. (1) The
+// bracketing check now runs on the cells that ACTUALLY run, after the cap rule:
+// a sweep with entryΔcap pinned at 0.69 skips every Δ ≤ 0.69, so v7.9.0 passed
+// a Δ axis whose live range was 0.70–0.73 — the incumbent on its floor (S71
+// smoke test, "Delta floor(0.67): —"). Now refused, with the reason. (2) The
+// Gate's full plain-text report (GATE v1.6.0, GATE_LAST.report) prints to Logs
+// after every cycle. (3) The Gate tab button is gone from the bar; the verdict
+// card links to the report. (4) Retired: ⧉ Download pack; the flip-rate probe
+// (S53 study, verdict at v6.28.0). (5) The Research tab (Walk-Forward Registry,
+// retired from the bar in S67) is REMOVED with its processes — its readiness
+// check still ran 9 Supabase count queries on every load. ⬇ Export data keeps
+// its helpers. No MODEL_VERSION change, Gate untouched.
+// Base v7.9.1 (Gate v1.6.0).
 // v7.9.1 (S71, Ron) — GATE-ONLY RELEASE: GATE v1.6.0. The Gate tab is stripped
 // to the pack bootstrap and its report (Foundation §6.16). Retired: Ledger A/B
 // (paste/load an STD log, one- or two-ledger bootstrap — the pre-pack v1.2
@@ -1808,11 +1788,11 @@ function showTab(tab) {
   if (tab === 'log')        { _tradesView = 'sim';  tab = 'trades'; }
   else if (tab === 'live')  { _tradesView = 'live'; tab = 'trades'; }
   else if (tab === 'chart') { _tradesChartOpen = true; tab = 'trades'; }
-  ['trades','heatmap','gaps','runlog','scan','mart','research','gate','conf'].forEach(t => { // v7.6.2 — conf
+  ['trades','heatmap','gaps','runlog','scan','mart','gate','conf'].forEach(t => { // v7.6.2 — conf
     const btn = $('tab-btn-' + t);
     if (btn) btn.classList.toggle('active', t === tab);
   });
-  ['heatmap','gaps','runlog','scan','mart','research','gate','conf'].forEach(t => { // v7.6.2 — conf
+  ['heatmap','gaps','runlog','scan','mart','gate','conf'].forEach(t => { // v7.6.2 — conf
     const el = $('tab-' + t);
     if (el) el.style.display = t === tab ? 'block' : 'none';
   });
@@ -1826,7 +1806,6 @@ function showTab(tab) {
     if (_chatOpen) setChatContext(tab); // v6.1.0 — chat context follows the tab
   }
   if (tab === 'mart') renderMartCards();
-  if (tab === 'research') renderResearchTab(); // v6.7.0
   if (tab === 'conf') renderConfTab(); // v7.6.2
   if (tab === 'runlog') {
     // Sync mirror with live progress-log content
@@ -1836,216 +1815,13 @@ function showTab(tab) {
   }
 }
 
-// ── v6.7.1 · Registry digest + banner Ask Claude (readiness router) ─────────
-// On tab open: lightweight counts per track render a deterministic digest —
-// one line each with a readiness chip (● ready = counter at pre-registered
-// target / ○ accruing) and a computed headline "X of N tracks ready for
-// analysis". Readiness is COMPUTED from counts; interpretation stays with the
-// banner Ask Claude, which auto-fires a state-of-the-research verdict on press
-// (on-demand only — no silent API calls, v5.15.4 doctrine). Per-section Ask
-// Claude buttons remain for deep dives on tracks the banner flags ready.
-function _resScanStats(sr) { // v6.7.4 — honest per-track units, DEDUPED by
-  // market state: key = date(ts)+SPY+signal (Ron's key, S39). The observation
-  // unit is a MARKET STATE, not a scan: weekend re-scans of a frozen tape
-  // collapse to one observation (the pseudoreplication panel-Claude caught on
-  // track 6's first verdict), while a moving Monday legitimately yields
-  // several. Raw counts kept alongside. Tables untouched — raw layer
-  // immutable, analysis layer transforms (append-only doctrine).
-  const seen = new Set(); const dd = [];
-  sr.forEach(r => {
-    const ts = _resRowTs(r, ['ts','created_at']);
-    const key = (ts ? ts.toISOString().slice(0, 10) : '?') + '|' + (r.spy != null ? r.spy : '?') + '|' + (r.signal || '?');
-    if (!seen.has(key)) { seen.add(key); dd.push(r); }
-  });
-  const menuScans = dd.filter(r => (r.n_qualifying || 0) > 0).length;
-  const tkCycles  = new Set(dd.filter(r => r.shadow_topk && r.pos_strike != null && r.pos_expiry) // v6.18.10 — FLAT entry scans carry topk with NO position; a nan|nan key is not a cycle (both counters overcounted by 1)
-    .map(r => r.pos_strike + '|' + r.pos_expiry)).size;
-  const bySig = {}, bySigRaw = {};
-  dd.forEach(r => { const s0 = r.signal || '?'; bySig[s0] = (bySig[s0] || 0) + 1; });
-  sr.forEach(r => { const s0 = r.signal || '?'; bySigRaw[s0] = (bySigRaw[s0] || 0) + 1; });
-  const sigVariety = Object.values(bySig).filter(n => n >= 3).length >= 2;
-  const sigLines = Object.entries(bySig).map(([k, n]) => k + ' \u00d7' + n + (bySigRaw[k] > n ? ' (' + bySigRaw[k] + ' raw)' : '')).join(' \u00b7 ') || 'no scans';
-  return { menuScans, tkCycles, sigVariety, sigLines, bySig, dd, rawN: sr.length, ddN: dd.length }; // v6.34.0 — inst dropped with the θ track
-}
-async function buildResReadiness() {
-  // v6.7.2 — per-track readiness evaluation (Ron's redesign: digest strip +
-  // banner Ask Claude REMOVED; readiness renders as section-title color —
-  // green READY / red error / default accruing — plus a short row status.
-  // Same honest units as v6.7.1; deterministic; interpretation stays with
-  // the per-section Ask Claude.
-  const out = {};
-  const put = (id, ready, err, short, color) => { out[id] = { ready: !!ready, err: !!err, short: short, color: color || null }; }; // v6.18.9 — color overrides the ready-based tint (conf divergence)
-  try {
-    // v6.18.4 — fire + wcshadow tracks KILLED (Ron's S45 registry admission criterion)
-    // v6.24.0 — cwin readiness removed with the track's relocation to Activity
-    // v6.18.7 — dpairs killed: ADJUDICATED CLOSED-CONFIRMED (S46 decomposition)
-    const fs = await _resFetch('scan_snapshot', 'ts', 500); // v6.18.10 — SAME window spec as the section fetch (parity by construction); was 100 vs section 20, the two counters read different histories
-    const sr = fs.rows || [];
-    if (fs.err) { ['htourn'].forEach(id => put(id, false, true, 'ERROR')); }
-    else {
-      const st = _resScanStats(_wfEraSplit(sr, ['ts','created_at']).era); // v6.13.0 — era-scoped, matching the section counters (digest/section parity, v6.7.1 lesson)
-      put('htourn', st.tkCycles >= 10, false, st.tkCycles + '/10 cycles');
-    }
-    // v6.7.17 — DM health moved to the Data Mart tab (its own surface; zero queries — in-memory DM)
-  } catch (e) {
-    RES_TRACKS.forEach(t => { if (!out[t.id]) put(t.id, false, true, 'ERROR'); });
-  }
-  return out;
-}
-async function applyResReadiness() {
-  const r = await buildResReadiness();
-  let ready = 0;
-  RES_TRACKS.forEach(t => {
-    const st = r[t.id]; if (!st) return;
-    if (st.ready && t.id !== 'health') ready++;
-    const title = $('res-title-' + t.id);
-    const ov = st.color === 'red' ? 'var(--red)' : st.color === 'yellow' ? 'var(--yellow)' : st.color === 'green' ? 'var(--green)' : null; // v6.18.9
-    if (title) title.style.color = st.err ? 'var(--red)' : ov ? ov : st.ready ? 'var(--green)' : 'var(--text)';
-    const stat = $('res-stat-' + t.id);
-    if (stat) { stat.textContent = st.short; stat.style.color = st.err ? 'var(--red)' : ov ? ov : st.ready ? 'var(--green)' : 'var(--muted)'; }
-  });
-  const hd = $('res-status');
-  if (hd) hd.textContent = ready + ' of ' + RES_TRACKS.length + ' ready'; // v6.13.0 — roster is 9; count derives from RES_TRACKS, never hardcoded again
-  // v6.7.16 — tab button inherits the registry's aggregate state (Ron's spec):
-  // any red section => red tab (actionable app-wide); else any READY => green;
-  // else default. Red beats green.
-  const anyErr = RES_TRACKS.some(t => r[t.id] && r[t.id].err);
-  const btn = $('tab-btn-research');
-  if (btn) {
-    if (anyErr)         { btn.style.borderColor = 'var(--red)';   btn.style.color = 'var(--red)'; }
-    else if (ready > 0) { btn.style.borderColor = 'var(--green)'; btn.style.color = 'var(--green)'; }
-    else                { btn.style.borderColor = ''; btn.style.color = ''; }
-  }
-}
 
-// ── v6.27.0 · Flip-Rate Probe (S53 registered study) ────────────────────────
-// Measurement instrument, NOT a sim change: during an armed probe run,
-// findNextContract is runtime-wrapped. Frame B = the original call with the
-// sim's own arguments, returned to the sim UNCHANGED (B ≡ actual selection by
-// construction — the self-check is structural). Frame A = a second original
-// call at the full t−1 input vector: prior-day SPY close, prior-day VIX,
-// chain keyed to the prior date, position-leg buyback repriced at its
-// prior-day vw/c (expiry-settlement 0 stays 0 by convention). A-frame side
-// effects contained: logDbg no-op'd and _gaps truncated around the call.
-// The wrapper installs ONLY inside runFlipRateProbe() and restores in
-// finally; a normal Run is byte-identical to v6.26.1 behavior.
-let _frState = null;          // null = disarmed
-let _frOrigFNC = null;        // saved original findNextContract during a probe run
 
-function _frPrevDate(d) {
-  const a = _frState.spyDates; let lo = 0, hi = a.length - 1, ans = null;
-  while (lo <= hi) { const m = (lo + hi) >> 1; if (a[m] < d) { ans = a[m]; lo = m + 1; } else hi = m - 1; }
-  return ans;
-}
 
-function _frWrappedFNC(afterDate, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx, realVix) {
-  const B = _frOrigFNC(afterDate, currentSPY, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, buybackPx, realVix);
-  try {
-    const st = _frState; if (!st) return B;
-    const pd = _frPrevDate(afterDate);
-    const spyPrevRow = pd ? st.spyMap[pd] : null;
-    if (!pd || !spyPrevRow || !spyPrevRow.c) { st.rows.push({ date: afterDate, skip: pd ? 'no-prior-spy' : 'no-prior-day' }); return B; }
-    const spyPrev = spyPrevRow.c;
-    const vixPrev = (st.vixMap[pd] != null) ? st.vixMap[pd] : realVix;
-    let bbPrev = 0, bbNote = '';
-    if (buybackPx > 0 && excludeKey) {
-      const us = excludeKey.lastIndexOf('_');
-      const exExp = excludeKey.slice(0, us), exK = parseFloat(excludeKey.slice(us + 1));
-      const contract = (_dmExpiryIndex[exExp] || []).find(c => c.strike === exK);
-      const bar = contract ? buildDayMap(contract)[pd] : null;
-      if (bar && (bar.vw || bar.c)) bbPrev = bar.vw || bar.c;
-      else { bbPrev = buybackPx; bbNote = 'bb-fallback-t0'; } // no prior bar: fall back to t-price, flagged
-    }
-    const gl = _gaps.length; const _ld = logDbg; logDbg = function () {};
-    let A = null;
-    try { A = _frOrigFNC(pd, spyPrev, dtePenaltyAnchor, dteFloor, excludeKey, deltaThreshold, bbPrev, vixPrev); }
-    finally { logDbg = _ld; _gaps.length = gl; }
-    const row = { date: afterDate, prior: pd, spyB: currentSPY, spyA: spyPrev,
-                  bExp: B ? B.expiry : '', bK: B ? B.strike : '',
-                  aExp: A ? A.expiry : '', aK: A ? A.strike : '',
-                  note: bbNote };
-    row.m1 = ((!!A) !== (!!B)) || (A && B && (A.expiry !== B.expiry || A.strike !== B.strike)) ? 1 : 0;
-    row.aDeltaAtB = ''; row.m2 = 0;
-    if (A) {
-      const dteB = Math.round((new Date(A.expiry + 'T00:00:00') - new Date(afterDate + 'T00:00:00')) / 86400000);
-      const dB = callDelta(currentSPY, A.strike, Math.max(dteB, 1), realVix, 4.5); // sim frame, fresh inputs
-      row.aDeltaAtB = dB.toFixed(3);
-      if (dB >= st.entryCap) row.m2 = 1;
-    }
-    st.rows.push(row);
-  } catch (e) { try { if (_frState) _frState.rows.push({ date: afterDate, skip: 'probe-err:' + (e && e.message) }); } catch (_) {} }
-  return B;
-}
 
-async function runFlipRateProbe() {
-  const stat = $('fr-status'), out = $('fr-results');
-  if (!_debugMode) { if (stat) stat.textContent = 'Debug mode required (cert doctrine)'; return; }
-  if (!DM) { if (stat) stat.textContent = 'Load the Data Mart first'; return; }
-  if (_frState) { if (stat) stat.textContent = 'Probe already running'; return; }
-  const maps = buildMaps();
-  _frState = { rows: [],
-               entryCap: (STD.entryDeltaCap != null ? STD.entryDeltaCap : (STD.deltaThreshold || 0.69)),
-               spyMap: maps.spyMap, vixMap: maps.vixMap,
-               spyDates: DM.spy.map(r => r.date).slice().sort() };
-  _frOrigFNC = findNextContract;
-  findNextContract = _frWrappedFNC;
-  if (stat) stat.textContent = 'Running STD with probe armed...';
-  try { await runSimulation(); }
-  finally { findNextContract = _frOrigFNC; _frOrigFNC = null; }
-  _frRender();
-  const done = _frState; _frState = null;
-  window._frLast = done; // CSV export reads the completed capture
-  const csvBtn = $('fr-csv-btn'); if (csvBtn) csvBtn.disabled = !done.rows.length;
-}
 
-function _frRender() {
-  const st = _frState, out = $('fr-results'), stat = $('fr-status');
-  if (!st || !out) return;
-  const ev = st.rows.filter(r => !r.skip), sk = st.rows.length - ev.length;
-  const m1 = ev.reduce((s, r) => s + (r.m1 || 0), 0), m2 = ev.reduce((s, r) => s + (r.m2 || 0), 0);
-  const p1 = ev.length ? (m1 / ev.length * 100) : 0, p2 = ev.length ? (m2 / ev.length * 100) : 0;
-  const gate = (p1 > 10 || p2 > 2) ? 'PROCEED (registered gate cleared)'
-             : (p1 <= 5 && m2 <= 1) ? 'BELOW GATE — priority discussion per Ron\u2019s declared prior'
-             : 'MIDDLE BAND — judgment call, verdict logged';
-  if (stat) stat.textContent = ev.length + ' events \u00b7 ' + sk + ' skipped';
-  out.innerHTML =
-    '<div>Selection events: <b>' + ev.length + '</b> (skipped ' + sk + ' \u2014 no prior-day data)</div>' +
-    '<div>M1 pick flips: <b>' + m1 + '</b> (' + p1.toFixed(1) + '%) \u00b7 predicted 20% [10\u201335]</div>' +
-    '<div>M2 cap violations (\u2265' + st.entryCap.toFixed(2) + ' at fresh inputs): <b>' + m2 + '</b> (' + p2.toFixed(1) + '%) \u00b7 predicted 4% [1\u20138]</div>' +
-    '<div style="margin-top:4px;">Verdict vs registered gates: <b>' + gate + '</b></div>';
-}
 
-function frExportCsv() {
-  const st = window._frLast; if (!st || !st.rows.length) return;
-  const hdr = 'roll_date,prior_date,spy_B,spy_A,B_expiry,B_strike,A_expiry,A_strike,M1_flip,A_delta_at_B,M2_cap_violation,note';
-  const lines = st.rows.map(r => r.skip
-    ? [r.date, '', '', '', '', '', '', '', '', '', '', 'SKIP:' + r.skip].join(',')
-    : [r.date, r.prior, r.spyB, r.spyA, r.bExp, r.bK, r.aExp, r.aK, r.m1, r.aDeltaAtB, r.m2, r.note || ''].join(','));
-  const blob = new Blob([hdr + '\n' + lines.join('\n')], { type: 'text/csv' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'flip_rate_probe_' + new Date().toISOString().slice(0, 10) + '.csv';
-  a.click(); URL.revokeObjectURL(a.href);
-}
 
-// ── v6.7.0 · Research tab — walk-forward registry watcher ───────────────────
-// One accordion section per registry track (+ collection health). Each shows:
-// L1 table state (last write, counts, cadence, null-rate) · L2 latest-3 sample
-// + counter vs pre-registered target ("Not enough data yet — n of N" is
-// computed, never interpreted) · L3 on-demand Ask Claude with per-track
-// context (registry row + health + rows; interpretation is Claude's job).
-// All reads anon SELECT (policies run by Ron S39). Lazy: zero fetches until a
-// section expands. A track whose instrument has written nothing shows
-// INSTRUMENT SILENT loud — that state is the failure this tab exists to catch.
-const RES_TRACKS = [
-  { id:'htourn', n:1, title:'Phase B H-tournament',     table:'scan_snapshot',
-    hyp:'H=6 realized credit >= H-infinity picks over ~10+ cycles (shadow_topk per scan).',
-    target:'~10+ cycles of shadow_topk', minN:10, tsHint:['ts','created_at'] },
-  // v6.34.0 — track 2 'θ arming gate' RETIRED (S58): the gate reached its full N=3 sample and failed 3 of 4 pre-registered criteria (S57). A registry entry is a live question; this one is answered.
-  // v6.24.0 — cwin track RELOCATED to the Activity tab's Performance panel (S50 ruling:
-  // Research is discovery, Activity is reporting). Registry is discovery-only again.
-];
-const RES_DM_TABLES = ['spy_daily','vix_daily','yield_daily','option_days'];
 // ── v6.13.0 · WALK-FORWARD ERA ── PINNED constant, deliberately NOT json-sourced:
 // the boundary must not be writable by the policy being judged (Ron's S44 ruling).
 // A future publish requires REGISTERING a new era here — a decision, never automatic.
@@ -2525,7 +2301,6 @@ async function _cwinHtml() {
     + '<tr>' + liveCellsR2.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : '') + '">' + c + '</td>').join('') + '</tr></tbody></table>' // v6.34.4 — sim first (Ron); v7.3.3 — prior regime dimmed ABOVE current
     + sub;
 }
-let _resCache = {};   // table|order|limit → {rows, err, at}
 
 function _resRowTs(row, hints) {
   for (const h of (hints || []).concat(['ts','created_at','timestamp','date','day','trade_date'])) {
@@ -2542,12 +2317,6 @@ function _etDayDiff(d) {
   const et = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const a = new Date(et + 'T00:00:00Z'), b = new Date(d.toISOString().slice(0,10) + 'T00:00:00Z');
   return Math.round((a - b) / 86400000);
-}
-function _resAge(d) {
-  if (!d) return { txt: 'unknown', ms: Infinity };
-  const ms = Date.now() - d.getTime();
-  const hr = ms / 3600000;
-  return { txt: hr < 1 ? Math.round(ms/60000) + 'm ago' : hr < 48 ? hr.toFixed(1) + 'h ago' : Math.round(hr/24) + 'd ago', ms };
 }
 // v6.18.6 — EXPORT DATA (Ron's S46 architecture): per-track raw table export
 // for out-of-tab analysis. The bootstrap downloadable-report principle applied
@@ -2611,22 +2380,6 @@ async function resExport(table, btnId) {
     setTimeout(() => setBtn(btnLabel), 6000);
   } finally { _resExportBusy = false; }
 }
-async function _resFetch(table, orderCol, limit) {
-  const key = table + '|' + (orderCol || '') + '|' + limit;
-  if (_resCache[key] && Date.now() - _resCache[key].at < 60000) return _resCache[key];
-  let out;
-  try {
-    let url = SB_URL + '/' + table + '?select=*' + (orderCol ? '&order=' + orderCol + '.desc' : '') + '&limit=' + limit;
-    let res = await fetch(url, { headers: _sbHeaders });
-    if (!res.ok && orderCol) { // unknown order col → retry unordered
-      res = await fetch(SB_URL + '/' + table + '?select=*&limit=' + limit, { headers: _sbHeaders });
-    }
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    out = { rows: await res.json(), err: null, at: Date.now() };
-  } catch (e) { out = { rows: null, err: e.message, at: Date.now() }; }
-  _resCache[key] = out;
-  return out;
-}
 async function _resCount(table, filter) { // v6.7.1 — optional PostgREST filter (e.g. note=like.ticket*)
   try {
     const res = await fetch(SB_URL + '/' + table + '?select=id&limit=1' + (filter ? '&' + filter : ''), {
@@ -2635,28 +2388,6 @@ async function _resCount(table, filter) { // v6.7.1 — optional PostgREST filte
     if (cr && cr.includes('/')) { const n = parseInt(cr.split('/')[1]); if (!isNaN(n)) return n; }
   } catch (e) {}
   return null;
-}
-function _resTrunc(v) {
-  let s = typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
-  return s.length > 120 ? s.slice(0, 117) + '…' : s;
-}
-function _resSampleHtml(rows, hints) {
-  if (!rows || !rows.length) return '<div style="color:var(--muted);">no rows</div>';
-  return rows.slice(0, 1).map(r => { // v6.7.1 latest-1 (Ron: 3 consumed too much space)
-    const ts = _resRowTs(r, hints);
-    return '<div style="border:1px solid var(--border);border-radius:4px;padding:6px 8px;margin-bottom:4px;word-break:break-word;">'
-      + (ts ? '<div style="color:var(--accent);margin-bottom:2px;">' + ts.toISOString().replace('T',' ').slice(0,16) + ' UTC</div>' : '')
-      + Object.entries(r).filter(([k]) => k !== 'shadow_topk').map(([k, v]) =>
-          '<span style="color:var(--muted);">' + k + ':</span> ' + String(_resTrunc(v)).replace(/&/g,'&amp;').replace(/</g,'&lt;')
-        ).join(' · ')
-      + (('shadow_topk' in r) ? ' · <span style="color:var(--muted);">shadow_topk:</span> ' + (r.shadow_topk ? '[present]' : 'null') : '')
-      + '</div>';
-  }).join('');
-}
-function _resCounterHtml(n, minN, label) {
-  const enough = n >= minN;
-  return '<div style="margin:6px 0;padding:5px 8px;border-radius:4px;border:1px solid ' + (enough ? 'var(--green)' : 'var(--border)') + ';color:' + (enough ? 'var(--green)' : 'var(--yellow)') + ';">'
-    + (enough ? '✓ ' + label : 'Not enough data yet — ' + label) + '</div>';
 }
 
 // ── v7.6.2 · CONFORMANCE TAB — sim vs live, cycle by cycle (SPEC_conformance_tab) ──
@@ -3609,68 +3340,6 @@ function _confRender(results) {
   return html + sum;
 }
 
-function renderResearchTab() {
-  const body = $('research-body');
-  if (!body) return;
-  if (body.dataset.built === '1') { applyResReadiness(); return; } // v6.7.2 — readiness re-evaluates every open; sections stay lazy
-  body.dataset.built = '1';
-  applyResReadiness(); // v6.7.2 — deliberate exception to zero-fetch-on-open: readiness IS the tab's purpose (~9 lightweight queries)
-  body.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5;margin-bottom:8px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;">'
-    + 'Live era since ' + WF_ERA_START + ' — model-governed trading. Registered once; parameter refinements are INTERNAL to the era and never restart it.'
-    + ((_wfOptDate && String(_wfOptDate).slice(0, 10) > WF_ERA_START) ? ' <span style="color:#e0a020;">⚠ roll_params optimized ' + String(_wfOptDate).slice(0, 10) + ' postdates the era pin — new era needs registering</span>' : '')
-    + '</div>' // v6.13.0 — walk-forward era line + consistency tell
-    + RES_TRACKS.map(t =>
-    '<div style="border:1px solid var(--border);border-radius:6px;margin-bottom:8px;overflow:hidden;">'
-    + '<div onclick="resToggle(\'' + t.id + '\')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--surface2);">'
-    + '<span id="res-title-' + t.id + '" style="font-family:var(--mono);font-size:11px;color:var(--text);">' + t.n + ' · ' + t.title + '</span>'
-    + '<span style="font-family:var(--mono);font-size:9px;"><span id="res-stat-' + t.id + '" style="color:var(--muted);">…</span> <span id="res-chip-' + t.id + '" style="color:var(--muted);">▸ expand</span></span></div>'
-    + '<div id="res-sec-' + t.id + '" style="display:none;padding:10px 12px;font-family:var(--mono);font-size:10px;line-height:1.6;color:var(--text);"></div>'
-    + '</div>').join('');
-}
-async function resToggle(id) {
-  const sec = $('res-sec-' + id), chip = $('res-chip-' + id);
-  if (!sec) return;
-  const opening = sec.style.display === 'none';
-  sec.style.display = opening ? 'block' : 'none';
-  if (chip) chip.textContent = opening ? '▾ collapse' : '▸ expand';
-  if (opening) { sec.innerHTML = '<div style="color:var(--muted);">⟳ loading…</div>'; await resRender(id); }
-}
-async function resRender(id) {
-  const t = RES_TRACKS.find(x => x.id === id);
-  const sec = $('res-sec-' + id);
-  if (!t || !sec) return;
-  let html = '<div style="color:var(--muted);margin-bottom:6px;">' + t.hyp.replace(/</g,'&lt;') + '</div>'
-           + '<div style="margin-bottom:6px;"><span style="color:var(--muted);">target:</span> ' + t.target + '</div>';
-  // v6.24.0 — cwin dedicated path removed (panel relocated to Activity; renderPerfPanel owns it)
-  const f = await _resFetch(t.table, t.tsHint[0] || null, 500); // v6.18.10 — the v6.7.16 window lesson applied to the SECTION path: 20 rows starved htourn to 3 while the digest's window saw 5 (parity break Ron caught on the live tab)
-  if (f.err) {
-    sec.innerHTML = html + '<div style="color:var(--red);">✗ ' + t.table + ': ' + f.err + ' — INSTRUMENT SILENT or read policy missing</div>';
-    return;
-  }
-  const rows = f.rows || [];
-  const total = await _resCount(t.table);
-  const latest = rows.length ? _resRowTs(rows[0], t.tsHint) : null;
-  const age = _resAge(latest);
-  html += '<div><span style="color:var(--muted);">table:</span> ' + t.table
-    + ' · <span style="color:var(--muted);">rows:</span> ' + (total != null ? total : rows.length + '+')
-    + ' · <span style="color:var(--muted);">last write:</span> ' + (rows.length ? age.txt : '<span style="color:var(--red);">NEVER — INSTRUMENT SILENT</span>') + '</div>';
-  // Track-specific counters (deterministic; interpretation stays with Claude)
-  let counter = '';
-  if (id === 'htourn') { // v6.7.1 — unit is CYCLES · v6.13.0 era-scoped
-    const spH = _wfEraSplit(rows, t.tsHint);
-    const st = _resScanStats(spH.era);
-    counter = _resCounterHtml(st.tkCycles, t.minN, st.tkCycles + ' of ~10 era cycles with shadow_topk (' + st.ddN + ' states of ' + st.rawN + ' scans) · prior era: ' + spH.prior.length + ' scans archived');
-    } else {
-    counter = _resCounterHtml((total != null ? total : rows.length), t.minN, (total != null ? total : rows.length + '+') + ' rows vs target');
-  }
-  html += counter + '<div style="color:var(--muted);margin:6px 0 3px;">latest:</div>' + _resSampleHtml(rows, t.tsHint);
-  // v6.18.6 — Export Data button, every track (three sections share
-  // scan_snapshot by design: simple beats clever; same file serves all three)
-  html += '<button id="res-exp-' + id + '" onclick="resExport(\'' + t.table + '\', \'res-exp-' + id + '\')" '
-        + 'style="margin-top:8px;background:none;border:1px solid var(--border);color:var(--muted);'
-        + 'border-radius:6px;padding:5px 12px;font:inherit;cursor:pointer;">\u2B07 Export data</button>';
-  sec.innerHTML = html;
-}
 // v6.18.4 — per-section Ask Claude REMOVED (Ron: not expected to use); _resAskBtn/resAsk/_resVerdict/buildResContext/resSaveKey pulled, v6.5.0 precedent
 
 // ── v6.4.3 Graph tab — single-axis terrain survey ──────────────────────────
@@ -6344,8 +6013,22 @@ function _gatePreflight(g) {
     if (!arr || inc === undefined) return;
     if (inc == null) { bad.push(v + ': the incumbent value is coupled (null) \u2014 it cannot be bracketed'); return; }
     const i = arr.findIndex(x => x != null && Math.abs(x - inc) < 1e-9);
-    if (i < 0) bad.push(v + ': incumbent ' + inc + ' is not on the grid (' + arr[0] + '\u2013' + arr[arr.length - 1] + ')');
-    else if (arr.length < 3 || i === 0 || i === arr.length - 1) bad.push(v + ': incumbent ' + inc + ' sits on the ' + (i === 0 ? 'floor' : 'ceiling') + ' of ' + arr[0] + '\u2013' + arr[arr.length - 1] + ' \u2014 not bracketed (D4: strictly inside)');
+    if (i < 0) { bad.push(v + ': incumbent ' + inc + ' is not on the grid (' + arr[0] + '\u2013' + arr[arr.length - 1] + ')'); return; }
+    if (arr.length < 3 || i === 0 || i === arr.length - 1) { bad.push(v + ': incumbent ' + inc + ' sits on the ' + (i === 0 ? 'floor' : 'ceiling') + ' of ' + arr[0] + '\u2013' + arr[arr.length - 1] + ' \u2014 not bracketed (D4: strictly inside)'); return; }
+    // v7.9.2 — the EFFECTIVE axis: the values that still run after the cap rule
+    // (an explicit entryΔcap must sit below Δ). Bracketing on the nominal grid
+    // passed a Δ axis whose cells below the incumbent were all skipped.
+    const caps = g.entrycap || [null], dels = g.delta || [];
+    const eff = v === 'delta'    ? arr.filter(d => caps.some(c => c == null || c < d - 1e-9))
+              : v === 'entrycap' ? arr.filter(c => c == null || dels.some(d => c < d - 1e-9))
+              : arr;
+    const j = eff.findIndex(x => x != null && Math.abs(x - inc) < 1e-9);
+    if (eff !== arr && (j <= 0 || j === eff.length - 1)) {
+      const lo = eff.length ? eff[0] : '\u2014', hi = eff.length ? eff[eff.length - 1] : '\u2014';
+      bad.push(v + ': after the cap rule only ' + lo + '\u2013' + hi + ' runs, so incumbent ' + inc + ' is '
+        + (j < 0 ? 'not among the cells that run' : 'on its ' + (j === 0 ? 'floor' : 'ceiling'))
+        + ' \u2014 ' + (v === 'delta' ? 'arm Entry Delta Cap so caps below ' + inc + ' exist' : 'arm Exit Delta so stops above the cap exist'));
+    }
   });
   return bad.length ? bad.join(' \u00b7 ') : null;
 }
@@ -6442,6 +6125,10 @@ async function _runGateCycle(R, skipped) {
     _gateCycle.last = G;
     logMsg((G.winner ? '\u2713 ' : '\u25cf ') + _gateVerdictText(), G.winner ? 'ok' : '');
     G.gv.forEach(x => logMsg('    #' + x.id + ' ' + x.label + ' \u00b7 min P(\u0394>0) ' + (x.minP * 100).toFixed(0) + '% \u00b7 min p05 ' + x.minP05.toFixed(2) + ' \u00b7 ' + (x.pass ? 'PUBLISH' : 'hold \u2014 ' + x.why), x.pass ? 'ok' : ''));
+    if (G.report) { // v7.9.2 — the Gate's own plain-text report, verbatim (GATE v1.6.0+)
+      logMsg('\u2500\u2500 GATE REPORT (' + G.gate + ') \u2500\u2500', '');
+      G.report.replace(/\n+$/, '').split('\n').forEach(l => logMsg('  ' + l, ''));
+    }
   } catch (e) {
     _gateCycle = Object.assign(_gateCycle || {}, { err: 'gate cycle failed: ' + e.message });
     logMsg('\u2717 GATE CYCLE \u2014 ' + e.message, 'err'); console.error(e);
@@ -6502,20 +6189,11 @@ function _gateCardHtml() {
     });
     h += '</tbody></table>';
     h += '<div style="margin-top:8px;color:var(--muted);">Publish: select a row and press Publish. The Gate\u2019s winner publishes as is; any other pack entry needs a typed override reason. '
-      + '<button onclick="_gateDownloadPack()" style="font-family:var(--mono);font-size:9px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:2px 8px;cursor:pointer;margin-left:6px;">\u29c9 Download pack</button></div>';
+      + '<button onclick="showTab(\'gate\')" style="font-family:var(--mono);font-size:9px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--accent);padding:2px 8px;cursor:pointer;margin-left:6px;">\u2696\ufe0f Gate report</button></div>';
   }
   return h + '</div>';
 }
 
-function _gateDownloadPack() {
-  const c = _gateCycle; if (!c || !c.json) return;
-  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([c.json], { type: 'application/json' }));
-  a.download = 'ledger_pack_' + (c.dm || 'nodm') + '_' + stamp + '.json';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-}
 
 // §4.5 / P5 — returns the gateRun record, or null (and says why) when publish is refused.
 function _gatePublishCheck(r) {
@@ -7666,7 +7344,6 @@ async function loadData() {
     DM = await fetchDM();
     status.textContent=`✓ Data mart loaded — ${DM.spy.length} SPY days · ${Object.keys(DM.options).length} contracts · updated ${DM.metadata?.last_updated}`;
     applyDmHealth(); // v6.7.17 — in-memory, instant
-    applyResReadiness().catch(() => {}); // v6.7.16 — tab-state visible from first load (9 light count queries)
     status.style.color='var(--green)';
     setRunButtonState('idle', { dmReady: true });
     await loadRollParams(); // reload to ensure STD is fully synced after DM available
