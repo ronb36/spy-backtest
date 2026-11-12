@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.5</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.6</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -819,7 +819,24 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.9.5';
+const APP_VERSION = 'v7.9.6';
+// v7.9.6 (S71, Ron · SPEC close-anchored execution §4) — FILL SANDBOX (Test A).
+// (1) ?ovFill=1 books EVERY fill at the option's day close (c); ?ovFill=2
+// books decay exits and all entries at c while delta exits (co-fires
+// included — Model Rules §9) stay at the day VWAP. TRIGGERS ARE UNTOUCHED:
+// decay still reads the VWAP mark and entry time value stays on the VWAP, so
+// the cycle dates are identical to the baseline and only the booked P&L
+// moves — the difference is the fill alone. A missing close falls back to
+// the VWAP and is counted. Sandbox-only (URL override → SANDBOX chip, Debug
+// forced, NOT PUBLISHED); the run re-simulates the baseline quietly and logs
+// a FILL SANDBOX block: core yield, credit, pool means, Δ vs baseline, and
+// how many close fills sat on a thin bar (< 10 contracts traded).
+// (2) Conformance footnote: the sim's option values are day-bar VWAP and its
+// SPY is the close (it said "DM-close readings").
+// (3) EVALUATION OPEN NOW prices both sides on the latest DM date where BOTH
+// have a bar (S71: an 11-12 SPY row landed before its option bars, so the
+// sim side read "not priceable"). Default fills: byte-identical to v7.9.5.
+// MODEL_VERSION and the Gate unchanged. Base v7.9.5 (27b90037).
 // v7.9.5 (S71, Ron) — CONFORMANCE SHOWS THE SIM'S OPEN POSITION + LEANER CARDS.
 // (1) The Conformance grid listed only CLOSED sim cycles; the sim's open position
 // surfaced as a footnote, and only when the sim had FEWER closed cycles than
@@ -3046,10 +3063,18 @@ function _evalReport(live, sim, start, ms, full, pend, runs) {
     logMsg('  TARGET                 Core Roll Yield unavailable \u2014 the full run returned none', '');
   }
 
-  const _asOf = (DM && DM.spy && DM.spy.length) ? DM.spy[DM.spy.length - 1].date : null;
+  const _lastSpy = (DM && DM.spy && DM.spy.length) ? DM.spy[DM.spy.length - 1].date : null;
+  let _asOf = _lastSpy;
+  if (_lastSpy) { // v7.9.6 — latest DM date where BOTH open sides have a bar (one date, both sides)
+    const _ds = DM.spy.slice(-6).map(function (x) { return x.date; }).reverse();
+    for (let i = 0; i < _ds.length; i++) {
+      const t = _evalOpenNow(live, pend, maps, _ds[i]);
+      if ((!t.live || t.live.read) && (!t.sim || t.sim.read)) { _asOf = _ds[i]; break; }
+    }
+  }
   if (_asOf) {
     const on = _evalOpenNow(live, pend, maps, _asOf);
-    logMsg('  OPEN NOW               as of ' + _asOf + (on.same
+    logMsg('  OPEN NOW               as of ' + _asOf + (_asOf !== _lastSpy ? ' (latest DM date with a bar on both sides; ' + _lastSpy + ' has SPY but not both option bars yet)' : '') + (on.same
       ? '  \u00b7  SAME CONTRACT on both sides'
       : '  \u00b7  DIFFERENT CONTRACT \u2014 selection divergence, expected (see POLICY below)'),
       on.same ? 'ok' : '');
@@ -3368,7 +3393,7 @@ function _confRender(results) {
     sum += `delta rows n ${S.delta.n}: live fires ${S.delta.gap.length ? fm(mean(S.delta.gap), 3, '\u0394') + ' vs the sim\u2019s own reading' : '\u2014'} \u00b7 mean ${fm(mean(S.delta.days), 1, 'd')} (+ = late)<br>`;
   } else sum += 'no closed in-regime rows with a sim exit.<br>';
   sum += `ENTRY CONFORMANCE (leg B): same contract ${S.contractN ? S.sameContract + '/' + S.contractN : '\u2014'} \u00b7 first divergence: ${S.firstDiv ? 'row ' + S.firstDiv.row + ' \u2014 ' + S.firstDiv.why : 'none in window'}<br>`;
-  sum += `<span style="${muted}font-size:9px;">Not a P&amp;L verdict: the sim covers at the option day-bar VWAP (option_days.vw), unreachable by any order \u2014 S67 measured live fills at +5.7\u00a2/sh net in Ron\u2019s favour vs that benchmark. Not a conformance statement (\u00a712.4). Live trigger values are the agent\u2019s intraday readings; sim values are DM-close readings on the same calendar day \u2014 the gap IS the overshoot being measured. Reads only; never writes roll_params.</span>`;
+  sum += `<span style="${muted}font-size:9px;">Not a P&amp;L verdict: the sim covers at the option day-bar VWAP (option_days.vw), unreachable by any order \u2014 S67 measured live fills at +5.7\u00a2/sh net in Ron\u2019s favour vs that benchmark. Not a conformance statement (\u00a712.4). Live trigger values are the agent\u2019s intraday readings; sim values are the option\u2019s day-bar VWAP with SPY at the close, on the same calendar day \u2014 the gap IS the overshoot being measured. Reads only; never writes roll_params.</span>`;
   sum += '</div>';
   return html + sum;
 }
@@ -4148,6 +4173,8 @@ function updateInitPosition() {
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
   _scratchGate  = p.scratchRoll ?? null; // v6.18.0 — embedded identity
+  const _fillAt = (p.fillAt === 1 || p.fillAt === 2) ? p.fillAt : null; // v7.9.6 — Test A sandbox; null ≡ VWAP fills (baseline)
+  const _closeOf = d => (d && d.c != null && d.c > 0) ? d.c : null;     // v7.9.6
   const { decayTrigger, dteFloor, deltaThreshold, dtePenaltyAnchor = 45, shares, defHorizon = 0 } = p; // v6.14.0 — otmFixed removed from the sim: no consumer remained // v6.5.0 — vixGate removed (retired on evidence, S33; inert at 0 since) // v6.3.0 — defense horizon; 0 = off ≡ full DTE
   // v6.8.0 — grace parameterized: the trigger min-hold gate, hardcoded `>= 3`
   // since inception (surfaced S41 — modeled but never named, never swept, on
@@ -4244,6 +4271,7 @@ async function simulate(p) {
   let posOpen = false, entryPrice = null, entryDate = null;
   let entryStrike = null, entrySPY = null, entryDelta_ = 0;
   let entryTimeValue = null; // time value at entry = entryPrice - max(0, entrySPY - strike)
+  let entryFill_ = 'vw', entryThin_ = false; // v7.9.6 — Test A fill bookkeeping
   let entryPxDm_ = null;     // v7.6.1 — the DM day-bar price on the entry date (≡ entryPrice unless pinned at a fill)
   let isInitial = true, pendingContract = null;
   const cycles = [];
@@ -4298,12 +4326,17 @@ async function simulate(p) {
     if (!day) return false;
     entryPxDm_      = day.vw || day.c;
     entryPrice      = (_pinPxPending != null) ? _pinPxPending : entryPxDm_; // v7.6.1 — pinned fill consumed ONCE, at the first open
+    entryFill_ = 'vw'; entryThin_ = false;
+    if (_fillAt && _pinPxPending == null) { // v7.9.6 — Test A: book the sale at the day close
+      const _c = _closeOf(day);
+      if (_c != null) { entryPrice = _c; entryFill_ = 'c'; entryThin_ = !(day.v >= 10); } else entryFill_ = 'vw-fallback';
+    }
     _pinPxPending   = null;
     entryDate       = date;
     entrySPY        = spyMap[key]?.c || spy;
     entryStrike     = curC.strike;
     // Time value at entry = price - intrinsic (for OTM calls, intrinsic = 0)
-    entryTimeValue  = entryPrice - Math.max(0, entrySPY - entryStrike);
+    entryTimeValue  = (_fillAt ? entryPxDm_ : entryPrice) - Math.max(0, entrySPY - entryStrike); // v7.9.6 — trigger frame stays on the VWAP under the fill sandbox
     const expD_ = new Date(curC.expiry+'T00:00:00');
     const todD_ = new Date(date+'T00:00:00');
     // v6.3.0 — entry low-water in the DEFENSE frame: horizon = min(defHorizon, entryDTE)
@@ -4454,7 +4487,13 @@ async function simulate(p) {
     // ── VIX Gate ──────────────────────────────────────────────────────────
 
     // ── Close cycle ──
-    const exitPx = isExp ? Math.max(0, spy-entryStrike) : (callPx??0);
+    let exitPx = isExp ? Math.max(0, spy-entryStrike) : (callPx??0);
+    const exitPxDecide_ = exitPx; // v7.9.6 — the DECISION frame cover (VWAP): selection funds against this, so the fill sandbox cannot change which contract is chosen
+    let exitFill_ = isExp ? 'expiry' : 'vw', exitThin_ = false;
+    if (_fillAt && !isExp && (_fillAt === 1 || !deltaFired)) { // v7.9.6 — Test A: cover at the day close (ovFill=2 keeps delta exits on the VWAP)
+      const _c = _closeOf(callDay);
+      if (_c != null) { exitPx = _c; exitFill_ = 'c'; exitThin_ = !(callDay.v >= 10); } else exitFill_ = 'vw-fallback';
+    }
     const pnl    = (entryPrice-exitPx)*100*contracts;
     premPnL += pnl;
     const days   = Math.max(1, Math.round((todayD-new Date(entryDate+'T00:00:00'))/86400000));
@@ -4473,6 +4512,7 @@ async function simulate(p) {
       entryVix: vixMap[entryDate]||vix,
       entryDelta:eDelta, exitDelta:defDelta, // v6.3.0 — exit Δ in defense frame (≡ full-DTE at null)
       exitDecayPct: tvDecay_, exitTv: curTv_, entryTv: entryTimeValue, // v7.6.0 — realized TV decay at exit (null if no price that day)
+      entryFill: entryFill_, entryThin: entryThin_, exitFill: exitFill_, exitThin: exitThin_, // v7.9.6
       entryPxDm: entryPxDm_, // v7.6.1 — DM day-bar price on the entry date (≡ entryPx unless pinned at a fill)
       approx: _gaps.some(g=>g.substituted),
     });
@@ -4492,7 +4532,7 @@ async function simulate(p) {
     // ── Find next contract ──
     _scratchArmed = !!deltaFired; // v6.18.0 — armed ONLY when the delta stop fired (co-fires included, delta-first parity)
     const next = findNextContract(date, spy, dtePenaltyAnchor, entryDteMin_,
-      curC.expiry+'_'+curC.strike, entryCap_, isExp ? 0 : exitPx, vix); // v6.34.0 — the oppPick override went with the θ trigger // v6.4.0 — candidate side uses entry params (≡ trigger twins when unset)
+      curC.expiry+'_'+curC.strike, entryCap_, isExp ? 0 : exitPxDecide_, vix); // v6.34.0 — the oppPick override went with the θ trigger // v6.4.0 — candidate side uses entry params (≡ trigger twins when unset)
     if (!next) {
       // v5.4.2 — no net-credit candidate exists at current SPY level: hold
       // long SPY and re-scan daily via the recovery path (de-gated, v6.5.0).
@@ -4788,6 +4828,42 @@ async function simulate(p) {
   return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, openMark, openMarkSrc, coreYld, coreSum, coreDays, coreStart, coreEnd, coreCycleCount, initPnl, openNetD, pin: _pin, pinNote }; // v7.6.1 — pin echoed for the caller
 }
 
+// v7.9.6 — SPEC close-anchored execution §4 (Test A). Re-simulates the
+// baseline (VWAP fills) quietly and prints the fill variant beside it.
+// Identical triggers by construction, so cycle counts must match; a mismatch
+// is reported, never hidden.
+async function _logFillSandbox(params, r) {
+  const base = { ...params }; delete base.fillAt;
+  const _m = _mode; let b = null;
+  try { _mode = 'optimize'; b = await simulate(base); } finally { _mode = _m; } // quiet: no per-run logs
+  if (!b) { logMsg('  FILL SANDBOX: baseline returned no cycles', 'err'); return; }
+  const core = x => (x.cycles || []).slice(1).filter(c => c.exitDate);
+  const pool = c => ((c.reason || '').toLowerCase().includes('delta') ? 'delta' : 'decay');
+  const stat = x => { const cs = core(x), o = { n: cs.length, sum: 0, decay: [], delta: [] };
+    cs.forEach(c => { o.sum += c.pnl || 0; o[pool(c)].push(c.pnl || 0); }); return o; };
+  const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
+  const $f = v => v == null ? '—' : (v >= 0 ? '+' : '-') + '$' + Math.abs(Math.round(v)).toLocaleString();
+  const pp = v => v == null ? '—' : v.toFixed(1) + '%';
+  const sB = stat(b), sV = stat(r);
+  const lbl = params.fillAt === 1 ? 'A1 · all fills at the day close' : 'A2 · decay exits + entries at the close, delta exits at VWAP';
+  logMsg('── FILL SANDBOX (Test A) — ' + lbl + ' ──', 'err');
+  logMsg('  triggers unchanged (VWAP mark, VWAP entry TV) — only the booked fill moves');
+  if (sB.n !== sV.n) logMsg('  ⚠ core cycle count differs: baseline ' + sB.n + ' vs variant ' + sV.n + ' — triggers were NOT identical', 'err');
+  const row = (k, a, v, d) => logMsg('  ' + k.padEnd(18) + a.padStart(12) + v.padStart(12) + d.padStart(12));
+  row('', 'A0 VWAP', 'variant', 'Δ');
+  row('core yield', pp(b.coreYld), pp(r.coreYld), (r.coreYld != null && b.coreYld != null) ? (r.coreYld - b.coreYld >= 0 ? '+' : '') + (r.coreYld - b.coreYld).toFixed(2) + 'pp' : '—');
+  row('core credit', $f(sB.sum), $f(sV.sum), $f(sV.sum - sB.sum));
+  ['decay', 'delta'].forEach(k => row(k + ' mean (n=' + sV[k].length + ')', $f(mean(sB[k])), $f(mean(sV[k])),
+    (mean(sV[k]) != null && mean(sB[k]) != null) ? $f(mean(sV[k]) - mean(sB[k])) : '—'));
+  const all = (r.cycles || []);
+  const cnt = (f, v) => all.filter(c => c[f] === v).length;
+  const thin = all.filter(c => (c.entryFill === 'c' && c.entryThin) || (c.exitFill === 'c' && c.exitThin)).length;
+  logMsg('  fills at close: entries ' + cnt('entryFill', 'c') + ' · exits ' + cnt('exitFill', 'c')
+    + ' · VWAP fallbacks (no close) ' + (cnt('entryFill', 'vw-fallback') + cnt('exitFill', 'vw-fallback'))
+    + ' · cycles with a close fill on a THIN bar (<10 traded) ' + thin);
+  logMsg('  the close is the day’s LAST TRADE — on a thin bar it can be hours old; a real closing quote needs a collector change (spec §4)');
+}
+
 // ── Run simulation ─────────────────────────────────────────────────────────
 async function runSimulation(opts) {
   // v7.6.30 — opts.noScan: run the backtest WITHOUT the trailing candidate
@@ -4912,6 +4988,7 @@ logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.decayTrig
   }
   logHeadroomTable(result);  // v5.11.4 — headroom look, both STD paths
   logExitAttribution(result); // v6.7.18 — exit attribution, STD only (this call site never runs in OPT)
+  if (params.fillAt) await _logFillSandbox(params, result); // v7.9.6 — Test A
   /* v5.15.4 auto-analysis retired; Ask Claude is on-demand */
   
   
@@ -5092,7 +5169,7 @@ const EXIT_ATTR_CYCLE_ROWS = true; // per-cycle forensic rows (spec default ON)
 // Takes an optional search string for harness testability.
 function researchOverrides(search) {
   const q = new URLSearchParams(search != null ? search : location.search);
-  const map = { ovDecay: 'decayTrigger', ovDelta: 'deltaThreshold', ovDefh: 'defHorizon', ovGrace: 'graceDays', ovScratch: 'scratchRoll', ovDte: 'dteFloor', ovEntrydte: 'entryDteMin', ovExpfri: 'expiryFriday', ovSkipm: 'skipMonths', ovPit: 'pointInTime' }; // v6.8.0/v6.8.2 — ovOtm deliberately omitted (percent-vs-fraction unit ambiguity; use the card) // v6.11.0 — ovExpfri 1–4: expiry-Friday cohort filter (sandbox-only, no card/axis) // v6.12.0 — ovSkipm 1–12: start-skip jitter (sandbox-only)
+  const map = { ovDecay: 'decayTrigger', ovDelta: 'deltaThreshold', ovDefh: 'defHorizon', ovGrace: 'graceDays', ovScratch: 'scratchRoll', ovDte: 'dteFloor', ovEntrydte: 'entryDteMin', ovExpfri: 'expiryFriday', ovSkipm: 'skipMonths', ovPit: 'pointInTime', ovFill: 'fillAt' }; // v6.8.0/v6.8.2 — ovOtm deliberately omitted (percent-vs-fraction unit ambiguity; use the card) // v6.11.0 — ovExpfri 1–4: expiry-Friday cohort filter (sandbox-only, no card/axis) // v6.12.0 — ovSkipm 1–12: start-skip jitter (sandbox-only)
   const ov = {};
   for (const k of Object.keys(map)) {
     if (!q.has(k)) continue;
