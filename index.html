@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.7.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.7.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -643,15 +643,12 @@ select.display-box { cursor:pointer; outline:none; }
       <!-- v6.22.0 — Statement Import (DRY RUN — zero POSTs this release; insert path arrives v6.22.1) -->
       <div class="chart-panel" style="margin-top:12px;">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="chart-title">⬇ Statement Import — DRY RUN</span>
+          <span class="chart-title">⬇ Statement Import</span>
           <span id="imp-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
         </div>
         <div style="padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <input type="file" id="imp-files" accept=".csv" multiple style="font-family:var(--mono);font-size:10px;color:var(--muted);">
-          <button onclick="impDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Dry Run</button>
-          <button onclick="impComputeBasis()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⟳ Cost Basis</button><!-- v6.26.0 — ledger FIFO walk, no import needed -->
-          <button onclick="impLegsDryRun()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Legs Dry Run</button><!-- v7.2.0 — statement-authored conversion, READ-ONLY --><button onclick="impLegsCompare()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Compare</button><!-- v7.2.4 — parallel run, READ-ONLY --><button onclick="impActivityCompare()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:4px 12px;cursor:pointer;">▶ Activity Compare</button><!-- v7.7.0 — adapter vs live_trades, READ-ONLY --><button id="exp-lt-btn" onclick="resExport('live_trades','exp-lt-btn')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⇩ Export live_trades</button><button onclick="impBackfillTriggers()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:rgba(224,160,32,.10);border:1px solid #e0a020;border-radius:3px;color:#e0a020;padding:4px 12px;cursor:pointer;">⇪ Backfill triggers</button><!-- v7.7.2 — one-time, decision columns only --><button id="exp-ll-btn" onclick="resExport('account_activity','exp-ll-btn')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:4px 12px;cursor:pointer;">⇩ Export account_activity</button><!-- v7.7.0 — backups before the cutover; reuses the exhaustive paginated exporter --><button onclick="impLegsInsert()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:rgba(224,160,32,.10);border:1px solid #e0a020;border-radius:3px;color:#e0a020;padding:4px 12px;cursor:pointer;">▲ Insert → live_legs</button><!-- v7.2.4 — WRITES. live_trades untouched. -->
-          <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">Parses Fidelity history CSVs · classifies · reconciles SPY option legs vs blotter · dedupes · tie-out. Dry run writes nothing; Insert appears after.</span>
+          <label style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:6px 14px;cursor:pointer;">⬆ Upload statement<input type="file" id="imp-files" accept=".csv" multiple onchange="impStatement(false)" style="display:none;"></label><!-- v7.7.4 — one path: upload → summary → confirm (Ron, S70) -->
+          <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">Fidelity history CSV · validated before anything is written · the statement corrects mistyped tickets</span>
         </div>
         <div id="imp-basis" style="padding:0 16px 6px;font-family:var(--mono);font-size:9px;color:var(--muted);"></div><!-- v6.26.0 -->
         <div id="imp-results" style="padding:0 16px 14px;"></div>
@@ -909,7 +906,15 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.7.3';
+const APP_VERSION = 'v7.7.4';
+// v7.7.4 (S70, Ron) — STATEMENT UPLOAD, ONE PATH (SPEC statement upload):
+// ⬆ Upload statement → summary (every gate, every ticket correction, a cash-walk
+// PREVIEW; nothing written) → ✓ Confirm import → post-import cash tie and cost
+// basis. Retired and removed: Dry Run, Legs Dry Run, Compare, Activity Compare,
+// Backfill triggers, Cost Basis button, both panel exports, the live_trades
+// readers behind them. COST BASIS FIX: SPY share rows only (v7.7.2 dropped the
+// SPY condition and read 63,600 sh at $1.94); publish refused unless shares =
+// contracts × 100 and the move is under $1/sh. Base v7.7.3 (e8ebdaf8).
 // v7.7.3 (S70, Ron) — the adapter gives an ASSIGNED close no price (blotter
 // convention, P&L '—'); v7.7.2 priced it at $0 and moved ~$25k of assigned premium
 // from the SPY residual into Calls on the statement line. Totals were unaffected.
@@ -9517,37 +9522,6 @@ function tradeToRow(t) {
   };
 }
 
-function rowToTrade(r) {
-  const fd = d => {
-    if (!d) return null;
-    const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) return `${m[2]}/${m[3]}/${m[1].slice(2)}`;
-    return d;
-  };
-  return {
-    id:              r.id,
-    trade_date:      fd(r.trade_date),
-    status:          r.status,
-    row_type:        r.row_type,
-    coverExpiry:     fd(r.cover_expiry),
-    coverStrike:     r.cover_strike,
-    coverPrice:      r.cover_price,
-    coverContracts:  r.cover_contracts,
-    sellExpiry:      fd(r.sell_expiry),
-    sellStrike:      r.sell_strike,
-    sellPrice:       r.sell_price,
-    sellContracts:   r.sell_contracts,
-    rollCredit:      r.roll_credit,
-    trigger:         r.trigger,
-    triggerValue:     r.trigger_value,      // v6.32.0
-    triggerThreshold: r.trigger_threshold,  // v6.32.0
-    source:          r.source, // v6.22.2 — imported facts distinguishable from tickets
-    amount:          r.amount, // v6.23.0 — ledger cash column (capital-series reader)
-    cash_balance:    r.cash_balance, cls: r.cls, quantity: r.quantity, symbol: r.symbol, occ_seq: r.occ_seq, // v7.6.11 — ledger balance reader (_ledgerBalanceAt)
-    note:            r.note
-  };
-}
-
 // v7.7.2 — EVERY reader's trades now come from the ledger through the adapter.
 // The return shape is rowToTrade's, so no reader changes; what changed is that
 // a statement correction now reaches the blotter, Conformance, eval and Roll
@@ -9558,19 +9532,6 @@ async function sbGetLiveTrades() {
   const rows = await res.json();
   if (rows.length === 2000) throw new Error(ACT_TABLE + ' hit the 2000-row window — blotter would be silently truncated (raise the limit or paginate)');
   return _activityToTrades(_actShape(rows));
-}
-
-// v7.7.2 — the RETIRED blotter, frozen. Read only by Activity Compare and the
-// one-time trigger backfill. Nothing writes live_trades any more.
-async function sbGetLiveTradesRetired() {
-  const res = await fetch(
-    `${SB_URL}/live_trades?order=trade_date.asc,id.asc&limit=1000`,
-    { headers: _sbHeaders }
-  );
-  if (!res.ok) throw new Error('Supabase read failed: ' + res.status);
-  const rows = await res.json();
-  if (rows.length === 1000) throw new Error('live_trades hit the 1000-row window — blotter would be silently truncated (raise the limit or paginate)'); // v6.18.11 — truncation can never hide (v6.7.16 / htourn lesson applied to the blotter reader; asc order means the cap drops the NEWEST rows)
-  return rows.map(rowToTrade);
 }
 
 async function sbUpsertTrade(trade) {
@@ -10009,40 +9970,6 @@ const _impSymOf = (und, expiry, strike) => { // ticket fields → CSV-style cont
   const e = (expiry || '').replace(/-/g, '').slice(2);
   return e ? '-' + und + e + 'C' + strike : null;
 };
-function _impReconSpy(rows, tickets, span) { // v7.6.14 — span = [firstIso, lastIso] of the file(s): blotter legs outside it are out of scope
-  // v6.22.2 — RULED: SPY option legs are NEVER inserted (blotter is the authoritative
-  // source for SPY option facts). Per-leg date-matching retired — split fills and the
-  // parallel-strike era (Feb–Apr 2026) make it structurally unmatchable and it answered
-  // the wrong question. The right question is CONSERVATION: per contract symbol,
-  // Σ|CSV leg qty| must equal the blotter's representation of that contract.
-  // Blotter side per symbol: sell_contracts (entry) + cover_contracts (exit), with
-  // long_call tickets counted on BOTH sides (one row carries the whole lifecycle).
-  const blot = new Map(); // symbol → contracts represented
-  const add = (k, n) => { if (k && n) blot.set(k, (blot.get(k) || 0) + Number(n)); };
-  for (const t of tickets) {
-    if (span) { const d = _impUsIso(t.trade_date); if (!d || d < span[0] || d > span[1]) continue; } // v7.6.14 — only legs the file could carry
-    const sSym = _impSymOf('SPY', _impUsIso(t.sellExpiry), t.sellStrike);
-    const cSym = _impSymOf('SPY', _impUsIso(t.coverExpiry), t.coverStrike);
-    add(sSym, t.sellContracts); add(cSym, t.coverContracts);
-    if (t.row_type === 'long_call') add(sSym, t.sellContracts); // lifecycle in one row → counts open + close
-  }
-  const csv = new Map(); // symbol → Σ|qty| across all leg classes
-  for (const r of rows) {
-    if (!r.opt || r.disposition) continue;
-    if (r.opt.und === 'SPY') {
-      const k = '-SPY' + r.opt.expiry.replace(/-/g, '').slice(2) + 'C' + r.opt.strike;
-      csv.set(k, (csv.get(k) || 0) + Math.abs(r.quantity || 0));
-      r.disposition = 'blotter \u2713'; // fact already represented; never inserted
-    }
-    // non-SPY option legs (e.g. HAL): fall through — imported as facts, P&L
-    // self-documents by symbol; no ticket matching attempted.
-  }
-  const gaps = [];
-  for (const [k, n] of csv) { const b = blot.get(k) || 0; if (b !== n) gaps.push(k + ' csv ' + n + ' vs blotter ' + b); }
-  for (const [k, b] of blot) { if (!csv.has(k) && b) gaps.push(k + ' csv 0 vs blotter ' + b); }
-  return gaps;
-}
-
 // ═══════════════════════════════════════════════════════════════════════
 // v7.2.0 — LEGS DRY RUN (S63). Statement-authored conversion, READ-ONLY.
 // Reuses the CERTIFIED pipeline (_impParseFile, the cross-file overlap
@@ -10343,152 +10270,29 @@ async function _legsWriteTicket(t) {
   return legs.length;
 }
 
-async function impLegsDryRun() {
+// ═══════════════════════════════════════════════════════════════════════
+// v7.7.4 — STATEMENT UPLOAD: one path (Ron, S70; SPEC statement upload).
+//   ⬆ Upload statement  →  SUMMARY (nothing written)  →  ✓ Confirm import
+// impStatement(false) runs every gate and every match READ-ONLY and shows what
+// the import WILL do; impStatement(true) re-runs the same plan from scratch and
+// only then writes. One function, so the summary and the write cannot disagree.
+// The cash walk is PREVIEWED — existing ledger + this file, walked in memory —
+// so the tie-out is a precondition of the write, not a discovery after it.
+// ═══════════════════════════════════════════════════════════════════════
+
+
+async function impStatement(commit) {
   const st = $('imp-status'), host = $('imp-results');
   const files = $('imp-files').files;
-  if (!files || !files.length) { st.textContent = 'no files selected'; return; }
-  st.textContent = 'parsing (legs)\u2026'; host.innerHTML = '';
-  try {
-    const parsed = [];
-    for (const f of files) parsed.push({ name: f.name, rows: _impParseFile(await f.text(), f.name) });
-    const all = parsed.flatMap(p => p.rows);
-    // CERTIFIED cross-file overlap collapse — same fingerprint as impDryRun.
-    // Genuine split fills differ in running Cash Balance, so they survive.
-    const seen = new Map();
-    for (const r of all) {
-      const fp = [r.date, r.action_raw, r.amount, r.cash_balance, r.quantity, r.price].join('|');
-      if (seen.has(fp)) r.disposition = 'skip (file overlap w/ ' + seen.get(fp) + ')';
-      else seen.set(fp, r.file);
-    }
-    _impAssignOccSeq(all); // v7.2.4 — shared authority; the insert needs the same keys
-    const live = all.filter(r => !(r.disposition || '').startsWith('skip'));
-    const unk = live.filter(r => r.cls === 'UNKNOWN');
-    const legs = _legsAggregate(live);
-    const { cycles, stillOpen, protection } = _legsToCycles(legs);
-
-    const money = v => (v < 0 ? '\u2212$' : '$') + Math.abs(v).toFixed(2);
-    const spyLegs = legs.filter(l => l.und === 'SPY');
-    const ct = spyLegs.reduce((s, l) => s + l.qty, 0);
-    const cost = spyLegs.reduce((s, l) => s + l.comm + l.fees, 0);
-    const splits = spyLegs.filter(l => l.fills > 1);
-    const orphans = cycles.filter(c => c.orphan);
-
-    // v7.2.3 — CLOSING GROUPS PER DATE. Trigger carry attaches to the CLOSER on
-    // a date, so date-only attachment is sound only where a date holds exactly
-    // one closing group. Protection closers are excluded: _legsToCycles already
-    // rules them not-orphans, and counting them would false-alarm on the three
-    // bought contracts. Measured on the whole history, reported for the era.
-    const { multi: multiClose, multiEra } = _legsCloseGroups(spyLegs, protection); // v7.2.4 — shared with the insert
-
-    // era slice — BOTH legs in, matching the v7.1.1 panel rule exactly
-    const era = cycles.filter(c => c.openDate && c.openDate >= WF_ERA_START);
-    const eraPnl = era.reduce((s, c) => s + (c.spx - c.cpx) * 100 * c.qty, 0);
-    const eraCost = era.reduce((s, c) => s + c.cost, 0);
-
-    // blotter side, for the diff — read-only fetch
-    let blot = null;
-    try {
-      const trades = (await sbGetLiveTrades());
-      const { cycles: bc, toIso } = _pairLiveCycles(trades);
-      const bEra = bc.filter(c => c.openDate && toIso(c.openDate) >= WF_ERA_START
-        && c.closeDate && c.coverPrice != null && c.sellPrice != null);
-      blot = { n: bEra.length,
-        pnl: bEra.reduce((s, c) => s + (c.sellPrice - c.coverPrice) * 100 * (c.qty || 0), 0) };
-    } catch (e) { blot = null; }
-
-    const cls = {}; for (const r of live) cls[r.cls] = (cls[r.cls] || 0) + 1;
-    let html = '<div style="font-family:var(--mono);font-size:10px;line-height:1.7;">'
-      + '<div style="color:var(--accent);margin:6px 0;">LEGS DRY RUN \u00b7 NOTHING WRITTEN \u00b7 '
-      + all.length + ' parsed \u2192 ' + live.length + ' after overlap collapse ('
-      + (all.length - live.length) + ' collapsed)</div>'
-      + (unk.length
-        ? '<div style="color:var(--red);">\u2717 ' + unk.length + ' UNKNOWN actions \u2014 NAMED, never guessed:<br>'
-          + [...new Set(unk.map(r => r.action_raw.slice(0, 70)))].map(a => '\u00a0\u00a0' + a).join('<br>') + '</div>'
-        : '<div style="color:var(--green);">\u2713 zero UNKNOWN actions \u2014 every species classifies</div>')
-      + '<div style="margin-top:6px;">SPY option legs <b>' + spyLegs.length + '</b> \u00b7 contracts <b>'
-      + ct + '</b> \u00b7 cost <b>' + money(cost) + '</b> \u00b7 ' + money(ct ? cost / ct : 0) + '/contract</div>'
-      + '<div>split fills <b>' + splits.length + '</b> of ' + spyLegs.length + ' legs ('
-      + (spyLegs.length ? (100 * splits.length / spyLegs.length).toFixed(1) : '0') + '%)</div>'
-      + '<div>cycles assembled <b>' + cycles.length + '</b> \u00b7 still open ' + stillOpen.length
-      + ' \u00b7 <span style="color:' + (orphans.length ? '#e0a020' : 'var(--muted)') + ';">orphans '
-      + orphans.length + '</span> \u2014 counted, never dropped</div>'
-      + '<div style="color:var(--muted);margin-top:4px;">class: '
-      + Object.entries(cls).map(([k, v]) => k + ' ' + v).join(' \u00b7 ') + '</div>';
-
-    html += '<div style="color:var(--text);margin-top:8px;">ERA \u00b7 both legs \u2265 ' + WF_ERA_START + '</div>'
-      + '<div>statement cycles <b>' + era.length + '</b> \u00b7 CC P&L <b>' + money(eraPnl)
-      + '</b> \u00b7 cost ' + money(eraCost) + ' (' + money(era.length ? eraCost / era.length : 0) + '/cycle)</div>';
-    if (blot) {
-      const d = eraPnl - blot.pnl;
-      html += '<div style="color:' + (Math.abs(d) < 0.005 ? 'var(--green)' : '#e0a020') + ';">'
-        + 'blotter cycles ' + blot.n + ' \u00b7 CC P&L ' + money(blot.pnl)
-        + ' \u00b7 \u0394 <b>' + money(d) + '</b> \u2014 expected: punch error the statement corrects</div>';
-    } else {
-      html += '<div style="color:var(--muted);">blotter unavailable \u2014 diff skipped</div>';
-    }
-    // v7.2.3 — closing-group proof. Renders in BOTH states: a proof that only
-    // speaks when it fails is a proof nobody checks.
-    html += '<div style="color:' + (multiEra.length ? 'var(--red)' : 'var(--green)')
-      + ';margin-top:6px;">' + (multiEra.length ? '\u2717 ' : '\u2713 ')
-      + 'closing groups per date \u2014 ' + multiClose.length + ' date(s) carry >1, '
-      + multiEra.length + ' in era \u00b7 date-only trigger attachment '
-      + (multiEra.length ? 'NOT PROVEN \u2014 adjudicate before insert' : 'PROVEN for the era')
-      + (multiClose.length
-          ? '<br>' + multiClose.slice(0, 12).map(x => '\u00a0\u00a0' + x.d + ' \u00d7' + x.n
-              + (x.era ? ' \u2014 IN ERA' : '')).join('<br>')
-            + (multiClose.length > 12 ? '<br>\u00a0\u00a0\u2026 and ' + (multiClose.length - 12) + ' more' : '')
-          : '')
-      + '</div>';
-
-    // v7.2.2 — protection line: renders ONLY on a non-zero count, silent
-    // otherwise. Same doctrine as the amber alarms — cheap to count, expensive
-    // to discover later.
-    if (protection.length) {
-      const paid = protection.reduce((s, p) => s + p.px * 100 * p.qty, 0);
-      const pcost = protection.reduce((s, p) => s + p.comm + p.fees + (p.closeCost || 0), 0);
-      const worthless = protection.filter(p => p.closedHow === 'opt_expired').length;
-      html += '<div style="color:#7aa2f7;margin-top:6px;">PROTECTION LEGS <b>' + protection.length
-        + '</b> (bought calls over a live short — excluded from CC cycles, never orphans)<br>'
-        + '  premium paid ' + money(paid) + ' · cost ' + money(pcost)
-        + ' · ' + worthless + ' expired worthless<br>'
-        + protection.map(p => '  ' + p.date + ' $' + p.strike + ' ×' + p.qty
-            + ' @ ' + money(p.px) + (p.closed ? ' → ' + p.closed + ' ' + p.closedHow : ' → OPEN')).join('<br>')
-        + '</div>';
-    }
-    // P&L STAYS GROSS (Ron). Cost sits beside it and is never netted in.
-    html += '<div style="color:var(--muted);font-size:9px;margin-top:4px;">P&L is GROSS \u2014 cost reported '
-      + 'alongside, never netted, preserving frame parity with the sim.</div>';
-
-    if (orphans.length) {
-      html += '<div style="color:#e0a020;margin-top:6px;">ORPHAN CLOSES (open leg outside loaded files) \u2014 need adjudication:<br>'
-        + orphans.slice(0, 12).map(c => '\u00a0\u00a0' + c.closeDate + ' ' + c.expiry + ' $' + c.strike
-          + ' \u00d7' + c.qty + ' (' + c.how + ')').join('<br>')
-        + (orphans.length > 12 ? '<br>\u00a0\u00a0\u2026 and ' + (orphans.length - 12) + ' more' : '') + '</div>';
-    }
-    html += '<div style="color:var(--muted);font-size:9px;margin-top:8px;">READ-ONLY. No live_legs write, '
-      + 'no live_trades mutation. Insert is a separate, separately-ratified step.</div></div>';
-    host.innerHTML = html;
-    st.textContent = '\u2713 legs dry run complete \u2014 nothing written';
-  } catch (e) {
-    st.textContent = '\u2717 ' + e.message;
-    host.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">' + e.message + '</div>';
-  }
-}
-
-// ============================ v7.2.4 · LEGS INSERT ============================
-// SPEC_legs_insert.md rev B. No delete path exists in this function. Three
-// dispositions and no fourth: id already present -> no-op; a basis='ticket' row
-// occupies the slot -> UPDATE it in place (triggers NOT in the update set);
-// neither -> insert. Anything ambiguous BLOCKS. Nothing is ever swept.
-async function impLegsInsert() {
-  const st = $('imp-status'), host = $('imp-results');
-  const files = $('imp-files').files;
-  if (!files || !files.length) { st.textContent = 'no files selected'; return; }
-  if (!confirm('WRITE to ' + ACT_TABLE + '. Tickets in the file span are corrected to the statement. Proceed?')) return;
-  st.textContent = 'parsing (insert)\u2026'; host.innerHTML = '';
-  const L = [];
+  if (!files || !files.length) { st.textContent = 'no file selected'; host.innerHTML = ''; return; }
+  st.textContent = commit ? 'importing…' : 'validating…';
+  if (!commit) host.innerHTML = '';
+  const L = [];            // summary lines: [colour, text]
+  const ok = s => L.push(['g', '✓ ' + s]), warn = s => L.push(['a', '⚠ ' + s]), info = s => L.push(['m', s]);
   const die = (msg) => { throw new Error(msg); };
+  const _sym = x => String(x || '').trim();
   try {
+    // ── parse ──────────────────────────────────────────────────────────────
     const parsed = [];
     for (const f of files) parsed.push({ name: f.name, rows: _impParseFile(await f.text(), f.name) });
     const all = parsed.flatMap(p => p.rows);
@@ -10500,206 +10304,156 @@ async function impLegsInsert() {
     }
     _impAssignOccSeq(all);
     const live = all.filter(r => !(r.disposition || '').startsWith('skip'));
-
-    // GATE 1 — UNKNOWN never inserts.
-    const unk = live.filter(r => r.cls === 'UNKNOWN');
-    if (unk.length) die(unk.length + ' UNKNOWN actions — BLOCKED, nothing written');
-    L.push('\u2713 gate 1 — zero UNKNOWN across ' + live.length + ' rows');
-
-    // GATE 2 — closing groups per date (Ron, S64: BLOCK, not warn).
-    const legs = _legsAggregate(live);
-    const { cycles, stillOpen, protection } = _legsToCycles(legs);
-    const spyLegs = legs.filter(l => l.und === 'SPY');
-    const { multi, multiEra } = _legsCloseGroups(spyLegs, protection);
-    if (multiEra.length) die('closing-group probe: ' + multiEra.length + ' in-era date(s) carry >1 closing group ('
-      + multiEra.map(x => x.d).join(', ') + ') — trigger attachment is ambiguous, BLOCKED');
-    L.push('\u2713 gate 2 — closing groups: ' + multi.length + ' date(s) >1, 0 in era');
-
-    // GATE 3 — open position 0-or-1, reconciled against an independent third source.
-    // v7.6.19 — the source depends on WHEN the file ends: reaching the current
-    // entry → roll_params.json (as before); ending earlier → the blotter's open
-    // position AS OF the file's last day. A historical file can never agree with
-    // today's position, and blocking on that was blocking on the calendar.
-    if (stillOpen.length > 1) die('assembler carries ' + stillOpen.length + ' open positions — BLOCKED');
     const fileDates = live.map(r => r.date).filter(Boolean).sort();
-    const fileEnd = fileDates[fileDates.length - 1] || null;
+    const fileLo = fileDates[0], fileEnd = fileDates[fileDates.length - 1] || null;
+    if (!live.length) die('no statement rows in the file');
+
+    // ── gate 1 — every action classifies ───────────────────────────────────
+    const unk = live.filter(r => r.cls === 'UNKNOWN');
+    if (unk.length) die(unk.length + ' action(s) not recognised (' + [...new Set(unk.map(r => r.action_raw))].slice(0, 3).join(' | ') + ')');
+    ok('every action classifies (0 unrecognised)');
+
+    // ── gate 2 — one closing group per era date ────────────────────────────
+    const legs = _legsAggregate(live);
+    const { stillOpen, protection } = _legsToCycles(legs);
+    const { multiEra } = _legsCloseGroups(legs.filter(l => l.und === 'SPY'), protection);
+    if (multiEra.length) die('more than one closing trade on ' + multiEra.map(x => x.d).join(', ') + ' — close reasons cannot be attached');
+    ok('one closing group per date');
+
+    // ── gate 3 — open position ─────────────────────────────────────────────
+    if (stillOpen.length > 1) die('the file assembles ' + stillOpen.length + ' open positions');
     const curEntry = (STD && STD.entryDate) ? String(STD.entryDate).slice(0, 10) : null;
     const reachesCurrent = !!(fileEnd && curEntry && fileEnd >= curEntry);
     if (stillOpen.length === 1 && reachesCurrent && STD && STD.shortStrike) {
-      const o = stillOpen[0];
-      const mismatch = [];
-      if (Number(o.strike) !== Number(STD.shortStrike)) mismatch.push('strike ' + o.strike + ' vs params ' + STD.shortStrike);
-      if (STD.shortExpiry && o.expiry !== STD.shortExpiry) mismatch.push('expiry ' + o.expiry + ' vs params ' + STD.shortExpiry);
-      if (STD.contracts && Number(o.qty) !== Number(STD.contracts)) mismatch.push('qty ' + o.qty + ' vs params ' + STD.contracts);
-      if (mismatch.length) die('open position disagrees with roll_params.json — ' + mismatch.join(' \u00b7 ') + ' — BLOCKED');
-      L.push('\u2713 gate 3 — open position $' + o.strike + ' ' + o.expiry + ' \u00d7' + o.qty
-        + ' agrees with roll_params.json (independent third source)');
-    } else if (stillOpen.length === 1 && fileEnd) {
-      const o = stillOpen[0];
-      const bt = await sbGetLiveTrades();
-      const { cycles, open, toIso } = _pairLiveCycles(bt);
-      const asOf = [...cycles, ...open].filter(c => !c.orphan && c.openDate && toIso(c.openDate) <= fileEnd && (c.closeDate == null || toIso(c.closeDate) > fileEnd));
-      if (asOf.length !== 1) die('blotter shows ' + asOf.length + ' open position(s) as of ' + fileEnd + ' vs assembler 1 — BLOCKED');
-      const b = asOf[0];
-      const mismatch = [];
-      if (Number(o.strike) !== Number(b.strike)) mismatch.push('strike ' + o.strike + ' vs blotter ' + b.strike);
-      if (toIso(b.expiry) && o.expiry !== toIso(b.expiry)) mismatch.push('expiry ' + o.expiry + ' vs blotter ' + toIso(b.expiry));
-      if (b.qty && Number(o.qty) !== Number(b.qty)) mismatch.push('qty ' + o.qty + ' vs blotter ' + b.qty);
-      if (mismatch.length) die('open position as of ' + fileEnd + ' disagrees with the blotter — ' + mismatch.join(' \u00b7 ') + ' — BLOCKED');
-      L.push('\u2713 gate 3 — open position $' + o.strike + ' ' + o.expiry + ' \u00d7' + o.qty
-        + ' agrees with the blotter as of ' + fileEnd + ' (file ends before the current ' + (curEntry || '?') + ' entry; roll_params not applicable)');
-    } else {
-      L.push('\u2713 gate 3 — open positions ' + stillOpen.length + ' (params check skipped: no shortStrike loaded)');
-    }
+      const o = stillOpen[0], mm = [];
+      if (Number(o.strike) !== Number(STD.shortStrike)) mm.push('strike ' + o.strike + ' vs ' + STD.shortStrike);
+      if (STD.shortExpiry && o.expiry !== STD.shortExpiry) mm.push('expiry ' + o.expiry + ' vs ' + STD.shortExpiry);
+      if (STD.contracts && Number(o.qty) !== Number(STD.contracts)) mm.push('qty ' + o.qty + ' vs ' + STD.contracts);
+      if (mm.length) die('open position disagrees with roll_params.json — ' + mm.join(' · '));
+      ok('open position $' + o.strike + 'C ' + o.expiry + ' ×' + o.qty + ' = roll_params.json');
+    } else if (stillOpen.length === 1) {
+      info('open position $' + stillOpen[0].strike + 'C ' + stillOpen[0].expiry + ' — file ends ' + fileEnd + ', before the current entry; not compared');
+    } else ok('no open position in the file');
 
+    // ── plan: tickets to confirm or correct, rows already imported, rows new ─
     const payload = _legsBuildPayload(live);
     const dates = payload.map(p => p.trade_date).sort();
     const dMin = dates[0], dMax = dates[dates.length - 1];
-
-    // DISPOSITION 2 — ticket rows in range convert IN PLACE. Never deleted.
-    st.textContent = 'checking ticket rows\u2026';
-    // v7.7.2 — the window is the span WIDENED by the 7-day date-correction reach, so a
-    // ticket typed a few days outside the file still finds its statement row.
     const _wd = (d, n) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
-    const tres = await fetch(`${SB_URL}/${ACT_TABLE}?basis=eq.ticket&trade_date=gte.${_wd(dMin, -7)}&trade_date=lte.${_wd(dMax, 7)}&limit=1000`,
-      { headers: _sbHeaders });
-    if (!tres.ok) die('live_legs ticket read failed: ' + tres.status);
-    const tkts = await tres.json();
-    const converted = new Set(); const held = []; const corr = [];
-    // v7.7.2 — MATCHING, in order: same date + class; if several, narrowed by
-    // contract symbol; if none on the date, the same contract within 7 days (a
-    // DATE mis-punch — Activity Compare found three). Statement wins on every fact
-    // it carries: date, contract, price, quantity, cash (SPEC §5.3).
-    const _sym = x => String(x || '').trim();
+    const { rows: table } = await legsGetFromTable();
+    const byId = new Map(table.map(r => [r.id, r]));
+    const tkts = table.filter(r => r.basis === 'ticket' && r.trade_date >= _wd(dMin, -7) && r.trade_date <= _wd(dMax, 7));
+    // MATCHING (v7.7.2): same date + class; several → narrowed by contract; none on
+    // the date → same contract within 7 days (a DATE mis-punch). Statement wins on
+    // every fact it carries (SPEC §5.3); close reasons ride the ticket row.
+    const taken = new Set(), conv = [], held = [], corr = [];
     for (const t of tkts) {
-      let cands = payload.filter(p => p.trade_date === t.trade_date && p.cls === t.cls && !converted.has(p.id));
-      if (cands.length > 1) cands = cands.filter(p => _sym(p.symbol) === _sym(t.symbol));
-      if (!cands.length) cands = payload.filter(p => p.cls === t.cls && _sym(p.symbol) === _sym(t.symbol) && !converted.has(p.id)
-        && _actDays(p.trade_date, t.trade_date) <= 7);
-      if (cands.length > 1) die('ticket row ' + t.id + ' matches ' + cands.length + ' statement slots near '
-        + t.trade_date + ' — ambiguous, BLOCKED');
-      if (!cands.length) { held.push(t); continue; } // SPEC §5.4 — no fill: FLAG and HOLD, never delete
-      const p = cands[0];
-      const _ch = [];
-      if (p.trade_date !== t.trade_date) _ch.push('date ' + t.trade_date + ' \u2192 ' + p.trade_date);
-      if (_sym(p.symbol) !== _sym(t.symbol)) _ch.push('contract ' + _sym(t.symbol) + ' \u2192 ' + _sym(p.symbol));
-      if (Math.abs(Number(p.price) - Number(t.price)) >= 0.005) _ch.push('price ' + Number(t.price).toFixed(2) + ' \u2192 ' + Number(p.price).toFixed(2));
-      if (Math.abs(Math.abs(Number(p.quantity)) - Math.abs(Number(t.quantity))) > 0) _ch.push('qty ' + Math.abs(t.quantity) + ' \u2192 ' + Math.abs(p.quantity));
-      if (_ch.length) corr.push(p.trade_date + ' ' + p.cls + ' ' + _sym(p.symbol) + ': ' + _ch.join(' \u00b7 '));
-      const upd = { ...p }; // triggers deliberately absent from the payload object
-      delete upd.trigger; delete upd.trigger_value; delete upd.trigger_threshold; delete upd.note;
-      const ur = await fetch(`${SB_URL}/${ACT_TABLE}?id=eq.${encodeURIComponent(t.id)}`, {
-        method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
-        body: JSON.stringify(upd) });
-      if (!ur.ok) die('ticket convert PATCH failed on ' + t.id + ': ' + ur.status + ' ' + await ur.text());
-      converted.add(p.id);
+      let c = payload.filter(p => p.trade_date === t.trade_date && p.cls === t.cls && !taken.has(p.id));
+      if (c.length > 1) c = c.filter(p => _sym(p.symbol) === _sym(t.symbol));
+      if (!c.length) c = payload.filter(p => p.cls === t.cls && _sym(p.symbol) === _sym(t.symbol) && !taken.has(p.id) && _actDays(p.trade_date, t.trade_date) <= 7);
+      if (c.length > 1) die('ticket ' + t.trade_date + ' ' + _sym(t.symbol) + ' matches ' + c.length + ' statement rows — ambiguous');
+      if (!c.length) { if (t.trade_date >= dMin && t.trade_date <= dMax) held.push(t); continue; } // outside the file's own span: awaiting a LATER statement, not held
+      const p = c[0], ch = [];
+      if (p.trade_date !== t.trade_date) ch.push('date ' + t.trade_date + ' → ' + p.trade_date);
+      if (_sym(p.symbol) !== _sym(t.symbol)) ch.push('contract ' + _sym(t.symbol) + ' → ' + _sym(p.symbol));
+      if (Math.abs(Number(p.price) - Number(t.price)) >= 0.005) ch.push('price ' + Number(t.price).toFixed(2) + ' → ' + Number(p.price).toFixed(2));
+      if (Math.abs(Math.abs(Number(p.quantity)) - Math.abs(Number(t.quantity))) > 0) ch.push('qty ' + Math.abs(t.quantity) + ' → ' + Math.abs(p.quantity));
+      if (ch.length) corr.push(p.trade_date + ' ' + (p.cls === 'opt_sell_open' ? 'sell' : p.cls === 'opt_buy_close' ? 'cover' : p.cls) + ' ' + _sym(p.symbol) + ': ' + ch.join(' · '));
+      taken.add(p.id); conv.push({ t, p });
     }
-    L.push('\u2713 ticket rows in range ' + tkts.length + ' \u00b7 converted in place ' + converted.size
-      + ' \u00b7 held (recorded, never cleared) ' + held.length);
-    if (held.length) L.push('\u26a0 HELD, not swept (SPEC \u00a75.4 \u2014 a ticket with no fill on the statement): ' + held.map(h => h.trade_date + ' ' + h.cls + ' ' + _sym(h.symbol)).join(', '));
-    L.push('\u2713 ' + corr.length + ' ticket(s) corrected to the statement' + (corr.length ? ':' : ''));
-    corr.forEach(c => L.push('\u00b7 corrected ' + c));
+    const already = payload.filter(p => !taken.has(p.id) && byId.has(p.id));
+    const fresh = payload.filter(p => !taken.has(p.id) && !byId.has(p.id));
+    info('new ' + fresh.length + ' · already imported ' + already.length + ' · tickets confirmed ' + (conv.length - corr.length)
+      + ' · tickets CORRECTED ' + corr.length + ' · held ' + held.length);
+    corr.forEach(c => L.push(['a', '· corrected ' + c]));
+    held.forEach(h => warn('held: ticket ' + h.trade_date + ' ' + _sym(h.symbol) + ' has no fill on the statement — kept, flagged, never deleted (SPEC §5.4)'));
 
-    // INSERT — one POST, one transaction, ids deterministic so a re-pull is free.
-    st.textContent = 'inserting ' + payload.length + ' rows\u2026';
-    const body = payload.filter(p => !converted.has(p.id));
-    const ins = await fetch(`${SB_URL}/${ACT_TABLE}?on_conflict=id`, {
-      method: 'POST',
-      headers: { ..._sbHeaders, 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
-      body: JSON.stringify(body) });
-    if (!ins.ok) die('insert failed: ' + ins.status + ' ' + await ins.text());
-    L.push('\u2713 POST ' + body.length + ' rows \u00b7 ' + converted.size + ' already written by convert');
+    // ── cash-walk PREVIEW: the ledger as it will be after the write ─────────
+    const convIds = new Set(conv.map(x => x.t.id));
+    const after = table.filter(r => !convIds.has(r.id)).concat(conv.map(x => x.p), fresh);
+    const walk = _ledgerCashWalk(_legsLedger(after));
+    if (!walk) die('the ledger would be empty');
+    const lastStmt = payload.filter(p => p.cash_balance != null).sort((a, b) => a.trade_date < b.trade_date ? -1 : 1).pop();
+    if (walk.resid !== 0) die('cash walk would NOT tie: off by $' + walk.resid.toFixed(2) + ' through ' + walk.lastIso + ' — a statement file is missing or overlaps wrongly');
+    ok('cash walk will tie: $' + walk.close.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' = Fidelity balance on ' + walk.lastIso);
 
-    // v7.7.2 — NO SEED. Through v7.7.1 every insert cleared the span's triggers and
-    // re-seeded them from live_trades. live_trades is retired, so that step would now
-    // ERASE every close reason entered after the cutover. The ticket's trigger rides
-    // its own leg row and survives convert-in-place (the PATCH omits the trigger
-    // columns), so there is nothing to seed. Pre-era history: ⇪ Backfill triggers.
-    const seedLo = dMin > WF_ERA_START ? dMin : WF_ERA_START, seedHi = dMax;
-    L.push('\u2713 close reasons carried on the converted ticket rows \u2014 no seed, nothing cleared');
+    const head = 'STATEMENT · ' + fileLo + ' → ' + fileEnd + ' · ' + live.length + ' rows · ' + files.length + ' file' + (files.length === 1 ? '' : 's');
+    const nothing = !fresh.length && !conv.length;
 
-    // VERIFY — the two hand-corrected S55 rows, by direct read. Neither is
-    // recoverable from the statement. A miss means ROLL BACK, not patch by hand.
-    const vr = await fetch(`${SB_URL}/${ACT_TABLE}?trade_date=in.(2026-08-03,2026-08-04)&select=trade_date,cls,trigger,trigger_value,trigger_threshold&order=trade_date.asc`,
-      { headers: _sbHeaders });
-    const vrows = vr.ok ? (await vr.json()).filter(r => r.trigger) : [];
-    const chk = (d, val) => {
-      const r = vrows.find(x => x.trade_date === d);
-      if (!r) return '\u2717 ' + d + ' — NO trigger landed';
-      const okv = (val === null) ? (r.trigger_value === null) : (Number(r.trigger_value) === val);
-      return ((r.trigger === 'delta' && okv && Number(r.trigger_threshold) === 0.740) ? '\u2713 ' : '\u2717 ')
-        + d + ' \u2014 ' + r.trigger + ' \u00b7 value ' + (r.trigger_value === null ? 'NULL' : r.trigger_value)
-        + ' \u00b7 threshold ' + r.trigger_threshold;
-    };
-    const inSpan = d => d >= seedLo && d <= seedHi; // v7.6.18 — verify only what this file could have seeded
-    const v1 = inSpan('2026-08-03') ? chk('2026-08-03', null) : '\u00b7 2026-08-03 outside this file \u2014 not verified here';
-    const v2 = inSpan('2026-08-04') ? chk('2026-08-04', 0.865) : '\u00b7 2026-08-04 outside this file \u2014 not verified here';
-    L.push(v1); L.push(v2);
-    const bad = v1.startsWith('\u2717') || v2.startsWith('\u2717');
+    if (!commit) {
+      _impRender(head, L, nothing ? 'nothing to import — every row is already in the ledger' : null, !nothing);
+      st.textContent = nothing ? '✓ nothing to import' : '✓ validated — nothing written yet';
+      return;
+    }
 
-    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;">'
-      + '<div style="color:' + (bad ? 'var(--red)' : 'var(--green)') + ';margin-bottom:6px;">'
-      + (bad ? 'INSERT COMPLETE \u2014 VERIFICATION FAILED \u00b7 ROLL BACK, do not hand-patch'
-             : 'INSERT COMPLETE \u00b7 ' + ACT_TABLE + ' tied to the statement') + '</div>'
-      + L.map(x => '<div style="color:' + (x.startsWith('\u2717') ? 'var(--red)'
-          : x.startsWith('\u26a0') ? '#e0a020' : 'var(--muted)') + ';">' + x + '</div>').join('')
-      + '<div style="color:var(--muted);font-size:9px;margin-top:8px;">Re-run this button on the same '
-      + 'files: it must write ZERO rows. That is the cert that the deterministic id works.</div></div>';
-    st.textContent = bad ? '\u2717 verification failed' : '\u2713 insert complete';
+    // ── WRITE — convert tickets in place, then insert the rest ──────────────
+    for (const { t, p } of conv) {
+      const upd = { ...p }; delete upd.trigger; delete upd.trigger_value; delete upd.trigger_threshold; delete upd.note; // close reasons stay on the row
+      const ur = await fetch(`${SB_URL}/${ACT_TABLE}?id=eq.${encodeURIComponent(t.id)}`, {
+        method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' }, body: JSON.stringify(upd) });
+      if (!ur.ok) die('ticket correction failed on ' + t.trade_date + ': ' + ur.status + ' ' + await ur.text());
+    }
+    if (fresh.length) {
+      const ins = await fetch(`${SB_URL}/${ACT_TABLE}?on_conflict=id`, {
+        method: 'POST', headers: { ..._sbHeaders, 'Prefer': 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(fresh) });
+      if (!ins.ok) die('insert failed: ' + ins.status + ' ' + await ins.text());
+    }
+    // ── post-import checks, read back from the table ───────────────────────
+    const P = [];
+    const { rows: now } = await legsGetFromTable();
+    const w2 = _ledgerCashWalk(_legsLedger(now));
+    P.push(w2 && w2.resid === 0 ? ['g', '✓ cash ties ' + w2.lastIso] : ['r', '✗ cash walk off by $' + (w2 ? w2.resid.toFixed(2) : '?') + ' after the write — report it, do not hand-patch']);
+    const b = _impBasisCheck(now);
+    P.push([b.ok ? 'g' : (b.publishable ? 'a' : 'r'), b.line]);
+    _impRender('✓ import successful · ' + (fresh.length + conv.length) + ' rows · ' + corr.length + ' corrected · last row ' + (walk.lastIso || fileEnd),
+      L.concat(P), null, false, b.publishable);
+    st.textContent = '✓ imported';
+    $('imp-files').value = '';
   } catch (e) {
-    st.textContent = '\u2717 ' + e.message;
-    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;">'
-      + L.map(x => '<div style="color:var(--muted);">' + x + '</div>').join('')
-      + '<div style="color:var(--red);margin-top:6px;">\u2717 ' + e.message + '</div>'
-      + '<div style="color:var(--muted);font-size:9px;">BLOCKED before the write it guards. '
-      + 'Earlier gates that passed wrote nothing.</div></div>';
+    _impRender('✗ ' + (commit ? 'import stopped — ' : 'cannot import — ') + e.message, L, null, false);
+    st.textContent = '✗ ' + (commit ? 'import stopped' : 'blocked');
   }
 }
 
-// v7.2.4 — PARALLEL RUN. Same assembler, two sources, bounded to the last
-// statement date so a roll landing mid-compare cannot pollute the diff.
-async function impLegsCompare() {
-  const st = $('imp-status'), host = $('imp-results');
-  st.textContent = 'comparing\u2026'; host.innerHTML = '';
-  try {
-    const { rows, shaped } = await legsGetFromTable();
-    if (!rows.length) throw new Error('live_legs is empty — insert first');
-    const stmtDates = rows.filter(r => r.basis === 'statement').map(r => r.trade_date).sort();
-    const bound = stmtDates[stmtDates.length - 1];
-    const legs = _legsAggregate(shaped);
-    const { cycles, stillOpen, protection } = _legsToCycles(legs);
-    const tblEra = cycles.filter(c => c.openDate && c.openDate >= WF_ERA_START
-      && c.closeDate && c.closeDate <= bound);
-    const tblPnl = tblEra.reduce((s, c) => s + (c.spx - c.cpx) * 100 * c.qty, 0);
-
-    const trades = await sbGetLiveTradesRetired(); // v7.7.2 — the frozen blotter
-    const { cycles: bc, toIso } = _pairLiveCycles(trades);
-    const bEra = bc.filter(c => c.openDate && toIso(c.openDate) >= WF_ERA_START
-      && c.closeDate && toIso(c.closeDate) <= bound
-      && c.coverPrice != null && c.sellPrice != null);
-    const bPnl = bEra.reduce((s, c) => s + (c.sellPrice - c.coverPrice) * 100 * (c.qty || 0), 0);
-
-    const money = v => (v < 0 ? '\u2212$' : '$') + Math.abs(v).toFixed(2);
-    const dN = tblEra.length - bEra.length, dP = tblPnl - bPnl;
-    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;">'
-      + '<div style="color:var(--accent);">PARALLEL RUN \u00b7 bounded to \u2264 ' + bound
-      + ' (last statement date) \u00b7 READ-ONLY</div>'
-      + '<div>live_legs \u2014 rows ' + rows.length + ' \u00b7 cycles ' + tblEra.length
-      + ' \u00b7 CC P&L ' + money(tblPnl) + ' \u00b7 open ' + stillOpen.length
-      + ' \u00b7 protection ' + protection.length + '</div>'
-      + '<div>live_trades \u2014 cycles ' + bEra.length + ' \u00b7 CC P&L ' + money(bPnl) + '</div>'
-      + '<div style="color:' + ((dN === 0 && Math.abs(dP) < 0.005) ? 'var(--green)' : '#e0a020') + ';">'
-      + '\u0394 cycles ' + dN + ' \u00b7 \u0394 P&L ' + money(dP)
-      + ((dN === 0 && Math.abs(dP) < 0.005) ? ' \u2014 IDENTICAL'
-        : ' \u2014 expected: the $22.00 punch error the statement corrects. Any OTHER difference is a defect.') + '</div>'
-      + '<div style="color:var(--muted);font-size:9px;margin-top:6px;">Cut over only when every line of '
-      + 'this diff is explained. Ticket writers still target live_trades until v7.2.5.</div></div>';
-    st.textContent = '\u2713 compare complete \u2014 nothing written';
-  } catch (e) {
-    st.textContent = '\u2717 ' + e.message;
-    host.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">' + e.message + '</div>';
-  }
+function _impRender(head, L, note, canConfirm, canPublish) {
+  const col = { g: 'var(--green)', a: '#e0a020', r: 'var(--red)', m: 'var(--muted)' };
+  const btn = (fn, txt, c) => '<button onclick="' + fn + '" style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;background:var(--surface2);border:1px solid ' + c + ';border-radius:3px;color:' + c + ';padding:5px 14px;cursor:pointer;margin-right:8px;">' + txt + '</button>';
+  $('imp-results').innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;">'
+    + '<div style="color:' + (head.startsWith('✗') ? 'var(--red)' : 'var(--accent)') + ';margin-bottom:4px;">' + head + '</div>'
+    + L.map(([c, s]) => '<div style="color:' + col[c] + ';">' + s + '</div>').join('')
+    + (note ? '<div style="color:var(--muted);margin-top:6px;">' + note + '</div>' : '')
+    + (canConfirm ? '<div style="margin-top:10px;">' + btn('impStatement(true)', '✓ Confirm import', 'var(--green)')
+      + btn("$('imp-files').value='';$('imp-results').innerHTML='';$('imp-status').textContent='cancelled'", 'Cancel', 'var(--border)') + '</div>' : '')
+    + (canPublish ? '<div style="margin-top:10px;">' + btn('impPublishBasis()', '⬆ Publish basis → roll_params.json', 'var(--accent)') + '</div>' : '')
+    + '</div>';
 }
+
+// v7.7.4 — COST BASIS, a standing post-import check (closes the Cert 6/7 debt).
+// SPY SHARE ROWS ONLY: v7.7.2 repointed this at the ledger by class alone and
+// dropped the SPY condition, so fund and money-market lots came in (63,600 sh at
+// $1.94). Publishing is REFUSED unless the share count equals contracts × 100 and
+// the basis moves by under $1.00/sh from the published one: a wrong basis feeds
+// the agent's P&L and must never be one tap away.
+function _impBasisCheck(rows) {
+  _impBasisResult = null;
+  const sh = rows.filter(r => r.basis === 'statement' && (r.cls === 'share_buy' || r.cls === 'share_sell') && _sym0(r.symbol) === 'SPY')
+    .sort((a, b) => (a.trade_date < b.trade_date ? -1 : a.trade_date > b.trade_date ? 1 : (a.occ_seq || 0) - (b.occ_seq || 0)));
+  if (!sh.length) return { ok: false, publishable: false, line: '✗ cost basis: no SPY share rows in the ledger' };
+  let b;
+  try { b = _impFifoBasis(sh); } catch (e) { return { ok: false, publishable: false, line: '✗ cost basis: ' + e.message }; }
+  const want = STD && STD.contracts ? Number(STD.contracts) * 100 : null;
+  const pub = STD && STD.costBasis != null ? Number(STD.costBasis) : null;
+  const txt = '$' + b.basis.toFixed(4) + ' × ' + b.shares + ' (' + sh.length + ' SPY share rows, ' + b.lotN + ' open lots)';
+  if (want != null && b.shares !== want)
+    return { ok: false, publishable: false, line: '✗ cost basis ' + txt + ' — ' + b.shares + ' sh ≠ contracts × 100 = ' + want + '; NOT publishable' };
+  if (pub != null && Math.abs(b.basis - pub) < 0.00005)
+    return { ok: true, publishable: false, line: '✓ cost basis ' + txt + ' = roll_params.json' };
+  if (pub != null && Math.abs(b.basis - pub) >= 1)
+    return { ok: false, publishable: false, line: '✗ cost basis ' + txt + ' moves $' + Math.abs(b.basis - pub).toFixed(4) + '/sh from the published $' + pub.toFixed(4) + ' — over $1, NOT publishable; investigate' };
+  _impBasisResult = { costBasis: Number(b.basis.toFixed(4)), sharesHeld: b.shares };
+  return { ok: false, publishable: true, line: '⚠ cost basis ' + txt + ' differs from the published ' + (pub == null ? '(none)' : '$' + pub.toFixed(4)) + ' — publish below' };
+}
+function _sym0(x) { return String(x || '').trim(); }
 
 // ═══════════════════════════════════════════════════════════════════════
 // v7.7.2 — THE CUTOVER (S70, Ron). SPEC single trades table §3, §5, §7.
@@ -10802,457 +10556,7 @@ function _activityToTrades(shaped) {
   return out;
 }
 
-// ── Activity Compare: the RETIRED blotter (live_trades) against the ledger ──
-// Leg-grain view of ONE side, aggregated by the spec §5.2 key
-// (trade_date, side, expiry, strike). side C = close, O = open, X = terminal
-// close (expired / assigned), keyed by CONTRACT only: the blotter dates an expiry
-// on the day it was entered, the statement on its own processing day (v7.7.1).
-function _actLegKey(d, side, exp, k) { return (side === 'X' ? '*' : d) + '|' + side + '|' + exp + '|' + Number(k); }
-function _actBlotterLegs(trades) {
-  const m = new Map();
-  const add = (d, side, exp, k, q, px, t) => {
-    if (!d || k == null || k === '') return;
-    const key = _actLegKey(d, side, exp, k);
-    let a = m.get(key);
-    if (!a) { a = { d, side, exp, k: Number(k), q: 0, pq: 0, n: 0, tickets: [], trig: null }; m.set(key, a); }
-    else if (d > a.d) a.d = d;
-    const qq = Math.abs(Number(q) || 0);
-    a.q += qq; a.pq += (px == null ? 0 : Number(px)) * qq; a.n++; a.tickets.push(t.id);
-    if (side === 'C' && t.trigger) a.trig = t.trigger;
-  };
-  for (const t of trades) {
-    if (t.source === 'csv_import' || t.row_type === 'long_call') continue;
-    const d = _impUsIso(t.trade_date);
-    const rt = t.row_type || '', term = rt === 'assigned' || rt === 'expired' || rt === 'expired worthless';
-    // v7.7.2 — terminal if the ticket SAYS so, or if it is UNPRICED and dated after
-    // its own expiry. A PRICED cover is a real buy-to-close whatever its date: v7.7.1
-    // read three late-dated covers as expiries, which hid date mis-punches.
-    const cExp = _impUsIso(t.coverExpiry);
-    const unpricedLate = !!(cExp && d && d > cExp && !(Number(t.coverPrice) > 0));
-    if (t.coverStrike != null && t.coverStrike !== '')
-      add(d, (term || unpricedLate) ? 'X' : 'C', cExp, t.coverStrike, t.coverContracts || t.sellContracts,
-        (term || unpricedLate) ? 0 : t.coverPrice, t);
-    if (t.sellStrike != null && t.sellStrike !== '')
-      add(d, 'O', _impUsIso(t.sellExpiry), t.sellStrike, t.sellContracts || t.coverContracts, t.sellPrice, t);
-  }
-  for (const a of m.values()) a.px = a.q ? a.pq / a.q : null;
-  return m;
-}
-function _actLedgerLegs(shaped) {
-  const m = new Map();
-  for (const L of _legsAggregate(shaped)) {
-    if (L.und !== 'SPY') continue;
-    const side = (L.cls === 'opt_expired' || L.cls === 'opt_assigned') ? 'X'
-      : L.cls === 'opt_buy_close' ? 'C' : L.cls === 'opt_sell_open' ? 'O' : null;
-    if (!side) continue; // protection legs are not CC legs
-    const key = _actLegKey(L.date, side, String(L.expiry).slice(0, 10), L.strike);
-    const prev = m.get(key); // a terminal key can recur across dates; aggregate it
-    if (prev) { prev.q += L.qty; if (L.date > prev.d) prev.d = L.date; continue; }
-    m.set(key, { d: L.date, side, exp: String(L.expiry).slice(0, 10), k: Number(L.strike), q: L.qty,
-      px: side === 'X' ? 0 : L.px, cls: L.cls });
-  }
-  return m;
-}
 const _actDays = (a, b) => Math.abs((new Date(a + 'T00:00:00Z') - new Date(b + 'T00:00:00Z')) / 86400000);
-
-// Pure comparison — testable without the network. trades = the retired blotter.
-function _activityCompare(trades, rows, std) {
-  const shaped = _actShape(rows);
-  const stmt = shaped.filter(r => r.basis === 'statement');
-  const sDates = stmt.map(r => r.date).filter(Boolean).sort();
-  const lo = sDates[0], bound = sDates[sDates.length - 1];
-  const stale = shaped.filter(r => r.basis === 'ticket' && r.date <= bound);   // should be 0: convert-in-place missed them
-  const pending = shaped.filter(r => r.basis === 'ticket' && r.date > bound);  // tickets awaiting a statement
-  const tk = trades.filter(t => t.source !== 'csv_import');
-
-  // ── leg grain: every ticket leg vs every statement leg, inside [lo, bound]
-  const B = _actBlotterLegs(tk), S = _actLedgerLegs(stmt);
-  const inSpan = a => a.d >= lo && a.d <= bound;
-  const same = [], price = [], qty = [], bOnly = [], sOnly = [];
-  for (const [k, b] of B) {
-    const s = S.get(k);
-    if (!inSpan(b) && !(s && inSpan(s))) continue; // a terminal leg is in span if EITHER side dates it there
-    if (!s) { bOnly.push(b); continue; }
-    if (Math.abs(b.q - s.q) > 0) qty.push({ b, s });
-    else if (b.px == null || Math.abs(b.px - s.px) >= 0.005) price.push({ b, s });
-    else same.push(b);
-  }
-  for (const [k, s] of S) if (!B.has(k)) sOnly.push(s);
-  // v7.7.2 — DATE mis-punch: same contract, side, quantity and price, entered on a
-  // different day (within a week). Paired BEFORE the identity pass, which would
-  // otherwise match them to unrelated legs sharing a date.
-  const dated = [];
-  for (const b of bOnly.slice()) {
-    if (b.side === 'X') continue;
-    const cand = sOnly.filter(s => s.side === b.side && s.exp === b.exp && s.k === b.k && s.q === b.q
-      && b.px != null && Math.abs(b.px - s.px) < 0.005 && _actDays(s.d, b.d) <= 7);
-    if (cand.length === 1) {
-      dated.push({ b, s: cand[0] });
-      bOnly.splice(bOnly.indexOf(b), 1); sOnly.splice(sOnly.indexOf(cand[0]), 1);
-    }
-  }
-  // An identity mis-punch (wrong strike or expiry typed) shows as one blotter-only
-  // and one statement-only leg on the same date and side. Pair those exactly once.
-  const ident = [];
-  for (const b of bOnly.slice()) {
-    if (b.side === 'X') continue; // expiries are matched by contract; never re-paired by date
-    const cand = sOnly.filter(s => s.d === b.d && s.side === b.side);
-    const bc = bOnly.filter(x => x.d === b.d && x.side === b.side);
-    if (cand.length === 1 && bc.length === 1) {
-      ident.push({ b, s: cand[0] });
-      bOnly.splice(bOnly.indexOf(b), 1); sOnly.splice(sOnly.indexOf(cand[0]), 1);
-    }
-  }
-  const before = bOnly.filter(b => b.d < lo).length; // tickets older than the first statement row
-  // v7.7.2 — for each statement-only leg, the blotter tickets that name the same
-  // contract: what the blotter DID record for it, so the row shape can be seen.
-  const sOnlyWhy = sOnly.map(s => ({ s, tickets: tk.filter(t =>
-    (Number(t.coverStrike) === s.k && _impUsIso(t.coverExpiry) === s.exp) ||
-    (Number(t.sellStrike) === s.k && _impUsIso(t.sellExpiry) === s.exp)) }));
-
-  // ── cycle grain: the adapter's tickets through the SAME pairing the blotter uses
-  const adapted = _activityToTrades(shaped.filter(r => r.basis === 'statement' || r.date > bound));
-  const P1 = _pairLiveCycles(tk), P2 = _pairLiveCycles(adapted), toIso = P1.toIso;
-  // An expiry closes at zero on both sides (the blotter may store null, the ledger
-  // emits px 0); an ASSIGNED close has no option P&L on either — excluded on both.
-  const cpx = c => c.coverPrice != null ? Number(c.coverPrice)
-    : (c.closeType === 'expired' || (c.closeDate && c.expiry && toIso(c.closeDate) > _impUsIso(c.expiry))) ? 0 : null;
-  const cyc = (P, from) => P.cycles.filter(c => !c.orphan && c.closeType !== 'assigned' && c.openDate && toIso(c.openDate) >= from
-    && c.closeDate && toIso(c.closeDate) <= bound && cpx(c) != null && c.sellPrice != null);
-  const ck = c => toIso(c.openDate) + '|' + Number(c.strike) + '|' + _impUsIso(c.expiry);
-  const pnl = c => (Number(c.sellPrice) - cpx(c)) * 100 * (Number(c.qty) || 0);
-  // v7.7.2 — TRACE every cycle difference to the legs listed above, mechanically.
-  // A price mis-punch moves a cycle by its own effect; a date mis-punch moves only
-  // the close date; a split-fill average moves it by under a cent a share.
-  const effect = new Map(); // leg key → expected (adapter − blotter) P&L
-  for (const x of price) effect.set(_actLegKey(x.b.d, x.b.side, x.b.exp, x.b.k),
-    (x.b.side === 'O' ? -1 : 1) * (x.b.px - x.s.px) * x.b.q * 100);
-  const datedClose = new Set(dated.filter(x => x.b.side === 'C').map(x => x.b.exp + '|' + x.b.k));
-  const trace = (c, d) => {
-    const exp = _impUsIso(c.expiry), k = Number(c.strike), q = Number(c.qty) || 0;
-    const legs = [_actLegKey(toIso(c.openDate), 'O', exp, k), _actLegKey(toIso(c.closeDate), 'C', exp, k), _actLegKey(null, 'X', exp, k)];
-    const want = legs.reduce((s, L) => s + (effect.get(L) || 0), 0);
-    const got = pnl(d) - pnl(c), resid = got - want;
-    const tol = q * 100 * 0.01;
-    const dateOk = toIso(c.closeDate) === toIso(d.closeDate) || datedClose.has(exp + '|' + k);
-    if (!dateOk) return 'UNEXPLAINED close date';
-    const openMoved = datedOpen.has(ck(c));
-    if (Math.abs(resid) < 0.005) return want ? 'price mis-punch' : (toIso(c.closeDate) !== toIso(d.closeDate) || openMoved ? 'date mis-punch' : 'explained');
-    if (Math.abs(resid) <= tol) return 'rounding (split-fill average)';
-    return 'UNEXPLAINED';
-  };
-  // An OPEN leg entered on the wrong day moves the blotter cycle's key; re-key it to
-  // the statement's date so the cycle pairs, and the trace below names the cause.
-  const datedOpen = new Map(dated.filter(x => x.b.side === 'O').map(x => [x.b.d + '|' + x.b.k + '|' + x.b.exp, x.s.d]));
-  const ckB = c => { const k = ck(c), r = datedOpen.get(k); return r ? r + '|' + Number(c.strike) + '|' + _impUsIso(c.expiry) : k; };
-  const cycDiff = (from) => {
-    const a = new Map(cyc(P1, from).map(c => [ckB(c), c])), b = new Map(cyc(P2, from).map(c => [ck(c), c]));
-    const diffs = [];
-    for (const [k, c] of a) { const d = b.get(k);
-      if (!d) diffs.push({ k, blot: pnl(c), act: null, why: 'UNEXPLAINED — no adapter cycle' });
-      else if (Math.abs(pnl(c) - pnl(d)) >= 0.005 || datedOpen.has(ck(c)) || (c.closeType === 'cover' && toIso(c.closeDate) !== toIso(d.closeDate)))
-        diffs.push({ k, blot: pnl(c), act: pnl(d), cb: toIso(c.closeDate), ca: toIso(d.closeDate), why: trace(c, d) }); }
-    for (const [k, d] of b) if (!a.has(k)) diffs.push({ k, blot: null, act: pnl(d), why: 'UNEXPLAINED — no blotter cycle' });
-    const sum = m => [...m.values()].reduce((s, c) => s + pnl(c), 0);
-    return { nB: a.size, nA: b.size, pB: sum(a), pA: sum(b), diffs, unexplained: diffs.filter(x => x.why.startsWith('UNEXPLAINED')).length };
-  };
-  const era = cycDiff(WF_ERA_START), all = cycDiff(lo);
-  const oB = P1.open.map(o => Number(o.strike) + ' ' + _impUsIso(o.expiry) + ' ×' + o.qty + ' @' + o.sellPrice);
-  const oA = P2.open.map(o => Number(o.strike) + ' ' + _impUsIso(o.expiry) + ' ×' + o.qty + ' @' + o.sellPrice);
-
-  // ── roll_params.json vs the statement's fill on the open leg (would have caught 27.75)
-  let rp = null;
-  const so = P2.open[P2.open.length - 1];
-  if (std && std.shortStrike && so) {
-    rp = { strikeOk: Number(std.shortStrike) === Number(so.strike),
-      expiryOk: String(std.shortExpiry || '').slice(0, 10) === _impUsIso(so.expiry),
-      qtyOk: Number(std.contracts || 0) === Number(so.qty),
-      jsonPx: std.sellPrice != null ? Number(std.sellPrice) : null, stmtPx: so.sellPrice,
-      openDate: toIso(so.openDate), stmtCovers: toIso(so.openDate) <= bound };
-    rp.pxOk = rp.jsonPx != null && Math.abs(rp.jsonPx - rp.stmtPx) < 0.005;
-  }
-  return { lo, bound, nRows: rows.length, nTk: tk.length, nAdapted: adapted.length,
-    stale: stale.length, pending: pending.length,
-    same: same.length, price, qty, dated, ident, bOnly, sOnly, sOnlyWhy, before, era, all, oB, oA, rp };
-}
-
-async function impActivityCompare() {
-  const st = $('imp-status'), host = $('imp-results');
-  st.textContent = 'comparing (activity)…'; host.innerHTML = '';
-  try {
-    const { rows } = await legsGetFromTable();
-    if (!rows.length) throw new Error(ACT_TABLE + ' is empty');
-    const trades = await sbGetLiveTradesRetired(); // v7.7.2 — the frozen blotter, read-only
-    const R = _activityCompare(trades, rows, STD);
-    const px = v => v == null ? '—' : '$' + Number(v).toFixed(2);
-    const money = v => v == null ? '—' : (v < 0 ? '−$' : '$') + Math.abs(v).toFixed(2);
-    const legTxt = a => a.d + ' ' + (a.side === 'C' ? 'cover' : a.side === 'X' ? 'expiry' : 'sell ') + ' $' + a.k + 'C ' + a.exp + ' ×' + a.q;
-    const G = 'var(--green)', A = '#e0a020', M = 'var(--muted)', Rd = 'var(--red)';
-    const L = [];
-    const ln = (c, s) => L.push('<div style="color:' + c + ';">' + s + '</div>');
-    const pl = (n, w) => n + ' ' + w + (n === 1 ? '' : (w.endsWith('h') ? 'es' : 's'));
-    L.push('<div style="color:var(--accent);">ACTIVITY COMPARE · retired live_trades vs ' + ACT_TABLE + ' · ' + R.lo + ' → ' + R.bound + ' (statement span) · READ-ONLY</div>');
-    ln(M, 'live_trades tickets ' + R.nTk + ' (frozen) · ' + ACT_TABLE + ' rows ' + R.nRows + ' · adapter rebuilt ' + R.nAdapted + ' tickets');
-    ln(M, 'Every item below is a blotter error the ledger has ALREADY corrected — the screens read ' + ACT_TABLE + '. This is the audit of what was typed.');
-
-    L.push('<div style="margin-top:8px;color:var(--text);">LEGS — every ticket leg against the statement, key (date, side, expiry, strike), aggregated</div>');
-    ln(G, '✓ ' + R.same + ' legs identical (identity, quantity, price to the cent)');
-    ln(R.price.length ? A : G, (R.price.length ? '⚠ ' : '✓ ') + pl(R.price.length, 'PRICE mis-punch') + ' — blotter vs statement');
-    R.price.forEach(x => ln(A, '&nbsp;&nbsp;' + legTxt(x.b) + ' · blotter ' + px(x.b.px) + ' → statement ' + px(x.s.px)
-      + ' · ' + money((x.b.side === 'O' ? 1 : -1) * (x.b.px - x.s.px) * x.b.q * 100) + ' on cycle P&L'
-      + (x.b.side === 'X' ? ' · statement ' + x.s.cls + ' ' + x.s.d : '')));
-    ln(R.dated.length ? A : G, (R.dated.length ? '⚠ ' : '✓ ') + pl(R.dated.length, 'DATE mis-punch') + ' — same contract, quantity and price, entered on another day');
-    R.dated.forEach(x => ln(A, '&nbsp;&nbsp;' + (x.b.side === 'C' ? 'cover' : 'sell') + ' $' + x.b.k + 'C ' + x.b.exp + ' ×' + x.b.q + ' @' + px(x.b.px)
-      + ' · blotter ' + x.b.d + ' → statement ' + x.s.d));
-    ln(R.ident.length ? A : G, (R.ident.length ? '⚠ ' : '✓ ') + pl(R.ident.length, 'IDENTITY mis-punch') + ' — wrong strike/expiry typed');
-    R.ident.forEach(x => ln(A, '&nbsp;&nbsp;' + x.b.d + ' ' + (x.b.side === 'C' ? 'cover' : 'sell') + ' blotter $' + x.b.k + 'C ' + x.b.exp + ' ×' + x.b.q + ' @' + px(x.b.px)
-      + ' → statement $' + x.s.k + 'C ' + x.s.exp + ' ×' + x.s.q + ' @' + px(x.s.px)));
-    ln(R.qty.length ? A : G, (R.qty.length ? '⚠ ' : '✓ ') + pl(R.qty.length, 'QUANTITY mismatch'));
-    R.qty.forEach(x => ln(A, '&nbsp;&nbsp;' + legTxt(x.b) + ' · statement ×' + x.s.q));
-    const bIn = R.bOnly.filter(b => b.d >= R.lo);
-    ln(bIn.length ? Rd : G, (bIn.length ? '✗ ' : '✓ ') + pl(bIn.length, 'blotter-only leg') + ' inside the span (SPEC §5.4 — a ticket with no fill: FLAG, never delete)');
-    bIn.forEach(b => ln(Rd, '&nbsp;&nbsp;' + legTxt(b) + ' @' + px(b.px)));
-    ln(R.sOnly.length ? A : G, (R.sOnly.length ? '⚠ ' : '✓ ') + pl(R.sOnly.length, 'statement-only leg') + ' — a fill with no matching ticket leg');
-    R.sOnlyWhy.forEach(w => {
-      ln(A, '&nbsp;&nbsp;' + legTxt(w.s) + ' @' + px(w.s.px) + ' (' + w.s.cls + ')');
-      if (!w.tickets.length) ln(M, '&nbsp;&nbsp;&nbsp;&nbsp;no blotter ticket names this contract');
-      w.tickets.forEach(t => ln(M, '&nbsp;&nbsp;&nbsp;&nbsp;blotter ' + t.trade_date + ' · row_type ' + (t.row_type || '—') + ' · status ' + (t.status || '—')
-        + ' · cover ' + (t.coverStrike != null ? '$' + t.coverStrike + ' ' + (t.coverExpiry || '?') + ' ×' + (t.coverContracts ?? '?') + ' @' + px(t.coverPrice) : '—')
-        + ' · sell ' + (t.sellStrike != null ? '$' + t.sellStrike + ' ' + (t.sellExpiry || '?') + ' ×' + (t.sellContracts ?? '?') + ' @' + px(t.sellPrice) : '—')));
-    });
-    if (R.before) ln(M, R.before + ' blotter leg(s) dated before the first statement row — out of scope, not compared');
-
-    L.push('<div style="margin-top:8px;color:var(--text);">CYCLES — adapter tickets through the blotter’s own pairing (_pairLiveCycles), each difference traced</div>');
-    const cy = (lab, c) => {
-      const ok = c.unexplained === 0;
-      ln(ok ? G : Rd, (ok ? '✓ ' : '✗ ') + lab + ' — blotter ' + c.nB + ' cycles ' + money(c.pB) + ' · adapter ' + c.nA + ' cycles ' + money(c.pA)
-        + ' · Δ ' + money(c.pA - c.pB) + ' · ' + c.diffs.length + ' differ, ' + c.unexplained + ' unexplained');
-      c.diffs.slice(0, 40).forEach(x => ln(x.why.startsWith('UNEXPLAINED') ? Rd : M, '&nbsp;&nbsp;' + x.k + ' · blotter ' + money(x.blot) + ' → adapter ' + money(x.act)
-        + (x.cb && x.ca && x.cb !== x.ca ? ' · close ' + x.cb + ' vs ' + x.ca : '') + ' · ' + x.why));
-      if (c.diffs.length > 40) ln(M, '&nbsp;&nbsp;… ' + (c.diffs.length - 40) + ' more');
-    };
-    cy('ERA (both legs ≥ ' + WF_ERA_START + ')', R.era);
-    cy('ALL (both legs ≥ ' + R.lo + ')', R.all);
-    const oSame = R.oB.join(';') === R.oA.join(';');
-    ln(oSame ? G : A, (oSame ? '✓ ' : '⚠ ') + 'open — blotter [' + (R.oB.join(', ') || 'flat') + '] · ledger [' + (R.oA.join(', ') || 'flat') + ']');
-    ln(M, 'An UNEXPLAINED line is an ADAPTER defect: report it.');
-
-    L.push('<div style="margin-top:8px;color:var(--text);">roll_params.json — the agent’s position, against the statement</div>');
-    if (!R.rp) ln(M, 'no open position on one side — not compared');
-    else if (!R.rp.stmtCovers) ln(M, 'open leg ' + R.rp.openDate + ' is after the last statement row — not yet arbitrable');
-    else {
-      const idOk = R.rp.strikeOk && R.rp.expiryOk && R.rp.qtyOk;
-      ln(idOk ? G : Rd, (idOk ? '✓' : '✗') + ' identity (strike, expiry, contracts)');
-      ln(R.rp.pxOk ? G : Rd, (R.rp.pxOk ? '✓' : '✗') + ' sellPrice ' + px(R.rp.jsonPx) + ' vs statement fill ' + px(R.rp.stmtPx)
-        + (R.rp.pxOk ? '' : ' — the agent’s decay trigger divides by this'));
-    }
-
-    L.push('<div style="margin-top:8px;color:var(--text);">LEDGER HYGIENE</div>');
-    ln(R.stale ? Rd : G, (R.stale ? '✗ ' : '✓ ') + R.stale + ' ticket-basis row(s) inside the statement span (should have converted in place)');
-    ln(M, R.pending + ' ticket-basis row(s) after ' + R.bound + ' — awaiting a statement');
-    L.push('<div style="color:var(--muted);font-size:9px;margin-top:8px;">READ-ONLY. Statement prices are size-weighted per (date, side, expiry, strike).</div>');
-    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;">' + L.join('') + '</div>';
-    // the same report to Logs, so ⬇ Download captures all of it (v7.7.1)
-    const _txt = h => h.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
-    logMsg('');
-    L.forEach(h => logMsg(_txt(h)));
-    const nIss = R.price.length + R.dated.length + R.ident.length + R.qty.length + bIn.length;
-    st.textContent = '✓ activity compare — ' + nIss + ' blotter discrepanc' + (nIss === 1 ? 'y' : 'ies') + ' · '
-      + (R.era.unexplained + R.all.unexplained) + ' unexplained · nothing written · full report in Logs';
-  } catch (e) {
-    st.textContent = '✗ ' + e.message;
-    host.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">' + e.message + '</div>';
-  }
-}
-
-// ── v7.7.2 — ONE-TIME TRIGGER BACKFILL (SPEC §3.3, §4) ──────────────────────
-// The statement imports seeded triggers onto closing legs for the ERA only, by
-// date (one closing group per era date, gate 2). Pre-era history — the 0DTE days
-// with several closes a date — carries its close reasons only in live_trades.
-// This copies them across by CONTRACT (strike + expiry) and the NEAREST closing
-// leg within 7 days, and never overwrites: a leg already carrying a trigger is
-// left alone, and a tie is skipped and named. Decision columns only — no fact
-// column is in the PATCH, so the cash walk cannot move.
-function _actTriggerPlan(trades, rows) {
-  const closers = rows.filter(r => LEG_CLOSERS.has(r.cls) && r.strike != null && r.underlying === 'SPY');
-  const taken = new Set(), plan = [], skipped = [];
-  const tk = trades.filter(t => t.source !== 'csv_import' && t.trigger && String(t.trigger).toLowerCase() !== 'entry' && t.coverStrike != null);
-  for (const t of tk) {
-    const d = _impUsIso(t.trade_date), exp = _impUsIso(t.coverExpiry), k = Number(t.coverStrike);
-    const c = closers.filter(r => Number(r.strike) === k && String(r.expiry).slice(0, 10) === exp && _actDays(String(r.trade_date).slice(0, 10), d) <= 7);
-    if (!c.length) { skipped.push({ t, why: 'no closing leg for this contract within 7 days' }); continue; }
-    const best = Math.min(...c.map(r => _actDays(String(r.trade_date).slice(0, 10), d)));
-    const near = c.filter(r => _actDays(String(r.trade_date).slice(0, 10), d) === best);
-    const dates = new Set(near.map(r => String(r.trade_date).slice(0, 10)));
-    if (dates.size > 1) { skipped.push({ t, why: 'two closing dates equally near' }); continue; }
-    near.sort((a, b) => (a.occ_seq || 0) - (b.occ_seq || 0));
-    const target = near[0]; // group property, carried on its first execution (the v7.2.5 rule)
-    if (taken.has(target.id)) { skipped.push({ t, why: 'leg already claimed by another ticket' }); continue; }
-    taken.add(target.id);
-    if (near.some(r => r.trigger != null)) continue; // already carries one — never overwrite
-    plan.push({ id: target.id, d: String(target.trade_date).slice(0, 10), k, exp,
-      trigger: t.trigger, trigger_value: t.triggerValue === undefined ? null : t.triggerValue,
-      trigger_threshold: t.triggerThreshold === undefined ? null : t.triggerThreshold });
-  }
-  return { plan, skipped, considered: tk.length };
-}
-
-async function impBackfillTriggers() {
-  const st = $('imp-status'), host = $('imp-results');
-  st.textContent = 'planning trigger backfill…'; host.innerHTML = '';
-  try {
-    const { rows } = await legsGetFromTable();
-    const trades = await sbGetLiveTradesRetired();
-    const P = _actTriggerPlan(trades, rows);
-    if (!P.plan.length) { st.textContent = '✓ nothing to backfill — every matched closing leg already carries its trigger'; return; }
-    if (!confirm('Write ' + P.plan.length + ' close reason(s) onto ' + ACT_TABLE + ' closing legs that have none? Decision columns only; facts untouched.')) { st.textContent = 'cancelled — nothing written'; return; }
-    let n = 0;
-    for (const p of P.plan) {
-      const r = await fetch(`${SB_URL}/${ACT_TABLE}?id=eq.${encodeURIComponent(p.id)}&trigger=is.null`, {
-        method: 'PATCH', headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
-        body: JSON.stringify({ trigger: p.trigger, trigger_value: p.trigger_value, trigger_threshold: p.trigger_threshold }) });
-      if (!r.ok) throw new Error('PATCH ' + p.id + ' failed: ' + r.status + ' (' + n + ' written before it)');
-      n++;
-    }
-    const L = ['✓ ' + n + ' close reason(s) written · ' + P.considered + ' blotter tickets carried one · ' + P.skipped.length + ' skipped'];
-    P.skipped.slice(0, 40).forEach(s => L.push('· ' + s.t.trade_date + ' $' + s.t.coverStrike + 'C ' + (s.t.coverExpiry || '?') + ' (' + s.t.trigger + ') — ' + s.why));
-    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;line-height:1.8;color:var(--muted);">' + L.join('<br>') + '</div>';
-    logMsg(''); L.forEach(x => logMsg(x));
-    st.textContent = '✓ trigger backfill complete — re-running writes zero';
-  } catch (e) {
-    st.textContent = '✗ ' + e.message;
-  }
-}
-
-async function impDryRun() {
-  const st = $('imp-status'), host = $('imp-results');
-  const files = $('imp-files').files;
-  if (!files || !files.length) { st.textContent = 'no files selected'; return; }
-  st.textContent = 'parsing\u2026'; host.innerHTML = '';
-  try {
-    const parsed = [];
-    for (const f of files) parsed.push({ name: f.name, rows: _impParseFile(await f.text(), f.name) });
-    parsed.sort((a, b) => (a.rows[0]?.date || '').localeCompare(b.rows[0]?.date || ''));
-    const all = parsed.flatMap(p => p.rows);
-    // Cross-file overlap collapse: identical physical row (balance included) = same event.
-    // Genuine split fills differ in running Cash Balance, so they survive.
-    const seen = new Map();
-    for (const r of all) {
-      const fp = [r.date, r.action_raw, r.amount, r.cash_balance, r.quantity, r.price].join('|');
-      if (seen.has(fp)) r.disposition = 'skip (file overlap w/ ' + seen.get(fp) + ')';
-      else seen.set(fp, r.file);
-    }
-    _impAssignOccSeq(all); // v7.2.4 — ONE sequence authority (was inline here)
-    st.textContent = 'reconciling\u2026';
-    const tickets = await sbGetLiveTrades(); // read-only blotter fetch
-    const _span = (() => { const ds = all.map(r => r.date).filter(Boolean).sort(); return ds.length ? [ds[0], ds[ds.length - 1]] : null; })(); // v7.6.14 — file date span
-    const reconGaps = _impReconSpy(all, tickets, _span); // v6.22.2 — SPY legs → 'blotter ✓', never inserted; v7.6.14 — scoped to the file span
-    for (const r of all) { // final dispositions
-      if (r.disposition) continue;
-      if (r.cls === 'UNKNOWN') { r.disposition = 'FLAG unknown_action \u00b7 NOT inserted'; r.flag = 'unknown_action'; }
-      else r.disposition = 'import';
-    }
-    _impState.rows = all; _impState.reconGaps = reconGaps; // v6.22.2 — insert step reads this dry run
-    // Per-file endpoint tie-out: open = first.bal − first.amount; Σamount; close = last.bal
-    let tieHtml = '';
-    for (const p of parsed) {
-      const rs = p.rows; if (!rs.length) { tieHtml += '<div>' + p.name + ': no data rows</div>'; continue; }
-      const first = rs[0], last = rs[rs.length - 1];
-      const bn = r => IMP_BALANCE_NEUTRAL.has(r.cls);
-      const open = (first.cash_balance ?? 0) - (bn(first) ? 0 : (first.amount ?? 0));
-      // F2 family: Fidelity Cash Balance = core cash + SPAXX. Sweeps and EXERCISED basis
-      // memos never move it — the IMP_BALANCE_NEUTRAL set is excluded from Σ.
-      const sum = rs.reduce((s, r) => s + (bn(r) ? 0 : (r.amount ?? 0)), 0);
-      const resid0 = open + sum - (last.cash_balance ?? 0);
-      const resid = Math.abs(resid0) < 0.005 ? 0 : resid0;
-      const ok = resid === 0;
-      tieHtml += '<div style="color:' + (ok ? 'var(--green)' : 'var(--red)') + ';">'
-        + (ok ? '\u2713' : '\u2717') + ' ' + p.name + ' \u00b7 ' + rs.length + ' rows \u00b7 '
-        + first.date + ' \u2192 ' + last.date
-        + ' \u00b7 open $' + open.toFixed(2) + ' + \u03a3(excl. sweep)$' + sum.toFixed(2)
-        + ' vs close $' + (last.cash_balance ?? 0).toFixed(2)
-        + ' \u00b7 residual $' + resid.toFixed(2) + '</div>';
-    }
-    const cnt = {}; for (const r of all) cnt[r.cls] = (cnt[r.cls] || 0) + 1;
-    // v6.22.1 — F3: name the unknowns so new species get specced, never guessed
-    const unk = {}; for (const r of all) if (r.cls === 'UNKNOWN') { const a = r.action_raw.slice(0, 70); unk[a] = (unk[a] || 0) + 1; }
-    const unkHtml = Object.keys(unk).length
-      ? '<div style="color:var(--red);margin-top:4px;">UNKNOWN actions:<br>' + Object.entries(unk).map(([k, v]) => '\u00a0\u00a0' + v + '\u00d7 ' + k).join('<br>') + '</div>'
-      : '';
-    const dsp = {}; for (const r of all) { const d = r.disposition.split(' ')[0].replace('\u2192', '').trim(); dsp[d] = (dsp[d] || 0) + 1; }
-    const insRows = all.filter(r => r.disposition === 'import'); // v6.22.2 — flags and SPY legs NEVER insert
-    const reconHtml = reconGaps.length
-      ? '<div style="color:var(--red);margin-top:4px;">RECON \u0394 (' + reconGaps.length + ' contracts):<br>' + reconGaps.map(g => '\u00a0\u00a0' + g).join('<br>') + '</div>'
-      : '<div style="color:var(--green);margin-top:4px;">\u2713 SPY option reconciliation: every contract conserved, csv \u2261 blotter</div>';
-    let html = '<div style="font-family:var(--mono);font-size:10px;line-height:1.7;">'
-      + '<div style="color:var(--text);margin:6px 0;">DRY RUN \u00b7 ' + all.length + ' rows parsed \u00b7 '
-      + insRows.length + ' would insert \u00b7 NOTHING WRITTEN YET</div>'
-      + tieHtml + reconHtml
-      + '<div style="color:var(--muted);margin-top:6px;">class: ' + Object.entries(cnt).map(([k, v]) => k + ' ' + v).join(' \u00b7 ') + '</div>'
-      + '<div style="color:var(--muted);">disposition: ' + Object.entries(dsp).map(([k, v]) => k + ' ' + v).join(' \u00b7 ') + '</div>' + unkHtml + '</div>';
-    html += '<div style="margin:8px 0;"><button onclick="impInsert()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:5px 14px;cursor:pointer;">\u2b06 Insert ' + insRows.length + ' rows</button>'
-      + '<span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:8px;">source=csv_import \u00b7 dedupe-checked against existing rows before POST \u00b7 SPY option legs and flags never insert</span></div>';
-    html += '<div style="max-height:340px;overflow:auto;margin-top:8px;"><table style="border-collapse:collapse;font-family:var(--mono);font-size:9px;width:100%;">'
-      + '<tr style="color:var(--muted);text-align:left;"><th style="padding:2px 6px;">date</th><th>class</th><th>symbol</th><th style="text-align:right;">qty</th><th style="text-align:right;">price</th><th style="text-align:right;">amount</th><th style="text-align:right;">balance</th><th>seq</th><th>disposition</th></tr>';
-    for (const r of all) {
-      const c = r.flag ? 'var(--red)' : ((r.disposition.startsWith('blotter') || r.disposition.startsWith('skip')) ? 'var(--muted)' : 'var(--text)');
-      html += '<tr style="color:' + c + ';border-top:1px solid var(--border);">'
-        + '<td style="padding:2px 6px;white-space:nowrap;">' + r.date + '</td><td>' + r.cls + '</td><td>' + (r.symbol || '') + '</td>'
-        + '<td style="text-align:right;">' + (r.quantity ?? '') + '</td><td style="text-align:right;">' + (r.price ?? '') + '</td>'
-        + '<td style="text-align:right;">' + (r.amount == null ? '' : r.amount.toFixed(2)) + '</td>'
-        + '<td style="text-align:right;">' + (r.cash_balance == null ? '' : r.cash_balance.toFixed(2)) + '</td>'
-        + '<td>' + (r.occ_seq ?? '') + '</td><td style="white-space:nowrap;">' + r.disposition + '</td></tr>';
-    }
-    html += '</table></div>';
-    host.innerHTML = html;
-    st.textContent = '\u2713 dry run complete \u00b7 0 writes';
-  } catch (e) {
-    st.textContent = '\u2717 ' + e.message;
-    host.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--red);padding:8px 0;">' + e.message + '</div>';
-  }
-}
-
-async function impInsert() {
-  // v7.7.2 — RETIRED: this wrote non-option statement facts into live_trades. Every
-  // statement row now goes to ACT_TABLE through ▲ Insert.
-  $('imp-status').textContent = 'retired (v7.7.2) \u2014 use \u25b2 Insert \u2192 ' + ACT_TABLE; return;
-  // v6.22.2 — the insert path. SAFETY INVARIANT: imported rows NEVER write roll_credit,
-  // sell_*, cover_*, or status='open' — every existing exclusion-filter reader (§3,
-  // credit curve, open-position path, agent) is untouched by construction.
-  const st = $('imp-status');
-  const rows = (_impState.rows || []).filter(r => r.disposition === 'import');
-  if (!rows.length) { st.textContent = 'no dry run in memory \u2014 run Dry Run first'; return; }
-  try {
-    st.textContent = 'dedupe precheck\u2026';
-    // Client-side idempotency: fetch existing csv_import keys; the partial unique index
-    // (trade_date, action_raw, amount, occ_seq) remains the hard backstop.
-    const exRes = await fetch(`${SB_URL}/live_trades?source=eq.csv_import&select=trade_date,action_raw,amount,occ_seq&limit=1000`, { headers: _sbHeaders });
-    if (!exRes.ok) throw new Error('precheck read failed: ' + exRes.status);
-    const existing = new Set((await exRes.json()).map(e => [e.trade_date, e.action_raw, e.amount, e.occ_seq].join('|')));
-    const fresh = rows.filter(r => !existing.has([r.date, r.action_raw, r.amount, r.occ_seq ?? 0].join('|')));
-    if (!fresh.length) { st.textContent = '\u2713 all ' + rows.length + ' rows already imported \u2014 nothing to write'; return; }
-    const payload = fresh.map(r => ({
-      id: 'imp_' + Math.random().toString(36).slice(2, 10),
-      trade_date: r.date, status: 'closed', row_type: r.cls,
-      symbol: r.symbol || null, quantity: r.quantity, price: r.price,
-      commission: r.commission, fees: r.fees, amount: r.amount,
-      cash_balance: r.cash_balance, settlement_date: r.settlement_date,
-      action_raw: r.action_raw, source: 'csv_import', occ_seq: r.occ_seq ?? 0,
-      stmt_file: r.file, flag: null, note: null, trigger: null
-    }));
-    st.textContent = 'inserting ' + payload.length + '\u2026';
-    const res = await fetch(`${SB_URL}/live_trades`, {
-      method: 'POST',
-      headers: { ..._sbHeaders, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) throw new Error('insert failed: ' + res.status + ' ' + (await res.text()).slice(0, 200));
-    const vRes = await fetch(`${SB_URL}/live_trades?source=eq.csv_import&select=id&limit=1000`, { headers: _sbHeaders });
-    const vN = (await vRes.json()).length;
-    st.textContent = '\u2713 inserted ' + payload.length + ' \u00b7 csv_import rows in table: ' + vN + ' \u00b7 export + inspect a row to certify';
-    impComputeBasis(); // v6.26.0 — new share rows may change the basis; recompute at the only moment it can change
-  } catch (e) { st.textContent = '\u2717 ' + e.message; }
-}
 
 // ── v6.26.0 — Ledger-derived SPY cost basis (FIFO) ─────────────────────────
 // S51: basis is COMPUTED from activity-table share rows and published to
@@ -11286,35 +10590,13 @@ function _impFifoBasis(rows) { // pure; chronological raw rows {trade_date, quan
   return { shares: shares, cost: cost, basis: shares ? cost / shares : null, lotN: lots.length };
 }
 
-async function impComputeBasis() {
-  const el = $('imp-basis'); if (!el) return;
-  try {
-    el.textContent = 'reading share ledger\u2026';
-    // RAW select — deliberately NOT sbGetLiveTrades (rowToTrade-mapped shape;
-    // S50 falsification #1). symbol=SPY returns only share + dividend rows
-    // (blotter option rows carry no symbol — verified on the live table,
-    // Ron's 08-12 export); quantity≠0 drops the dividend rows.
-    // v7.7.2 — from the LEDGER: share lots by class, statement facts only. live_trades
-    // held only the pre-S64 share rows and is retired.
-    const res = await fetch(`${SB_URL}/${ACT_TABLE}?cls=in.(share_buy,share_sell)&basis=eq.statement&select=trade_date,quantity,amount,symbol&order=trade_date.asc,occ_seq.asc&limit=1000`, { headers: _sbHeaders });
-    if (!res.ok) throw new Error('ledger read failed: ' + res.status);
-    const rows = await res.json();
-    if (rows.length === 1000) throw new Error('share ledger hit the 1000-row window \u2014 raise the limit or paginate'); // v6.18.11 — truncation can never hide
-    if (!rows.length) throw new Error('no SPY share rows in activity table');
-    const b = _impFifoBasis(rows);
-    _impBasisResult = { costBasis: Number(b.basis.toFixed(4)), sharesHeld: b.shares };
-    el.innerHTML = 'ledger: ' + rows.length + ' share rows \u2192 <b style="color:var(--text);">' + b.shares + ' sh</b> \u00b7 basis <b style="color:var(--text);">$' + b.basis.toFixed(4) + '</b> \u00b7 cost $' + b.cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u00b7 ' + b.lotN + ' open lots &nbsp; ' +
-      '<button onclick="impPublishBasis()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:3px 10px;cursor:pointer;">\u2b06 Publish basis \u2192 roll_params.json</button>';
-  } catch (e) { _impBasisResult = null; el.textContent = '\u2717 basis: ' + e.message; }
-}
-
 async function impPublishBasis() {
   // Minimal dedicated writer (publishRollParams PAT/sha/spread-existing pattern):
   // touches ONLY costBasis · sharesHeld · basisAsOf; the optimizer publish's
   // ...existing spread preserves them thereafter; the flat-state scrub does NOT
   // delete them (share facts survive flat, correctly, by construction).
   const el = $('imp-basis'); if (!el) return;
-  if (!_impBasisResult) { el.textContent = 'compute first (\u27f3 Cost Basis)'; return; }
+  if (!_impBasisResult) { el.textContent = 'nothing publishable \u2014 the post-import basis check did not offer it'; return; } // v7.7.4 — set ONLY by _impBasisCheck's guarded path
   try {
     let pat = localStorage.getItem('gh_pat');
     if (!pat) {
