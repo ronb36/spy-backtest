@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.8.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -485,12 +485,9 @@ select.display-box { cursor:pointer; outline:none; }
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
           <span class="chart-title" id="heatmap-title">Regime Optimization — Ann. Yield % by Decay × DTE Min</span>
-          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><!-- v6.1.0: inline opt Ask Claude button retired; chat section above tabs --><button id="robust-grid-btn" onclick="toggleShapeView()" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⊞ Open Grid</button><span id="lp-wrap" style="display:none;margin-left:10px;"><!-- v6.19.0 — ledger-pack export: armed post-OPT only --><label style="font-family:var(--mono);font-size:9px;color:var(--muted);">raw K <input id="lp-kraw" type="number" min="0" max="500" value="5" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);">robust K <input id="lp-krob" type="number" min="0" max="500" value="5" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);" title="Shelf tolerance in percentage points: how FLAT a run must be. All cells in the run must sit within this band."> shelf ±pp <input id="opt-shelf-tol" type="number" min="0.05" max="5" step="0.05" value="0.5" onchange="_shelfRedraw()" style="width:52px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);" title="Minimum shelf WIDTH in cells. Raise it to see only wide flat regions; this is the selectivity dial."> min n <input id="opt-shelf-minn" type="number" min="2" max="60" step="1" value="5" onchange="_shelfRedraw()" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;"></label> <label style="font-family:var(--mono);font-size:9px;color:var(--muted);" title="Horizontal zoom. Above 1x the graph scrolls sideways; vertical scale is unchanged."> zoom <input id="opt-graph-zoom" type="number" min="1" max="10" step="0.5" value="1" onchange="_shelfRedraw()" style="width:44px;font-family:var(--mono);font-size:10px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 4px;">x</label> <button id="ledger-pack-btn" onclick="exportLedgerPack()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⧉ Export Ledger Pack</button></span>
+          <span id="opt-sel-status" style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-right:10px;"></span><!-- v6.1.0: inline opt Ask Claude button retired; chat section above tabs -->
         </div>
-        <div id="grid-read-wrap" style="display:none;margin-bottom:10px;"></div>
         <div id="ac-panel-opt" style="display:none;border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;background:var(--surface);"></div>
-        <div id="robust-grid-wrap" style="display:none;overflow:auto;margin-bottom:10px;"></div>
-        <div id="opt-graph-wrap" style="display:none;margin-bottom:10px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);padding:4px;overflow-x:auto;"><svg id="opt-graph-svg" viewBox="0 0 860 430" style="width:100%;height:auto;display:block;"></svg><div id="opt-graph-summary" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:6px 4px;line-height:1.6;"></div></div><!-- v6.4.6 — embedded 1-axis graph -->
         <div id="heatmap-container"></div>
       </div>
     </div>
@@ -906,7 +903,24 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.8.3';
+const APP_VERSION = 'v7.9.0';
+// v7.9.0 (S71, Ron) — ONE-PASS OPTIMIZER (SPEC one-pass optimizer, Release B;
+// MODEL m7.6.0). ▶ Run (with sweep cards armed) now does preflight → sweep →
+// pack → Gate → verdict in one pass. THE PAIRED SCORE IS THE ONLY SELECTION KEY:
+// the table, the default selection, ★ / Best, the winner re-run and the pack all
+// rank on ps (_prCmp); core yield is a displayed column. PREFLIGHT refuses a run
+// whose incumbent is off-grid, on a grid end, or cannot be hoisted (the coreYld
+// fallback is gone), and skips cells with entryΔcap ≥ Δ. PACK = incumbent + ±1
+// nbr seed + top-8 by ps, aliases refilled to 8 distinct machines. The GATE runs
+// in place through the pack contract (serialize → parsePack → showPack → gateP →
+// run → window.GATE_LAST); its code is untouched (v1.5.1 shipped alone in
+// v7.8.3). PUBLISH is armed only for the Gate's winner, or any pack entry with a
+// typed override reason; the run is recorded as gateRun in roll_params.json.
+// SWEEP RANGES centre on the incumbent at load and after a publish (decay ±3·1,
+// Δ ±3·0.01, anchor ±3·7, defH ±3·1, entryΔcap ±3·0.01, grace ±1·1 — 28,812
+// sims on today's policy); range edits no longer persist across reloads.
+// RETIRED: robust ranking (R#), Grid, Graph, Raw/Robust sort, ledger-pack
+// export controls (raw K, robust K, shelf, zoom, ⧉ Export). Base v7.8.3 (7dac96f9).
 // v7.8.3 (S71, Ron) — RELEASE A of SPEC one-pass optimizer: GATE v1.5.1 only.
 // The Gate's run handler now leaves its verdict in window.GATE_LAST (read-only;
 // nothing rendered changes). The sim, the ranker and MODEL_VERSION are
@@ -978,7 +992,10 @@ const APP_VERSION = 'v7.8.3';
 //   region is NEVER edited in the same release as the sim or the ranker. That
 //   rule is what preserves the independence the two files used to get for free
 //   — v1.3.1 hard-rejecting /2 packs was that independence working.
-const MODEL_VERSION = 'm7.5.0'; // PAIRED RANKER (S67). The ranker IS the objective:
+const MODEL_VERSION = 'm7.6.0'; // ONE-PASS SELECTION (S71): the paired score now SELECTS
+// everywhere — default selection, ★, winner re-run and the Gate pack. m7.5.0 scored
+// with it but every chooser still keyed on coreYld, so the pack never saw it.
+// m7.5.0 — PAIRED RANKER (S67). The ranker IS the objective:
 // this bump INVALIDATES EVERY FITTED PARAMETER. A fresh OPT is required before any
 // decision, and prior leaderboards are not comparable to this one. // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
@@ -986,15 +1003,12 @@ let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
 let _martView = 'spy';   // active data mart tab
 let _gaps = [];          // gap contracts found during simulation
-let _pendingPublish = null;
 let _confirmTimer = null; // v6.1.3 — armed-publish disarm timeout
 let _prevEvalSub = null;  // v6.1.5 — sub-line text stashed while the confirm diff shows
-let _rankingRR = null; // v5.15.0 — robust ranking results
-let _lastOptResults = null; // v6.19.0 — full OPT results retained in memory for the ledger-pack capture pass
+let _gateCycle = null;      // v7.9.0 — the last one-pass Gate cycle: {pack, json, idByKey, psById, last, err, ...}
 let _optDisplayRows = null; // v5.15.2 — raw-sorted rows backing the Opt Results table
 let _optSelIdx = null;      // v5.15.2 — selected row index (default: raw winner)
 let _rrAxesG = null;        // v5.15.2 — swept axes of the last OPT (for the robust grid)
-let _optSort = 'robust';    // v6.0.0 — table sort: robust rank IS the ranking; raw = argmax view
 let _optRR_args = null;     // v6.0.0 — renderOptResults args for sort re-render
 let _acVerdictDone = false; // v6.0.0 — one auto verdict per OPT run
 // ── v6.1.0 Decision Run pipeline + chat + audit globals ──
@@ -1333,6 +1347,31 @@ let _sweepConfig = {
 // silently persist into a later, unrelated sweep.
 // (_sweepConfigDefaults removed v5.4.3 — its only user was the toggle-off range reset)
 
+// v7.9.0 — D5 (Ron, S71): every sweepable axis defaults to the INCUMBENT ± n
+// steps, recomputed at load and after a publish, so a range can never silently
+// exclude the published policy (§6.10 trap) and preflight's bracketing check
+// passes by construction. Sized to ~25–30k sims on the published policy.
+const _SWEEP_CENTRE = {
+  decay:    { k: 'decayTrigger',     step: 1,    n: 3, lo: 1    },
+  delta:    { k: 'deltaThreshold',   step: 0.01, n: 3, lo: 0.30 },
+  lookahead:{ k: 'dtePenaltyAnchor', step: 7,    n: 3, lo: 7    },
+  defh:     { k: 'defHorizon',       step: 1,    n: 3, lo: 1    },
+  entrycap: { k: 'entryDeltaCap',    step: 0.01, n: 3, lo: 0.30 },
+  grace:    { k: 'graceDays',        step: 1,    n: 1, lo: 0    },
+};
+function _centreSweepConfig() {
+  const r3 = x => Math.round(x * 1000) / 1000;
+  Object.entries(_SWEEP_CENTRE).forEach(([v, c]) => {
+    const inc = STD ? STD[c.k] : null;
+    if (inc == null || !isFinite(inc)) return; // e.g. entryDeltaCap coupled (null): leave as-is; preflight names it
+    const min = r3(Math.max(c.lo, inc - c.n * c.step)), max = r3(inc + c.n * c.step);
+    _sweepConfig[v] = { min, max, step: c.step };
+    const mn = $('vmin-' + v), mx = $('vmax-' + v), st = $('vstep-' + v);
+    if (mn) mn.value = min; if (mx) mx.value = max; if (st) st.value = c.step;
+    updateSweepRange(v);
+  });
+}
+
 function buildRange(min, max, step) {
   const out = [];
   if (step <= 0) return [min];
@@ -1348,9 +1387,7 @@ function updateSweepRange(v) {
   if (!minEl || !maxEl || !stepEl) return;
   let min = parseFloat(minEl.value), max = parseFloat(maxEl.value), step = parseFloat(stepEl.value);
   if (min > max) { max = min; maxEl.value = max; }
-  _sweepConfig[v] = { min, max, step };
-  // Persist to localStorage so ranges survive page refresh
-  try { localStorage.setItem('sweepConfig', JSON.stringify(_sweepConfig)); } catch(e) {}
+  _sweepConfig[v] = { min, max, step }; // v7.9.0 — no persistence: ranges re-centre on the incumbent at load (D5)
   // Refresh sweep range label + eval count
   const arr = buildRange(min, max, step);
   const fmt = v === 'decay' ? (x => x+'%') : v === 'dte' ? (x => x+'d') : v === 'delta' ? (x => x.toFixed(3)) : v === 'lookahead' ? (x => x+'d') : v === 'defh' ? (x => x+'d') : v === 'entrycap' ? (x => x.toFixed(3)) : v === 'grace' ? (x => x+'d') : v === 'entrydte' ? (x => x+'d') : (x => x); // v6.8.0/v6.8.2 // v6.14.1 otm dropped
@@ -3686,210 +3723,7 @@ async function resRender(id) {
 // single-cell flags (strict local max, both neighbors ≥1.0pp lower — v6.5.2),
 // 🔴 edge-max warning, null cells hatched. Per-cell results also written
 // to the run log (results belong in the log artifact, not just the UI).
-let _graphLast = null; // v6.4.5/v6.4.6 — last 1-axis OPT terrain (feeds embedded graph + Ask Claude opt context)
-let _shapeMode = null; // v6.4.6 — adaptive slot: 'graph' (1 axis) | 'grid' (2 axes) | null (3+/none)
 let _optArmedAxes = null; // v6.4.7 — axes armed on the last OPT run (UI table shows only these)
-function toggleShapeView() { // v6.4.6 — one slot, run decides the shape
-  if (_shapeMode === 'grid') return toggleRobustGrid();
-  if (_shapeMode === 'graph') return toggleOptGraph();
-}
-// v7.2.9 — tolerance is a READ-TIME knob. Nothing re-sims; the OPT rows are
-// unchanged and only the shelf detection re-runs over them.
-function _shelfRedraw() {
-  const w = $('opt-graph-wrap');
-  if (!w || w.style.display === 'none' || !_graphLast) return;
-  renderGraphSvg(_graphLast.rows, _graphLast.cfg, _graphLast.pubYld);
-}
-function toggleOptGraph() {
-  const w = $('opt-graph-wrap'), btn = $('robust-grid-btn');
-  if (!w || !_graphLast) return;
-  if (w.style.display === 'none') {
-    w.style.display = 'block';
-    renderGraphSvg(_graphLast.rows, _graphLast.cfg, _graphLast.pubYld);
-    const s = $('opt-graph-summary'); if (s) s.innerHTML = _optGraphSummaryHtml(_graphLast);
-    if (btn) btn.textContent = '\u26f0 Close Graph';
-  } else {
-    w.style.display = 'none';
-    if (btn) btn.textContent = '\u26f0 Open Graph';
-  }
-}
-function _optGraphSummaryHtml(g) {
-  const yls = g.rows.map(r => r.yld).filter(y => y != null);
-  const bestY = Math.max(...yls);
-  const singles = g.rows.filter(r => r.single).map(r => g.cfg.fmt(r.v));
-  const edges   = g.rows.filter(r => r.edgeMax).map(r => g.cfg.fmt(r.v));
-  return 'best cell: <b style="color:var(--text)">' + g.cfg.fmt(g.rows.find(r=>r.yld===bestY)?.v) + ' \u00b7 ' + bestY.toFixed(1) + '%</b>'
-    + ' \u00b7 published: ' + g.cfg.pubStr(g.cfg.pub()) + (g.pubYld != null ? ' \u2192 ' + g.pubYld.toFixed(1) + '%' : '')
-    + (singles.length ? ' \u00b7 \u26a0 single-cell spike at ' + singles.join(', ') + ' \u2014 argmax discipline applies' : '')
-    + (edges.length ? ' \u00b7 \ud83d\udd34 max on boundary (' + edges.join(', ') + ')' : '')
-    + ' \u00b7 rendered from the OPT rows (no re-sim)';
-}
-const _graphAxes = { // axis → simulate() param key + display config
-  defh:      { key:'defHorizon',       label:'Exit Defense Horizon', fmt:v=>v+'d',            pub:()=>STD.defHorizon,       pubStr:v=> v>0 ? v+'d' : 'off (0)' },
-  delta:     { key:'deltaThreshold',   label:'Exit Delta',           fmt:v=>String(+v.toFixed(3)), pub:()=>STD.deltaThreshold, pubStr:v=>String(v) },
-  entrycap:  { key:'entryDeltaCap',    label:'Entry Delta Cap',      fmt:v=>String(+v.toFixed(3)), pub:()=>(STD.entryDeltaCap ?? STD.deltaThreshold), pubStr:v=> STD.entryDeltaCap==null ? v+' (coupled)' : String(v) },
-  decay:     { key:'decayTrigger',     label:'Exit Decay',           fmt:v=>v+'%',            pub:()=>STD.decayTrigger,     pubStr:v=>v+'%' },
-  floor:     { key:'dteFloor',          label:'DTE Floor',            fmt:v=>v+'d',            pub:()=>STD.dteFloor,         pubStr:v=>v+'d' }, // v6.4.6 — OPT axis-name parity
-  lookahead: { key:'dtePenaltyAnchor', label:'DTE Penalty Anchor',   fmt:v=>v+'d',            pub:()=>STD.dtePenaltyAnchor, pubStr:v=>v+'d' },
-};
-function renderGraphSvg(rows, cfg, pubYld) {
-  const svg = $('opt-graph-svg'); while (svg.firstChild) svg.removeChild(svg.firstChild); // v6.4.6 — embedded target
-  const NS = 'http://www.w3.org/2000/svg';
-  const gc = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888';
-  const TXT = gc('--text'), MUT = gc('--muted'), BRD = gc('--border');
-  const CURVE = '#e0b25c', PUBC = '#69c2a3', RED = '#ff5d5d', ORG = '#ff9d45';
-  const ROB = '#7aa7ff'; // v7.2.8 — robust overlay; distinct from core, never replaces it
-  // v7.2.10 — horizontal zoom. The viewBox WIDENS rather than the whole SVG being
-  // scaled, so vertical scale, label size and stroke weights stay put and only the
-  // x-axis stretches. Above 1x the wrapper scrolls sideways.
-  const _zEl = $('opt-graph-zoom');
-  const Z = Math.min(10, Math.max(1, Number(_zEl && _zEl.value) || 1));
-  const H = 430, L = 56, R = 18, T = 22, B = 46;
-  const W = Math.round(860 * Z);
-  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-  if (Z === 1) { svg.style.width = '100%'; svg.style.minWidth = ''; }
-  else { svg.style.width = W + 'px'; svg.style.minWidth = W + 'px'; }
-  const xs = rows.map(r => r.v);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs);
-  const ys = rows.map(r => r.yld).filter(y => y != null);
-  rows.forEach(r => { if (r.robust != null) ys.push(r.robust); }); // v7.2.8 — robust inside scale
-  if (pubYld != null) ys.push(pubYld); // v6.4.5 — incumbent line inside scale
-  let y0 = Math.min(0, ...ys), y1 = Math.max(...ys, 1);
-  const pad = (y1 - y0) * 0.12 || 1; y1 += pad; if (y0 < 0) y0 -= pad;
-  const X = v => x1 === x0 ? (L+W-R)/2 : L + (v-x0)/(x1-x0)*(W-L-R);
-  const Y = v => H-B - (v-y0)/(y1-y0)*(H-T-B);
-  let _shelfDraw = null; // v7.2.11 — shelf bars paint AFTER the curve; set during detection
-  const el = (t,a,txt) => { const e = document.createElementNS(NS,t); for (const k in a) e.setAttribute(k,a[k]); if (txt!=null) e.textContent = txt; svg.appendChild(e); return e; };
-  // grid + axes
-  const yTicks = 6;
-  for (let i = 0; i <= yTicks; i++) {
-    const yv = y0 + (y1-y0)*i/yTicks;
-    el('line',{x1:L,y1:Y(yv),x2:W-R,y2:Y(yv),stroke:BRD,'stroke-width':1,opacity:.5});
-    el('text',{x:L-8,y:Y(yv)+3.5,'text-anchor':'end','font-size':10,fill:MUT,'font-family':'monospace'}, yv.toFixed(1)+'%');
-  }
-  // v7.2.9 — every tick keeps its mark; only every Nth gets a LABEL. At 180 rungs
-  // the labels overprinted into an unreadable smear, which is a display defect
-  // rather than a data one: the axis was there and could not be read.
-  const _lblEvery = Math.max(1, Math.ceil(rows.length / (15 * Z))); // v7.2.10 — more labels as you zoom in
-  rows.forEach((r, i) => {
-    el('line',{x1:X(r.v),y1:H-B,x2:X(r.v),y2:H-B+4,stroke:MUT,'stroke-width':1,
-               opacity:(i % _lblEvery === 0 ? 1 : .45)});
-    if (i % _lblEvery === 0 || i === rows.length - 1)
-      el('text',{x:X(r.v),y:H-B+16,'text-anchor':'middle','font-size':9.5,fill:MUT,'font-family':'monospace'}, cfg.fmt(r.v));
-  });
-  if (y0 < 0) el('line',{x1:L,y1:Y(0),x2:W-R,y2:Y(0),stroke:MUT,'stroke-width':1,opacity:.7});
-  el('text',{x:(L+W-R)/2,y:H-6,'text-anchor':'middle','font-size':10,fill:TXT,'font-family':'monospace','letter-spacing':'.08em'}, cfg.label.toUpperCase() + ' \u2014 CORE YIELD + SHELVES');
-  // v6.4.5 — incumbent horizontal reference: yield of the published config
-  if (pubYld != null) {
-    el('line',{x1:L,y1:Y(pubYld),x2:W-R,y2:Y(pubYld),stroke:PUBC,'stroke-width':1.5,'stroke-dasharray':'6 5',opacity:.8});
-    el('text',{x:L+6,y:Y(pubYld)-5,'font-size':9.5,fill:PUBC,'font-family':'monospace'}, 'incumbent ' + cfg.pubStr(cfg.pub()) + ' \u2192 ' + pubYld.toFixed(1) + '%');
-  }
-  // published marker (vertical, when the published value is on-axis)
-  const pv = cfg.pub();
-  if (pv != null && pv >= x0 && pv <= x1) {
-    el('line',{x1:X(pv),y1:T,x2:X(pv),y2:H-B,stroke:PUBC,'stroke-width':1.5,'stroke-dasharray':'3 4',opacity:.85});
-    el('text',{x:X(pv)+4,y:T+10,'font-size':9.5,fill:PUBC,'font-family':'monospace'}, 'published ' + cfg.pubStr(pv));
-  } else {
-    el('text',{x:W-R,y:T+10,'text-anchor':'end','font-size':9.5,fill:PUBC,'font-family':'monospace'}, 'published: ' + cfg.pubStr(pv) + ' (off-range)');
-  }
-  // v7.2.9 — SHELF BARS. Replaces the v7.2.8 robust line, which traced the same
-  // shape as core and so added nothing a reader could act on.
-  //
-  // WHY NOT ndist: it counts DISTINCT neighbours after photocopies collapse, so it
-  // measures how much neighbours DIFFER, not how much they AGREE. The noisy 10-68d
-  // stretch scores the maximum n=3 precisely because its neighbours disagree, while
-  // the flat wasteland at 1-9d scores n=1 because its neighbours are identical.
-  // Filtering on high n lights up the noise and hides the flat ground — backwards.
-  //
-  // SPREAD is the statistic that separates shelf from spike: a shelf has small
-  // max-minus-min across the run, a spike has large by definition. So: find every
-  // MAXIMAL run of >=3 contiguous priced cells whose yields all sit inside the
-  // tolerance band, and draw it at the run's MEDIAN height. Tolerance is the dial —
-  // tighten it and only genuine shelves survive; loosen it and more appear.
-  {
-    const tolEl = $('opt-shelf-tol');
-    const TOL = Math.max(0.05, Number(tolEl && tolEl.value) || 0.5);
-    // v7.2.10 — MIN N is the selectivity dial Ron asked for. Tolerance controls how
-    // FLAT a run must be; min n controls how WIDE. Raising it must reduce the count,
-    // which tightening tolerance alone did not reliably do: at 0.5pp the noisy
-    // low region still produced 29 three-cell runs. n is an OUTPUT of detection
-    // (the run's width) and was never a control until now.
-    const _mnEl = $('opt-shelf-minn');
-    const MINRUN = Math.max(2, Math.round(Number(_mnEl && _mnEl.value) || 5));
-    const shelves = [];
-    let i0 = 0;
-    while (i0 < rows.length) {
-      if (rows[i0].yld == null) { i0++; continue; }
-      // extend while the WHOLE run stays inside the band — not just adjacent pairs,
-      // which would let a run drift arbitrarily far by small steps.
-      let lo = rows[i0].yld, hi = rows[i0].yld, i1 = i0;
-      while (i1 + 1 < rows.length && rows[i1 + 1].yld != null) {
-        const y = rows[i1 + 1].yld;
-        const nlo = Math.min(lo, y), nhi = Math.max(hi, y);
-        if (nhi - nlo > TOL) break;
-        lo = nlo; hi = nhi; i1++;
-      }
-      if (i1 - i0 + 1 >= MINRUN) {
-        const seg = rows.slice(i0, i1 + 1);
-        const vals = seg.map(r => r.yld).sort((a, b) => a - b);
-        const med = vals.length % 2 ? vals[(vals.length - 1) / 2]
-                                    : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
-        shelves.push({ a: seg[0].v, b: seg[seg.length - 1].v, n: seg.length, med, lo, hi });
-        i0 = i1 + 1;
-      } else i0++;
-    }
-    // draw widest-first so a long shelf never hides a short one's label
-    shelves.sort((s, t) => (t.b - t.a) - (s.b - s.a));
-    // v7.2.10 — BARS ONLY. Labels overprinted each other and the curve; the numbers
-    // are in the grid below, so the graph shows position and extent, nothing else.
-    // v7.2.11 — DRAWING DEFERRED. SVG paints in document order, so bars emitted here
-    // sat UNDER the curve and lost to it. Detection stays put; the draw moves to
-    // after the curve. Held on the module-scope handle below.
-    _shelfDraw = () => shelves.forEach(s => {
-      el('line',{x1:X(s.a),y1:Y(s.med),x2:X(s.b),y2:Y(s.med),stroke:ROB,'stroke-width':5,
-                 'stroke-linecap':'butt',opacity:1});
-      el('line',{x1:X(s.a),y1:Y(s.med)-7,x2:X(s.a),y2:Y(s.med)+7,stroke:ROB,'stroke-width':2.5});
-      el('line',{x1:X(s.b),y1:Y(s.med)-7,x2:X(s.b),y2:Y(s.med)+7,stroke:ROB,'stroke-width':2.5});
-    });
-    el('line',{x1:W-R-150,y1:T+4,x2:W-R-128,y2:T+4,stroke:CURVE,'stroke-width':2.5});
-    el('text',{x:W-R-124,y:T+7.5,'font-size':9.5,fill:MUT,'font-family':'monospace'},'core');
-    el('line',{x1:W-R-84,y1:T+4,x2:W-R-62,y2:T+4,stroke:ROB,'stroke-width':3});
-    el('text',{x:W-R-58,y:T+7.5,'font-size':9.5,fill:MUT,'font-family':'monospace'},'shelf');
-    el('text',{x:W-R,y:T+21,'text-anchor':'end','font-size':9,fill:MUT,'font-family':'monospace'},
-      'shelf = ' + MINRUN + '+ adjacent cells within \u00b1' + TOL.toFixed(2)
-      + 'pp \u00b7 drawn at run median \u00b7 ' + shelves.length + ' found'
-      + (Z > 1 ? ' \u00b7 zoom ' + Z + 'x' : ''));
-  }
-  // curve — break at nulls; null cells hatched at baseline
-  let path = '', pen = false;
-  rows.forEach(r => {
-    if (r.yld == null) { pen = false;
-      el('rect',{x:X(r.v)-4,y:H-B-10,width:8,height:10,fill:'none',stroke:MUT,'stroke-width':1,'stroke-dasharray':'2 2',opacity:.6});
-      return; }
-    path += (pen ? ' L' : ' M') + X(r.v).toFixed(1) + ' ' + Y(r.yld).toFixed(1); pen = true;
-  });
-  // v7.2.11 — curve reduced to a light trace: the shelves are the finding, the
-  // curve is the context they sit in.
-  el('path',{d:path.trim(),fill:'none',stroke:CURVE,'stroke-width':1.5,'stroke-linejoin':'round',opacity:.85});
-  rows.forEach(r => {
-    if (r.yld == null) return;
-    el('circle',{cx:X(r.v),cy:Y(r.yld),r:2,fill:CURVE,stroke:'none',opacity:.9}); // v7.2.11 — small solid points
-    if (r.single) {
-      el('circle',{cx:X(r.v),cy:Y(r.yld),r:8,fill:'none',stroke:ORG,'stroke-width':1.5,'stroke-dasharray':'2 2'});
-      el('text',{x:X(r.v),y:Y(r.yld)-12,'text-anchor':'middle','font-size':9.5,fill:ORG,'font-family':'monospace'},'single cell');
-    }
-    if (r.edgeMax) {
-      el('circle',{cx:X(r.v),cy:Y(r.yld),r:8,fill:'none',stroke:RED,'stroke-width':2});
-      el('text',{x:X(r.v),y:Y(r.yld)-12,'text-anchor':'middle','font-size':9.5,fill:RED,'font-family':'monospace'},'🔴 edge');
-    }
-    // (shelf bars paint after this loop — see below)
-  });
-  // v7.2.11 — SHELF BARS ON TOP, at the LITERAL median height. No vertical offset:
-  // a bar that sits exactly on the curve is telling the truth about where the run's
-  // median is, and nudging it for legibility would make the picture prettier and
-  // slightly false.
-  if (_shelfDraw) _shelfDraw();
-}
 
 // ── AI Analysis ────────────────────────────────────────────────────────────
 // Conversational analysis of run results using Claude API.
@@ -4005,27 +3839,13 @@ async function buildOptContext() {
   const L = [];
   L.push('=== OPTIMIZATION RUN CONTEXT (v5.15.4) ===');
   if (_rrAxesG) L.push('Swept axes/steps: ' + Object.entries(_rrAxesG).map(([a, v]) => a + ' ' + v[0] + '\u2013' + v[v.length - 1] + ' step ' + (v.length > 1 ? Math.abs(v[1] - v[0]).toFixed(3).replace(/\.?0+$/, '') : '\u2014') + ' (' + v.length + ' values)').join(' \u00d7 '));
-  const fmtRow = r => 'decay=' + r.decay + '%/dte=' + r.floor + 'd/\u0394' + r.delta + '/anchor=' + r.lookahead + 'd \u00b7 ' + r.rolls + ' rolls \u00b7 core ' + r.yld.toFixed(1) + '% \u00b7 \u0394stop ' + (r.stopN ?? 0) + '(' + (r.pureN ?? 0) + ')';
+  const fmtRow = r => 'decay=' + r.decay + '%/dte=' + r.floor + 'd/\u0394' + r.delta + '/anchor=' + r.lookahead + 'd \u00b7 ' + r.rolls + ' rolls \u00b7 pS ' + (r.ps == null ? '\u2014' : r.ps.toFixed(3)) + ' \u00b7 core ' + r.yld.toFixed(1) + '% \u00b7 \u0394stop ' + (r.stopN ?? 0) + '(' + (r.pureN ?? 0) + ')';
   if (_optDisplayRows) {
-    L.push('RAW TOP 10 (by core yield):');
+    L.push('TOP 10 (by paired score vs the incumbent, ' + MODEL_VERSION + '):');
     _optDisplayRows.slice(0, 10).forEach((r, i) => L.push('  #' + (i + 1) + ' ' + fmtRow(r)));
   }
-  if (_rankingRR) {
-    L.push('ROBUST TOP 10 (neighborhood median, distinct-path):');
-    _rankingRR.list.slice(0, 10).forEach(o => L.push('  R#' + o.robustRank + ' [raw#' + o.rawRank + '] ' + fmtRow(o.row) + ' \u00b7 robust ' + o.robust.toFixed(2) + '% \u00b7 n=' + o.ndist + ' \u00b7 spr ' + o.spread.toFixed(1) + ' \u00b7 axMin ' + (o.axisMin !== null ? o.axisMin.toFixed(1) : '\u2014') + (_rankFlags(o) ? ' \u00b7 ' + _rankFlags(o) : '')));
-    L.push(_rankingRR.winner ? 'Robust winner (eligible pure\u22651,n\u22654): R#' + _rankingRR.winner.robustRank : 'NO eligible robust winner');
-  }
   if (_optSelIdx !== null && _optDisplayRows && _optDisplayRows[_optSelIdx]) L.push('Currently selected row: ' + fmtRow(_optDisplayRows[_optSelIdx]));
-  const gr = $('grid-read-wrap');
-  if (gr && gr.innerHTML) L.push('GRID READ (computed): ' + _stripTags(gr.innerHTML).replace(/\s+/g, ' ').trim());
-  if (_graphLast) { // v6.4.6 — single-axis terrain (embedded graph data)
-    const g = _graphLast;
-    L.push('TERRAIN \u2014 single-axis sweep of ' + g.cfg.label + ' (' + g.cfg.fmt(g.min) + '\u2192' + g.cfg.fmt(g.max) + ' step ' + g.step + '), all else pinned at published:');
-    L.push('Doctrine (apply strictly): 1D slices are parity diagnostics, not optimization evidence. Single-cell spikes have no forward predictive value (S29); multi-cell shelves with near-identical neighboring paths are real support; boundary maxima mean the true optimum may lie outside the range. Name terrain features (basin/cliff/ridge/dip/plateau) from the numbers and ground any point advice in this doctrine \u2014 or say plainly that nothing is publishable from a 1D slice.');
-    L.push('Incumbent (published ' + g.cfg.pubStr(g.cfg.pub()) + '): core ' + (g.pubYld != null ? g.pubYld.toFixed(1) + '%' : 'n/a') + ' \u2014 read every cell relative to this.');
-    L.push('CELLS (value \u00b7 core \u00b7 rolls \u00b7 \u0394stop total(pure) \u00b7 flags):');
-    g.rows.forEach(r => L.push('  ' + g.cfg.fmt(r.v) + ' \u00b7 ' + (r.yld == null ? '\u2014' : r.yld.toFixed(1) + '%') + ' \u00b7 ' + r.rolls + ' \u00b7 ' + r.stopN + '(' + r.pureN + ')' + (r.single ? ' \u00b7 SINGLE-CELL' : '') + (r.edgeMax ? ' \u00b7 EDGE-MAX' : '')));
-  }
+  if (_gateCycle) L.push('GATE (' + (_gateCycle.last ? _gateCycle.last.gate : '?') + '): ' + _gateVerdictText()); // v7.9.0
   try {
     const res = await fetch('https://ronb36.github.io/spy-backtest/roll_params.json?_=' + Date.now(), { cache: 'no-store' });
     if (res.ok) L.push('PUBLISHED roll_params.json: ' + JSON.stringify(await res.json()));
@@ -4182,8 +4002,7 @@ async function chatVerdict(key) {
   try {
     const qOpt = 'In at most two sentences: your recommendation for this sweep \u2014 publish or hold what, plus the decisive number \u2014 ending with an explicit \u0022Falsified if:\u0022 clause. No preamble, no markdown.';
     const qScan = 'In at most two sentences: sanity-check the \u2605 best scan candidate against the current position and published params \u2014 net credit, both deltas vs the stop, DTE; flag anything off. No preamble, no markdown.';
-    const qOptTerrain = 'In at most three sentences: read this single-axis terrain \u2014 name the zones from the numbers, say where support is real (multi-cell) vs single-cell/edge, and advise which point (if any) the evidence favors under house doctrine including vs the incumbent line \u2014 ending with an explicit \u0022Falsified if:\u0022 clause. No preamble, no markdown.'; // v6.4.6
-    const q = key === 'opt' ? (_graphLast ? qOptTerrain : qOpt) : qScan;
+    const q = key === 'opt' ? qOpt : qScan;
     _acHist[key].push({ role: 'user', content: q, _tool: true });
     const reply = await callClaudeAPI(_acHist[key].map(m => ({ role: m.role, content: m.content })), AC_SYSTEM + '\n\n' + _acCtx[key]);
     _acHist[key].push({ role: 'assistant', content: reply, _tool: true });
@@ -5449,7 +5268,7 @@ logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.decayTrig
 
   $('results-area').style.display = 'block';
   $('tab-btn-heatmap').style.display = 'none';
-  { const _rgb = $('robust-grid-btn'); if (_rgb) { _rgb.style.display = 'none'; _rgb.textContent = '\u229e Open Grid'; } const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; } const _ogw2 = $('opt-graph-wrap'); if (_ogw2) _ogw2.style.display = 'none'; const _grw = $('grid-read-wrap'); if (_grw) { _grw.style.display = 'none'; _grw.innerHTML = ''; } const _acb = $('ac-btn-opt'); if (_acb) _acb.style.display = 'none'; const _acp = $('ac-panel-opt'); if (_acp) _acp.style.display = 'none'; } // v5.15.4
+  { const _acb = $('ac-btn-opt'); if (_acb) _acb.style.display = 'none'; const _acp = $('ac-panel-opt'); if (_acp) _acp.style.display = 'none'; } // v5.15.4
   // AI tab visibility owned by initAIAnalysis (shown only when key present)
   // Show Scan tab only in non-debug STD mode
   const scanBtn = $('tab-btn-scan');
@@ -5922,7 +5741,7 @@ function handlePublish(e) {
   // pre-selected by default) via the confirmation card. Legacy direct publish
   // only when no ranking exists (e.g. degenerate sweep).
   if (_optSelIdx !== null && _optDisplayRows) { publishSelectedRow(); return; }
-  if (_pendingPublish) publishRollParams(_pendingPublish);
+  logMsg('\u26a0 Nothing to publish \u2014 run the Gate cycle and select a pack entry', 'err'); // v7.9.0 — no unbound publish path
 }
 
 async function publishRollParams(p) {
@@ -5961,6 +5780,7 @@ async function publishRollParams(p) {
       graceDays:     p.graceDays ?? STD.graceDays ?? 3, // v6.8.3 — grace is now a published lever (S41 sweep confirmed 3; identity-point unification)
       lastOptimized: today,
       optProjYield: parseFloat(p.optAnnYield.toFixed(1)),
+      gateRun: p.gateRun ?? null, // v7.9.0 — D3: written explicitly so the ...existing spread never carries a stale verdict
       contracts: _existingJson.contracts ?? STD.contracts ?? 6, // guarantee position-size field — agent has no fallbacks
       note: 'Update after each backtester run. Source: ronb36.github.io/spy-backtest 5D optimizer sweep.'
     };
@@ -6003,7 +5823,7 @@ async function publishRollParams(p) {
     });
     renderJsonFootnote(); // v6.6.1 — refresh footnote post-publish (state stays honest) · v6.34.0 — the paired updateThetaCard() call went with the θ card
     _optParams = null;  // clear stale optimizer override — STD now reflects published winner
-    _pendingPublish = null;
+    try { _centreSweepConfig(); } catch (e) {} // v7.9.0 — D5: the next sweep centres on the NEW incumbent
     logMsg('\u2713 Published roll_params.json — ' + payload.optProjYield + '% proj. yield · ' + today, 'ok');
     // v6.1.6 — logical state FIRST: disarm armed sweeps so _sweepVars matches the
     // published visuals (toggleVar tail calls onConfigChanged which resets the run
@@ -6050,50 +5870,6 @@ async function publishRollParams(p) {
 // boundary discipline (widen the sweep) still applies.
 function _median(a) { const s = a.slice().sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
 
-function computeRobustRanking(rows, axes) {
-  const axisNames = Object.keys(axes);
-  if (!axisNames.length) return null;
-  const idx = {};
-  axisNames.forEach(a => { idx[a] = new Map(axes[a].map((v, i) => [v, i])); });
-  const coordKey = c => c.join(',');
-  const byCoord = new Map();
-  rows.forEach(r => byCoord.set(coordKey(axisNames.map(a => idx[a].get(r[a]))), r));
-  const dkey = r => r.rolls + '|' + r.yld.toFixed(1) + '|' + (r.hold ? r.hold.days.toFixed(1) : '-');
-  // Chebyshev-1 offset set over N swept axes (center included)
-  let offsets = [[]];
-  axisNames.forEach(() => { const nx = []; offsets.forEach(o => [-1, 0, 1].forEach(d => nx.push(o.concat(d)))); offsets = nx; });
-  // Raw rank — identical sort to the raw log table
-  const rawSorted = rows.slice().sort(_prCmp); // v7.5.0 — rawRank mirrors the log table, which now ranks on the paired score
-  const rawRank = new Map(); rawSorted.forEach((r, i) => rawRank.set(r, i + 1));
-  const out = rows.map(r => {
-    if (r.yld === null) return { row: r, rawRank: rawRank.get(r), robust: null, ndist: 0, spread: null, axisMin: null, edge: false, eligible: false };
-    const c = axisNames.map(a => idx[a].get(r[a]));
-    const vals = new Map();
-    let axisMin = null;
-    offsets.forEach(o => {
-      const nc = c.map((v, i) => v + o[i]);
-      if (nc.some((v, i) => v < 0 || v >= axes[axisNames[i]].length)) return;
-      const nb = byCoord.get(coordKey(nc));
-      if (!nb || nb.yld === null) return;
-      vals.set(dkey(nb), nb.yld);
-      if (o.filter(d => d !== 0).length === 1) axisMin = (axisMin === null) ? nb.yld : Math.min(axisMin, nb.yld);
-    });
-    const dd = [...vals.values()];
-    const edge = c.some((v, i) => v === 0 || v === axes[axisNames[i]].length - 1);
-    return {
-      row: r, rawRank: rawRank.get(r),
-      robust: dd.length ? _median(dd) : null,
-      ndist: dd.length,
-      spread: dd.length ? Math.max(...dd) - Math.min(...dd) : null,
-      axisMin, edge,
-      eligible: (r.pureN ?? 0) >= 1 && dd.length >= 4 // v5.15.1 — pure (pivotal-proxy) stops
-    };
-  });
-  const ranked = out.filter(o => o.robust !== null)
-    .sort((x, y) => (y.robust - x.robust) || (y.ndist - x.ndist) || (x.spread - y.spread));
-  ranked.forEach((o, i) => o.robustRank = i + 1);
-  return { list: ranked, all: out, winner: ranked.find(o => o.eligible) || null, axisNames, axes };
-}
 
 function _rankParamStr(r) {
   return 'decay=' + r.decay + '% / dte=' + r.floor + 'd / \u0394' + (r.delta ?? STD.deltaThreshold)
@@ -6104,56 +5880,24 @@ function _rankParamStr(r) {
     + ((r.entrydte != null) ? ' / entryDTE\u2265' + r.entrydte + 'd' : ''); // v6.3.3/v6.4.1/v6.8.6 — missed reader #14: robust rows and the ELIGIBLE-WINNER line rendered without grace on the first P-GX joint sweep, making the first-ever eligible robust winner (grace=1) read as the incumbent
 }
 
-function _rankFlags(o) {
-  const f = [];
-  if ((o.row.stopN ?? 0) === 0) f.push('\u26a0stop-off');
-  else if ((o.row.pureN ?? 0) === 0) f.push('\u26a0co-fire-only'); // v5.15.1 — fires exist but none pivotal
-  if (o.ndist < 4) f.push('n<4');
-  if (o.edge) f.push('\u229eedge');
-  return f.join(' ');
-}
 
-function emitRobustRanking(rr) {
-  if (!rr || !rr.list.length) { logMsg('  (robust ranking skipped \u2014 no swept axes or no rankable cells)', ''); return; }
-  const steps = rr.axisNames.map(a => {
-    const v = rr.axes[a];
-    const st = v.length > 1 ? Math.abs(v[1] - v[0]) : 0;
-    return a + '\u00b1' + (st % 1 === 0 ? st : st.toFixed(3).replace(/0+$/, ''));
-  }).join(' / ');
-  logMsg('\u2500\u2500 OPT Robust Ranking (distinct-path neighborhood median \u00b7 steps: ' + steps + ' \u00b7 resolution-dependent) \u2500\u2500', '');
-  rr.list.slice(0, 25).forEach(o => {
-    const r = o.row;
-    const fl = _rankFlags(o);
-    logMsg('  R#' + o.robustRank + ' [raw #' + o.rawRank + ']  ' + _rankParamStr(r)
-      + ' \u00b7 core ' + r.yld.toFixed(1) + '% \u00b7 robust ' + o.robust.toFixed(2) + '%'
-      + ' \u00b7 n=' + o.ndist + ' \u00b7 spr ' + o.spread.toFixed(1) + 'pp'
-      + ' \u00b7 axMin ' + (o.axisMin !== null ? o.axisMin.toFixed(1) + '%' : '\u2014')
-      + ' \u00b7 \u0394stop ' + (r.stopN ?? 0) + '(' + (r.pureN ?? 0) + ')'
-      + (fl ? '  ' + fl : '')
-      + (rr.winner === o ? '  \u2605R' : ''), '');
-  });
-  if (rr.winner) {
-    logMsg('\u2713 Robust best (eligible: pure \u0394stop\u22651, n\u22654): ' + _rankParamStr(rr.winner.row)
-      + ' \u2192 robust ' + rr.winner.robust.toFixed(2) + '% (core ' + rr.winner.row.yld.toFixed(1)
-      + '%, raw #' + rr.winner.rawRank + ')' + (rr.winner.edge ? ' \u229e ON GRID EDGE \u2014 widen sweep before trusting' : ''), 'ok');
-  } else {
-    logMsg('\u26a0 No eligible robust winner \u2014 every rankable cell is stop-off, co-fire-only, or n<4', 'err');
-  }
-}
 
 // ── v5.15.0 Rankings tab: render + select-and-publish (warn, never block) ──
 let _selPublishPayload = null;
 async function publishSelectedRow() {
   if (_optSelIdx === null || !_optDisplayRows || !_optDisplayRows[_optSelIdx]) { logMsg('\u26a0 Select a result row first', 'err'); return; }
   const r = _optDisplayRows[_optSelIdx];
-  const o = ((_rankingRR && _rankingRR.all) || []).find(x => x.row === r)
-    || { robustRank: null, rawRank: _optSelIdx + 1, robust: null, ndist: 0, spread: null, axisMin: null, edge: false };
+  // v7.9.0 — PUBLISH IS GATE-BOUND (SPEC §4.5, P5). Only a pack entry can publish:
+  // the Gate's winner as is, any other entry only with a typed override reason.
+  const _gr = _gatePublishCheck(r);
+  if (!_gr) return;
   _selPublishPayload = {
     decayTrigger: r.decay / 100, dteFloor: r.floor, deltaThreshold: r.delta,
     dtePenaltyAnchor: r.lookahead,
     defHorizon: r.defh ?? 0, entryDeltaCap: r.entrycap ?? null, // v6.4.8 — S36 publish bug: v6.1.3-era payload silently dropped post-v6.1.3 fields (published defHorizon:0 while 12 was chosen; missed-reader #9)
     graceDays: r.grace ?? 3, // v6.8.4 — S41 live near-miss: selected-row publish (grace=2 robust R#1) stamped its yield but not its grace; only same-on-all-written-axes structure kept policy coherent. The v6.4.8 defect class, second writer.
-    optAnnYield: r.yld
+    optAnnYield: r.yld,
+    gateRun: _gr // v7.9.0 — D3: the verdict this publish rests on, recorded in roll_params.json
   };
   // Live JSON for the field diff (same no-store pattern as publishRollParams)
   let cur = {};
@@ -6169,8 +5913,7 @@ async function publishSelectedRow() {
   const warns = [];
   if ((r.stopN ?? 0) === 0) warns.push('\u26a0 \u0394-STOP NEVER FIRES in this cell\u2019s sim \u2014 stop-off configs were pure survivorship on this tape (S31 finding 4). Publishing runs the live stop as decoration.');
   else if ((r.pureN ?? 0) === 0) warns.push('\u26a0 CO-FIRE-ONLY \u2014 the \u0394-stop fires ' + r.stopN + '\u00d7 but never as the sole reason (S32 finding): every fire coincides with decay/DTE, so the stop is non-pivotal on this tape.');
-  if (o.ndist < 4) warns.push('\u26a0 LOW SUPPORT \u2014 only ' + o.ndist + ' distinct-path observation(s) back this cell\u2019s robust score (photocopy corroboration risk).');
-  if (o.edge) warns.push('\u229e GRID-EDGE CELL \u2014 the true optimum may lie outside the swept range; boundary discipline says widen the sweep first.');
+  if (_gr.override) warns.push('\u26a0 GATE OVERRIDE \u2014 the Gate said ' + _gr.verdict + '; reason: ' + _gr.override);
   // v6.1.3 — the confirmation card is retired: ARM the button instead.
   // Compact diff rides the button sub-line; full field diff + warnings go to Logs.
   const fields = [
@@ -6184,7 +5927,7 @@ async function publishSelectedRow() {
     ['optProjYield', cur.optProjYield, parseFloat(_selPublishPayload.optAnnYield.toFixed(1))],
   ];
   const changed = fields.filter(f => String(f[1]) !== String(f[2]));
-  logMsg('\u2500\u2500 Publish armed \u2014 ' + (o.robustRank ? 'R#' + o.robustRank : 'unranked') + ' (raw #' + o.rawRank + ') ' + _rankParamStr(r), '');
+  logMsg('\u2500\u2500 Publish armed \u2014 pack #' + _gr.chosen + ' (pS #' + (_optSelIdx + 1) + ', Gate ' + _gr.verdict + (_gr.override ? ' \u00b7 OVERRIDE' : '') + ') ' + _rankParamStr(r), '');
   fields.forEach(f => logMsg('  ' + f[0] + ': ' + (f[1] ?? '\u2014') + (String(f[1]) !== String(f[2]) ? ' \u2192 ' + f[2] : ' (unchanged)'), String(f[1]) !== String(f[2]) ? 'ok' : 'dbg'));
   warns.forEach(w => logMsg('  ' + _stripTags(w), 'err'));
   // v6.4.10 — the decision point must show the DIFF, not a count (S36 doctrine;
@@ -6219,20 +5962,7 @@ function confirmSelectedPublish() {
   // v6.5.0 — nothing to hide: the VIX gate card was removed with the gate itself.
 })();
 
-// v5.15.2 — tap-to-select: summary panels follow the selected row (same
-// machinery as the post-OPT winner re-simulation). Guard overlapping taps.
-function setOptSort(m) {
-  if (_optSort === m) return;
-  _optSort = m;
-  _optSelIdx = null; // v6.0.1 — re-select top of the new sort
-  if (_optRR_args) renderOptResults(..._optRR_args);
-  if (_optSelIdx !== null) optSelectRow(_optSelIdx); // re-sim panels to the new top
-}
 
-function toggleGridLegend() {
-  const l = $('grid-legend');
-  if (l) l.style.display = l.style.display === 'none' ? 'block' : 'none';
-}
 
 let _rankPickBusy = false;
 // v6.1.2 — single writer for the param cards: always the selected row.
@@ -6268,7 +5998,6 @@ async function optSelectRow(i) {
   _optSelIdx = i;
   if (prev !== null) { const pe = $('opt-row-' + prev); if (pe) pe.style.background = ''; }
   const ce = $('opt-row-' + i); if (ce) ce.style.background = 'rgba(96,165,250,0.14)';
-  _renderRobustGridCells(); // refresh grid selection outline if grid open
   _rankPickBusy = true;
   const _st = $('opt-sel-status');
   if (_st) _st.textContent = '\u27f3 simulating selection\u2026';
@@ -6297,187 +6026,9 @@ async function optSelectRow(i) {
   }
 }
 
-// v5.15.2 — robust grid: 2D sweep surface, tap a cell to select it.
-// Color = core yield; ⚠ dot = no pure Δ-stop (co-fire-only or stop-off);
-// ★ raw winner · ★R robust winner · blue outline = current selection.
-// Plateaus read as constant-color runs; cliffs as abrupt color breaks.
-function toggleRobustGrid() {
-  const w = $('robust-grid-wrap');
-  const btn = $('robust-grid-btn');
-  if (!w) return;
-  if (w.style.display === 'none') {
-    w.style.display = 'block'; _renderRobustGridCells();
-    if (btn) btn.textContent = '\u229e Close Grid';
-  } else {
-    w.style.display = 'none';
-    if (btn) btn.textContent = '\u229e Open Grid';
-  }
-}
 
-function _renderRobustGridCells() {
-  const w = $('robust-grid-wrap');
-  if (!w || w.style.display === 'none') return;
-  if (!_rrAxesG || Object.keys(_rrAxesG).length !== 2 || !_optDisplayRows) { w.innerHTML = ''; return; }
-  const [a1, a2] = Object.keys(_rrAxesG);           // a1 = rows, a2 = cols
-  const v1 = _rrAxesG[a1], v2 = _rrAxesG[a2];
-  const byCell = new Map(); const idxByCell = new Map();
-  _optDisplayRows.forEach((r, i) => { const k = r[a1] + '|' + r[a2]; byCell.set(k, r); idxByCell.set(k, i); });
-  const ylds = _optDisplayRows.map(r => r.yld);
-  const lo = Math.min(...ylds), hi = Math.max(...ylds);
-  const col = y => {
-    if (y === null || y === undefined) return 'var(--surface2)';
-    const t = hi === lo ? 0.5 : (y - lo) / (hi - lo);
-    return 'hsl(' + Math.round(t * 120) + ',62%,' + (22 + t * 12) + '%)';
-  };
-  const rw = _rankingRR ? _rankingRR.winner : null;
-  const bestIdx = 0; // raw winner is display row 0
-  const lbl = n => ({ decay: 'decay %', floor: 'dte d', delta: '\u0394', lookahead: 'anchor d' })[n] || n;
-  let h = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 6px;">' + lbl(a1) + ' \u2193 \u00d7 ' + lbl(a2) + ' \u2192 \u00b7 color = core yield (' + lo.toFixed(1) + '% \u2192 ' + hi.toFixed(1) + '%) \u00b7 \u26a0 = no pure \u0394stop \u00b7 gold border = raw \u2605 \u00b7 white border = robust \u2605R \u00b7 blue outline = selection \u00b7 tap a cell to select</div>';
-  h += '<table style="border-collapse:collapse;">';
-  h += '<tr><td style="font-size:8px;color:var(--muted);padding:2px 4px;"></td>' + v2.map(x =>
-    '<td style="font-family:var(--mono);font-size:8px;color:var(--muted);padding:2px 3px;text-align:center;">' + x + '</td>').join('') + '</tr>';
-  v1.forEach(r1 => {
-    h += '<tr><td style="font-family:var(--mono);font-size:8px;color:var(--muted);padding:2px 4px;text-align:right;">' + r1 + '</td>';
-    v2.forEach(r2 => {
-      const k = r1 + '|' + r2;
-      const cell = byCell.get(k); const gi = idxByCell.get(k);
-      if (!cell) { h += '<td style="width:34px;height:26px;background:var(--surface2);border:1px solid var(--bg);"></td>'; return; }
-      const isSel = gi === _optSelIdx;
-      const isRawW = gi === bestIdx;
-      const isRobW = rw && rw.row === cell;
-      const border = isRobW ? 'border:2px solid #fff;' : isRawW ? 'border:2px solid var(--yellow);' : 'border:1px solid var(--bg);';
-      h += '<td onclick="optSelectRow(' + gi + ')" title="' + cell.yld.toFixed(1) + '% \u00b7 \u0394stop ' + (cell.stopN ?? 0) + '(' + (cell.pureN ?? 0) + ')' + (isRawW ? ' \u00b7 raw winner' : '') + (isRobW ? ' \u00b7 robust winner' : '') + '" '
-        + 'style="cursor:pointer;width:40px;height:26px;text-align:center;vertical-align:middle;font-family:var(--mono);font-size:8px;'
-        + 'background:' + col(cell.yld) + ';color:#fff;' + border
-        + (isSel ? 'outline:2px solid var(--accent);outline-offset:-2px;' : '') + '">'
-        + cell.yld.toFixed(1) + ((cell.pureN ?? 0) === 0 ? '\u26a0' : '') + '</td>';
-    });
-    h += '</tr>';
-  });
-  h += '</table>';
-  w.innerHTML = h;
-}
 
-// v5.15.4 — grid read renders in its own always-visible strip above table+grid
-function renderGridRead() {
-  const w = $('grid-read-wrap');
-  if (!w) return;
-  if (!_rrAxesG || Object.keys(_rrAxesG).length !== 2 || !_optDisplayRows) { w.style.display = 'none'; w.innerHTML = ''; return; }
-  const [a1, a2] = Object.keys(_rrAxesG);
-  const v1 = _rrAxesG[a1], v2 = _rrAxesG[a2];
-  const byCell = new Map();
-  _optDisplayRows.forEach(r => byCell.set(r[a1] + '|' + r[a2], r));
-  w.innerHTML = _evalRobustGrid(v1, v2, a1, a2, null);
-  w.style.display = 'none'; // v6.0.1 — feeds Ask Claude context only
-}
 
-// v5.15.3 — coded grid read: deterministic structural evaluation of the sweep
-// surface, generated from the actual cells (no AI, no network). Facts only.
-function _evalRobustGrid(v1, v2, a1, a2, _unused) {
-  const byCell = new Map();
-  (_optDisplayRows || []).forEach(r => byCell.set(r[a1] + '|' + r[a2], r));
-  const get = (r1, r2) => byCell.get(r1 + '|' + r2) || null;
-  const nm = { decay: 'decay', delta: '\u0394', floor: 'dte', lookahead: 'anchor' };
-  const word = n => nm[n] || n;
-  const fmtP = (n, v) => (n === 'decay' ? v + '%' : n === 'floor' || n === 'lookahead' ? v + 'd' : String(v));
-  const rng = (n, lo, hi) => word(n) + (n === 'delta' ? '' : ' ') + fmtP(n, lo) + '\u2013' + fmtP(n, hi);
-  const pt = (n, v) => word(n) + (n === 'delta' ? '' : ' ') + fmtP(n, v);
-  const lines = [];
-
-  // 2. Largest coherent strong region (4-connected, yld >= 3.0)
-  const TH = 3.0, seen = new Set();
-  let best = null, _regCols = null, _regRows = null;
-  v1.forEach((r1, i) => v2.forEach((r2, j) => {
-    const k = i + ',' + j;
-    const c = get(r1, r2);
-    if (!c || c.yld < TH || seen.has(k)) return;
-    const comp = []; const q = [[i, j]]; seen.add(k);
-    while (q.length) {
-      const [x, y] = q.pop();
-      comp.push([x, y]);
-      [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].forEach(([nx, ny]) => {
-        if (nx < 0 || ny < 0 || nx >= v1.length || ny >= v2.length) return;
-        const nk = nx + ',' + ny;
-        if (seen.has(nk)) return;
-        const nc = get(v1[nx], v2[ny]);
-        if (nc && nc.yld >= TH) { seen.add(nk); q.push([nx, ny]); }
-      });
-    }
-    if (!best || comp.length > best.length) best = comp;
-  }));
-  if (best && best.length >= 2) {
-    const is1 = best.map(c => c[0]), is2 = best.map(c => c[1]);
-    _regCols = [Math.min(...is2), Math.max(...is2)]; _regRows = [Math.min(...is1), Math.max(...is1)];
-    const ys = best.map(([x, y]) => get(v1[x], v2[y]).yld);
-    // cliff check: worst cell adjacent to (outside) the region
-    const inSet = new Set(best.map(c => c.join(',')));
-    let cliff = null;
-    best.forEach(([x, y]) => [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].forEach(([nx, ny]) => {
-      if (nx < 0 || ny < 0 || nx >= v1.length || ny >= v2.length || inSet.has(nx + ',' + ny)) return;
-      const nc = get(v1[nx], v2[ny]);
-      if (nc && (cliff === null || nc.yld < cliff.y)) cliff = { y: nc.yld, p1: v1[nx], p2: v2[ny] };
-    }));
-    const pure0 = best.filter(([x, y]) => (get(v1[x], v2[y]).pureN ?? 0) === 0).length;
-    lines.push('REGION ' + rng(a1, Math.min(...is1.map(i => v1[i])), Math.max(...is1.map(i => v1[i]))) + ' \u00d7 ' +
-      rng(a2, Math.min(...is2.map(i => v2[i])), Math.max(...is2.map(i => v2[i]))) +
-      ' \u00b7 ' + Math.min(...ys).toFixed(1) + '\u2013' + Math.max(...ys).toFixed(1) + '%' +
-      ' \u00b7 ' + pure0 + '/' + best.length + ' no pure stop' +
-      (cliff && cliff.y < 1.0 ? ' \u00b7 cliff at ' + pt(a1, cliff.p1) + '/' + pt(a2, cliff.p2) : ''));
-  } else {
-    lines.push('NO REGION \u22653% \u2014 no publishable structure at this threshold');
-  }
-
-  // 1. Chaos zone: contiguous a2-columns whose adjacent-cell sign-flip rate is high
-  const JUMP = 2.0; // pp — an adjacent move this big is chaos, not structure
-  const colFlip = v2.map((r2, j) => {
-    let flips = 0, pairs = 0;
-    for (let i = 0; i < v1.length; i++) {
-      const c = get(v1[i], r2);
-      if (!c) continue;
-      const up = i > 0 ? get(v1[i - 1], r2) : null;
-      const lf = j > 0 ? get(v1[i], v2[j - 1]) : null;
-      if (up) { pairs++; if (Math.abs(c.yld - up.yld) >= JUMP) flips++; }
-      if (lf) { pairs++; if (Math.abs(c.yld - lf.yld) >= JUMP) flips++; }
-    }
-    return pairs ? flips / pairs : 0;
-  });
-  let cz0 = -1, cz1 = -1, run0 = -1;
-  for (let i = 0; i <= v2.length; i++) {
-    const hot = i < v2.length && colFlip[i] >= 0.3;
-    if (hot && run0 < 0) run0 = i;
-    if (!hot && run0 >= 0) { if (cz0 < 0 || i - run0 > cz1 - cz0) { cz0 = run0; cz1 = i; } run0 = -1; }
-  }
-  if (cz0 >= 0 && cz1 - cz0 >= 3) {
-    lines.push('CHAOS ' + rng(a2, v2[cz0], v2[cz1 - 1]) + ' \u00b7 ' +
-      Math.round(100 * colFlip.slice(cz0, cz1).reduce((x, y) => x + y, 0) / (cz1 - cz0)) + '% jumpy' +
-      (_regCols && !(cz1 - 1 < _regCols[0] || cz0 > _regCols[1])
-        ? ' \u00b7 region holds only at ' + rng(a1, v1[_regRows[0]], v1[_regRows[1]]) : ''));
-  }
-
-  // 3. Longest photocopy plateau along a2
-  let plat = null;
-  v1.forEach(r1 => {
-    let run = [], key0 = null;
-    const kf = c => c.rolls + '|' + c.yld.toFixed(1) + '|' + (c.hold ? c.hold.days.toFixed(1) : '-');
-    v2.forEach(r2 => {
-      const c = get(r1, r2);
-      const k = c ? kf(c) : null;
-      if (k && k === key0) run.push(r2);
-      else { if (run.length > (plat ? plat.run.length : 0)) plat = { r1, run: run.slice() }; run = k ? [r2] : []; key0 = k; }
-    });
-    if (run.length > (plat ? plat.run.length : 0)) plat = { r1, run: run.slice() };
-  });
-  if (plat && plat.run.length >= 5) {
-    const pc = get(plat.r1, plat.run[0]);
-    lines.push('PLATEAU ' + pt(a1, plat.r1) + ' across ' + rng(a2, plat.run[0], plat.run[plat.run.length - 1]) +
-      ' \u00b7 ' + plat.run.length + ' copies' + ((pc.pureN ?? 0) === 0 ? ' \u00b7 stop decorative' : ''));
-  }
-
-  return '<div style="font-family:var(--mono);font-size:11px;color:var(--text);margin-top:6px;line-height:1.55;">'
-    + '<div style="font-size:9px;color:var(--muted);margin-bottom:3px;">GRID READ \u00b7 computed, no AI <span onclick="toggleGridLegend()" style="cursor:pointer;border:1px solid var(--border);border-radius:50%;padding:0 5px;margin-left:6px;">?</span></div>'
-    + lines.map(l => '<div style="padding:1px 0;">' + l + '</div>').join('')
-    + '<div id="grid-legend" style="display:none;font-size:9px;color:var(--muted);margin-top:4px;">green-on-green shelf = publishable \u00b7 green-on-red = cliff/spike \u00b7 checkerboard = chaos \u00b7 constant stripe = plateau \u00b7 \u26a0 = no pure \u0394stop \u00b7 robust = median of the 8 surrounding boxes (photocopies collapsed)</div></div>';
-}
 
 // ── Optimization ───────────────────────────────────────────────────────────
 // v6.8.1 — post-OPT winner echo (Ron's S41 observation: after a sweep, NO card
@@ -6530,6 +6081,10 @@ async function runOptimization() {
   const entrycaps  = g.entrycap; // v6.4.1 — [null] when coupled
   const graces     = g.grace; // v6.8.0
   const entrydtes  = g.entrydte; // v6.8.2
+  // v7.9.0 — PREFLIGHT (SPEC one-pass optimizer §4.1). Refuses; never adapts.
+  { const _pf = _gatePreflight(g);
+    if (_pf) { logMsg('\u2717 PREFLIGHT \u2014 run refused: ' + _pf, 'err'); setProgress(0); setRunButtonState('idle'); return; } }
+  let _pfSkipped = 0; // cells with an explicit entryΔcap ≥ Δ — skipped, counted
 
   const sweepDesc = ['decay','delta','lookahead','defh','entrycap','grace'].filter(v=>_sweepVars[v]).join(' + ') || 'none'; // v6.19.2 — dte + entrydte demoted (S48) // v6.8.0/v6.14.1
   logMsg(`Running optimization — sweeping: ${sweepDesc}...`);
@@ -6562,11 +6117,13 @@ async function runOptimization() {
         + _ic.length + ' core cycles, origin ' + _ic.map(c => c.exitDate).sort()[0]
         + ', blocks ' + PR_BLOCK_LS.map(L => 'L' + L + ':' + _prIncBlocks[L].size).join(' '), 'ok');
     } else {
-      logMsg('\u26a0 paired ranker DISABLED — incumbent returned ' + ((_inc?.cycles || []).length) + ' cycles, ' + _ic.length + ' scoreable (<' + PR_MIN_BLOCKS + '). Ranking falls back to core yld.', 'err');
+      logMsg('\u2717 PREFLIGHT \u2014 incumbent returned ' + ((_inc?.cycles || []).length) + ' cycles, ' + _ic.length + ' scoreable (<' + PR_MIN_BLOCKS + '). The paired ranker has no reference.', 'err');
     }
   } catch (e) {
-    logMsg('\u26a0 paired ranker DISABLED — incumbent simulation failed: ' + e.message + '. Ranking falls back to core yld.', 'err');
+    logMsg('\u2717 PREFLIGHT \u2014 incumbent simulation failed: ' + e.message, 'err');
   }
+  // v7.9.0 — no coreYld fallback: an unhoisted incumbent refuses the run.
+  if (!_prIncBlocks) { logMsg('\u2717 PREFLIGHT \u2014 run refused: incumbent could not be hoisted', 'err'); setProgress(0); setRunButtonState('idle'); return; }
   const allResults = { grid:{}, best:null, bestYld:-Infinity, bestHead:null, rows:[] }; // v5.11.0 — bestYld is CORE yield
   decays.forEach(d=>{ allResults.grid[d]={}; floors.forEach(f=>{ allResults.grid[d][f]=null; }); });
 
@@ -6581,6 +6138,7 @@ async function runOptimization() {
             for (const entrycap of entrycaps) { // v6.4.1
             for (const grace of graces) { // v6.8.0
             for (const entrydte of entrydtes) { // v6.8.2
+            if (entrycap != null && entrycap >= delta - 1e-9) { _pfSkipped++; done++; continue; } // v7.9.0 — preflight: cap must sit below the stop
             try {
               _gaps = [];
               const r = await simulate({ ...STD, decayTrigger:decay, dteFloor:floor, deltaThreshold:delta, shares, dtePenaltyAnchor:lookahead, defHorizon:defh, entryDeltaCap:entrycap, graceDays:grace, entryDteMin:entrydte }); // v6.8.0/v6.8.2
@@ -6593,11 +6151,6 @@ async function runOptimization() {
               }
               if (yld !== null && (allResults.grid[decay][floor] === null || yld > allResults.grid[decay][floor])) {
                 allResults.grid[decay][floor] = yld;
-              }
-              if (yld !== null && yld > allResults.bestYld) {
-                allResults.bestYld  = yld;                      // v5.11.0 — core
-                allResults.bestHead = head;                     // headline of winner, reference
-                allResults.best = { decay, floor, delta, lookahead, defh, entrycap, grace, entrydte }; // v6.3.0/v6.4.1/v6.8.0/v6.8.2
               }
               // v5.15.0 — per-cell delta-stop fire count (composite reasons put delta first)
               // v5.15.1 — pureN: delta was the SOLE close reason (no '·' separator) —
@@ -6626,8 +6179,12 @@ async function runOptimization() {
 
     // (debug-toggle restore no longer needed — logDbg gates on _debugMode)
 
+    // v7.9.0 — the winner is the PAIRED-SCORE #1 (_prCmp), never the core-yield argmax.
+    { const _top = allResults.rows.filter(r => r.ps != null && r.yld !== null).sort(_prCmp)[0] || null;
+      if (_top) { allResults.best = { decay: _top.decay, floor: _top.floor, delta: _top.delta, lookahead: _top.lookahead, defh: _top.defh, entrycap: _top.entrycap, grace: _top.grace, entrydte: _top.entrydte };
+                  allResults.bestYld = _top.yld; allResults.bestHead = _top.head; allResults.bestPs = _top.ps; } }
+    if (_pfSkipped) logMsg('  preflight: ' + _pfSkipped + ' cell(s) skipped \u2014 entry\u0394cap \u2265 \u0394 (the cap must sit below the stop)', '');
     const b = allResults.best;
-    _lastOptResults = allResults; // v6.19.0 — retained for the ledger-pack capture pass
     _optParams = b ? { decayTrigger:b.decay, dteFloor:b.floor, deltaThreshold:b.delta, dtePenaltyAnchor:b.lookahead, defHorizon:b.defh ?? 0, entryDeltaCap:b.entrycap ?? null, graceDays:b.grace ?? 3, entryDteMin:b.entrydte ?? null } : { ...STD }; // v6.3.0/v6.8.7 — display merge at full estate (entryDeltaCap dormant-missing since v6.4.1)
 
     if (b) {
@@ -6636,13 +6193,13 @@ async function runOptimization() {
       const ecStr = (b.entrycap != null) ? ` / entryΔ≤${b.entrycap}` : ''; // v6.4.1
       const grStr = ((b.grace ?? 3) !== 3) ? ` / grace=${b.grace}d` : ''; // v6.8.0 — appended only when ≠ 3: OPT log byte-identical at hardcode-equivalent
       const edStr = (b.entrydte != null) ? ` / entryDTE≥${b.entrydte}d` : ''; // v6.8.2 — only when pinned
-      logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + laStr + dhStr + ecStr + grStr + edStr + ' \u2192 ' + allResults.bestYld.toFixed(1) + '% core yld' + (allResults.bestHead != null ? ' (headline ' + allResults.bestHead.toFixed(1) + '%)' : ''), 'ok');
+      logMsg('✓ Best: decay=' + b.decay + '% / dte=' + b.floor + 'd / \u0394' + b.delta + laStr + dhStr + ecStr + grStr + edStr + ' \u2192 pS ' + (allResults.bestPs >= 0 ? '+' : '') + allResults.bestPs.toFixed(3) + ' \u00b7 core ' + allResults.bestYld.toFixed(1) + '%' + (allResults.bestHead != null ? ' (headline ' + allResults.bestHead.toFixed(1) + '%)' : ''), 'ok');
       logSweepBoundaryAnalysis(allResults, decays, floors, deltas, lookaheads, defhs, entrycaps, graces, entrydtes); // v6.3.0/v6.4.1/v6.8.0/v6.14.1
       if ((b.entrydte ?? null) !== (STD.entryDteMin ?? null)) logMsg('\u26A0 entryDTE\u2265' + b.entrydte + 'd winner \u2014 entryDteMin is RESEARCH-ONLY in the publish payload this release; Publish would go live at the json value', 'err'); // v6.8.2 sharp-edge tripwire
 
       // v5.11.2 — full ranked results table in log (core only; headline stays in STD_debug)
       const _ranked = allResults.rows.slice().sort(_prCmp); // v7.5.0 — paired score, coreYld tie-break, nulls last
-      logMsg('── OPT Results (' + _ranked.length + ' evals, ranked by PAIRED SCORE vs incumbent · ' + MODEL_VERSION + (_prIncBlocks ? '' : ' — FALLBACK: core yld, incumbent unavailable') + ') ──────────', '');
+      logMsg('── OPT Results (' + _ranked.length + ' evals, ranked by PAIRED SCORE vs incumbent · ' + MODEL_VERSION + '' + ') ──────────', '');
       _ranked.forEach((r, i) => {
         const isW = r.decay === b.decay && r.floor === b.floor && r.delta === b.delta && r.lookahead === b.lookahead && (r.defh ?? 0) === (b.defh ?? 0) && (r.entrycap ?? null) === (b.entrycap ?? null) && (r.grace ?? 3) === (b.grace ?? 3) && (r.entrydte ?? null) === (b.entrydte ?? null); // v6.3.0/v6.4.1/v6.8.0/v6.8.2
         const pStr = 'decay=' + r.decay + '% / dte=' + r.floor + 'd'
@@ -6658,7 +6215,7 @@ async function runOptimization() {
         logMsg('  #' + (i + 1) + '  ' + pStr + ' \u00b7 ' + r.rolls + ' rolls \u00b7 ' + cStr + ' \u00b7 ' + hStr + ' \u00b7 \u0394stop ' + (r.stopN ?? 0) + '(' + (r.pureN ?? 0) + ')' + (isW ? '  \u2605' : ''), '');
       });
 
-      // v5.15.0 — robust ranking over swept axes (ranking layer only)
+      // swept axes of this run
       const _rrAxes = {};
       if (decays.length > 1)     _rrAxes.decay     = decays;
       if (floors.length > 1)     _rrAxes.floor     = floors;
@@ -6668,14 +6225,11 @@ async function runOptimization() {
       if (entrycaps.length > 1)  _rrAxes.entrycap  = entrycaps; // v6.4.1
       if (graces.length > 1)     _rrAxes.grace     = graces; // v6.8.0
       if (entrydtes.length > 1)  _rrAxes.entrydte  = entrydtes; // v6.8.2
-      _rankingRR = computeRobustRanking(allResults.rows, _rrAxes);
-      emitRobustRanking(_rankingRR);
-      _rrAxesG = _rrAxes; _optSelIdx = null; // v5.15.2
+      _rrAxesG = _rrAxes; _optSelIdx = null; // v5.15.2 — swept axes (nbr seed, audit opt_axes); v7.9.0 robust ranking retired
       _optArmedAxes = Object.keys(_sweepVars).filter(v => _sweepVars[v]); // v6.4.7 — armed (incl. single-value pins) for UI row labels
 
       // Store winner for publish button
       applyOptWinnerEcho(b); // v6.8.1 — swept cards show the found value (display-only; Publish untouched)
-      _pendingPublish = { decayTrigger: b.decay/100, dteFloor: b.floor, deltaThreshold: b.delta, dtePenaltyAnchor: b.lookahead, defHorizon: b.defh ?? 0, entryDeltaCap: b.entrycap ?? null, graceDays: b.grace ?? 3, optAnnYield: allResults.bestYld, decay: b.decay, floor: b.floor, delta: b.delta, lookahead: b.lookahead, defh: b.defh ?? 0, entrycap: b.entrycap ?? null }; // v6.3.0/v6.4.1
 
       // Re-run simulate() with the winning params so summary/blotter reflect
       // the optimizer's chosen configuration, not just the heatmap grid.
@@ -6693,6 +6247,7 @@ async function runOptimization() {
         /* v5.15.4 auto-analysis retired */
         setRunButtonState('ready');
       }
+      await _runGateCycle(allResults, _pfSkipped); // v7.9.0 — pack → Gate → verdict, same pass
     } else {
       logMsg('\u26a0 No qualifying results — using STD params', 'err');
       setRunButtonState('idle');
@@ -6706,58 +6261,12 @@ async function runOptimization() {
     updateParamDisplay();
 
     // v6.1.2 — cards show the SELECTION (what Publish writes); completion seeds
-    // with the raw winner, then the auto-select of the sorted top (R#1 under
-    // Robust) immediately re-writes them via optSelectRow → updateCardsFromSel.
+    // with pS #1, then the auto-select (v7.9.0: the Gate's winner when there is
+    // one) immediately re-writes them via optSelectRow → updateCardsFromSel.
     updateCardsFromSel(b);
 
     $('results-area').style.display = 'block';
     $('tab-btn-heatmap').style.display = 'block';
-    // v5.15.2/v6.4.6 — adaptive shape slot: 1 axis → Graph, 2 axes → Grid, 3+ → table only
-    const _rgb = $('robust-grid-btn');
-    const _axN = _rrAxesG ? Object.keys(_rrAxesG).length : 0;
-    _shapeMode = _axN === 1 ? 'graph' : _axN === 2 ? 'grid' : null;
-    if (_rgb) {
-      _rgb.style.display = _axN === 0 ? 'none' : 'block';
-      _rgb.disabled = (_shapeMode === null);
-      _rgb.style.opacity = _shapeMode === null ? '.45' : '1';
-      _rgb.textContent = _shapeMode === 'graph' ? '\u26f0 Open Graph' : _shapeMode === 'grid' ? '\u229e Open Grid' : 'table only (3+ axes)';
-    }
-    { const _lpw = $('lp-wrap'); if (_lpw) _lpw.style.display = (_lastOptResults && _lastOptResults.best) ? 'inline' : 'none'; } // v6.19.0 — pack export armed only when OPT results are in memory
-    const _rgw = $('robust-grid-wrap'); if (_rgw) { _rgw.style.display = 'none'; _rgw.innerHTML = ''; }
-    { const _ogw = $('opt-graph-wrap'); if (_ogw) _ogw.style.display = 'none'; } // v6.4.6
-    _graphLast = null; // v6.4.6 — rebuilt below for 1-axis runs; null keeps verdict/context multi-axis-flavored otherwise
-    if (_shapeMode === 'graph') {
-      const _gAxis = Object.keys(_rrAxesG)[0];
-      const _gCfg  = _graphAxes[_gAxis];
-      if (_gCfg) {
-        // v7.2.8 — carry the ROBUST score onto the graph rows. computeRobustRanking
-        // keeps the original row object (`row: r`), so the join is by identity, not
-        // by value: no re-derivation, no second definition of robust anywhere.
-        const _rrByRow = new Map();
-        if (_rankingRR && _rankingRR.list) for (const o of _rankingRR.list) _rrByRow.set(o.row, o);
-        const _gRows = allResults.rows.map(r => {
-          const o = _rrByRow.get(r);
-          return { v: r[_gAxis], yld: r.yld, stopN: r.stopN, pureN: r.pureN, rolls: r.rolls,
-                   robust: o ? o.robust : null, ndist: o ? o.ndist : 0, elig: o ? !!o.eligible : false };
-        }).sort((a, b) => a.v - b.v);
-        const _gYls = _gRows.map(r => r.yld);
-        const _gBest = Math.max(..._gYls.filter(y => y != null));
-        _gRows.forEach((r, i) => {
-          const Ln = i > 0 ? _gYls[i-1] : null, Rn = i < _gYls.length - 1 ? _gYls[i+1] : null;
-          r.single = r.yld != null && Ln != null && Rn != null && (r.yld - Ln >= 1.0) && (r.yld - Rn >= 1.0); // v6.5.2 — was 0.3pp: too blunt, fired on ridge-tops with real support (S37 0.73 case); an S29-class spike loses ~4pp
-          r.edgeMax = r.yld != null && r.yld === _gBest && (i === 0 || i === _gYls.length - 1);
-        });
-        let _gPub = null;
-        try {
-          _gaps = [];
-          const _rp = await simulate({ ...STD, shares: STD.shares || 600 });
-          if (_rp?.rolls?.length >= 2 && _rp.coreYld != null) _gPub = _rp.coreYld;
-        } catch(e) { logMsg('\u2717 published ref eval: ' + e.message, 'err'); }
-        logMsg('  published (' + _gCfg.pubStr(_gCfg.pub()) + ') \u00b7 ' + (_gPub == null ? 'core \u2014' : 'core ' + _gPub.toFixed(1) + '%') + '  \u2190 incumbent reference');
-        _graphLast = { axis: _gAxis, cfg: _gCfg, rows: _gRows, pubYld: _gPub, min: _gRows[0]?.v, max: _gRows[_gRows.length-1]?.v, step: _gRows.length > 1 ? +(_gRows[1].v - _gRows[0].v).toFixed(4) : 0 };
-      }
-    }
-    renderGridRead(); // v6.0.1 — computed for AI context only (not displayed; the grid says it)
     const _acb = $('ac-btn-opt'); if (_acb) _acb.style.display = 'block';
     _acHist.opt = []; _acCtx.opt = null; _acVerdictDone = false; _lastVerdict.opt = null; // v6.1.0
     const _acpv = $('ac-panel-opt');
@@ -6767,7 +6276,7 @@ async function runOptimization() {
       _acpv.innerHTML = '<div style="font-size:11px;color:var(--muted);">🤖 Ask Claude · verdict + chat on this sweep — press the Ask Claude button to start (API call only on demand)</div>';
       _acpv.style.display = 'block';
     }
-    if (_optSelIdx !== null) optSelectRow(_optSelIdx); // v6.0.1 — panels follow the sorted top (R#1 under Robust)
+    if (_optSelIdx !== null) optSelectRow(_optSelIdx); // v6.0.1 — panels follow the selection (v7.9.0: the Gate's winner, else pS #1)
     const _scb = $('tab-btn-scan'); if (_scb) _scb.style.display = 'none';
     ['scan-status', 'roll-best-summary-wrap', 'roll-table-container'].forEach(id => { const el = $(id); if (el) el.innerHTML = ''; });
     showTab('heatmap');
@@ -6782,7 +6291,6 @@ async function runOptimization() {
   }
 }
 
-// ── v6.19.0 — Ledger Pack Export (capture pass) ────────────────────────────
 // The OPT loop retains per-cell SUMMARIES only; the calendar-block bootstrap
 // needs per-cycle ledgers. This module re-simulates a chosen handful of cells
 // with full cycle records retained (the winner-rerun pattern, generalized)
@@ -6864,6 +6372,212 @@ function _prCmp(x, y) {
   return (y.yld ?? -Infinity) - (x.yld ?? -Infinity);
 }
 
+// ══ v7.9.0 — ONE-PASS GATE CYCLE (SPEC one-pass optimizer §4) ═══════════════
+const GATE_PACK_K = 8; // D1 (Ron, S71): 8 challengers + incumbent + nbr seed
+const _gatePkey = a => a ? [a.decay, a.floor, a.delta, a.lookahead, a.defh ?? 0, a.entrycap ?? 'n', a.grace ?? 3, a.entrydte ?? 'n'].join('/') : '#STD';
+const _GATE_INC = { decay: () => STD.decayTrigger, delta: () => STD.deltaThreshold, lookahead: () => STD.dtePenaltyAnchor,
+                    defh: () => STD.defHorizon ?? 0, entrycap: () => STD.entryDeltaCap ?? null, grace: () => STD.graceDays ?? 3 };
+
+// §4.1 — returns null when clear, else the refusal text naming every failing axis.
+function _gatePreflight(g) {
+  const armed = Object.keys(_sweepVars).filter(v => _sweepVars[v]);
+  if (!armed.length) return 'no sweep axis is armed';
+  const bad = [];
+  armed.forEach(v => {
+    const arr = g[v], inc = _GATE_INC[v] ? _GATE_INC[v]() : undefined;
+    if (!arr || inc === undefined) return;
+    if (inc == null) { bad.push(v + ': the incumbent value is coupled (null) \u2014 it cannot be bracketed'); return; }
+    const i = arr.findIndex(x => x != null && Math.abs(x - inc) < 1e-9);
+    if (i < 0) bad.push(v + ': incumbent ' + inc + ' is not on the grid (' + arr[0] + '\u2013' + arr[arr.length - 1] + ')');
+    else if (arr.length < 3 || i === 0 || i === arr.length - 1) bad.push(v + ': incumbent ' + inc + ' sits on the ' + (i === 0 ? 'floor' : 'ceiling') + ' of ' + arr[0] + '\u2013' + arr[arr.length - 1] + ' \u2014 not bracketed (D4: strictly inside)');
+  });
+  return bad.length ? bad.join(' \u00b7 ') : null;
+}
+
+// §4.3–4.4 — pack by paired score, then the Gate through its own contract.
+async function _runGateCycle(R, skipped) {
+  _gateCycle = null;
+  const _gapsSave = _gaps;
+  const shares = STD.shares || 600;
+  try {
+    logMsg('\u2500\u2500 GATE CYCLE (' + MODEL_VERSION + ') \u2014 incumbent + nbr seed + top ' + GATE_PACK_K + ' by paired score \u2500\u2500', '');
+    const rowSim = r => ({ ...STD, shares, decayTrigger: r.decay, dteFloor: r.floor, deltaThreshold: r.delta, dtePenaltyAnchor: r.lookahead, defHorizon: r.defh ?? 0, entryDeltaCap: r.entrycap ?? null, graceDays: r.grace ?? 3, entryDteMin: r.entrydte ?? null });
+    const _eqv = (a, b) => (a == null && b == null) ? true : (a != null && b != null && Math.abs(a - b) < 1e-9);
+    const ranked = R.rows.filter(r => r.ps != null && r.yld !== null).sort(_prCmp);
+    const stdRow = R.rows.find(r =>
+      _eqv(r.decay, STD.decayTrigger) && _eqv(r.floor, STD.dteFloor) && _eqv(r.delta, STD.deltaThreshold) &&
+      _eqv(r.lookahead, STD.dtePenaltyAnchor) && _eqv(r.defh ?? 0, STD.defHorizon ?? 0) &&
+      _eqv(r.entrycap ?? null, STD.entryDeltaCap ?? null) && _eqv(r.grace ?? 3, STD.graceDays ?? 3)) || null;
+    const entries = [], byFp = new Map(), idByKey = new Map(), psById = new Map();
+    let considered = 0;
+    const capture = async c => {
+      considered++;
+      _gaps = [];
+      const res = await simulate(c.sim);
+      const key = _gatePkey(c.axes);
+      if (!res || !res.cycles || !res.cycles.length) { logMsg('  \u2717 ' + c.label + ' \u2014 no result, skipped', 'err'); return false; }
+      // serialize FIRST, fingerprint the SHIPPED representation (v6.19.1)
+      const cyc = res.cycles.map(cy => ({ entryDate: cy.entryDate, exitDate: cy.exitDate, expiry: cy.expiry, strike: cy.strike, pnl: +cy.pnl.toFixed(2), daysHeld: cy.daysHeld, annYld: cy.annYld != null ? +(+cy.annYld).toFixed(4) : null, reason: cy.reason, isExp: !!cy.isExp, isInitial: !!cy.isInitial, entrySPY: cy.entrySPY, exitSPY: cy.exitSPY }));
+      const fp = _fpLedger(cyc);
+      if (byFp.has(fp)) {
+        const d = byFp.get(fp); d.aliases.push(c.label); idByKey.set(key, d.id);
+        logMsg('  \u2261 ' + c.label + ' \u00b7 fp ' + fp + ' = #' + d.id + ' (same machine) \u2014 aliased, slot refilled', '');
+        return false;
+      }
+      const e = {
+        id: entries.length, label: c.label, aliases: [], fingerprint: fp,
+        params: c.axes
+          ? { decay: c.axes.decay, dteFloor: c.axes.floor, delta: c.axes.delta, anchor: c.axes.lookahead, defH: c.axes.defh ?? 0, entryCap: c.axes.entrycap ?? null, grace: c.axes.grace ?? 3, entryDteMin: c.axes.entrydte ?? null }
+          : { published: true, decay: STD.decayTrigger, dteFloor: STD.dteFloor, delta: STD.deltaThreshold, anchor: STD.dtePenaltyAnchor, defH: STD.defHorizon, entryCap: STD.entryDeltaCap, grace: STD.graceDays ?? 3, entryDteMin: STD.entryDteMin },
+        stats: { coreYld: res.coreYld ?? null, coreSum: res.coreSum ?? null, coreDays: res.coreDays ?? null, coreStart: res.coreStart ?? null, coreEnd: res.coreEnd ?? null, coreCycleCount: res.coreCycleCount ?? null, rolls: res.rolls?.length ?? 0 },
+        shares,
+        cycles: cyc
+      };
+      byFp.set(fp, e); entries.push(e); idByKey.set(key, e.id);
+      psById.set(e.id, c.axes ? (c.axes.ps ?? null) : (stdRow ? stdRow.ps ?? null : null));
+      logMsg('  #' + e.id + ' ' + c.label + ' \u00b7 fp ' + fp + ' \u00b7 ' + (c.axes && c.axes.ps != null ? 'pS ' + c.axes.ps.toFixed(3) + ' \u00b7 ' : '') + (e.stats.coreYld != null ? 'core ' + e.stats.coreYld.toFixed(1) + '%' : 'core \u2014') + ' \u00b7 ' + res.cycles.length + ' cycles', '');
+      return true;
+    };
+    // #0 — the incumbent (contract: id 0, published:true)
+    await capture({ label: 'incumbent (published)', sim: { ...STD, shares }, axes: null });
+    const seen = new Set(['#STD']); if (stdRow) seen.add(_gatePkey(stdRow));
+    if (stdRow) idByKey.set(_gatePkey(stdRow), 0); // the incumbent's own grid cell IS pack #0
+    // nbr seed — best pS within ±1 grid step of the incumbent on every swept axis
+    {
+      const ax = _rrAxesG || {}; const names = Object.keys(ax);
+      let at = {}, ok = !!stdRow && names.length > 0;
+      if (ok) names.forEach(a => { const i = ax[a].findIndex(v => _eqv(v, stdRow[a])); if (i < 0) ok = false; else at[a] = i; });
+      const near = ok ? ranked.filter(r => r !== stdRow && names.every(a => { const i = ax[a].findIndex(v => _eqv(v, r[a])); return i >= 0 && Math.abs(i - at[a]) <= 1; })) : [];
+      if (near.length) { seen.add(_gatePkey(near[0])); await capture({ label: 'nbr (incumbent \u00b11, ' + (near[0].rolls || 0) + ' rolls)', sim: rowSim(near[0]), axes: near[0] }); }
+      else logMsg('    nbr seed: no eligible \u00b11 neighbour \u2014 skipped', '');
+    }
+    // top-K by paired score, refilled until K DISTINCT machines or the list runs out
+    let picked = 0;
+    for (let i = 0; i < ranked.length && picked < GATE_PACK_K; i++) {
+      const r = ranked[i], k = _gatePkey(r);
+      if (seen.has(k)) continue; seen.add(k);
+      if (await capture({ label: 'pS #' + (i + 1) + ' (' + (r.rolls || 0) + ' rolls)', sim: rowSim(r), axes: r })) picked++;
+      setProgress(95 + Math.round(picked / GATE_PACK_K * 3));
+      await yield_();
+    }
+    if (picked < GATE_PACK_K) logMsg('  \u26a0 only ' + picked + ' distinct challenger(s) \u2014 the ranked list ran out', 'err');
+    // ranked cells that alias a captured machine map to its id (for the table's Gate column)
+    const pack = {
+      schema: 'ledger-pack/2', basis: 'market-percycle', app: APP_VERSION, model: MODEL_VERSION, generated: new Date().toISOString(),
+      dmUpdated: DM.metadata?.last_updated ?? null, dmSpyDays: DM.spy?.length ?? null, dmContracts: DM.options ? Object.keys(DM.options).length : null,
+      sweepEvals: R.rows.length, skipped: skipped || 0, considered, distinct: entries.length,
+      note: 'selection: ' + MODEL_VERSION + ' paired-score top-' + GATE_PACK_K + ' + incumbent\u00b11 seed; aliases refilled to distinct machines; incumbent is always id 0; cycles include the initial (isInitial:true) \u2014 core = non-initial closed cycles; core yield = \u03a3[pnl_i/(entrySPY_i \u00d7 shares)] \u00d7 365/coreDays (v7.2.13).',
+      entries
+    };
+    const json = JSON.stringify(pack);
+    _gateCycle = { pack, json, idByKey, psById, last: null, err: null, dm: pack.dmUpdated, evals: R.rows.length, skipped: skipped || 0 };
+    // §4.4 — the Gate, through its own contract: serialize → parse → show → gate → run
+    PK = showPack(parsePack(json)); gateP();
+    if (!PK || $('runP').disabled) {
+      _gateCycle.err = 'Gate refused the pack: ' + (PK ? ($('gateMsgP').textContent || '?') : 'parsePack error');
+      logMsg('\u2717 GATE \u2014 ' + _gateCycle.err, 'err'); return;
+    }
+    window.GATE_LAST = null;
+    logMsg('  Gate bootstrap \u2014 ' + entries.length + ' entries \u00b7 B ' + ($('nBP').value || 10000) + ' \u00b7 seed ' + ($('seedP').value || 42) + '\u2026', '');
+    setProgress(98); await yield_();
+    $('runP').click();
+    const G = window.GATE_LAST;
+    if (!G) { _gateCycle.err = 'the Gate ran but left no result (GATE_LAST empty) \u2014 needs GATE v1.5.1+'; logMsg('\u2717 GATE \u2014 ' + _gateCycle.err, 'err'); return; }
+    _gateCycle.last = G;
+    logMsg((G.winner ? '\u2713 ' : '\u25cf ') + _gateVerdictText(), G.winner ? 'ok' : '');
+    G.gv.forEach(x => logMsg('    #' + x.id + ' ' + x.label + ' \u00b7 min P(\u0394>0) ' + (x.minP * 100).toFixed(0) + '% \u00b7 min p05 ' + x.minP05.toFixed(2) + ' \u00b7 ' + (x.pass ? 'PUBLISH' : 'hold \u2014 ' + x.why), x.pass ? 'ok' : ''));
+  } catch (e) {
+    _gateCycle = Object.assign(_gateCycle || {}, { err: 'gate cycle failed: ' + e.message });
+    logMsg('\u2717 GATE CYCLE \u2014 ' + e.message, 'err'); console.error(e);
+  } finally {
+    _gaps = _gapsSave;
+  }
+}
+
+function _gateVerdictText() {
+  const c = _gateCycle;
+  if (!c) return 'no Gate cycle this session';
+  if (c.err) return 'NO VERDICT \u2014 ' + c.err;
+  const G = c.last, w = G.winner, n = G.near;
+  return w ? 'P-G1 \u2014 PUBLISH #' + w.id + ' (' + w.label + ') \u00b7 min P(\u0394>0) ' + (w.minP * 100).toFixed(0) + '% \u00b7 min p05 ' + w.minP05.toFixed(2)
+           : 'P-G1 \u2014 HOLD. No challenger clears the Gate; the published policy stands.' + (n ? ' Closest: #' + n.id + ' (' + n.label + ') \u2014 ' + n.why + '.' : '');
+}
+
+function _gateWinnerIdx(rows) {
+  const c = _gateCycle;
+  if (!c || !c.last || !c.last.winner) return null;
+  const i = rows.findIndex(r => c.idByKey.get(_gatePkey(r)) === c.last.winner.id);
+  return i >= 0 ? i : null;
+}
+
+function _gateRowTag(row) {
+  const c = _gateCycle;
+  if (!c || !c.idByKey) return { txt: '', cls: 'muted' };
+  const id = c.idByKey.get(_gatePkey(row));
+  if (id === undefined) return { txt: '', cls: 'muted' };
+  if (id === 0) return { txt: '#0 incumbent', cls: 'muted' };
+  const x = c.last ? c.last.gv.find(g => g.id === id) : null;
+  return x ? { txt: '#' + id + (x.pass ? ' PUBLISH' : ' hold'), cls: x.pass ? 'green' : 'muted' } : { txt: '#' + id, cls: 'muted' };
+}
+
+// §4.5 — the verdict card, top of the Opt Results tab.
+function _gateCardHtml() {
+  const c = _gateCycle;
+  if (!c) return '';
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const head = _gateVerdictText();
+  const col = c.err ? 'var(--red)' : c.last.winner ? 'var(--green)' : 'var(--yellow)';
+  let h = '<div style="border:1px solid ' + col + ';border-radius:6px;padding:10px 12px;margin-bottom:12px;font-family:var(--mono);font-size:10px;">'
+    + '<div style="font-size:12px;font-weight:700;color:' + col + ';margin-bottom:6px;">' + esc(head) + '</div>'
+    + '<div style="color:var(--muted);margin-bottom:6px;">DM ' + esc(c.dm || '?') + ' \u00b7 ' + c.evals + ' cells swept' + (c.skipped ? ' \u00b7 ' + c.skipped + ' skipped (entry\u0394cap \u2265 \u0394)' : '')
+    + ' \u00b7 ' + MODEL_VERSION + (c.last ? ' \u00b7 Gate ' + c.last.gate + ' \u00b7 B ' + c.last.B + ' \u00b7 seed ' + c.last.seed : '') + ' \u00b7 ' + APP_VERSION + '</div>';
+  if (c.pack) {
+    const gv = c.last ? new Map(c.last.gv.map(x => [x.id, x])) : new Map();
+    h += '<table class="opt-result-tbl"><thead><tr><th>#</th><th>entry</th><th>params</th><th>pS</th><th>core %</th><th>min P(\u0394>0)</th><th>min p05</th><th>Gate</th></tr></thead><tbody>';
+    c.pack.entries.forEach(e => {
+      const p = e.params, x = gv.get(e.id), ps = c.psById.get(e.id);
+      h += '<tr><td>' + e.id + '</td><td>' + esc(e.label) + (e.aliases.length ? ' <span class="muted">(+' + e.aliases.length + ')</span>' : '') + '</td>'
+        + '<td class="muted">' + p.decay + '% / \u0394' + p.delta + ' / anc ' + p.anchor + ' / defH ' + p.defH + ' / cap ' + (p.entryCap ?? '=\u0394') + ' / g ' + p.grace + '</td>'
+        + '<td>' + (ps == null ? '\u2014' : (ps >= 0 ? '+' : '') + ps.toFixed(3)) + '</td>'
+        + '<td>' + (e.stats.coreYld != null ? e.stats.coreYld.toFixed(1) : '\u2014') + '</td>'
+        + '<td>' + (x ? (x.minP * 100).toFixed(0) + '%' : '\u2014') + '</td>'
+        + '<td>' + (x ? x.minP05.toFixed(2) : '\u2014') + '</td>'
+        + '<td class="' + (x && x.pass ? 'green' : 'muted') + '">' + (e.id === 0 ? 'incumbent' : x ? (x.pass ? 'PUBLISH' : 'hold \u2014 ' + esc(x.why)) : '\u2014') + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    h += '<div style="margin-top:8px;color:var(--muted);">Publish: select a row and press Publish. The Gate\u2019s winner publishes as is; any other pack entry needs a typed override reason. '
+      + '<button onclick="_gateDownloadPack()" style="font-family:var(--mono);font-size:9px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:2px 8px;cursor:pointer;margin-left:6px;">\u29c9 Download pack</button></div>';
+  }
+  return h + '</div>';
+}
+
+function _gateDownloadPack() {
+  const c = _gateCycle; if (!c || !c.json) return;
+  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([c.json], { type: 'application/json' }));
+  a.download = 'ledger_pack_' + (c.dm || 'nodm') + '_' + stamp + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+// §4.5 / P5 — returns the gateRun record, or null (and says why) when publish is refused.
+function _gatePublishCheck(r) {
+  const c = _gateCycle;
+  if (!c || !c.pack) { logMsg('\u26a0 Publish refused \u2014 no Gate cycle for this sweep; run it first', 'err'); return null; }
+  const id = c.idByKey.get(_gatePkey(r));
+  if (id === undefined) { logMsg('\u26a0 Publish refused \u2014 this cell is not in the pack, so the Gate never tested it', 'err'); return null; }
+  if (id === 0) { logMsg('\u26a0 Publish refused \u2014 this is the incumbent; it is already published', 'err'); return null; }
+  const verdict = c.err ? 'NO VERDICT' : c.last.winner ? 'PUBLISH #' + c.last.winner.id : 'HOLD';
+  const rec = { model: MODEL_VERSION, gate: c.last ? c.last.gate : null, app: APP_VERSION, dm: c.dm, evals: c.evals,
+                verdict, chosen: id, override: null, at: new Date().toISOString() };
+  if (c.last && c.last.winner && c.last.winner.id === id) return rec;
+  const reason = window.prompt('The Gate said ' + verdict + '. Publishing pack #' + id + ' overrides it.\nReason (required, recorded in roll_params.json):', '');
+  if (!reason || !reason.trim()) { logMsg('\u26a0 Publish refused \u2014 an override needs a reason', 'err'); return null; }
+  rec.override = reason.trim();
+  return rec;
+}
+
 function _fpLedger(cycles) {
   // djb2 over the ledger's identifying rows — collision-safe for dedup among
   // dozens of candidates on one tape (not a cryptographic claim).
@@ -6873,140 +6587,6 @@ function _fpLedger(cycles) {
   return h.toString(16).padStart(8, '0');
 }
 
-async function exportLedgerPack() {
-  const R = _lastOptResults;
-  if (!R || !R.rows || !R.rows.length || !R.best) { logMsg('\u2717 No OPT results in memory \u2014 run an optimization first', 'err'); return; }
-  const kRaw = Math.max(0, parseInt($('lp-kraw')?.value, 10) || 0);
-  const kRob = Math.max(0, parseInt($('lp-krob')?.value, 10) || 0);
-  const btn = $('ledger-pack-btn'); if (btn) { btn.disabled = true; btn.textContent = '\u29c9 Capturing\u2026'; }
-  const _gapsSave = _gaps, _modeSave = _mode; _mode = 'optimize'; // OPT-path semantics during capture (progress writes suppressed); restored below so the Gaps tab keeps describing the winner rerun
-  try {
-    logMsg('\u2500\u2500 Ledger Pack (capture pass) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500', '');
-    const cands = [];
-    cands.push({ label: 'incumbent (published)', sim: { ...STD, shares: STD.shares || 600 }, axes: null });
-    const rowSim = r => ({ ...STD, shares: STD.shares || 600, decayTrigger: r.decay, dteFloor: r.floor, deltaThreshold: r.delta, dtePenaltyAnchor: r.lookahead, defHorizon: r.defh ?? 0, entryDeltaCap: r.entrycap ?? null, graceDays: r.grace ?? 3, entryDteMin: r.entrydte ?? null });
-    // ── v7.3.0 — STRATIFIED SELECTION ─────────────────────────
-    // Top-K by core yield returns K NEIGHBOURS OF THE FREQUENCY CORNER, not
-    // a sample of the leaderboard: core yield is monotone in decay/delta/defH,
-    // so S67's two sweeps each walked to whatever floor the grid offered and
-    // widening relocated the corner instead of bounding it. The two packs
-    // spent 5 and 9 challenger slots on ~2 hypotheses; the Gate rejected both,
-    // twice, at ~11h of sweep per verdict. Strata deal the SAME slots across
-    // roll-count bands so each band gets a representative — the corner keeps
-    // its seat, it just stops taking all of them. Selection only: adjudication
-    // still happens in the bootstrap, ratification still with the builder.
-    const LP_BANDS = [
-      { key: 'A', lo: 0,    hi: 0.85,     name: '<0.85x'     },
-      { key: 'B', lo: 0.85, hi: 1.15,     name: '0.85-1.15x' },
-      { key: 'C', lo: 1.15, hi: 1.50,     name: '1.15-1.50x' },
-      { key: 'D', lo: 1.50, hi: 2.00,     name: '1.50-2.00x' },
-      { key: 'E', lo: 2.00, hi: Infinity, name: '2.00x+'     }
-    ];
-    const _eqv = (a, b) => (a == null && b == null) ? true : (a != null && b != null && Math.abs(a - b) < 1e-9);
-    const _elig = R.rows.filter(r => r.yld !== null);
-    const stdRow = _elig.find(r =>
-      _eqv(r.decay, STD.decayTrigger) && _eqv(r.floor, STD.dteFloor) &&
-      _eqv(r.delta, STD.deltaThreshold) && _eqv(r.lookahead, STD.dtePenaltyAnchor) &&
-      _eqv(r.defh ?? 0, STD.defHorizon ?? 0) && _eqv(r.entrycap ?? null, STD.entryDeltaCap ?? null) &&
-      _eqv(r.grace ?? 3, STD.graceDays ?? 3));
-    let r0 = stdRow ? (stdRow.rolls || 0) : 0;
-    if (!r0) { const _rs = _elig.map(r => r.rolls || 0).sort((a, b) => a - b); r0 = _rs.length ? _rs[Math.floor(_rs.length / 2)] : 1; }
-    logMsg('  strata: r0 = ' + r0 + ' rolls ' + (stdRow ? '(incumbent cell found on grid)' : '⚠ (STD NOT on grid — median fallback; strata are NOT incumbent-relative)'), '');
-    const _bandOf = r => { const x = (r.rolls || 0) / r0; return LP_BANDS.find(b => x >= b.lo && x < b.hi) || LP_BANDS[LP_BANDS.length - 1]; };
-    const _buckets = new Map(LP_BANDS.map(b => [b.key, []]));
-    _elig.forEach(r => _buckets.get(_bandOf(r).key).push(r));
-    _buckets.forEach(arr => arr.sort((a, b) => b.yld - a.yld));
-    LP_BANDS.forEach(b => { const n = _buckets.get(b.key).length; logMsg('    band ' + b.key + ' ' + b.name + ': ' + n + ' cell(s)' + (n ? ' · best core ' + _buckets.get(b.key)[0].yld.toFixed(1) + '%' : ''), ''); });
-    // kRaw keeps its meaning — TOTAL raw slots — dealt round-robin across
-    // non-empty bands, so the existing default of 5 gives one per band.
-    const _order = LP_BANDS.filter(b => _buckets.get(b.key).length);
-    let _picked = 0;
-    for (let depth = 0; _picked < kRaw && _order.length; depth++) {
-      let _took = false;
-      for (const b of _order) {
-        if (_picked >= kRaw) break;
-        const arr = _buckets.get(b.key);
-        if (depth >= arr.length) continue;
-        const r = arr[depth];
-        cands.push({ label: 'raw ' + b.key + '#' + (depth + 1) + ' (' + b.name + ', ' + (r.rolls || 0) + ' rolls)', sim: rowSim(r), axes: r });
-        _picked++; _took = true;
-      }
-      if (!_took) break;
-    }
-    // Incumbent-neighbourhood seed: best cell within ±1 grid step of STD on
-    // EVERY swept axis. Makes "a modest improvement on what is actually
-    // published" representable; under top-K it entered only by coincidence
-    // (S66 pack raw #5 — 158 cycles, P(Δ>0) 86% at L91, best result to date).
-    (() => {
-      const ax = _rrAxesG || {}; const names = Object.keys(ax);
-      if (!names.length || !stdRow) return;
-      const at = {}; let ok = true;
-      names.forEach(a => { const i = ax[a].findIndex(v => _eqv(v, stdRow[a])); if (i < 0) ok = false; else at[a] = i; });
-      if (!ok) { logMsg('    nbr seed: STD value not on a swept axis — skipped', ''); return; }
-      const near = _elig.filter(r => r !== stdRow && names.every(a => {
-        const i = ax[a].findIndex(v => _eqv(v, r[a]));
-        return i >= 0 && Math.abs(i - at[a]) <= 1;
-      })).sort((a, b) => b.yld - a.yld);
-      if (!near.length) { logMsg('    nbr seed: no eligible ±1 neighbour — skipped', ''); return; }
-      cands.push({ label: 'nbr (incumbent ±1, ' + (near[0].rolls || 0) + ' rolls)', sim: rowSim(near[0]), axes: near[0] });
-    })();
-    const robList = (_rankingRR && _rankingRR.list) ? _rankingRR.list.filter(o => o.eligible) : [];
-    robList.slice(0, kRob).forEach((o, i) => cands.push({ label: 'robust R#' + (i + 1), sim: rowSim(o.row), axes: o.row }));
-    // Param-level dedup first (raw/robust overlap is common): key on the axis tuple.
-    const pkey = a => a ? [a.decay, a.floor, a.delta, a.lookahead, a.defh ?? 0, a.entrycap ?? 'n', a.grace ?? 3, a.entrydte ?? 'n'].join('/') : '#STD';
-    const byParam = new Map();
-    for (const c of cands) { const k = pkey(c.axes); if (byParam.has(k)) byParam.get(k).aliases.push(c.label); else byParam.set(k, { ...c, aliases: [] }); }
-    const toRun = [...byParam.values()];
-    const entries = []; const byFp = new Map();
-    for (const c of toRun) {
-      _gaps = [];
-      const res = await simulate(c.sim);
-      if (!res || !res.cycles || !res.cycles.length) { logMsg('  \u2717 ' + c.label + ' \u2014 no result, skipped', 'err'); continue; }
-      // v6.19.1 — serialize FIRST, fingerprint the SHIPPED representation:
-      // v6.19.0 fingerprinted full-precision pnl then stored toFixed(2);
-      // cycles landing on cents-rounding boundaries shifted Math.round by 1
-      // and the importer's recompute (on serialized values) flagged 3 of 9
-      // entries. The fp must bind to the bytes shipped, not the memory values.
-      const cyc = res.cycles.map(cy => ({ entryDate: cy.entryDate, exitDate: cy.exitDate, expiry: cy.expiry, strike: cy.strike, pnl: +cy.pnl.toFixed(2), daysHeld: cy.daysHeld, annYld: cy.annYld != null ? +(+cy.annYld).toFixed(4) : null, reason: cy.reason, isExp: !!cy.isExp, isInitial: !!cy.isInitial, entrySPY: cy.entrySPY, exitSPY: cy.exitSPY }));
-      const fp = _fpLedger(cyc);
-      if (byFp.has(fp)) { const d = byFp.get(fp); d.aliases.push(c.label); c.aliases.forEach(a => d.aliases.push(a)); logMsg('  \u2261 ' + c.label + ' \u00b7 fp ' + fp + ' duplicates ' + d.label + ' (same machine) \u2014 aliased', ''); continue; }
-      const e = {
-        id: entries.length, label: c.label, aliases: c.aliases, fingerprint: fp,
-        params: c.axes
-          ? { decay: c.axes.decay, dteFloor: c.axes.floor, delta: c.axes.delta, anchor: c.axes.lookahead, defH: c.axes.defh ?? 0, entryCap: c.axes.entrycap ?? null, grace: c.axes.grace ?? 3, entryDteMin: c.axes.entrydte ?? null }
-          : { published: true, decay: STD.decayTrigger, dteFloor: STD.dteFloor, delta: STD.deltaThreshold, anchor: STD.dtePenaltyAnchor, defH: STD.defHorizon, entryCap: STD.entryDeltaCap, grace: STD.graceDays ?? 3, entryDteMin: STD.entryDteMin },
-        stats: { coreYld: res.coreYld ?? null, coreSum: res.coreSum ?? null, coreDays: res.coreDays ?? null, coreStart: res.coreStart ?? null, coreEnd: res.coreEnd ?? null, coreCycleCount: res.coreCycleCount ?? null, rolls: res.rolls?.length ?? 0 },
-        shares: STD.shares || 600,
-        cycles: cyc // v6.19.1 — the fingerprinted array IS the shipped array
-      };
-      byFp.set(fp, e); entries.push(e);
-      logMsg('  #' + e.id + ' ' + c.label + ' \u00b7 fp ' + fp + ' \u00b7 ' + (e.stats.coreYld != null ? 'core ' + e.stats.coreYld.toFixed(1) + '%' : 'core \u2014') + ' \u00b7 ' + res.cycles.length + ' cycles', '');
-    }
-    if (!entries.length) { logMsg('\u2717 Ledger pack: nothing captured', 'err'); return; }
-    const pack = {
-      // v7.2.13 — SCHEMA BUMP. /1 carried a coreYld on the RETIRED frozen
-      // first-roll basis, ~1pp higher for the same policy. basis is explicit
-      // so the adjudicator refuses the mix by name instead of inferring it.
-      schema: 'ledger-pack/2', basis: 'market-percycle', app: APP_VERSION, generated: new Date().toISOString(),
-      dmUpdated: DM.metadata?.last_updated ?? null, dmSpyDays: DM.spy?.length ?? null, dmContracts: DM.options ? Object.keys(DM.options).length : null,
-      sweepEvals: R.rows.length, considered: cands.length, distinct: entries.length,
-      note: 'selection: v7.3.0 roll-stratified (bands 0.85/1.15/1.50/2.00 \u00d7 r0) + incumbent\u00b11 seed + robust top-K; incumbent is always id 0; cycles include the initial (isInitial:true) \u2014 core = non-initial closed cycles; core yield = \u03a3[pnl_i/(entrySPY_i \u00d7 shares)] \u00d7 365/coreDays \u2014 each cycle against the spot ITS OWN selection saw (v7.2.13). A ledger-pack/1 pack divided coreSum by SPY at the first roll, frozen; the two are NOT comparable.',
-      entries
-    };
-    const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
-    const fname = 'ledger_pack_' + (pack.dmUpdated || 'nodm') + '_' + stamp + '.json';
-    const blob = new Blob([JSON.stringify(pack)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    logMsg('\u2713 Ledger pack: considered ' + cands.length + ' \u2192 distinct ' + entries.length + ' \u00b7 ' + fname, 'ok');
-  } catch (e) {
-    logMsg('\u2717 Ledger pack export failed: ' + e.message, 'err'); console.error(e);
-  } finally {
-    _gaps = _gapsSave; _mode = _modeSave;
-    if (btn) { btn.disabled = false; btn.textContent = '\u29c9 Export Ledger Pack'; }
-  }
-}
 
 // ── v7.6.26 · ALL / YTD WINDOW (Ron, S69) ──────────────────────────────────
 // Four cards are rates or sums over cycles and window cleanly. TWO DO NOT and
@@ -7647,24 +7227,16 @@ function renderRollCandidates() {
 
 function renderOptResults(results, decays, floors, deltas, lookaheads) {
 
-  // results.rows has every combo; sort by yield descending
+  // v7.9.0 — every combo, ranked by the PAIRED SCORE (the one key); core yield is a column
   const rows = (results.rows || [])
     .filter(r => r.yld !== null)
-    .sort((a, b) => b.yld - a.yld);
+    .sort(_prCmp);
 
   const top    = rows; // v5.15.2 — full list (tap-select needs every rankable row)
   _optDisplayRows = rows;
   _optRR_args = [results, decays, floors, deltas, lookaheads]; // v6.0.0
-  let dispIdx = rows.map((_, i) => i);
-  if (_optSort === 'robust' && _rankingRR) {
-    const pos = new Map(rows.map((r, i) => [r, i]));
-    const ordered = _rankingRR.list.map(o => pos.get(o.row)).filter(i => i !== undefined);
-    const inSet = new Set(ordered);
-    dispIdx = ordered.concat(rows.map((_, i) => i).filter(i => !inSet.has(i)));
-  }
-  if (_optSelIdx === null && dispIdx.length) _optSelIdx = dispIdx[0]; // v6.0.1 — top of ACTIVE sort
-  const mByRow = new Map();
-  ((_rankingRR && _rankingRR.all) || []).forEach(o => mByRow.set(o.row, o));
+  const dispIdx = rows.map((_, i) => i);
+  if (_optSelIdx === null && dispIdx.length) { const _w = _gateWinnerIdx(rows); _optSelIdx = _w != null ? _w : 0; } // v7.9.0 — the Gate's winner, else pS #1
   // vs STD baseline: find the sweep row matching the live published params.
   // (v5.2.1 — was a legacy decay===75 check that never matched; column showed "—" always.)
   const stdRow = rows.find(r =>
@@ -7677,13 +7249,13 @@ function renderOptResults(results, decays, floors, deltas, lookaheads) {
 
   const b = results.best;
   const bestStr = b
-    ? `\u2605 Best: ExitDecay=${b.decay}% / ExitDTE=${b.floor}d / Exit\u0394${b.delta ?? STD.deltaThreshold}`
+    ? `\u2605 pS #1: ExitDecay=${b.decay}% / ExitDTE=${b.floor}d / Exit\u0394${b.delta ?? STD.deltaThreshold}`
       + ` / ${(b.defh ?? 0) > 0 ? 'defH=' + b.defh + 'd' : 'defH off'}`
       + ` / grace=${b.grace ?? 3}d`
       + ` / ${b.entrycap != null ? 'entry\u0394\u2264' + b.entrycap : 'entry\u0394 coupled'}`
       + ` / ${b.entrydte != null ? 'entryDTE\u2265' + b.entrydte + 'd' : 'entryDTE coupled'}`
       + ` / anchor=${b.lookahead ?? STD.dtePenaltyAnchor}d`
-      + ` \u2192 ${results.bestYld.toFixed(1)}% core yld`
+      + ` \u2192 pS ${results.bestPs >= 0 ? '+' : ''}${results.bestPs.toFixed(3)} \u00b7 core ${results.bestYld.toFixed(1)}%`
     : '\u26a0 No qualifying results'; // v6.8.9 — label composer #4 (banner spoke v5.13 three-param dialect; Ron's ruling: all nine, grid order, matching the rows)
 
   // Edge-of-grid check
@@ -7751,6 +7323,7 @@ function renderOptResults(results, decays, floors, deltas, lookaheads) {
   if (titleEl) titleEl.textContent = 'Regime Optimization — Ann. Yield % by ' + (sweptDims.join(' × ') || 'Params');
 
   let html = `
+    ${_gateCardHtml()}
     ${edgeWarning}
     ${dataBoundaryWarning}
     <div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
@@ -7760,35 +7333,24 @@ function renderOptResults(results, decays, floors, deltas, lookaheads) {
   if (top.length === 0) {
     html += `<div class="opt-insufficient">No qualifying results — all combos had fewer than 2 rolls.</div>`;
   } else {
-    const _tb = m => 'padding:4px 12px;font-size:9px;letter-spacing:.06em;font-family:var(--mono);border-radius:3px;cursor:pointer;border:1px solid ' + (_optSort === m ? 'var(--accent);color:var(--accent);' : 'var(--border);color:var(--muted);') + 'background:var(--surface2);';
-    html += '<div style="display:flex;gap:6px;align-items:center;margin:6px 0;">'
-      + '<button onclick="setOptSort(\'robust\')" style="' + _tb('robust') + '">Robust</button>'
-      + '<button onclick="setOptSort(\'raw\')" style="' + _tb('raw') + '">Raw</button>'
-      + '<span style="font-size:9px;color:var(--muted);">sort · robust rank is the ranking · raw is the argmax view</span></div>';
+    html += '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:6px 0;">ranked by paired score vs the incumbent (' + MODEL_VERSION + ') \u00b7 core % is shown, never ranked \u00b7 Gate = pack id and its verdict</div>';
     const _sth = 'position:sticky;top:0;background:var(--surface);z-index:1;';
     html += `<div style="max-height:480px;overflow:auto;"><table class="opt-result-tbl">
       <thead><tr>
         <th style="${_sth}">Params</th>
         <th style="${_sth}">Rolls</th>
-        <th style="${_sth}">Ann. Yield</th>
+        <th style="${_sth}">pS</th>
+        <th style="${_sth}">Core %</th>
         <th style="${_sth}">vs STD</th>
-        <th style="${_sth}">DM Edge %</th>
-        <th style="${_sth}">R#</th>
-        <th style="${_sth}">Robust</th>
-        <th style="${_sth}">n</th>
-        <th style="${_sth}">spr</th>
-        <th style="${_sth}">axMin</th>
+        <th style="${_sth}">Gate</th>
         <th style="${_sth}">\u0394stop</th>
-        <th style="${_sth}">Flags</th>
       </tr></thead><tbody>`;
 
     for (const _gi of dispIdx) {
       const row = top[_gi];
       const isBest   = b && row.decay === b.decay && row.floor === b.floor && row.delta === b.delta && row.lookahead === b.lookahead && (row.defh ?? 0) === (b.defh ?? 0) && (row.entrycap ?? null) === (b.entrycap ?? null) && (row.grace ?? 3) === (b.grace ?? 3) && (row.entrydte ?? null) === (b.entrydte ?? null); // v6.4.9 missed reader #10 // v6.8.5 — missed reader #13: same defect, grace/otm/entrydte era (every row starred on the S41 grace sweep)
-      const m = mByRow.get(row) || null;
-      const isRW = _rankingRR && _rankingRR.winner && m === _rankingRR.winner;
-      const emph = (_optSort === 'robust' && _rankingRR && _rankingRR.winner) ? isRW : isBest; // v6.0.2 — emphasis follows sort
-      const flags = m ? _rankFlags(m) : '';
+      const emph = isBest; // v7.9.0 — one key, one emphasis
+      const gTag = _gateRowTag(row);
       const vsDelta  = stdYld !== null ? row.yld - stdYld : null;
       const vsStr    = vsDelta !== null ? (vsDelta >= 0 ? '+' : '') + vsDelta.toFixed(1) + '%' : '\u2014';
       const vsClass  = vsDelta === null ? 'muted' : vsDelta >= 0 ? 'green' : 'red';
@@ -7820,29 +7382,18 @@ function renderOptResults(results, decays, floors, deltas, lookaheads) {
         return _axFmt[a](row[_axField[a]]) + (armed ? '<span style="color:var(--green);">\u2605</span>' : '');
       }).join(' / ');
       const winFlag  = isBest ? ' <span style="color:var(--green);font-size:9px;">\u2605</span>' : '';
-      const edgeStr  = row.edgeRatio !== null && row.edgeRatio !== undefined
-        ? (row.edgeRatio*100).toFixed(0) + '%'
-        : '\u2014';
-      const edgeClass = row.edgeRatio === null || row.edgeRatio === undefined ? 'muted'
-        : row.edgeRatio >= 0.3 ? 'red' : row.edgeRatio >= 0.15 ? 'yellow' : 'green';
 
       html += `<tr id="opt-row-${_gi}" onclick="optSelectRow(${_gi})" class="${emph ? 'opt-best' : ''}" style="cursor:pointer;${_gi === _optSelIdx ? 'background:rgba(96,165,250,0.14);' : ''}">
-        <td style="color:var(--text);">${paramStr}${winFlag}${isRW ? ' <span style="color:var(--accent);font-size:9px;">\u2605R</span>' : ''}</td>
+        <td style="color:var(--text);">${paramStr}${winFlag}</td>
         <td class="muted">${row.rolls}</td>
+        <td class="${row.ps == null ? 'muted' : row.ps >= 0 ? 'green' : 'red'}">${row.ps == null ? '\u2014' : (row.ps >= 0 ? '+' : '') + row.ps.toFixed(3)}</td>
         <td class="${yldClass}">${row.yld.toFixed(1)}%</td>
         <td class="${vsClass}">${vsStr}</td>
-        <td class="${edgeClass}">${edgeStr}</td>
-        <td class="muted">${m && m.robustRank ? m.robustRank : '\u2014'}</td>
-        <td class="green">${m && m.robust !== null ? m.robust.toFixed(2) + '%' : '\u2014'}</td>
-        <td class="${m && m.ndist < 4 ? 'yellow' : 'muted'}">${m ? m.ndist : '\u2014'}</td>
-        <td class="muted">${m && m.spread !== null ? m.spread.toFixed(1) : '\u2014'}</td>
-        <td class="muted">${m && m.axisMin !== null ? m.axisMin.toFixed(1) + '%' : '\u2014'}</td>
+        <td class="${gTag.cls}">${gTag.txt}</td>
         <td class="${(row.pureN ?? 0) === 0 ? 'red' : 'muted'}">${row.stopN ?? 0}(${row.pureN ?? 0})</td>
-        <td class="yellow" style="font-size:9px;">${flags}</td>
       </tr>`;
     }
     html += `</tbody></table></div>`;
-    html += `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px;">DM Edge % only computed for the winning candidate (lazy check, too costly per-eval on large sweeps) — shown as \u2014 for others.</div>`;
   }
 
   $('heatmap-container').innerHTML = `<div style="padding:16px;">${html}</div>`;
@@ -8164,27 +7715,12 @@ async function loadData() {
     setRunButtonState('idle', { dmReady: true });
     await loadRollParams(); // reload to ensure STD is fully synced after DM available
     if (!_evalRan) { _evalRan = true; runEval(); } // v7.6.28 — §2 eval-on-load: the ONE path where the DM resolved; fires once by construction
-    // Restore sweep ranges from localStorage (persisted from last session)
-    try {
-      const saved = localStorage.getItem('sweepConfig');
-      if (saved) {
-        const cfg = JSON.parse(saved);
-        for (const [v, r] of Object.entries(cfg)) {
-          if (!_sweepConfig[v]) continue;
-          _sweepConfig[v] = { min: r.min, max: r.max, step: r.step };
-          const minEl  = $('vmin-'  + v);
-          const maxEl  = $('vmax-'  + v);
-          const stepEl = $('vstep-' + v);
-          if (minEl)  minEl.value  = r.min;
-          if (maxEl)  maxEl.value  = r.max;
-          if (stepEl) stepEl.value = r.step;
-        }
-      }
-    } catch(e) {}
+    try { localStorage.removeItem('sweepConfig'); } catch (e) {} // v7.9.0 — retire the stale saved ranges
+    _centreSweepConfig(); // v7.9.0 — D5: ranges centre on the incumbent
     // v6.4.11 — v6.0.3 "OPT-first startup" RETIRED by explicit user decision
     // (S37): the auto-armed decay×delta grid made every load open in OPT mode
     // with multiple armed fields. Load now lands in STD; sweeps arm only by
-    // card tap. Saved sweep ranges above still restore into the inputs.
+    // card tap. Sweep ranges centre on the incumbent (v7.9.0).
     populateInitDates();
     refreshBannerQuotes(); // v6.4.11 — fire-and-forget: banner flips DM† → live without a scan
     try { renderJsonFootnote(_lastRawParams); } catch(e) {} // v6.30.3 — re-render: DM now loaded, 3m reference fills in
@@ -10635,7 +10171,7 @@ async function writeAuditRecords(tradeId, info) {
   const openRows = (!_entryMode && await writeAuditClose(_tradeCloseReason, info.prior, info.cover, info.contracts)) ? [1] : [];
   // 2) insert the new cycle's snapshot
   const rowObj = r => ({ decay: r.decay, delta: r.delta, floor: r.floor, anchor: r.lookahead, defh: r.defh ?? 0, ecap: r.entrycap ?? null, // v6.3.2/v6.4.1
-    rolls: r.rolls, core: +r.yld.toFixed(2), dstop: r.stopN ?? 0, pure: r.pureN ?? 0 });
+    rolls: r.rolls, core: +r.yld.toFixed(2), ps: r.ps != null ? +r.ps.toFixed(4) : null, dstop: r.stopN ?? 0, pure: r.pureN ?? 0 });
   let preds = { hold: null, credit: null };
   try {
     if (typeof lastResult === 'object' && lastResult && lastResult.rolls) {
@@ -10652,11 +10188,6 @@ async function writeAuditRecords(tradeId, info) {
       ? Object.fromEntries(Object.entries(_rrAxesG).map(([a, v]) => [a, { min: v[0], max: v[v.length - 1], n: v.length }])) : null,
     opt_evals: _optDisplayRows ? _optDisplayRows.length : null,
     published_params: info.payload,
-    robust_topk: (typeof _rankingRR === 'object' && _rankingRR && _rankingRR.list)
-      ? _rankingRR.list.slice(0, 10).map(o => ({ r: o.robustRank, raw: o.rawRank, ...rowObj(o.row),
-          robust: +o.robust.toFixed(2), n: o.ndist, spread: +o.spread.toFixed(1),
-          axmin: o.axisMin != null ? +o.axisMin.toFixed(1) : null,
-          flags: (typeof _rankFlags === 'function' && _rankFlags(o)) || '' })) : null,
     raw_topk: _optDisplayRows ? _optDisplayRows.slice(0, 5).map((r, i) => ({ rank: i + 1, ...rowObj(r) })) : null,
     scan_ts: _scanCtxData ? _scanCtxData.ts : null,
     scan_topk: _scanCtxData ? _scanCtxData.top : null,
