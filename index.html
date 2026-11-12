@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.8.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.8.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -906,7 +906,12 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.8.2';
+const APP_VERSION = 'v7.8.3';
+// v7.8.3 (S71, Ron) — RELEASE A of SPEC one-pass optimizer: GATE v1.5.1 only.
+// The Gate's run handler now leaves its verdict in window.GATE_LAST (read-only;
+// nothing rendered changes). The sim, the ranker and MODEL_VERSION are
+// untouched — the Gate is released alone, per the standing rule. Base v7.8.2
+// (82648c3d).
 // v7.8.2 (S71, Ron) — §6.11 UTC IN THE SCAN REPRICE PATH. _tradeAnchoredReprice
 // built its same-day minute-bar range from toISOString(), a UTC date, which
 // rolls at 7 PM ET in winter (8 PM in summer). After that a scan asked Polygon
@@ -10936,7 +10941,7 @@ async function confirmManualEntry() {
 // collision ($, byte-identical semantics) — all verified before the splice.
 
 "use strict";
-const GATE_VERSION='v1.5.0'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
+const GATE_VERSION='v1.5.1'; // v1.2.3 — SINGLE VERSION WRITER (v6.3.0 pattern): feeds the H1 badge and every report header; the changelog comment below stays manual by nature (it IS the entry)
 document.addEventListener('DOMContentLoaded',()=>{const e=document.getElementById('bs-ver');if(e)e.textContent=GATE_VERSION;});
 /* Cycle-Ledger Bootstrap v1.4.0 — S66
    v1.4.0 (S66): LEDGER-PACK/2 ONLY. Backtester v7.2.13 retired the frozen
@@ -11475,6 +11480,12 @@ $('runP').onclick=()=>{
     +x.minP05.toFixed(2).padStart(6)+'   '+(x.pass?'PUBLISH':'hold \u2014 '+x.why)));
   rep.push('');vTxt.forEach(v=>rep.push(v));rep.push('',mth);
   reportTxtP=rep.join('\n')+'\n';
+  // v1.5.1 (S71, Ron) — READ-ONLY EXPOSURE for the one-pass optimizer (SPEC
+  // one-pass optimizer §3). Values this handler already computed; nothing it
+  // renders changes. Released alone: the Gate is never edited in the same
+  // release as the ranker.
+  window.GATE_LAST={gate:GATE_VERSION,B,seed,winner,gv,near,stab,
+    dmUpdated:j.dmUpdated,app:j.app,at:new Date().toISOString()};
   const fn='bootstrap_pack_'+etStamp(new Date(),true)+'.txt';
   $('dlP').onclick=()=>{
     const blob=new Blob([reportTxtP],{type:'text/plain'});
