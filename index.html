@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -819,7 +819,15 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.9.2';
+const APP_VERSION = 'v7.9.3';
+// v7.9.3 (S71, Ron) — COVERED CALL RETURN WINDOWS ON YTD. v7.6.26 kept it
+// all-time as "an equity path", but the card is an ENDPOINT formula — (SPY gain
+// + roll credit) / starting value, annualised — so it windows exactly: SPY from
+// the prior year's last close to the last YTD exit, plus the YTD core credit
+// (the same set the YTD Core Roll Credit card sums), over SPY × shares at that
+// base, annualised over base → last exit. "vs SPY" rebases on the same window.
+// Max Drawdown stays all-time: it IS path-dependent. Display only — no sim,
+// MODEL_VERSION or Gate change. Base v7.9.2 (dabafa3d).
 // v7.9.2 (S71, Ron) — PREFLIGHT ON THE EFFECTIVE AXIS + LEGACY CLEANUP. (1) The
 // bracketing check now runs on the cells that ACTUALLY run, after the cap rule:
 // a sweep with entryΔcap pinned at 0.69 skips every Δ ≤ 0.69, so v7.9.0 passed
@@ -6266,6 +6274,17 @@ function _summaryYTD(r) {
     coreYld: (scored.length && shares > 0)
       ? scored.reduce((s, c) => s + c.pnl / (c.entrySPY * shares), 0) * (365 / days) * 100 : null,
     winRate: win.filter(c => (c.pnl || 0) > 0).length / win.length * 100,
+    ...(() => { // v7.9.3 — Covered Call Return on the window: the ALL formula, rebased
+      const eq = (r.equity || []).filter(e => e && e.date && e.spy > 0);
+      const base = eq.filter(e => e.date < start).pop() || eq.find(e => e.date >= start) || null; // prior year's last close
+      const last = eq.filter(e => e.date <= end).pop() || null;
+      if (!base || !last || !(shares > 0)) return { ccRet: null, ccSpyRet: null, ccBase: null };
+      const d = Math.max(1, Math.round((new Date(last.date + 'T00:00:00') - new Date(base.date + 'T00:00:00')) / 86400000));
+      const credit = win.reduce((s, c) => s + (c.pnl || 0), 0);
+      const tot = ((last.spy - base.spy) * shares + credit) / (base.spy * shares);
+      return { ccRet: (Math.pow(1 + tot, 365 / d) - 1) * 100,
+               ccSpyRet: (Math.pow(last.spy / base.spy, 365 / d) - 1) * 100, ccBase: base.date };
+    })(),
     freqYr:  win.length / days * 365,
     held: held.length ? held.reduce((s, c) => s + c.daysHeld, 0) / held.length : null
   };
@@ -6331,7 +6350,7 @@ function renderSummary(r) {
     <div class="stat-card"><div class="stat-label">Core Roll Yield</div><div class="stat-value ${(_yld??0)>=0?'green':'red'}">${_yld!=null?fmt(_yld,1)+'%':'n/a'}</div><div class="stat-sub">${_yldSub}</div></div>
     <div class="stat-card"><div class="stat-label">Core Roll Credit</div><div class="stat-value ${(_sum??0)>=0?'green':'red'}">${_sum!=null?fmtD(_sum):'n/a'}</div><div class="stat-sub">${_sumSub}</div></div>
     <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${_wr>=70?'green':'yellow'}">${fmt(_wr,0)}%</div><div class="stat-sub">Positive P&L · ${_tag}</div></div>
-    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${r.covRet>=0?'green':'red'}">${fmt(r.covRet,1)}%</div><div class="stat-sub">Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.${_isY?' · <span style="color:var(--yellow);">all time — equity path</span>':''}</div></div>
+    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet)>=0?'green':'red'}">${fmt(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet,1)}%</div><div class="stat-sub">${_isY && _ytd.ccRet!=null ? `Ann. · vs SPY ${fmt(_ytd.ccSpyRet,1)}% ann. · ${_tag} · from ${_ytd.ccBase}` : `Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.`}</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(r.maxDD,1)}%</div><div class="stat-sub">Premium equity${_isY?' · <span style="color:var(--yellow);">all time — path-dependent</span>':''}</div></div>
     <div class="stat-card"><div class="stat-label">Roll Frequency</div><div class="stat-value accent">${_frqY!=null?fmt(_frqY,0)+' /yr':_freq.yr}</div><div class="stat-sub">${_isY?`${_ytd.n} core in ${_ytd.days}d`+(_ytd.held!=null?` · ${fmt(_ytd.held,1)}d held`:''):_freq.sub}</div></div>
   `;
