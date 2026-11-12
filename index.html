@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.5</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -819,7 +819,18 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.9.4';
+const APP_VERSION = 'v7.9.5';
+// v7.9.5 (S71, Ron) — CONFORMANCE SHOWS THE SIM'S OPEN POSITION + LEANER CARDS.
+// (1) The Conformance grid listed only CLOSED sim cycles; the sim's open position
+// surfaced as a footnote, and only when the sim had FEWER closed cycles than
+// live (i === sc.length was unreachable at 15 sim / 13 live) — so the $755C
+// 04-30-27 opened 2026-11-09 vanished. It now rides as a sim-sell row on its
+// entry date, tagged "open", the same way live's open position already shows.
+// The held footnote stays only for "no sim cycle closed at all". (2) Summary
+// card sub-lines drop the time-frame text (YTD 2026 · n=… / from <base> /
+// all time): the window and cycle count already print beside the ALL/YTD
+// toggle. Supersedes the S69 "n on every card" rule. Display only — no sim,
+// MODEL_VERSION or Gate change. Base v7.9.4 (d5b3fb07).
 // v7.9.4 (S71, Ron) — MAX DRAWDOWN WINDOWS ON YTD + CONFORMANCE NEWEST FIRST.
 // (1) On YTD the Max Drawdown card shows the year's own drawdown: the peak resets
 // at the prior year's last close (the same base Covered Call Return uses), and
@@ -3211,7 +3222,8 @@ async function runConformance() {
       const n = Math.max(live.length, sc.length);
       // simulate() returns null when NO cycle closed: with the three pin checks
       // already passed, that is "still holding at DM end", not an error.
-      for (let i = 0; i < n; i++) results.push({ live: live[i] || null, sim: sc[i] || null, err: null, note: (i === 0 && r) ? r.pinNote : null, held: (!r && i === 0) || (i === sc.length && !!(r && r.pendingContract)) });
+      results.simOpen = (r && r.pendingContract && r.pendingContract.entryDate) ? r.pendingContract : null; // v7.9.5
+      for (let i = 0; i < n; i++) results.push({ live: live[i] || null, sim: sc[i] || null, err: null, note: (i === 0 && r) ? r.pinNote : null, held: (!r && i === 0) });
     }
   } catch (e) {
     logMsg('\u2717 Conformance: ' + e.message, 'err');
@@ -3297,6 +3309,10 @@ function _confRender(results) {
       if (!same && S.firstDiv == null) S.firstDiv = { row: i + 1, why: 'different contract (sim ' + _confContract(C.strike, C.expiry) + ' vs live ' + _confContract(L.strike, L.expiry) + ')' };
     }
   });
+  if (results.simOpen) { // v7.9.5 — the sim's open position, as a sim-sell row on its entry date
+    const O = results.simOpen;
+    at(O.entryDate).ss.push({ c: _confContract(O.strike, O.expiry) + ' open', px: O.entryPx, tag: '', prior: O.entryDate < POLICY_REGIME_2 });
+  }
   // ── date axis: every DM trading day from the start, plus any event date outside it ──
   const lastDm = DM.spy[DM.spy.length - 1].date;
   const dates = new Set(DM.spy.filter(r => r.date >= _confStart).map(r => r.date));
@@ -6352,24 +6368,24 @@ function renderSummary(r) {
   const _dd = (_isY && _ytd.ddY != null) ? _ytd.ddY : r.maxDD;   // v7.9.4 — windows on YTD
   const ddClass = _dd>20?'red':_dd>10?'yellow':'green';
   // v7.6.26 — values + sub-lines per window. n rides on every windowed card.
-  const _tag  = _isY ? `YTD ${_ytd.year} · n=${_ytd.n}` : 'all time';
   const _yld  = _isY ? _ytd.coreYld : r.coreYld;
   const _sum  = _isY ? _ytd.coreSum : r.coreSum;
   const _wr   = _isY ? _ytd.winRate : r.winRate;
   const _mean = _isY && _ytd.n ? _ytd.coreSum / _ytd.n
               : (r.coreSum != null && r.coreCycleCount) ? r.coreSum / r.coreCycleCount : null;
+  // v7.9.5 — no time-frame text on the cards: the window + n print beside the toggle
   const _yldSub = _isY
-    ? `Ann. · ${_tag}${_ytd.dropped ? ' · ' + _ytd.dropped + ' no entrySPY' : ''}`
+    ? `Ann.${_ytd.dropped ? ' · ' + _ytd.dropped + ' no entrySPY' : ''}`
     : 'Ann. core rolls · excl. initial + open MTM';
-  const _sumSub = `${_isY ? _tag : 'Closed core rolls only'}`
+  const _sumSub = `${_isY ? 'Closed core rolls' : 'Closed core rolls only'}`
     + (_mean != null ? ` · mean ${_mean >= 0 ? '+' : '-'}$${Math.abs(Math.round(_mean)).toLocaleString()}/cycle` : '');
   const _frqY = _isY ? _ytd.freqYr : null;
   $('summary-grid').innerHTML = `
     <div class="stat-card"><div class="stat-label">Core Roll Yield</div><div class="stat-value ${(_yld??0)>=0?'green':'red'}">${_yld!=null?fmt(_yld,1)+'%':'n/a'}</div><div class="stat-sub">${_yldSub}</div></div>
     <div class="stat-card"><div class="stat-label">Core Roll Credit</div><div class="stat-value ${(_sum??0)>=0?'green':'red'}">${_sum!=null?fmtD(_sum):'n/a'}</div><div class="stat-sub">${_sumSub}</div></div>
-    <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${_wr>=70?'green':'yellow'}">${fmt(_wr,0)}%</div><div class="stat-sub">Positive P&L · ${_tag}</div></div>
-    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet)>=0?'green':'red'}">${fmt(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet,1)}%</div><div class="stat-sub">${_isY && _ytd.ccRet!=null ? `Ann. · vs SPY ${fmt(_ytd.ccSpyRet,1)}% ann. · ${_tag} · from ${_ytd.ccBase}` : `Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.`}</div></div>
-    <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(_dd,1)}%</div><div class="stat-sub">Premium equity${_isY && _ytd.ddY!=null ? ` · ${_tag} · from ${_ytd.ccBase}` : ''}</div></div>
+    <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${_wr>=70?'green':'yellow'}">${fmt(_wr,0)}%</div><div class="stat-sub">Positive P&L</div></div>
+    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet)>=0?'green':'red'}">${fmt(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet,1)}%</div><div class="stat-sub">${_isY && _ytd.ccRet!=null ? `Ann. · vs SPY ${fmt(_ytd.ccSpyRet,1)}% ann.` : `Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.`}</div></div>
+    <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(_dd,1)}%</div><div class="stat-sub">Premium equity</div></div>
     <div class="stat-card"><div class="stat-label">Roll Frequency</div><div class="stat-value accent">${_frqY!=null?fmt(_frqY,0)+' /yr':_freq.yr}</div><div class="stat-sub">${_isY?`${_ytd.n} core in ${_ytd.days}d`+(_ytd.held!=null?` · ${fmt(_ytd.held,1)}d held`:''):_freq.sub}</div></div>
   `;
 }
