@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.7.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.8.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -906,7 +906,15 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.7.4';
+const APP_VERSION = 'v7.8.0';
+// v7.8.0 (S70, Ron) — CYCLES FROM LEGS (SPEC cycles from legs). Every reader
+// (blotter, Conformance, eval, Roll Economics, Performance, Cover Only, import
+// gate 3) takes cycles from _legsToCycles via _liveBook; the synthetic tickets
+// (_activityToTrades) and the second pairing (_pairLiveCycles) are removed.
+// Assignments, ruling (b): close price = intrinsic at the expiry close, so P&L =
+// premium − intrinsic; receipts to Logs. TICKETS = the raw activity rows. Bought
+// protection renders as protection. Credit curve = the day's net option cash.
+// No MODEL_VERSION change, Gate untouched. Base v7.7.4 (5a8038b8).
 // v7.7.4 (S70, Ron) — STATEMENT UPLOAD, ONE PATH (SPEC statement upload):
 // ⬆ Upload statement → summary (every gate, every ticket correction, a cash-walk
 // PREVIEW; nothing written) → ✓ Confirm import → post-import cash tie and cost
@@ -2165,7 +2173,7 @@ function _ledgerCashWalk(ledger) { // → { open, sum, close, resid, firstIso, l
 // construction. Anything the ledger does not carry (a T-bill before its
 // redemption) is NOT in this number — the composition is printed so a
 // statement tie-out can say so.
-function _ledgerBalanceAt(d, ledger, trades) { // v7.6.16 — ledger = normalized live_legs rows; trades = blotter (open calls)
+function _ledgerBalanceAt(d, ledger, trades) { // v7.6.16 — ledger = normalized live_legs rows; v7.8.0 — trades = the raw activity rows (open calls via _liveBook)
   const iso = t => t.iso;
   const imp = ledger.filter(t => t.iso <= d);
   if (!imp.length) return { err: 'no statement row on or before ' + d };
@@ -2175,7 +2183,7 @@ function _ledgerBalanceAt(d, ledger, trades) { // v7.6.16 — ledger = normalize
     .reduce((s, t) => s + Number(t.quantity), 0);
   const spyRow = (DM && DM.spy) ? DM.spy.filter(r => r.date <= d).pop() : null;
   if (!spyRow) return { err: 'no DM SPY close on or before ' + d };
-  const { cycles, open, toIso } = _pairLiveCycles(trades);
+  const { cycles, open, toIso } = _liveBook(trades);
   const openAt = [...cycles, ...open].filter(c => !c.orphan && c.openDate && c.sellPrice != null && toIso(c.openDate) <= d && (c.closeDate == null || toIso(c.closeDate) > d));
   let optMark = 0; const legs = [];
   for (const c of openAt) {
@@ -2247,7 +2255,7 @@ async function _cwinHtml() {
   // (strike|expiry key, most-recent-open match, expired→0, orphans kept).
   // One pairing implementation, not two.
   let trades, ledger;
-  try { const [t, legs] = await Promise.all([sbGetLiveTrades(), sbGetLiveLegs()]); trades = t; ledger = _legsLedger(legs); } // v7.6.16 — live_legs is the ledger
+  try { const [t, legs] = await Promise.all([sbGetActivity(), sbGetLiveLegs()]); trades = t; ledger = _legsLedger(legs); } // v7.6.16 — live_legs is the ledger
   catch (e) { return '<div style="color:var(--red);">\u2717 ' + e.message + '</div>'; }
   if (!ledger.length) return '<div style="color:var(--red);">\u2717 live_legs has no statement rows \u2014 run the statement import</div>';
 
@@ -2299,7 +2307,7 @@ async function _cwinHtml() {
   const pf = v => v != null ? v.toFixed(1) + '%' : 'n/a';
 
   // ── LIVE, trade basis ────────────────────────────────────────────────────
-  const { cycles: liveCyc, toIso } = _pairLiveCycles(trades); // v7.1.0 — open list dropped with its sub-line
+  const _bk = _liveBook(trades); const { cycles: liveCyc, toIso } = _bk; _logAssignments(_bk); // v7.8.0 — one assembler; ruling-(b) receipts // v7.1.0 — open list dropped with its sub-line
   // v6.34.5 — UNPINNED: every cycle closed on or after the program start. The
   // old ceiling (<= L.d) is kept only as a subtotal, because the SPY residual
   // must net CC over the SAME window as the balances it is derived from.
@@ -2356,8 +2364,8 @@ async function _cwinHtml() {
   let simN = null, simWin = 0, simCC = 0, simLast = null, simFirst = null;
   const simPool = { decay: [], delta: [] };
   if (typeof lastResult === 'object' && lastResult && lastResult.cycles && lastResult.cycles.length) {
-    const szTix = trades.filter(t => t.source !== 'csv_import' && t.sellContracts != null)
-      .map(t => ({ d: _wfIsoD(t.trade_date), n: Number(t.sellContracts) }))
+    const szTix = trades.filter(r => r.cls === 'opt_sell_open' && String(r.underlying || '').trim() === 'SPY') // v7.8.0 — sells, from the activity rows
+      .map(r => ({ d: String(r.trade_date).slice(0, 10), n: Math.abs(Number(r.quantity)) }))
       .filter(x => x.d).sort((a, b) => a.d < b.d ? -1 : 1);
     const liveSize = d => { let n = 1; for (const x of szTix) { if (x.d <= d) n = x.n; else break; } return n; };
     simN = 0;
@@ -2682,8 +2690,8 @@ function _confPinCheck(pin) {
 }
 
 async function _confLoadLive() {
-  const trades = await sbGetLiveTrades();
-  const { cycles, open, toIso } = _pairLiveCycles(trades);
+  const trades = await sbGetActivity();
+  const { cycles, open, toIso } = _liveBook(trades);
   const rows = [];
   const skipped = [];
   cycles.forEach(c => {
@@ -7133,16 +7141,20 @@ async function renderCreditCurve() {
   // x-axis ran /26 before /25). Normalize to ISO for sort + labels (same converter
   // as the blotter's _isoD, which is function-scoped there).
   const iso = d => { const m = (d || '').match(/^(\d{2})\/(\d{2})\/(\d{2})$/); return m ? '20' + m[3] + '-' + m[1] + '-' + m[2] : (d || ''); };
-  const rows = (_liveTradesCache || []).filter(t => t.rollCredit != null && t.trade_date)
-    .map(t => Object.assign({}, t, { _iso: iso(t.trade_date) }))
-    .sort((a, b) => a._iso < b._iso ? -1 : 1);
+  // v7.8.0 — roll credit is no longer stored or synthesised: it is the DAY'S NET
+  // OPTION CASH, Σ amount over that day's SPY option legs (statement rows are net of
+  // fees; a ticket awaiting its statement is gross).
+  const _byDay = new Map();
+  (_liveTradesCache || []).filter(r => r.strike != null && String(r.underlying || '').trim() === 'SPY' && r.amount != null)
+    .forEach(r => { const d = String(r.trade_date).slice(0, 10); _byDay.set(d, (_byDay.get(d) || 0) + Number(r.amount)); });
+  const rows = [..._byDay.keys()].sort().map(d => ({ _iso: d, rollCredit: _byDay.get(d) }));
   if (!rows.length) {
-    host.innerHTML = '<div style="padding:20px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No credit rows in live_trades yet.</div>';
+    host.innerHTML = '<div style="padding:20px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No option activity yet.</div>';
     if (st) st.textContent = '';
     return;
   }
   let cum = 0; const pts = rows.map(t => { cum += (t.rollCredit || 0); return { d: t._iso, v: cum }; });
-  if (st) st.textContent = rows.length + ' credit rows \u00b7 total $' + Math.round(cum).toLocaleString();
+  if (st) st.textContent = rows.length + ' trading days \u00b7 net option cash $' + Math.round(cum).toLocaleString();
   const W = host.clientWidth || 800, H = 420, L = 64, R = 16, T = 18, B = 30;
   const vmin = Math.min(0, ...pts.map(p => p.v)), vmax = Math.max(...pts.map(p => p.v));
   const X = i => L + (pts.length === 1 ? (W - L - R) / 2 : (W - L - R) * i / (pts.length - 1));
@@ -9491,88 +9503,142 @@ const _sbHeaders = {
   'Prefer': 'return=minimal'
 };
 
-// Map camelCase JSON fields → snake_case Supabase columns
-function tradeToRow(t) {
-  const pd = d => {
-    if (!d) return null;
-    let m = d.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
-    if (m) return `20${m[3]}-${m[1]}-${m[2]}`;
-    m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (m) return `${m[3]}-${m[1]}-${m[2]}`;
-    return d;
-  };
-  return {
-    id:               t.id,
-    trade_date:       pd(t.trade_date || t.sellDate || t.date || null),
-    status:           t.status || null,
-    row_type:         t.row_type || null,
-    cover_expiry:     pd(t.cover_expiry || t.coverExpiry || null),
-    cover_strike:     t.cover_strike ?? t.coverStrike ?? null,
-    cover_price:      t.cover_price ?? t.coverPrice ?? null,
-    cover_contracts:  t.cover_contracts ?? t.coverContracts ?? null,
-    sell_expiry:      pd(t.sell_expiry || t.sellExpiry || null),
-    sell_strike:      t.sell_strike ?? t.sellStrike ?? null,
-    sell_price:       t.sell_price ?? t.sellPrice ?? null,
-    sell_contracts:   t.sell_contracts ?? t.sellContracts ?? null,
-    roll_credit:      t.roll_credit ?? t.rollCredit ?? null,
-    trigger:           t.trigger || null,
-    trigger_value:     t.trigger_value ?? t.triggerValue ?? null,       // v6.32.0
-    trigger_threshold: t.trigger_threshold ?? t.triggerThreshold ?? null, // v6.32.0
-    note:             t.note || null
-  };
-}
-
-// v7.7.2 — EVERY reader's trades now come from the ledger through the adapter.
-// The return shape is rowToTrade's, so no reader changes; what changed is that
-// a statement correction now reaches the blotter, Conformance, eval and Roll
-// Economics, because there is one record and they all read it (SPEC §9).
-async function sbGetLiveTrades() {
+// ═══════════════════════════════════════════════════════════════════════
+// v7.8.0 — CYCLES FROM LEGS (SPEC cycles from legs; Ron, S70).
+// ONE ASSEMBLER. Every reader's cycles come from _legsToCycles over
+// account_activity — the same certified pairing the statement import gates on.
+// The v7.7.x synthetic-ticket step (_activityToTrades → _pairLiveCycles) is
+// retired: it zipped covers to sells per day, guessed roll-credit splits, and
+// paired twice. _liveBook returns the record shape the readers already take
+// ({cycles, open, other, toIso}) so no reader learns the grain underneath.
+//
+// ASSIGNMENT — ruling (b): an assigned cycle's close price is the INTRINSIC at
+// the contract's EXPIRY close, max(0, SPY close − strike), read from DM spy_daily.
+// So its P&L is premium − intrinsic: what the call actually earned. The share
+// delivery at strike stays in the SPY bucket, which is a residual, so End Bal
+// and Strategy cannot move. A missing DM close leaves the price null and the
+// cycle renders "—" — counted and named, never guessed.
+// ═══════════════════════════════════════════════════════════════════════
+async function sbGetActivity() {
   const res = await fetch(`${SB_URL}/${ACT_TABLE}?select=*&order=trade_date.asc,occ_seq.asc&limit=2000`, { headers: _sbHeaders });
   if (!res.ok) throw new Error(ACT_TABLE + ' read failed: ' + res.status);
   const rows = await res.json();
-  if (rows.length === 2000) throw new Error(ACT_TABLE + ' hit the 2000-row window — blotter would be silently truncated (raise the limit or paginate)');
-  return _activityToTrades(_actShape(rows));
+  if (rows.length === 2000) throw new Error(ACT_TABLE + ' hit the 2000-row window — truncation can never hide (raise the limit or paginate)');
+  return rows;
 }
 
-async function sbUpsertTrade(trade) {
-  // v7.7.2 — RETIRED. Every ticket writes its legs to ACT_TABLE (_legsWriteTicket);
-  // status is derived by cycle assembly, so there is no open row to close. Kept as
-  // a tripwire: anything still calling it fails loudly instead of writing a table
-  // no reader takes.
-  throw new Error('sbUpsertTrade is retired (v7.7.2) — tickets write legs to ' + ACT_TABLE);
-  // Close any existing open positions first if this one is open
-  if (trade.status === 'open') {
-    await fetch(`${SB_URL}/live_trades?status=eq.open`, {
-      method: 'PATCH',
-      headers: { ..._sbHeaders, 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ status: 'closed' })
-    });
+function _liveBook(rows) {
+  const shaped = _actShape(rows || []);
+  const { cycles: lc, stillOpen, protection } = _legsToCycles(_legsAggregate(shaped));
+  const toIso = d => { const m = (d || '').match(/^(\d{2})\/(\d{2})\/(\d{2})$/); return m ? '20' + m[3] + '-' + m[1] + '-' + m[2] : (d || ''); };
+  const r2 = v => v == null ? null : parseFloat(Number(v).toFixed(2));
+  // Per-leg metadata from the raw rows: close reason (on the closing leg), row ids
+  // and basis (so a ticket still awaiting its statement is identifiable).
+  const meta = new Map();
+  for (const r of shaped) {
+    if (!r.opt) continue;
+    const k = r.date + '|' + r.cls + '|' + Number(r.opt.strike) + '|' + r.opt.expiry;
+    if (!meta.has(k)) meta.set(k, { ids: [], basis: new Set(), trig: null });
+    const m = meta.get(k); m.ids.push(r.id); m.basis.add(r.basis);
+    if (!m.trig && (r.trigger != null || r.trigger_value != null)) m.trig = { t: r.trigger, v: r.trigger_value, th: r.trigger_threshold };
   }
-  const row = tradeToRow(trade);
-  const res = await fetch(`${SB_URL}/live_trades`, {
-    method: 'POST',
-    headers: { ..._sbHeaders, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify(row)
+  const M = (d, cls, k, exp) => meta.get(d + '|' + cls + '|' + Number(k) + '|' + exp) || { ids: [], basis: new Set(), trig: null };
+  const basisOf = (...ms) => { const b = new Set(); ms.forEach(m => m.basis.forEach(x => b.add(x))); return b.size === 1 ? [...b][0] : (b.size ? 'mixed' : null); };
+  const spyAt = iso => { if (!(typeof DM === 'object' && DM && DM.spy)) return null; const r = DM.spy.filter(x => x.date <= iso).pop(); return r ? Number(r.c) : null; };
+  const assigned = [];
+  const cycles = lc.map(c => {
+    const closeType = c.how === 'opt_buy_close' ? 'cover' : c.how === 'opt_expired' ? 'expired' : 'assigned';
+    const mc = M(c.closeDate, c.how, c.strike, c.expiry);
+    const mo = c.openDate ? M(c.openDate, 'opt_sell_open', c.strike, c.expiry) : null;
+    let cover = closeType === 'cover' ? r2(c.cpx) : 0;
+    if (closeType === 'assigned') {
+      const s = spyAt(c.expiry);
+      cover = s == null ? null : r2(Math.max(0, s - Number(c.strike)));
+      if (!c.orphan) assigned.push({ open: c.openDate, exp: c.expiry, K: Number(c.strike), qty: c.qty, prem: r2(c.spx), spy: s, intr: cover,
+        pnl: (cover == null || c.spx == null) ? null : (r2(c.spx) - cover) * 100 * c.qty });
+    }
+    return { orphan: !!c.orphan, strike: c.strike, expiry: _actUs(c.expiry), qty: c.qty,
+      openDate: c.openDate ? _actUs(c.openDate) : null, sellPrice: c.spx != null ? r2(c.spx) : null,
+      closeDate: _actUs(c.closeDate), coverPrice: cover, closeType,
+      trigger: mc.trig ? mc.trig.t : null, triggerValue: mc.trig ? mc.trig.v : null, triggerThreshold: mc.trig ? mc.trig.th : null,
+      basis: basisOf(mc, ...(mo ? [mo] : [])), legIds: mc.ids.concat(mo ? mo.ids : []) };
   });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error('Supabase write failed: ' + res.status + ' ' + err);
-  }
+  const open = stillOpen.map(o => { const mo = M(o.date, 'opt_sell_open', o.strike, o.expiry);
+    return { key: o.strike + '|' + _actUs(o.expiry), strike: o.strike, expiry: _actUs(o.expiry), qty: o.qty,
+      openDate: _actUs(o.date), sellPrice: r2(o.px), basis: basisOf(mo), legIds: mo.ids }; });
+  // Bought protection — the other side of a spread, never an orphan (v7.2.2).
+  const other = protection.map(p => ({ trade_date: _actUs(p.date), sellContracts: p.qty, sellExpiry: _actUs(p.expiry),
+    sellStrike: p.strike, sellPrice: r2(p.px), row_type: 'long_call',
+    closed: p.closed ? _actUs(p.closed) : null, closedHow: p.closedHow || null }));
+  return { cycles, open, other, toIso, assigned };
 }
 
-// v7.7.2 — delete a ticket ON ITS OWN LEG ROWS, and only while it is still a
-// ticket. A row the statement has converted is a broker fact: it is corrected by
-// the next statement upload, never by hand (SPEC §5.3).
+// The ruling-(b) receipts, once per page load: every assigned cycle, its premium,
+// the expiry close, the intrinsic given up, and the sum the statement line's Calls
+// must have moved by (SPEC cycles from legs §3 pre-registration).
+let _asgLogged = false;
+function _logAssignments(book) {
+  if (_asgLogged || !book || !book.assigned) return;
+  _asgLogged = true;
+  const A = book.assigned, money = v => (v < 0 ? '−$' : '$') + Math.abs(v).toFixed(2);
+  logMsg('');
+  logMsg('── ASSIGNED CYCLES · ruling (b): P&L = (premium − intrinsic at the expiry close) × 100 × qty ──');
+  A.forEach(a => logMsg('  ' + a.open + ' → exp ' + a.exp + '  $' + a.K + 'C ×' + a.qty + '  prem $' + (a.prem != null ? a.prem.toFixed(2) : '—')
+    + '  SPY ' + (a.spy != null ? a.spy.toFixed(2) : '— (no DM close)') + '  intrinsic $' + (a.intr != null ? a.intr.toFixed(2) : '—')
+    + '  P&L ' + (a.pnl != null ? money(a.pnl) : '—')));
+  const ok = A.filter(a => a.pnl != null), miss = A.length - ok.length;
+  logMsg('  ' + A.length + ' assigned · Σ P&L ' + money(ok.reduce((s, a) => s + a.pnl, 0))
+    + (miss ? ' · ' + miss + ' with NO DM close (excluded, "—")' : '') + ' — the statement line’s Calls moved by exactly this vs v7.7.3');
+}
+
+// v7.8.0 — TICKETS view is the RAW ACTIVITY (Ron, S70: raw rows only). Newest
+// first, read like the statement. A ticket still awaiting its statement is marked
+// and, in Debug, deletable on its own row; a statement row never is.
+function renderLiveTickets(rows) {
+  const tableEl = $('live-trade-table');
+  if (!tableEl) return;
+  if (!rows || !rows.length) {
+    tableEl.innerHTML = '<div style="padding:20px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No activity yet.</div>';
+    return;
+  }
+  const sorted = [...rows].sort((a, b) => {
+    const x = String(a.trade_date) + String(a.occ_seq || 0).padStart(4, '0'), y = String(b.trade_date) + String(b.occ_seq || 0).padStart(4, '0');
+    return _liveBlotterAsc ? (x < y ? -1 : 1) : (x > y ? -1 : 1);
+  });
+  const money = v => v == null ? '<span class="muted">—</span>'
+    : `<span style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'};">${v >= 0 ? '+' : '−'}$${Math.abs(Number(v)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
+  const contract = r => r.strike != null ? `${_actUs(String(r.expiry).slice(0, 10))} $${Number(r.strike)}C` : String(r.symbol || '').trim() || '—';
+  let body = '';
+  for (const r of sorted) {
+    const tkt = r.basis === 'ticket';
+    const tm = fmtTrigMetric(r.trigger, r.trigger_value, r.trigger_threshold);
+    body += `<tr${tkt ? ' style="background:rgba(224,160,32,.06);"' : ''}>`
+      + `<td style="white-space:nowrap;">${_actUs(String(r.trade_date).slice(0, 10))}</td>`
+      + `<td style="font-size:10px;">${r.cls || '—'}</td>`
+      + `<td style="white-space:nowrap;">${contract(r)}</td>`
+      + `<td class="muted">${r.quantity != null ? Number(r.quantity) : '—'}</td>`
+      + `<td>${r.price != null ? '$' + Number(r.price).toFixed(2) : '—'}</td>`
+      + `<td>${money(r.amount != null ? Number(r.amount) : null)}</td>`
+      + `<td class="muted">${r.cash_balance != null ? '$' + Number(r.cash_balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</td>`
+      + `<td class="muted" style="font-size:9px;">${tkt ? '<span style="color:#e0a020;">ticket</span>' : 'statement'}</td>`
+      + `<td class="muted" style="font-size:10px;">${r.trigger ? r.trigger + (tm ? ` <span style="opacity:.75;">${tm}</span>` : '') : ''}</td>`
+      + (_debugMode && tkt ? `<td><button onclick="deleteLiveTrade('${r.id}')" style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">✕</button></td>` : '<td></td>')
+      + '</tr>';
+  }
+  const sortArrow = _liveBlotterAsc ? ' ↑' : ' ↓';
+  tableEl.innerHTML = '<table class="tbl"><thead><tr>'
+    + `<th style="cursor:pointer;" onclick="toggleLiveSort()">Date${sortArrow}</th>`
+    + '<th>Action</th><th>Contract</th><th>Qty</th><th>Price</th><th>Amount</th><th>Cash bal</th><th>Basis</th><th>Trigger</th><th></th>'
+    + '</tr></thead><tbody>' + body + '</tbody></table>';
+}
+
+// v7.8.0 — delete ONE ticket row, and only while it is still a ticket. A statement
+// row is a broker fact: the next statement upload corrects it (SPEC §5.3).
 async function sbDeleteTrade(id) {
-  const t = (_liveTradesCache || []).find(x => x.id === id);
-  if (!t) throw new Error('ticket ' + id + ' not found — reload the blotter');
-  if (t._basis !== 'ticket') throw new Error('this trade is on the statement (' + (t._basis || 'unknown') + ') — the next statement upload corrects it; it cannot be deleted by hand');
-  const ids = (t._legIds || []).filter(Boolean);
-  if (!ids.length) throw new Error('no leg rows found for this ticket');
-  const res = await fetch(`${SB_URL}/${ACT_TABLE}?basis=eq.ticket&id=in.(${ids.map(encodeURIComponent).join(',')})`, {
-    method: 'DELETE',
-    headers: _sbHeaders
-  });
+  const r = (_liveTradesCache || []).find(x => x.id === id);
+  if (!r) throw new Error('row ' + id + ' not found — reload the blotter');
+  if (r.basis !== 'ticket') throw new Error('this row is on the statement — the next statement upload corrects it; it cannot be deleted by hand');
+  const res = await fetch(`${SB_URL}/${ACT_TABLE}?id=eq.${encodeURIComponent(id)}&basis=eq.ticket`, { method: 'DELETE', headers: _sbHeaders });
   if (!res.ok) throw new Error('Supabase delete failed: ' + res.status);
 }
 
@@ -9581,7 +9647,7 @@ async function loadLiveBlotter() {
   const tableEl  = $('live-trade-table');
   if (statusEl) { statusEl.textContent = 'Loading...'; statusEl.style.color = 'var(--muted)'; }
   try {
-    const trades = (await sbGetLiveTrades()).filter(t => t.source !== 'csv_import');
+    const trades = await sbGetActivity(); // v7.8.0 — the raw activity rows: Cycles assembles them from legs, Tickets shows them as they are
     // v6.22.2 — the blotter is a TICKET view; imported activity facts (dividends, share
     // lots, cash events) live in the same table but never render here or count as cycles.
     _liveTradesCache = trades;
@@ -9598,7 +9664,7 @@ async function loadLiveBlotter() {
     }
   } catch(e) {
     if (statusEl) { statusEl.textContent = 'Error: ' + e.message; statusEl.style.color = 'var(--red)'; }
-    if (tableEl) tableEl.innerHTML = '<div style="padding:16px;font-family:var(--mono);font-size:11px;color:var(--red);">Could not load live_trades — ' + e.message + '</div>';
+    if (tableEl) tableEl.innerHTML = '<div style="padding:16px;font-family:var(--mono);font-size:11px;color:var(--red);">Could not load ' + ACT_TABLE + ' — ' + e.message + '</div>';
   }
 }
 
@@ -9623,58 +9689,6 @@ function _paintBlotterViewToggle(effView) { // v6.33.0
   pill('blot-view-tickets', effView !== 'cycles');
 }
 
-// v6.33.0 — CYCLE PAIRING (S57 spec): render-time re-pair of ticket legs by
-// CONTRACT IDENTITY, most-recent-open — never row adjacency. Pure function of
-// the ticket rows; live_trades untouched (append-only doctrine). Within one
-// roll ticket the cover applies FIRST, then the sell (close N, open N+1 — the
-// ticket's own economics). The 08/03 two-ticket day pairs truthfully by
-// construction: its cover closes the $740C cycle, its sell opens the $755C.
-function _pairLiveCycles(trades) {
-  const toIso = d => { const m = (d || '').match(/^(\d{2})\/(\d{2})\/(\d{2})$/); return m ? '20' + m[3] + '-' + m[1] + '-' + m[2] : (d || ''); };
-  // v7.6.13 — STABLE order: date, then id. The old comparator returned 1 on
-  // equal dates, so same-day rows landed in undefined order.
-  const asc = [...trades].sort((a, b) => { const x = toIso(a.trade_date), y = toIso(b.trade_date); return x < y ? -1 : x > y ? 1 : ((a.id || 0) - (b.id || 0)); });
-  const cycles = [], open = [], other = [];
-  const closeBitsOf = (t, rt, isTerm) => ({
-    closeDate: t.trade_date,
-    coverPrice: t.coverPrice != null ? parseFloat(t.coverPrice) : null,
-    closeType: isTerm ? (rt === 'assigned' ? 'assigned' : 'expired') : 'cover',
-    trigger: t.trigger, triggerValue: t.triggerValue, triggerThreshold: t.triggerThreshold
-  });
-  const tryClose = t => { // → true if it closed an open position
-    const k = String(t.coverStrike) + '|' + (t.coverExpiry || '');
-    let idx = -1;
-    for (let i = open.length - 1; i >= 0; i--) if (open[i].key === k) { idx = i; break; } // most-recent-open
-    if (idx < 0) return false;
-    const rt = t.row_type || '', isTerm = rt === 'assigned' || rt === 'expired' || rt === 'expired worthless';
-    cycles.push(Object.assign(open.splice(idx, 1)[0], closeBitsOf(t, rt, isTerm)));
-    return true;
-  };
-  const orphanOf = t => { const rt = t.row_type || '', isTerm = rt === 'assigned' || rt === 'expired' || rt === 'expired worthless';
-    cycles.push(Object.assign({ orphan: true, strike: t.coverStrike, expiry: t.coverExpiry, // P2 — amber, never dropped
-      qty: t.coverContracts, openDate: null, sellPrice: null }, closeBitsOf(t, rt, isTerm))); };
-  // v7.6.13 — SAME-DAY ROUND TRIPS (0DTE: sold and bought back in one session).
-  // A cover that finds no open position is DEFERRED to the end of its day and
-  // retried against that day's sells; only then is it an orphan. Before this,
-  // a cover ordered ahead of its same-day sell became an orphan and the sell
-  // stayed OPEN forever (07/15/25 $628C, 07/24/25 $635C, 08/07/25 $637C).
-  let dayIso = null, deferred = [];
-  const flushDay = () => { deferred.forEach(t => { if (!tryClose(t)) orphanOf(t); }); deferred = []; };
-  asc.forEach(t => {
-    const d = toIso(t.trade_date);
-    if (d !== dayIso) { flushDay(); dayIso = d; }
-    const rt = t.row_type || '';
-    if (rt === 'long_call') { other.push(t); return; } // P3 — not a cycle; CC P&L excludes it (§7, unchanged)
-    const isTerm = rt === 'assigned' || rt === 'expired' || rt === 'expired worthless';
-    if ((t.coverStrike || isTerm) && !tryClose(t)) deferred.push(t);
-    if (t.sellStrike) open.push({ key: String(t.sellStrike) + '|' + (t.sellExpiry || ''),
-      strike: t.sellStrike, expiry: t.sellExpiry, qty: t.sellContracts || t.coverContracts,
-      openDate: t.trade_date, sellPrice: t.sellPrice != null ? parseFloat(t.sellPrice) : null });
-  });
-  flushDay();
-  return { cycles, open, other, toIso };
-}
-
 function renderLiveCycles(trades) { // v6.33.1 unified · v6.33.3 (S57, Ron): Qty SECOND (reads like a trade ticket) · Ann Yield DELETED (P&L judges the cycle; annualizing 1–3d holds printed noise like −611%)
   const tableEl = $('live-trade-table');
   if (!tableEl) return;
@@ -9682,7 +9696,7 @@ function renderLiveCycles(trades) { // v6.33.1 unified · v6.33.3 (S57, Ron): Qt
     tableEl.innerHTML = '<div style="padding:20px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No live trades logged yet.</div>';
     return;
   }
-  const { cycles, open, other, toIso } = _pairLiveCycles(trades);
+  const { cycles, open, other, toIso } = _liveBook(trades);
   const holdDays = (a, b) => { const ia = toIso(a), ib = toIso(b);
     return (ia && ib) ? Math.round((new Date(ib + 'T00:00:00') - new Date(ia + 'T00:00:00')) / 86400000) : null; };
   const todayUS = (() => { const d = new Date(); return String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getFullYear()).slice(2); })();
@@ -9740,7 +9754,7 @@ function renderLiveCycles(trades) { // v6.33.1 unified · v6.33.3 (S57, Ron): Qt
       + dteCell(t.trade_date, t.sellExpiry)
       + `<td class="accent">${t.sellPrice != null ? px(parseFloat(t.sellPrice)) : '—'}</td>`
       + `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`
-      + `<td class="muted" style="font-size:10px;">long call — not a cycle</td>`
+      + `<td class="muted" style="font-size:10px;">bought protection — not a cycle${t.closed ? ' · ' + (t.closedHow === 'opt_expired' ? 'expired ' : 'closed ') + t.closed : ''}</td>`
       + '</tr>';
 
   const rowsAll = [
@@ -9768,111 +9782,6 @@ function renderLiveBlotter(trades) { // v6.33.2 — dispatcher: Cycles default i
     if (_b2) _b2.style.display = _debugMode ? '' : 'none'; }
   if (_blotterView === 'cycles') return renderLiveCycles(trades);
   renderLiveTickets(trades);
-}
-
-function renderLiveTickets(trades) {
-  const tableEl   = $('live-trade-table');
-  if (!tableEl) return;
-
-  if (!trades || trades.length === 0) {
-    tableEl.innerHTML = '<div style="padding:20px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);">No live trades logged yet.</div>';
-    return;
-  }
-
-  // v6.24.2 — summary chip banner REMOVED (Ron): Total Roll Credit / Win Rate / Total
-  // Cycles / Open Position + MTM all duplicated the Performance panel and the top blotter
-  // row. Stats computations, banner populate, and the Polygon MTM fetch excised with it.
-  // v6.23.1 note stands: the falsified-walk ANN YIELD died here one release earlier.
-
-  // Sort by trade_date — v6.1.2: reparse display MM/DD/YY to ISO so year
-  // boundaries sort correctly (07/09/26 was filing between 07/09/25 and 07/10/25)
-  const toSortKey = t => {
-    const m = (t.trade_date || '').match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
-    return m ? '20' + m[3] + '-' + m[1] + '-' + m[2] : (t.trade_date || '');
-  };
-  const sorted = [...trades].sort((a, b) => {
-    const ka = toSortKey(a), kb = toSortKey(b);
-    return _liveBlotterAsc ? (ka < kb ? -1 : 1) : (ka > kb ? -1 : 1);
-  });
-
-  const fmtCredit = v => v == null ? '—'
-    : `<span style="color:${v>=0?'var(--green)':'var(--red)'};font-weight:600;">${v>=0?'+':''}$${Math.abs(Math.round(v)).toLocaleString()}</span>`;
-
-  // v6.18.3 — same-day two-ticket pairing is DISPLAY-LAYER only (Ron's S45 spec): a
-  // cover-only row + a sell-only row on the same date and qty are ONE economic event
-  // executed as two tickets (the menu-0 decomposition, v6.7.15). Underlying rows are
-  // untouched (append-only doctrine; blotter rows are the cert trail). Debug mode
-  // shows RAW rows — the blotter is editable there and deletes must target real ids.
-  const disp = _debugMode ? sorted : _blotterPairDisplay(sorted);
-
-  let rows = '';
-  disp.forEach(t => {
-    const isOpen  = t.status === 'open';
-    const rowType = t.row_type || '';
-
-    // Cover (close) leg
-    let coverCell;
-    if (!t.coverStrike) {
-      coverCell = '<span style="color:var(--muted);">—</span>';
-    } else if (rowType === 'assigned' || rowType === 'expired' || rowType === 'expired worthless') { // v6.1.1 — 'expired' is the stored value
-      const label = rowType === 'assigned' ? 'Assigned' : 'Expired';
-      coverCell = `<span style="color:var(--muted);">${label} ${t.coverExpiry||''} $${t.coverStrike}</span>`;
-    } else {
-      coverCell = `<span style="color:var(--red);">Cover ${t.coverExpiry||''} $${t.coverStrike} @ $${t.coverPrice ?? '—'}</span>`;
-    }
-
-    // Sell (open) leg
-    const sellCell = t.sellStrike
-      ? `<span style="color:var(--accent);">${rowType === 'long_call' ? 'Long' : 'Sell'} ${t.sellExpiry||''} $${t.sellStrike} @ $${t.sellPrice||'—'}</span>`
-      : '<span style="color:var(--muted);">—</span>';
-
-    // Trigger label — v6.18.3: the STORED trigger (the honest close reason, written by
-    // the ticket since v6.1.0) wins; row-type labels are the FALLBACK for rows with no
-    // stored reason (historical rebuild rows). The old hardcode-first chain masked the
-    // reason behind the ACTION on every roll row — the display defect that fed the S44
-    // §7 "the field records the ACTION" reading.
-    const storedTrig = (t.trigger != null && String(t.trigger).trim()) ? String(t.trigger).trim() : null;
-    const triggerLabel = (storedTrig ? storedTrig :
-                         rowType === 'assigned' ? 'assigned' :
-                         rowType === 'expired' || rowType === 'expired worthless' ? 'expired' :
-                         rowType === 'roll' ? 'rolled' :
-                         rowType === 'sell_only' ? 'sold to open' :
-                         rowType === 'long_call' ? 'long call' :
-                         rowType === 'open' ? 'initial sell' : '—')
-      + (t._paired ? ' <span style="color:var(--muted);opacity:.7;">· 2 tickets</span>' : '');
-
-    // v6.32.0 — metric pair beside the label, in the sim debug log's own form
-    // ('delta 0.744 ≥ 0.740'). Historical rows carry nulls and render bare.
-    const _tm = fmtTrigMetric(storedTrig, t.triggerValue, t.triggerThreshold);
-    const triggerCell = triggerLabel + (_tm
-      ? ` <span style="color:var(--muted);opacity:.75;">${_tm}</span>` : '');
-
-    const openBadge = isOpen
-      ? ' <span style="background:var(--accent);color:#fff;border-radius:3px;padding:1px 6px;font-size:9px;letter-spacing:.06em;">OPEN</span>'
-      : '';
-
-    const trBg = isOpen ? 'background:rgba(91,138,245,.06);' : '';
-    const qty  = t.coverContracts || t.sellContracts || '—';
-
-    rows += `<tr style="${trBg}">`
-      + `<td>${t.trade_date||'—'}${openBadge}</td>`
-      + `<td style="color:var(--muted);">${qty}</td>`
-      + `<td>${coverCell}</td>`
-      + `<td>${sellCell}</td>`
-      + `<td>${fmtCredit(t.rollCredit)}</td>`
-      + `<td style="color:var(--muted);font-size:10px;">${triggerCell}</td>`
-      + (_debugMode ? `<td><button onclick="deleteLiveTrade('${t.id}')" style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">✕</button></td>` : '<td></td>') // v6.7.15 — deletes are a debug affordance
-      + '</tr>';
-  });
-
-  const sortArrow = _liveBlotterAsc ? ' ↑' : ' ↓';
-  tableEl.innerHTML = '<table class="tbl">'
-    + '<thead><tr>'
-    + `<th style="cursor:pointer;" onclick="toggleLiveSort()">Date${sortArrow}</th>`
-    + '<th>Qty</th><th>Cover (Close)</th><th>Sell (Open)</th><th>Roll Credit</th><th>Trigger</th><th></th>'
-    + '</tr></thead>'
-    + '<tbody>' + rows + '</tbody>'
-    + '</table>';
 }
 
 // ── v6.22.0 — Statement Import module (DRY RUN ONLY) ───────────────────────
@@ -10490,72 +10399,6 @@ function _actShape(rows) { // table rows → parse-shaped rows (the assembler's 
     opt: r.strike != null ? { und: r.underlying, strike: Number(r.strike), expiry: String(r.expiry).slice(0, 10) } : null }));
 }
 
-function _activityToTrades(shaped) {
-  const legs = _legsAggregate(shaped).filter(L => L.und === 'SPY');
-  const { stillOpen } = _legsToCycles(legs);
-  const openKeys = new Set(stillOpen.map(o => o.date + '|' + o.strike + '|' + o.expiry));
-  // Trigger fields live on the CLOSING leg's raw row(s); split fills share them.
-  // v7.7.2 — row ids and basis per aggregated leg, so a ticket still awaiting its
-  // statement can be deleted on its own rows (sbDeleteTrade).
-  const trig = new Map(), ids = new Map();
-  for (const r of shaped) {
-    if (!r.opt) continue;
-    const k = r.date + '|' + r.cls + '|' + r.symbol;
-    if (!ids.has(k)) ids.set(k, { ids: [], basis: new Set() });
-    ids.get(k).ids.push(r.id); ids.get(k).basis.add(r.basis);
-    if (LEG_CLOSERS.has(r.cls) && !trig.has(k) && (r.trigger != null || r.trigger_value != null))
-      trig.set(k, { trigger: r.trigger, tv: r.trigger_value, tt: r.trigger_threshold });
-  }
-  const meta = (...Ls) => { const a = [], b = new Set();
-    for (const L of Ls) { if (!L) continue; const x = ids.get(L.date + '|' + L.cls + '|' + L.sym); if (x) { a.push(...x.ids); x.basis.forEach(v => b.add(v)); } }
-    return { _legIds: a.filter(Boolean), _basis: b.size === 1 ? [...b][0] : (b.size ? 'mixed' : null) }; };
-  const byDate = new Map();
-  for (const L of legs) { if (!byDate.has(L.date)) byDate.set(L.date, []); byDate.get(L.date).push(L); }
-  const byStrike = (a, b) => (a.strike - b.strike) || String(a.expiry).localeCompare(String(b.expiry));
-  const out = []; let id = 0;
-  const r2 = v => parseFloat(Number(v).toFixed(2));
-  for (const d of [...byDate.keys()].sort()) {
-    const day = byDate.get(d);
-    const C = day.filter(L => LEG_CLOSERS.has(L.cls)).sort(byStrike);
-    const O = day.filter(L => L.cls === 'opt_sell_open').sort(byStrike);
-    const P = day.filter(L => L.cls === 'opt_buy_open').sort(byStrike);
-    const n = Math.max(C.length, O.length);
-    for (let i = 0; i < n; i++) {
-      const c = C[i] || null, o = O[i] || null;
-      const term = c && c.cls !== 'opt_buy_close';
-      // v7.7.3 — an ASSIGNED close carries NO price (null), the convention the blotter
-      // always used: assigned P&L renders '—' and stays out of call P&L, because the
-      // economics ride the share delivery. v7.7.2 priced it at $0, which booked 38
-      // assigned premiums (~$25k) as call profit and moved them out of the SPY
-      // residual. An EXPIRY stays at $0 — the premium was kept.
-      const asg = !!(c && c.cls === 'opt_assigned');
-      const cpx = c ? (asg ? null : term ? 0 : r2(c.px)) : null, spx = o ? r2(o.px) : null;
-      const t = c ? (trig.get(d + '|' + c.cls + '|' + c.sym) || null) : null;
-      const cc = cpx || 0; // roll credit is CASH: an assignment pays nothing for the call
-      const rc = (c && o) ? (spx - cc) * o.qty * 100 : c ? -cc * c.qty * 100 : spx * o.qty * 100;
-      out.push({
-        id: ++id, trade_date: _actUs(d),
-        status: (o && openKeys.has(d + '|' + o.strike + '|' + o.expiry)) ? 'open' : 'closed',
-        row_type: c ? (c.cls === 'opt_expired' ? 'expired' : c.cls === 'opt_assigned' ? 'assigned' : o ? 'roll' : 'cover_only') : 'sell_only',
-        coverExpiry: c ? _actUs(c.expiry) : null, coverStrike: c ? c.strike : null,
-        coverPrice: cpx, coverContracts: c ? c.qty : null,
-        sellExpiry: o ? _actUs(o.expiry) : null, sellStrike: o ? o.strike : null,
-        sellPrice: spx, sellContracts: o ? o.qty : null,
-        rollCredit: r2(rc),
-        trigger: t ? t.trigger : null, triggerValue: t ? t.tv : null, triggerThreshold: t ? t.tt : null,
-        source: 'activity', note: null, ...meta(c, o)
-      });
-    }
-    // Bought protection is not a cycle; it rides as long_call, which every
-    // reader already routes to `other` (_pairLiveCycles P3).
-    for (const p of P) out.push({ id: ++id, trade_date: _actUs(d), status: 'closed', row_type: 'long_call',
-      coverExpiry: null, coverStrike: null, coverPrice: null, coverContracts: null,
-      sellExpiry: _actUs(p.expiry), sellStrike: p.strike, sellPrice: r2(p.px), sellContracts: p.qty,
-      rollCredit: null, trigger: null, triggerValue: null, triggerThreshold: null, source: 'activity', note: 'protection', ...meta(p) });
-  }
-  return out;
-}
-
 const _actDays = (a, b) => Math.abs((new Date(a + 'T00:00:00Z') - new Date(b + 'T00:00:00Z')) / 86400000);
 
 // ── v6.26.0 — Ledger-derived SPY cost basis (FIFO) ─────────────────────────
@@ -10622,31 +10465,6 @@ async function impPublishBasis() {
     updateInitPosition(); // banner re-renders with the ledger share count
     el.innerHTML = '\u2713 published costBasis $' + _impBasisResult.costBasis + ' \u00b7 sharesHeld ' + _impBasisResult.sharesHeld + ' \u00b7 ' + today;
   } catch (e) { el.textContent = '\u2717 publish: ' + e.message; }
-}
-
-function _blotterPairDisplay(sorted) { // v6.18.3 — pure; input order preserved; merge only adjacent same-date leg-complements
-  const coverOnly = r => r && r.coverStrike && !r.sellStrike
-    && ['assigned','expired','expired worthless','long_call'].indexOf(r.row_type || '') === -1;
-  const sellOnly  = r => r && r.sellStrike && !r.coverStrike
-    && ['long_call'].indexOf(r.row_type || '') === -1;
-  const qtyOf = r => r.coverContracts || r.sellContracts || null;
-  const out = [];
-  for (let i = 0; i < sorted.length; i++) {
-    const a = sorted[i], b = sorted[i + 1];
-    if (a && b && a.trade_date === b.trade_date && qtyOf(a) === qtyOf(b)
-        && ((coverOnly(a) && sellOnly(b)) || (sellOnly(a) && coverOnly(b)))) {
-      const c = coverOnly(a) ? a : b, s = coverOnly(a) ? b : a;
-      out.push({ ...s,
-        coverContracts: c.coverContracts, coverStrike: c.coverStrike,
-        coverExpiry: c.coverExpiry, coverPrice: c.coverPrice,
-        rollCredit: (c.rollCredit ?? 0) + (s.rollCredit ?? 0), // NET of the pair
-        trigger: c.trigger || s.trigger || null,               // close reason lives on the cover row
-        status: (c.status === 'open' || s.status === 'open') ? 'open' : s.status,
-        row_type: 'roll', _paired: true });
-      i++; // consume both
-    } else out.push(a);
-  }
-  return out;
 }
 
 function toggleLiveSort() {
@@ -10843,11 +10661,11 @@ async function confirmCoverOnly() {
     // rowToTrade (the one mapper that knows the physical snake_case schema).
     // v6.7.12's select=sellStrike,sellExpiry was camelCase → PostgREST 400
     // (caught by the honest-error path on Ron's first re-drive; zero writes).
-    const openRows = (await sbGetLiveTrades()).filter(t => t.status === 'open'); // v7.7.2 — from the ledger
-    if (openRows.length !== 1) throw new Error(openRows.length ? 'Multiple open rows — resolve manually' : 'No open row found to close');
+    const openRows = _liveBook(await sbGetActivity()).open; // v7.8.0 — the open position, assembled from the legs
+    if (openRows.length !== 1) throw new Error(openRows.length ? 'Multiple open positions — resolve manually' : 'No open position found to close');
     const orow = openRows[0];
-    if (parseFloat(orow.sellStrike) !== strike || isoExp(orow.sellExpiry) !== isoExp(expiry))
-      throw new Error(`Open row is $${orow.sellStrike}C ${orow.sellExpiry} — does not match this cover`);
+    if (parseFloat(orow.strike) !== strike || isoExp(orow.expiry) !== isoExp(expiry))
+      throw new Error(`Open position is $${orow.strike}C ${orow.expiry} — does not match this cover`);
     // v7.7.2 — no PATCH: 'open' is derived by cycle assembly, so the cover leg below closes it.
 
     const trade = { // v6.1.10 — canonical rebuilt-schema names
@@ -10871,7 +10689,7 @@ async function confirmCoverOnly() {
     // close left the row open for the next roll ticket to patch with the WRONG date/reason.
     // Prior economics come from the OPEN BLOTTER ROW (orow) — the booked fill — not from
     // STD, which the flat publish below is about to scrub (R8 absence-as-flat ordering trap).
-    const _coPrior = { entryDate: _isoCo(orow.trade_date), sellPrice: (orow.sellPrice != null ? parseFloat(orow.sellPrice) : null) };
+    const _coPrior = { entryDate: _isoCo(orow.openDate), sellPrice: (orow.sellPrice != null ? parseFloat(orow.sellPrice) : null) };
     try {
       const closed = await writeAuditClose(_coCloseReason, _coPrior, parseFloat(price.toFixed(2)), contracts);
       logMsg(closed ? '\u2713 audit_snapshot closed — ' + _coCloseReason + ' · hold from ' + _coPrior.entryDate
