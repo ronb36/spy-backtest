@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.6</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.7</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -819,7 +819,15 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.9.6';
+const APP_VERSION = 'v7.9.7';
+// v7.9.7 (S71, Ron · SPEC close-anchored execution §8) — FILL SANDBOX A3.
+// ?ovFill=3 books every SALE at the day close and every BUY-BACK at the day
+// VWAP — the leg split S71 Test A found closest to live (live sells ≈ close,
+// +$0.40 vs +$0.38/sh; live exits beat VWAP on decay and lose to it on delta,
+// partly cancelling). Same rules as A1/A2: triggers, entry TV and the roll's
+// funding test stay on the VWAP, so cycles and contracts are identical to the
+// baseline. Sandbox-only. Default fills byte-identical to v7.9.6. MODEL_VERSION
+// and the Gate unchanged. Base v7.9.6 (1373e44e).
 // v7.9.6 (S71, Ron · SPEC close-anchored execution §4) — FILL SANDBOX (Test A).
 // (1) ?ovFill=1 books EVERY fill at the option's day close (c); ?ovFill=2
 // books decay exits and all entries at c while delta exits (co-fires
@@ -4173,7 +4181,7 @@ function updateInitPosition() {
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
   _scratchGate  = p.scratchRoll ?? null; // v6.18.0 — embedded identity
-  const _fillAt = (p.fillAt === 1 || p.fillAt === 2) ? p.fillAt : null; // v7.9.6 — Test A sandbox; null ≡ VWAP fills (baseline)
+  const _fillAt = (p.fillAt === 1 || p.fillAt === 2 || p.fillAt === 3) ? p.fillAt : null; // v7.9.6 — Test A sandbox; null ≡ VWAP fills (baseline) · v7.9.7 +A3
   const _closeOf = d => (d && d.c != null && d.c > 0) ? d.c : null;     // v7.9.6
   const { decayTrigger, dteFloor, deltaThreshold, dtePenaltyAnchor = 45, shares, defHorizon = 0 } = p; // v6.14.0 — otmFixed removed from the sim: no consumer remained // v6.5.0 — vixGate removed (retired on evidence, S33; inert at 0 since) // v6.3.0 — defense horizon; 0 = off ≡ full DTE
   // v6.8.0 — grace parameterized: the trigger min-hold gate, hardcoded `>= 3`
@@ -4490,7 +4498,7 @@ async function simulate(p) {
     let exitPx = isExp ? Math.max(0, spy-entryStrike) : (callPx??0);
     const exitPxDecide_ = exitPx; // v7.9.6 — the DECISION frame cover (VWAP): selection funds against this, so the fill sandbox cannot change which contract is chosen
     let exitFill_ = isExp ? 'expiry' : 'vw', exitThin_ = false;
-    if (_fillAt && !isExp && (_fillAt === 1 || !deltaFired)) { // v7.9.6 — Test A: cover at the day close (ovFill=2 keeps delta exits on the VWAP)
+    if (_fillAt && _fillAt !== 3 && !isExp && (_fillAt === 1 || !deltaFired)) { // v7.9.7 — A3 keeps every buy-back on the VWAP // v7.9.6 — Test A: cover at the day close (ovFill=2 keeps delta exits on the VWAP)
       const _c = _closeOf(callDay);
       if (_c != null) { exitPx = _c; exitFill_ = 'c'; exitThin_ = !(callDay.v >= 10); } else exitFill_ = 'vw-fallback';
     }
@@ -4845,7 +4853,9 @@ async function _logFillSandbox(params, r) {
   const $f = v => v == null ? '—' : (v >= 0 ? '+' : '-') + '$' + Math.abs(Math.round(v)).toLocaleString();
   const pp = v => v == null ? '—' : v.toFixed(1) + '%';
   const sB = stat(b), sV = stat(r);
-  const lbl = params.fillAt === 1 ? 'A1 · all fills at the day close' : 'A2 · decay exits + entries at the close, delta exits at VWAP';
+  const lbl = params.fillAt === 1 ? 'A1 · all fills at the day close'
+            : params.fillAt === 2 ? 'A2 · decay exits + entries at the close, delta exits at VWAP'
+            : 'A3 · sales at the close, every buy-back at VWAP';
   logMsg('── FILL SANDBOX (Test A) — ' + lbl + ' ──', 'err');
   logMsg('  triggers unchanged (VWAP mark, VWAP entry TV) — only the booked fill moves');
   if (sB.n !== sV.n) logMsg('  ⚠ core cycle count differs: baseline ' + sB.n + ' vs variant ' + sV.n + ' — triggers were NOT identical', 'err');
