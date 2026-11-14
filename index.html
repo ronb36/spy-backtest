@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.7</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.8</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -819,7 +819,22 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.9.7';
+const APP_VERSION = 'v7.9.8';
+// v7.9.8 (S71, Ron) — THE GRID IS THE GATE PACK; THE BUTTON SAYS THE VERDICT.
+// After a sweep the results grid shows only the Gate pack (incumbent + nbr +
+// top-K distinct machines, aliases merged) — the 28k-cell paired-score list
+// was preliminary arithmetic to choose the pack, and only pack entries can
+// publish anyway (_gatePublishCheck). It still prints to the log.
+// ORDER (one rule: a challenger ranks above the incumbent only by clearing
+// the Gate): passing challengers by min P(Δ>0) → the incumbent → the rest by
+// criteria cleared, then min P(Δ>0). So on HOLD the incumbent is #1 and on
+// PUBLISH the winner is #1 — ranked, not pinned. Row #1 is auto-selected.
+// BUTTON: the Gate's choice under HOLD (or NO VERDICT) reads "■ Hold" — a tap
+// writes nothing, logs, disarms the sweeps and returns to Scan. Selecting any
+// other row reads "↑ Publish" (override reason still required by
+// _gatePublishCheck); reselecting #1 restores Hold. The verdict card keeps its
+// headline and drops its own pack table (one table). Display + button logic
+// only: no sim, ranker, Gate or MODEL_VERSION change. Base v7.9.7 (d8f50012).
 // v7.9.7 (S71, Ron · SPEC close-anchored execution §8) — FILL SANDBOX A3.
 // ?ovFill=3 books every SALE at the day close and every BUY-BACK at the day
 // VWAP — the leg split S71 Test A found closest to live (live sells ≈ close,
@@ -1115,6 +1130,13 @@ function setRunButtonState(state, opts = {}) {
       btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
       card.style.background = '#2a9d5c';
       { const c = $('run-eval-count'); if (c && _prevEvalSub !== null) { c.textContent = _prevEvalSub; _prevEvalSub = null; } } // v6.1.5 — disarm restores the stashed sub-line
+      break;
+    case 'hold': // v7.9.8 — the Gate's choice is the incumbent: the tap writes nothing
+      _pipeState = 'hold';
+      btn.textContent = '\u25a0 Hold';
+      btn.style.color = '#fff'; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+      btn.disabled = false;
+      card.style.background = '#b45309';
       break;
     case 'publishing':
       btn.textContent = 'Publishing...';
@@ -1523,6 +1545,7 @@ async function handleRunOrPublish() {
     handlePublish();
     return;
   }
+  if (currentLabel.includes('Hold')) { _gateHold(); return; } // v7.9.8
 
   _mode = 'test';
   $('progress-log').textContent = ''; $('runlog-mirror').textContent = '';
@@ -5767,7 +5790,8 @@ async function optSelectRow(i) {
     _rankPickBusy = false;
     if (_st) _st.textContent = '';
     // v6.1.0 — a new selection while in Scan state means unpublished again
-    if (!_reselectingPub && (_pipeState === 'scan' || _pipeState === 'scanning' || _pipeState === 'confirm')) setRunButtonState('ready'); // v6.1.3 — selection also disarms Confirm
+    if (!_reselectingPub && _gateCycle && _gateCycle.pack && _pipeState !== 'publishing' && _pipeState !== 'scanning') _gateButtonFor(i); // v7.9.8 — Hold/Publish follows the selection
+    else if (!_reselectingPub && (_pipeState === 'scan' || _pipeState === 'scanning' || _pipeState === 'confirm' || _pipeState === 'hold')) setRunButtonState('ready'); // v6.1.3 — selection also disarms Confirm
   }
 }
 
@@ -6283,6 +6307,48 @@ function _gateRowTag(row) {
   return x ? { txt: '#' + id + (x.pass ? ' PUBLISH' : ' hold'), cls: x.pass ? 'green' : 'muted' } : { txt: '#' + id, cls: 'muted' };
 }
 
+// v7.9.8 — HOLD: acknowledge the Gate. Writes nothing; disarms the sweeps (as a
+// publish does) and returns to the Scan resting state. Results stay on screen.
+function _gateHold() {
+  logMsg('\u25a0 HOLD \u2014 ' + _gateVerdictText() + ' roll_params.json unchanged.', 'ok');
+  Object.keys(_sweepVars).filter(v => _sweepVars[v]).forEach(v => toggleVar(v, true));
+  setRunButtonState('scan');
+  updateParamDisplay();
+}
+
+// v7.9.8 — the grid = the Gate pack, ranked by the Gate. One rule: a
+// challenger ranks above the incumbent only by clearing the Gate. Each entry
+// maps to its OWN sweep row (exact params), so selecting and publishing it
+// carries exactly what the Gate tested; a missing row is synthesised.
+function _gateGridRows(sorted) {
+  const c = _gateCycle;
+  if (!c || !c.pack || !c.pack.entries || !c.pack.entries.length) return null;
+  const gv = c.last ? new Map(c.last.gv.map(x => [x.id, x])) : new Map();
+  const keyOf = p => [p.decay, p.dteFloor, p.delta, p.anchor, p.defH ?? 0, p.entryCap ?? 'n', p.grace ?? 3, p.entryDteMin ?? 'n'].join('/');
+  const rankOf = new Map(sorted.map((r, i) => [_gatePkey(r), i + 1]));
+  const items = c.pack.entries.map(e => {
+    const p = e.params, k = keyOf(p);
+    let row = sorted.find(r => _gatePkey(r) === k) || null;
+    if (!row) row = { decay: p.decay, floor: p.dteFloor, delta: p.delta, lookahead: p.anchor, defh: p.defH ?? 0, entrycap: p.entryCap ?? null,
+                      grace: p.grace ?? 3, entrydte: p.entryDteMin ?? null, yld: e.stats.coreYld, rolls: e.stats.rolls, ps: e.id === 0 ? 0 : null };
+    return { e, x: gv.get(e.id) || null, row, sweepRank: rankOf.get(k) ?? null };
+  });
+  const inc = items.filter(t => t.e.id === 0);
+  const ch  = items.filter(t => t.e.id !== 0);
+  const pass = ch.filter(t => t.x && t.x.pass).sort((a, b) => b.x.minP - a.x.minP || a.e.id - b.e.id);
+  const rest = ch.filter(t => !(t.x && t.x.pass)).sort((a, b) =>
+    ((b.x ? b.x.nOk : -1) - (a.x ? a.x.nOk : -1)) || ((b.x ? b.x.minP : -1) - (a.x ? a.x.minP : -1)) || a.e.id - b.e.id);
+  return [...pass, ...inc, ...rest];
+}
+
+// v7.9.8 — the button follows the selection: the Gate's choice under HOLD or
+// NO VERDICT reads Hold; anything else reads Publish.
+function _gateButtonFor(i) {
+  const c = _gateCycle;
+  const holdish = !c || !c.last || !c.last.winner;
+  setRunButtonState(i === 0 && holdish ? 'hold' : 'ready');
+}
+
 // §4.5 — the verdict card, top of the Opt Results tab.
 function _gateCardHtml() {
   const c = _gateCycle;
@@ -6294,21 +6360,8 @@ function _gateCardHtml() {
     + '<div style="font-size:12px;font-weight:700;color:' + col + ';margin-bottom:6px;">' + esc(head) + '</div>'
     + '<div style="color:var(--muted);margin-bottom:6px;">DM ' + esc(c.dm || '?') + ' \u00b7 ' + c.evals + ' cells swept' + (c.skipped ? ' \u00b7 ' + c.skipped + ' skipped (entry\u0394cap \u2265 \u0394)' : '')
     + ' \u00b7 ' + MODEL_VERSION + (c.last ? ' \u00b7 Gate ' + c.last.gate + ' \u00b7 B ' + c.last.B + ' \u00b7 seed ' + c.last.seed : '') + ' \u00b7 ' + APP_VERSION + '</div>';
-  if (c.pack) {
-    const gv = c.last ? new Map(c.last.gv.map(x => [x.id, x])) : new Map();
-    h += '<table class="opt-result-tbl"><thead><tr><th>#</th><th>entry</th><th>params</th><th>pS</th><th>core %</th><th>min P(\u0394>0)</th><th>min p05</th><th>Gate</th></tr></thead><tbody>';
-    c.pack.entries.forEach(e => {
-      const p = e.params, x = gv.get(e.id), ps = c.psById.get(e.id);
-      h += '<tr><td>' + e.id + '</td><td>' + esc(e.label) + (e.aliases.length ? ' <span class="muted">(+' + e.aliases.length + ')</span>' : '') + '</td>'
-        + '<td class="muted">' + p.decay + '% / \u0394' + p.delta + ' / anc ' + p.anchor + ' / defH ' + p.defH + ' / cap ' + (p.entryCap ?? '=\u0394') + ' / g ' + p.grace + '</td>'
-        + '<td>' + (ps == null ? '\u2014' : (ps >= 0 ? '+' : '') + ps.toFixed(3)) + '</td>'
-        + '<td>' + (e.stats.coreYld != null ? e.stats.coreYld.toFixed(1) : '\u2014') + '</td>'
-        + '<td>' + (x ? (x.minP * 100).toFixed(0) + '%' : '\u2014') + '</td>'
-        + '<td>' + (x ? x.minP05.toFixed(2) : '\u2014') + '</td>'
-        + '<td class="' + (x && x.pass ? 'green' : 'muted') + '">' + (e.id === 0 ? 'incumbent' : x ? (x.pass ? 'PUBLISH' : 'hold \u2014 ' + esc(x.why)) : '\u2014') + '</td></tr>';
-    });
-    h += '</tbody></table>';
-    h += '<div style="margin-top:8px;color:var(--muted);">Publish: select a row and press Publish. The Gate\u2019s winner publishes as is; any other pack entry needs a typed override reason. '
+  if (c.pack) { // v7.9.8 — the pack table moved into the grid below (one table)
+    h += '<div style="color:var(--muted);">The grid below is the Gate pack (' + c.pack.entries.length + ' distinct machines), ranked by the Gate: a challenger ranks above the incumbent only by clearing it. Row #1 is the Gate\u2019s choice; selecting another row arms Publish with an override reason. '
       + '<button onclick="showTab(\'gate\')" style="font-family:var(--mono);font-size:9px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--accent);padding:2px 8px;cursor:pointer;margin-left:6px;">\u2696\ufe0f Gate report</button></div>';
   }
   return h + '</div>';
@@ -7006,11 +7059,12 @@ function renderOptResults(results, decays, floors, deltas, lookaheads) {
     .filter(r => r.yld !== null)
     .sort(_prCmp);
 
-  const top    = rows; // v5.15.2 — full list (tap-select needs every rankable row)
-  _optDisplayRows = rows;
+  const _gRows = _gateGridRows(rows); // v7.9.8 — the Gate pack, Gate-ranked; null → legacy full list
+  const top    = _gRows ? _gRows.map(t => t.row) : rows; // v5.15.2 — full list (tap-select needs every rankable row)
+  _optDisplayRows = top;
   _optRR_args = [results, decays, floors, deltas, lookaheads]; // v6.0.0
-  const dispIdx = rows.map((_, i) => i);
-  if (_optSelIdx === null && dispIdx.length) { const _w = _gateWinnerIdx(rows); _optSelIdx = _w != null ? _w : 0; } // v7.9.0 — the Gate's winner, else pS #1
+  const dispIdx = top.map((_, i) => i);
+  if (_optSelIdx === null && dispIdx.length) { const _w = _gRows ? 0 : _gateWinnerIdx(rows); _optSelIdx = _w != null ? _w : 0; } // v7.9.0 — the Gate's winner, else pS #1 · v7.9.8 — Gate mode: row #1 is the Gate's choice
   // vs STD baseline: find the sweep row matching the live published params.
   // (v5.2.1 — was a legacy decay===75 check that never matched; column showed "—" always.)
   const stdRow = rows.find(r =>
@@ -7100,11 +7154,44 @@ function renderOptResults(results, decays, floors, deltas, lookaheads) {
     ${_gateCardHtml()}
     ${edgeWarning}
     ${dataBoundaryWarning}
-    <div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+    ${_gRows ? '' : `<div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
       ${bestStr}
-    </div>`;
+    </div>`}`;
 
-  if (top.length === 0) {
+  if (_gRows) { // v7.9.8 — Gate-pack grid
+    const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const _sth = 'position:sticky;top:0;background:var(--surface);z-index:1;';
+    const fmtP = r => r.decay + '% / \u0394' + r.delta + ' / defH ' + (r.defh ?? 0) + 'd / grace ' + (r.grace ?? 3) + 'd / cap ' + (r.entrycap ?? '=\u0394') + ' / anchor ' + r.lookahead + 'd';
+    const holdish = !_gateCycle.last || !_gateCycle.last.winner;
+    html += '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:6px 0;">ranked by the Gate (' + (_gateCycle.last ? _gateCycle.last.gate : 'no verdict') + ') \u00b7 min P / min p05 = worst across L {30,61,91} \u00b7 sweep rank = paired-score position among ' + rows.length.toLocaleString() + ' cells</div>';
+    html += `<div style="overflow:auto;"><table class="opt-result-tbl"><thead><tr>
+        <th style="${_sth}">#</th><th style="${_sth}">Params</th><th style="${_sth}">Gate</th>
+        <th style="${_sth}">min P(\u0394>0)</th><th style="${_sth}">min p05</th><th style="${_sth}">Core %</th>
+        <th style="${_sth}">vs today</th><th style="${_sth}">Sweep rank</th><th style="${_sth}">Aliases</th><th style="${_sth}">\u0394stop</th>
+      </tr></thead><tbody>`;
+    const incY = (_gRows.find(t => t.e.id === 0) || {}).e;
+    const incYld = incY && incY.stats.coreYld != null ? incY.stats.coreYld : null;
+    _gRows.forEach((t, i) => {
+      const r = t.row, x = t.x, isInc = t.e.id === 0;
+      const gate = isInc ? (i === 0 && holdish ? '<b>HOLD \u00b7 incumbent</b>' : 'incumbent')
+                 : x ? (x.pass ? '<b>PUBLISH</b>' : 'hold \u2014 ' + esc(x.why)) : '\u2014';
+      const gCls = isInc ? (i === 0 ? 'yellow' : 'muted') : (x && x.pass ? 'green' : 'muted');
+      const y = t.e.stats.coreYld, vs = (y != null && incYld != null && !isInc) ? y - incYld : null;
+      html += `<tr id="opt-row-${i}" onclick="optSelectRow(${i})" class="${i === 0 ? 'opt-best' : ''}" style="cursor:pointer;${i === _optSelIdx ? 'background:rgba(96,165,250,0.14);' : ''}">
+        <td>${i + 1}</td>
+        <td style="color:var(--text);">${fmtP(r)}</td>
+        <td class="${gCls}">${gate}</td>
+        <td>${x ? (x.minP * 100).toFixed(0) + '%' : '\u2014'}</td>
+        <td class="${x ? (x.minP05 >= -0.25 ? 'green' : 'red') : 'muted'}">${x ? x.minP05.toFixed(2) : '\u2014'}</td>
+        <td>${y != null ? y.toFixed(1) + '%' : '\u2014'}</td>
+        <td class="${vs == null ? 'muted' : vs >= 0 ? 'green' : 'red'}">${vs == null ? '\u2014' : (vs >= 0 ? '+' : '') + vs.toFixed(1)}</td>
+        <td class="muted">${t.sweepRank != null ? '#' + t.sweepRank.toLocaleString() : '\u2014'}</td>
+        <td class="muted">${t.e.aliases.length ? '+' + t.e.aliases.length : ''}</td>
+        <td class="muted">${r.stopN != null ? r.stopN + '(' + (r.pureN ?? 0) + ')' : '\u2014'}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  } else if (top.length === 0) {
     html += `<div class="opt-insufficient">No qualifying results — all combos had fewer than 2 rolls.</div>`;
   } else {
     html += '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:6px 0;">ranked by paired score vs the incumbent (' + MODEL_VERSION + ') \u00b7 core % is shown, never ranked \u00b7 Gate = pack id and its verdict</div>';
