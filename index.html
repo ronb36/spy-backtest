@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.8</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.9</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -819,7 +819,21 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.9.8';
+const APP_VERSION = 'v7.9.9';
+// v7.9.9 (S71, Ron) — CONFORMANCE AFTER A SWEEP + ROLL ECONOMICS MOVES.
+// (1) DEFECT: runOptimization set _mode = 'optimize' and nothing reset it, so
+// after ANY sweep Conformance and the Evaluation refused with "a sweep is in
+// progress" until the next Scan (S71 log 16:41–16:43, sweep done 16:31). The
+// body is now wrapped: _mode returns to 'test' in `finally`, on success, on a
+// preflight refusal and on a crash. The guard stays for a sweep that is
+// genuinely running; its wording now says "running".
+// (2) Roll Economics leaves the Activity Performance panel (which keeps the
+// statement line — the account) and becomes the top panel of the Conformance
+// tab, computed by the same _cwinHtml body (part:'roll'). Its sim row now reads
+// the Conformance tab's PINNED run (first live trade, sim selects forward —
+// Ron, S71) instead of the unpinned STD run in memory, so the summary ties to
+// the grid below it. Display only: no sim, ranker, Gate or MODEL_VERSION
+// change. Base v7.9.8 (fd2d204d).
 // v7.9.8 (S71, Ron) — THE GRID IS THE GATE PACK; THE BUTTON SAYS THE VERDICT.
 // After a sweep the results grid shows only the Gate pack (incumbent + nbr +
 // top-K distinct machines, aliases merged) — the 28k-cell paired-score list
@@ -2087,10 +2101,11 @@ async function renderPerfPanel(force) {
   if (_perfBuilt && !force) return;
   _perfBuilt = true;
   if (st) st.textContent = '\u27f3 loading\u2026';
-  try { body.innerHTML = await _cwinHtml(); if (st) st.textContent = 'updated ' + new Date().toLocaleTimeString(); }
+  try { body.innerHTML = await _cwinHtml({ part: 'statement' }); if (st) st.textContent = 'updated ' + new Date().toLocaleTimeString(); }
   catch (e) { body.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">\u2717 ' + e.message + '</div>'; if (st) st.textContent = ''; }
 }
-async function _cwinHtml() {
+async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity) | 'roll' (Conformance; opts.simCycles = the pinned run)
+  const _part = (opts && opts.part) || 'both';
   // v6.34.3 — TRADE BASIS + CYCLE STATS (Ron, S58). Two rulings, one rebuild.
   //
   // (1) THE PANEL SHOWED ONE NUMBER SIX WAYS. Of the eleven columns, four were
@@ -2231,13 +2246,14 @@ async function _cwinHtml() {
   // ruling. Explicitly NOT the fixed-6 full-DM STD headline.
   let simN = null, simWin = 0, simCC = 0, simLast = null, simFirst = null;
   const simPool = { decay: [], delta: [] };
-  if (typeof lastResult === 'object' && lastResult && lastResult.cycles && lastResult.cycles.length) {
+  const _simSrc = (opts && opts.simCycles) ? opts.simCycles : (typeof lastResult === 'object' && lastResult ? lastResult.cycles : null); // v7.9.9 — Conformance passes its pinned run
+  if (_simSrc && _simSrc.length) {
     const szTix = trades.filter(r => r.cls === 'opt_sell_open' && String(r.underlying || '').trim() === 'SPY') // v7.8.0 — sells, from the activity rows
       .map(r => ({ d: String(r.trade_date).slice(0, 10), n: Math.abs(Number(r.quantity)) }))
       .filter(x => x.d).sort((a, b) => a.d < b.d ? -1 : 1);
     const liveSize = d => { let n = 1; for (const x of szTix) { if (x.d <= d) n = x.n; else break; } return n; };
     simN = 0;
-    for (const c of lastResult.cycles) {
+    for (const c of _simSrc) {
       // v6.34.3 — a TRADE belongs to the window when it both opened and closed
       // inside it. This replaces v6.25.1's anchor-and-skip, which existed only
       // because a ROLL charges a cover that may predate the window; a trade
@@ -2282,9 +2298,10 @@ async function _cwinHtml() {
       + '<span style="' + lab + '"> \u00b7 SPY</span> <b>' + pf(bhAnn) + '</b>'
       + '<br>' + (walk ? '<span style="' + (walk.resid === 0 ? 'color:var(--green);' : 'color:var(--red);') + '">' + (walk.resid === 0 ? '\u2713 cash ties ' + walk.lastIso : '\u2717 cash \u0394 $' + walk.resid.toFixed(2) + ' at ' + walk.lastIso) + '</span>' : '') // v7.6.15/16/20 — the tie-out, second line
       + ((() => { const u = [...new Set(ledger.filter(r => r.unchained).map(r => r.iso))]; return u.length ? '<span style="color:#e0a020;"> \u26a0 unchained day' + (u.length > 1 ? 's' : '') + ' ' + u.join(', ') + '</span>' : ''; })())) // v7.6.17
-    + '</div>' // v7.1.0 — residual prose removed (Ron). Header + data line only.
-    + '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:9px 0 3px;letter-spacing:.05em;">'
-    + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 current model \u00b7 ' + winStart + ' \u2192 ' + endIso + ' \u00b7 sim = unpinned STD path (Conformance pins the first live trade)</span></div>'; // v7.6.8
+    + '</div>'; // v7.1.0 — residual prose removed (Ron). Header + data line only.
+  if (_part === 'statement') return ctx; // v7.9.9 — Activity: the account only
+  const rhdr = '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:' + (_part === 'roll' ? '0' : '9px') + ' 0 3px;letter-spacing:.05em;">'
+    + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 current model \u00b7 ' + winStart + ' \u2192 ' + endIso + ' \u00b7 sim = ' + ((opts && opts.simCycles) ? 'pinned at the first live trade (the run in the grid below)' : 'unpinned STD path') + '</span></div>'; // v7.6.8 · v7.9.9
     // v7.1.0 — BOTH HEADERS ARE DATED, which is what now carries the
     // non-additivity: two windows, readable off the dates, no prose line.
 
@@ -2370,7 +2387,7 @@ async function _cwinHtml() {
     ? '<div style="color:var(--muted);font-size:8px;margin-top:4px;line-height:1.6;">' + warn + '</div>'
     : '';
 
-  return ctx
+  return (_part === 'roll' ? '' : ctx) + rhdr // v7.9.9
     + '<table style="border-collapse:collapse;font-family:var(--mono);font-size:10px;width:100%;table-layout:fixed;">'
     + '<thead><tr>' + hdr.map((h, k) => '<th style="' + th + (k === 0 ? 'text-align:left;width:4%;' : '') + '">' + h + '</th>').join('') + '</tr></thead>'
     + '<tbody><tr>' + simCells.map((c, k) => '<td style="' + td + (k === 0 ? 'text-align:left;' : (k === 1 && simCells[2] === '' ? 'text-align:left;white-space:nowrap;' : '')) + '">' + c + '</td>').join('') + '</tr>'
@@ -3179,7 +3196,7 @@ async function runEval() {
   // appear" indistinguishable from "eval ran and something erased it". An
   // instrument whose absence cannot be diagnosed is not an instrument.
   if (_evalRunning) { logMsg('EVALUATION: already running \u2014 skipped', ''); return; }
-  if (_mode === 'optimize') { logMsg('EVALUATION: a sweep is in progress \u2014 not running', ''); return; }
+  if (_mode === 'optimize') { logMsg('EVALUATION: a sweep is running \u2014 not running', ''); return; }
   if (!DM || !DM.spy) { logMsg('EVALUATION: data mart not loaded \u2014 not running', 'err'); return; }
   _evalRunning = true;
   const t0 = Date.now();
@@ -3248,6 +3265,7 @@ async function renderConfTab() {
       <span style="color:var(--muted);">pin ${_confStart} \u00b7 ${_confContract(first.strike, first.expiry)} (first live entry under the current model, POLICY_REGIME_2 ${POLICY_REGIME_2}) \u00b7 sim selects forward on its own \u00b7 ${n} live cycle${n !== 1 ? 's' : ''} in window</span>
       <button class="btn btn-primary" id="conf-run-btn" style="height:24px;padding:0 12px;font-size:9px;" onclick="_confLive=null;_confRan=false;renderConfTab();">\u21bb reload &amp; run</button><!-- v7.6.8 — one button: refetch the blotter, re-run -->
     </div>
+    <div id="conf-econ" style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted);">Roll Economics \u2014 computing with the run\u2026</div><!-- v7.9.9 -->
     <div id="conf-table" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${_confLive.skipped.length ? '<span style="color:#e0a020;">\u26a0 ' + _confLive.skipped.length + ' live row(s) skipped: orphan cover or no sell leg.</span>' : ''}</div>`;
   if (st) st.textContent = `${rows.length} live cycles \u00b7 ${rows.filter(r => r.isOpen).length} open`;
   if (!_confRan) { _confRan = true; runConformance(); } // v7.6.7 — the tab IS the run
@@ -3255,7 +3273,7 @@ async function renderConfTab() {
 
 async function runConformance() {
   if (_confRunning) return;
-  if (_mode === 'optimize') { logMsg('\u26a0 Conformance: a sweep is in progress \u2014 not starting (a sweep on one build must not be interrupted)', 'err'); return; }
+  if (_mode === 'optimize') { logMsg('\u26a0 Conformance: a sweep is running \u2014 not starting (a sweep on one build must not be interrupted)', 'err'); return; }
   const tbl = $('conf-table'); const st = $('conf-status'); const btn = $('conf-run-btn');
   if (!_confLive || !tbl || !_confStart) return;
   const live = _confLive.rows.filter(r => r.open >= _confStart);
@@ -3265,6 +3283,7 @@ async function runConformance() {
   const t0 = Date.now();
   logMsg(`CONFORMANCE: pin ${_confStart} (first live entry under the current model), sim selects forward \u2014 STD params, contract + date pinned, sim prices its own; ${live.length} live cycle(s) in window`, '');
   const results = []; // one per calendar-ordered cycle: { live, sim (cycle or null), err, note, held }
+  let _econCycles = null; // v7.9.9 — the pinned run's cycles, for Roll Economics
   try {
     const L0 = live[0];
     const pin = { strike: L0.strike, expiry: L0.expiry, entryDate: L0.open, entryPx: null }; // v7.6.6 — contract + date only; the sim opens at its own DM price
@@ -3275,6 +3294,7 @@ async function runConformance() {
       _gaps = [];
       const r = await simulate({ ...STD, shares, pin });
       const sc = (r && r.cycles) ? r.cycles : [];
+      _econCycles = sc;
       const n = Math.max(live.length, sc.length);
       // simulate() returns null when NO cycle closed: with the three pin checks
       // already passed, that is "still holding at DM end", not an error.
@@ -3288,6 +3308,11 @@ async function runConformance() {
   if (st) st.textContent = `done \u00b7 ${results.length} row(s) \u00b7 ${((Date.now() - t0) / 1000).toFixed(1)}s`;
   logMsg(`CONFORMANCE: ${results.length} row(s) in ${((Date.now() - t0) / 1000).toFixed(1)}s \u2014 read the tab`, 'ok');
   tbl.innerHTML = _confRender(results);
+  const ec = $('conf-econ'); // v7.9.9 — Roll Economics, pinned run
+  if (ec) {
+    try { ec.innerHTML = _econCycles ? await _cwinHtml({ part: 'roll', simCycles: _econCycles }) : '<span style="color:#e0a020;">Roll Economics: the pinned run did not complete \u2014 see the grid below</span>'; }
+    catch (e) { ec.innerHTML = '<span style="color:var(--red);">\u2717 Roll Economics: ' + e.message + '</span>'; }
+  }
 }
 
 function _confRender(results) {
@@ -5829,7 +5854,10 @@ function applyOptWinnerEcho(b) {
   });
 }
 
-async function runOptimization() {
+async function runOptimization() { // v7.9.9 — _mode can never outlive the sweep
+  try { await _runOptimizationBody(); } finally { _mode = 'test'; }
+}
+async function _runOptimizationBody() {
   _mode = 'optimize';
   _optParams = null;
   _gaps = [];
