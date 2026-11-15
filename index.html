@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.5</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -393,19 +393,29 @@ select.display-box { cursor:pointer; outline:none; }
       </div>
     </div>
     <div class="tab-bar">
-      <button class="tab-btn active" id="tab-btn-trades" onclick="showTab('trades')">📒 Activity</button>
+      <!-- v7.10.5 — Activity tab retired: its blotters are toggles under the Conformance grid -->
       <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Opt Results</button>
       <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
       <button class="tab-btn" id="tab-btn-runlog" onclick="showTab('runlog')">📄 Logs</button>
       <button class="tab-btn" id="tab-btn-scan" onclick="showTab('scan')" style="display:none">🔍 Scan</button>
       <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
-      <button class="tab-btn" id="tab-btn-conf" onclick="showTab('conf')">🔬 Conformance</button><!-- v7.6.2 — sim vs live, cycle by cycle (SPEC_conformance_tab) -->
+      <button class="tab-btn active" id="tab-btn-conf" onclick="showTab('conf')">🔬 Conformance</button><!-- v7.6.2 — sim vs live, cycle by cycle (SPEC_conformance_tab) -->
     </div>
 
     <!-- v7.10.2 — the Performance panel moved above the tabs as the statement line -->
+    <div id="tab-conf" style="display:block"><!-- v7.6.2 — CONFORMANCE: sim vs live, cycle by cycle -->
+      <div class="chart-panel">
+        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="chart-title">🔬 Conformance — sim vs live, cycle by cycle</span>
+          <span id="conf-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 10px;line-height:1.5;">Era pins the first live entry under the current model (on or after POLICY_REGIME_2) by contract and date; the sim opens it at its own DM price and selects forward on its own. YTD and ALL lay the standard run beside every live trade in the window, unpinned. One row per trading date, newest first, every price that side's actual. Reads only.</div>
+        <div id="conf-body"></div>
+      </div>
+    </div>
     <!-- v6.7.8 — Trades virtual tab: Sim/Live toggle + Chart expand (panels below untouched) -->
-    <div id="trades-subnav" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
-      <button id="tsub-sim" onclick="setTradesView('sim')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;">Sim Rolls</button>
+    <div id="trades-subnav" style="display:flex;gap:8px;align-items:center;margin:10px 0;"><!-- v7.10.5 — under the Conformance grid; toggles, closed by default -->
+      <button id="tsub-sim" onclick="setTradesView('sim')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Sim Rolls</button>
       <button id="tsub-live" onclick="setTradesView('live')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Live Rolls</button>
       <div style="flex:1;"></div>
       <button id="tsub-chart" onclick="toggleTradesChart()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">📈 Chart</button>
@@ -461,7 +471,7 @@ select.display-box { cursor:pointer; outline:none; }
         <div id="credit-chart" style="height:420px;"></div>
       </div>
     </div>
-    <div id="tab-log">
+    <div id="tab-log" style="display:none">
       <div class="chart-panel">
         <div class="chart-header"><span class="chart-title">Roll Cycle Log</span></div>
         <div class="tbl-wrap"><div id="cycle-table"></div></div>
@@ -526,16 +536,6 @@ select.display-box { cursor:pointer; outline:none; }
 </div>
     </div>
 
-    <div id="tab-conf" style="display:none"><!-- v7.6.2 — CONFORMANCE: sim vs live, cycle by cycle -->
-      <div class="chart-panel">
-        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="chart-title">🔬 Conformance — sim vs live, cycle by cycle</span>
-          <span id="conf-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
-        </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 10px;line-height:1.5;">The first live entry under the current model (on or after POLICY_REGIME_2) is pinned by contract and date; the sim opens it at its own DM price and selects forward on its own. Both records are laid on one calendar, one row per trading date, every price that side's actual. Reads only.</div>
-        <div id="conf-body"></div>
-      </div>
-    </div>
     <div id="tab-live" style="display:none">
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
@@ -821,7 +821,20 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.4';
+const APP_VERSION = 'v7.10.5';
+// v7.10.5 (S71, Ron · SPEC sim-live panels §4–§5) — CONFORMANCE WINDOWS · ACTIVITY TAB RETIRED.
+//   1. Conformance gets ALL · YTD · Era tabs (default Era). Era = today's pinned grid, unchanged.
+//      YTD / ALL = the standard run beside every live trade in the window, UNPINNED: each side is laid on the
+//      calendar on its own (no row pairing), so the exit/entry conformance band is Era-only and says so.
+//   2. Roll Economics follows the tab. Era = pinned run (unchanged). YTD = Jan 1 on. ALL = since the first
+//      live trade (a common window; the grid itself shows the sim from 2024). Before the first live sell the
+//      sim is sized at the STD contract count (there is no live size to copy).
+//   3. Activity tab removed. Sim Rolls · Live Rolls (with Statement Import, Add Trade, Cover Only) · Chart are
+//      toggles under the Conformance grid, closed by default. Conformance is the default tab. Refresh / Export
+//      stay on the statement line (main page). showTab('log'|'live'|'chart') aliases land on Conformance.
+//   4. Conformance never runs while the evaluation is running (two simulate() calls must not interleave);
+//      it waits and runs when the evaluation ends.
+//   Display only. Baseline sim identical.
 // v7.10.4 (S71, Ron) — ERA IS THE COMPARISON. The sim runs today's rules over all history while live
 //   ALL/YTD mix in the 2025 dailies and the pre-September approach, so Era is the only like-for-like window.
 //   1. Era is the default window on load (was ALL).
@@ -1907,11 +1920,11 @@ function updateParamDisplay() {
 
 // ── Tab management ─────────────────────────────────────────────────────────
 // v6.7.8 — Trades virtual tab state: which blotter shows + chart expansion
-let _tradesView = 'sim';
+let _tradesView = 'none'; // v7.10.5 — 'none' | 'sim' | 'live': blotters under the Conformance grid, closed by default
 let _tradesChartOpen = false;
 let _chartViewCur = 'price';
-function _tradesCtx() { return _tradesChartOpen ? 'chart' : (_tradesView === 'sim' ? 'log' : 'live'); }
-function setTradesView(v) { _tradesView = v; _applyTradesView(); }
+function _tradesCtx() { return _tradesChartOpen ? 'chart' : (_tradesView === 'live' ? 'live' : 'log'); }
+function setTradesView(v) { _tradesView = (_tradesView === v) ? 'none' : v; _applyTradesView(); } // v7.10.5 — a second tap closes it
 function toggleTradesChart() {
   _tradesChartOpen = !_tradesChartOpen;
   _applyTradesView(); // v6.7.11 — un-hide FIRST: renderers measure clientWidth, and a
@@ -1941,9 +1954,10 @@ function showTab(tab) {
   // v6.7.8 — 'log'/'chart'/'live' are ALIASES into the Trades virtual tab so
   // every existing caller (post-run flows, post-ticket jumps, debug fallback)
   // works unmodified.
-  if (tab === 'log')        { _tradesView = 'sim';  tab = 'trades'; }
-  else if (tab === 'live')  { _tradesView = 'live'; tab = 'trades'; }
-  else if (tab === 'chart') { _tradesChartOpen = true; tab = 'trades'; }
+  // v7.10.5 — the Activity tab is gone: its aliases land on Conformance ('log' no longer opens Sim Rolls)
+  if (tab === 'log' || tab === 'trades') { tab = 'conf'; }
+  else if (tab === 'live')  { _tradesView = 'live'; tab = 'conf'; }
+  else if (tab === 'chart') { _tradesChartOpen = true; tab = 'conf'; }
   ['trades','heatmap','gaps','runlog','scan','mart','gate','conf'].forEach(t => { // v7.6.2 — conf
     const btn = $('tab-btn-' + t);
     if (btn) btn.classList.toggle('active', t === tab);
@@ -1953,8 +1967,8 @@ function showTab(tab) {
     if (el) el.style.display = t === tab ? 'block' : 'none';
   });
   const sn = $('trades-subnav');
-  if (sn) sn.style.display = tab === 'trades' ? 'flex' : 'none';
-  if (tab === 'trades') { _applyTradesView(); } // v7.10.2 — the statement line lives above the tabs
+  if (sn) sn.style.display = tab === 'conf' ? 'flex' : 'none';
+  if (tab === 'conf') { _applyTradesView(); } // v7.10.5 — blotters ride under the Conformance grid
   else {
     ['log','chart','live'].forEach(t => { const el = $('tab-' + t); if (el) el.style.display = 'none'; });
     if (_chatOpen) setChatContext(tab); // v6.1.0 — chat context follows the tab
@@ -2390,7 +2404,7 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
   // v6.34.5 — UNPINNED: every cycle closed on or after the program start. The
   // old ceiling (<= L.d) is kept only as a subtotal, because the SPY residual
   // must net CC over the SAME window as the balances it is derived from.
-  const inWin = d => { const i = toIso(d); return i && i >= S.d; };
+  const inWin = d => { const i = toIso(d); return i && i >= ((opts && opts.winStart) ? '0000' : S.d); }; // v7.10.5 — a Conformance window reads every cycle
   // v7.1.0 — TWO PASSES OVER ONE PAIRING (S63). liveAll spans the FULL account
   // window and exists for exactly one consumer: the SPY residual, whose CC
   // subtraction must match the statement balances it is derived from. The roll
@@ -2419,7 +2433,7 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
   // on or after POLICY_REGIME_2 — the anchor the Conformance tab pins — so the
   // grid and the tab read the same dates. WF_ERA_START stays for the walk-
   // forward registrations; this panel no longer reads it.
-  const winStart = liveAll.map(c => c.openIso).filter(d => d && d >= POLICY_REGIME_2).sort()[0] || POLICY_REGIME_2;
+  const winStart = (opts && opts.winStart) || liveAll.map(c => c.openIso).filter(d => d && d >= POLICY_REGIME_2).sort()[0] || POLICY_REGIME_2; // v7.10.5 — YTD / ALL pass their own
   const liveEraClose = liveAll.filter(c => c.iso >= winStart); // close-keyed: ALARM SCOPE ONLY
   const orphanN = liveEraClose.filter(c => c.orphan).length; // v6.34.3 — counted, never silently dropped.
   // v7.1.1 — deliberately scoped to the close-keyed set: an orphan has NO open
@@ -2447,7 +2461,7 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
     const szTix = trades.filter(r => r.cls === 'opt_sell_open' && String(r.underlying || '').trim() === 'SPY') // v7.8.0 — sells, from the activity rows
       .map(r => ({ d: String(r.trade_date).slice(0, 10), n: Math.abs(Number(r.quantity)) }))
       .filter(x => x.d).sort((a, b) => a.d < b.d ? -1 : 1);
-    const liveSize = d => { let n = 1; for (const x of szTix) { if (x.d <= d) n = x.n; else break; } return n; };
+    const liveSize = d => { let n = (opts && opts.winStart) ? Math.round((STD.shares || 600) / 100) : 1; for (const x of szTix) { if (x.d <= d) n = x.n; else break; } return n; }; // v7.10.5 — before the first live sell (ALL), the STD size
     simN = 0;
     for (const c of _simSrc) {
       // v6.34.3 — a TRADE belongs to the window when it both opened and closed
@@ -2503,7 +2517,7 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
     return ctx;
   }
   const rhdr = '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:' + (_part === 'roll' ? '0' : '9px') + ' 0 3px;letter-spacing:.05em;">'
-    + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 current model \u00b7 ' + winStart + ' \u2192 ' + endIso + ' \u00b7 sim = ' + ((opts && opts.simCycles) ? 'pinned at the first live trade (the run in the grid below)' : 'unpinned STD path') + '</span></div>'; // v7.6.8 · v7.9.9
+    + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 ' + ((opts && opts.winLabel) || 'current model') + ' \u00b7 ' + winStart + ' \u2192 ' + endIso + ' \u00b7 sim = ' + ((opts && opts.simCycles) ? ((opts && opts.winStart) ? 'standard run, unpinned, sized to the live contract count' : 'pinned at the first live trade (the run in the grid below)') : 'unpinned STD path') + '</span></div>'; // v7.6.8 · v7.9.9
     // v7.1.0 — BOTH HEADERS ARE DATED, which is what now carries the
     // non-additivity: two windows, readable off the dates, no prose line.
 
@@ -2710,6 +2724,9 @@ let _confRunning = false;
 let _confStart = null;     // ISO entry date of the pin: first live entry on/after POLICY_REGIME_2 (v7.6.7 — the only scenario)
 let _confRan = false;      // v7.6.7 — auto-run once per page load on tab open
 let _confLive = null;      // paired live cycles (closed + open), ascending
+let _confWin = 'era';      // v7.10.5 — 'all' | 'ytd' | 'era' (Conformance tabs)
+let _confPending = false;  // v7.10.5 — asked for while the evaluation was running
+function setConfWin(w) { if (w !== 'all' && w !== 'ytd' && w !== 'era') return; _confWin = w; _confRan = false; renderConfTab(); }
 
 function _confLiveType(t) { const s = (t || '').toLowerCase(); if (s.includes('delta')) return 'delta'; if (s.includes('decay')) return 'decay'; if (s.includes('dte')) return 'dte'; if (s.includes('expir') || s.includes('assign')) return 'expiry'; return '?'; }
 function _confSimType(reason) { const s = (reason || '').toLowerCase(); if (s.includes('delta')) return 'delta'; if (s.includes('tv decay')) return 'decay'; if (s.includes('dte')) return 'dte'; if (s.includes('expired')) return 'expiry'; return '?'; }
@@ -3444,12 +3461,14 @@ async function runEval() {
     logMsg('✗ EVALUATION: ' + e.message, 'err');
   }
   _evalRunning = false;
+  if (_confPending) { _confPending = false; renderConfTab(); } // v7.10.5 — Conformance asked while eval ran
 }
 
 async function renderConfTab() {
   const body = $('conf-body'); if (!body) return;
   const st = $('conf-status');
   if (_confRunning) return;
+  if (_evalRunning) { _confPending = true; body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;padding:8px 0;">Waiting for the evaluation to finish\u2026</div>'; return; } // v7.10.5
   if (!DM) { body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;padding:8px 0;">Data mart not loaded yet.</div>'; return; }
   try {
     if (!_confLive) { if (st) st.textContent = 'loading live cycles\u2026'; _confLive = await _confLoadLive(); }
@@ -3463,9 +3482,12 @@ async function renderConfTab() {
   if (!first) { body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;">No live entry on or after ' + POLICY_REGIME_2 + ' (POLICY_REGIME_2) \u2014 nothing to pin.</div>'; return; }
   _confStart = first.open;
   const n = rows.filter(r => r.open >= _confStart).length;
+  const _wb = (w, lbl) => `<button onclick="setConfWin('${w}')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 12px;border-radius:3px;cursor:pointer;border:1px solid ${_confWin === w ? 'var(--accent)' : 'var(--border)'};background:${_confWin === w ? 'rgba(91,138,245,.10)' : 'var(--surface2)'};color:${_confWin === w ? 'var(--accent)' : 'var(--muted)'};">${lbl}</button>`; // v7.10.5
+  const _wn = _confWin === 'era' ? null : _confWin === 'ytd' ? 'YTD ' + _ytdYear() + ' \u00b7 standard run vs every live trade from ' + _ytdYear() + '-01-01, unpinned' : 'ALL \u00b7 standard run from its start vs every live trade, unpinned';
   body.innerHTML =
-    `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;font-family:var(--mono);font-size:10px;">
-      <span style="color:var(--muted);">pin ${_confStart} \u00b7 ${_confContract(first.strike, first.expiry)} (first live entry under the current model, POLICY_REGIME_2 ${POLICY_REGIME_2}) \u00b7 sim selects forward on its own \u00b7 ${n} live cycle${n !== 1 ? 's' : ''} in window</span>
+    `<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">${_wb('all', 'ALL')}${_wb('ytd', 'YTD ' + _ytdYear())}${_wb('era', 'Era')}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;font-family:var(--mono);font-size:10px;">
+      <span style="color:var(--muted);">${_wn ? _wn + ' \u00b7 ' + rows.length + ' live cycles' : `pin ${_confStart} \u00b7 ${_confContract(first.strike, first.expiry)} (first live entry under the current model, POLICY_REGIME_2 ${POLICY_REGIME_2}) \u00b7 sim selects forward on its own \u00b7 ${n} live cycle${n !== 1 ? 's' : ''} in window`}</span>
       <button class="btn btn-primary" id="conf-run-btn" style="height:24px;padding:0 12px;font-size:9px;" onclick="_confLive=null;_confRan=false;renderConfTab();">\u21bb reload &amp; run</button><!-- v7.6.8 — one button: refetch the blotter, re-run -->
     </div>
     <div id="conf-econ" style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted);">Roll Economics \u2014 computing with the run\u2026</div><!-- v7.9.9 -->
@@ -3474,11 +3496,38 @@ async function renderConfTab() {
   if (!_confRan) { _confRan = true; runConformance(); } // v7.6.7 — the tab IS the run
 }
 
+// v7.10.5 — YTD / ALL: the standard run in memory beside every live trade in the window. NOT pinned and NOT
+// paired: each side is laid on the calendar on its own, so the conformance band (row pairing) stays Era-only.
+async function _confRunWindow() {
+  const tbl = $('conf-table'), st = $('conf-status'), ec = $('conf-econ');
+  if (!tbl || !_confLive) return;
+  const r = (typeof lastResult === 'object' && lastResult) ? lastResult : null;
+  if (!r || !r.cycles) { tbl.innerHTML = '<span style="color:#e0a020;">No standard run in memory yet \u2014 it runs on load; try again when the run finishes.</span>'; if (ec) ec.innerHTML = ''; return; }
+  const rows = _confLive.rows;
+  const simFirst = (r.cycles[0] && r.cycles[0].entryDate) || (DM.spy[0] && DM.spy[0].date);
+  const start = _confWin === 'ytd' ? _ytdYear() + '-01-01' : [simFirst, rows.length ? rows[0].open : null].filter(Boolean).sort()[0];
+  const live = rows.filter(L => L.isOpen || (L.close || L.open) >= start);
+  const sim = r.cycles.filter(c => c.exitDate && c.exitDate >= start);
+  const results = live.map(L => ({ live: L, sim: null, err: null })).concat(sim.map(C => ({ live: null, sim: C, err: null })));
+  results.unpinned = true; results.start = start;
+  results.simOpen = (r.pendingContract && r.pendingContract.entryDate) ? r.pendingContract : null;
+  tbl.innerHTML = _confRender(results);
+  if (st) st.textContent = `${_confWin.toUpperCase()} \u00b7 ${live.length} live \u00b7 ${sim.length} sim \u00b7 from ${start}`;
+  logMsg(`CONFORMANCE ${_confWin.toUpperCase()}: standard run vs live, unpinned, from ${start} \u2014 ${live.length} live / ${sim.length} sim cycle(s)`, '');
+  if (ec) {
+    const firstLive = rows.map(L => L.open).filter(Boolean).sort()[0] || start;
+    const econStart = _confWin === 'ytd' ? start : firstLive; // ALL: a common window, since the first live trade
+    try { ec.innerHTML = await _cwinHtml({ part: 'roll', simCycles: r.cycles, winStart: econStart, winLabel: _confWin === 'ytd' ? 'YTD ' + _ytdYear() : 'ALL \u00b7 since the first live trade' }); }
+    catch (e) { ec.innerHTML = '<span style="color:var(--red);">\u2717 Roll Economics: ' + e.message + '</span>'; }
+  }
+}
+
 async function runConformance() {
   if (_confRunning) return;
   if (_mode === 'optimize') { logMsg('\u26a0 Conformance: a sweep is running \u2014 not starting (a sweep on one build must not be interrupted)', 'err'); return; }
   const tbl = $('conf-table'); const st = $('conf-status'); const btn = $('conf-run-btn');
   if (!_confLive || !tbl || !_confStart) return;
+  if (_confWin !== 'era') return _confRunWindow(); // v7.10.5 — YTD / ALL, unpinned
   const live = _confLive.rows.filter(r => r.open >= _confStart);
   if (!live.length) return;
   _confRunning = true; if (btn) btn.disabled = true;
@@ -3547,7 +3596,7 @@ function _confRender(results) {
   const priorAny = results.some(x => x.live && x.live.open < POLICY_REGIME_2);
   results.forEach((x, i) => {
     const L = x.live, C = x.sim;
-    const prior = L && L.open < POLICY_REGIME_2;
+    const prior = L ? L.open < POLICY_REGIME_2 : !!(results.unpinned && C && C.entryDate < POLICY_REGIME_2); // v7.10.5 — unpinned sim rows date themselves
     if (L) {
       at(L.open).ls.push({ c: _confContract(L.strike, L.expiry), px: L.sell, prior });
       if (!L.isOpen) {
@@ -3563,7 +3612,7 @@ function _confRender(results) {
     else if (C) {
       const stype = _confSimType(C.reason);
       const sv = stype === 'delta' ? C.exitDelta : stype === 'decay' ? C.exitDecayPct : null;
-      const pinned = i === 0; // v7.6.7 — one scenario: only the first row is pinned
+      const pinned = i === 0 && !results.unpinned; // v7.6.7 — one scenario: only the first row is pinned · v7.10.5 — none in YTD/ALL
       // sim sell: pinned rows opened at the live fill; the sim's OWN mark that day is entryPxDm
       at(C.entryDate).ss.push({ c: _confContract(C.strike, C.expiry) + (pinned ? ' pin' : ''), px: C.entryPx, tag: '', prior }); // v7.6.4 — pinned row shows the FILL (the pin); VWAP goes to the notes
       if (pinned && C.entryPxDm != null && Math.abs(C.entryPxDm - C.entryPx) > 0.005) notes.push(`<span style="${muted}">pin ${C.entryDate} ${_confContract(C.strike, C.expiry)}: sim opened at the live fill ${fmtPx(C.entryPx)}; the DM day-bar VWAP that day was ${fmtPx(C.entryPxDm)}</span>`);
@@ -3600,8 +3649,9 @@ function _confRender(results) {
   }
   // ── date axis: every DM trading day from the start, plus any event date outside it ──
   const lastDm = DM.spy[DM.spy.length - 1].date;
-  const dates = new Set(DM.spy.filter(r => r.date >= _confStart).map(r => r.date));
-  Object.keys(ev).forEach(d => { if (d >= _confStart) dates.add(d); });
+  const _ax0 = results.start || _confStart; // v7.10.5 — the window's own start
+  const dates = new Set(DM.spy.filter(r => r.date >= _ax0).map(r => r.date));
+  Object.keys(ev).forEach(d => { if (d >= _ax0) dates.add(d); });
   const axis = [...dates].sort();
   // v7.6.4 — ONE LINE PER ROW: contract / px / trigger are separate columns;
   // same-day same-side events join with a middle dot; pin-mask notes go below.
@@ -3643,6 +3693,7 @@ function _confRender(results) {
   html += '</tbody></table>';
   html += `<div style="margin-top:6px;font-size:9px;${muted}">date colour: <span style="${green}">both traded</span> \u00b7 <span style="${amber}">one side only</span> \u00b7 dim = no trade. \u201cpin\u201d = the sim opened the live contract on that date at its OWN DM price. Every price is that side\u2019s actual. Live decay = the level actually got (fill-frame: the sim\u2019s arithmetic on the live fills, DM-close intrinsic); live delta = the recorded scan value. \u207a = sim co-fire; the reading shown matches the live trigger that day. <span style="${green}">green trigger</span> = the better level of the two (higher decay, lower delta).${notes.length ? '<br>' + notes.join('<br>') : ''}</div>`;
   // ── summary band ──
+  if (results.unpinned) return html + `<div style="margin-top:10px;padding:8px 10px;border:1px solid var(--border);border-radius:4px;line-height:1.7;color:var(--muted);">Exit and entry conformance are measured in <b>Era</b> only, where the sim is pinned to the live contract. Here each side runs on its own path${results.start < POLICY_REGIME_2 ? '; rows before ' + POLICY_REGIME_2 + ' ran earlier rules (dimmed)' : ''}.</div>`; // v7.10.5
   const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
   const fm = (v, dd, suf) => v == null ? '\u2014' : (v >= 0 ? '+' : '') + v.toFixed(dd) + suf;
   let sum = `<div style="margin-top:10px;padding:8px 10px;border:1px solid var(--border);border-radius:4px;line-height:1.7;">`;
@@ -5231,6 +5282,7 @@ logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.decayTrig
   if (!result) { logMsg('✗ No cycles — check parameters','err'); setProgress(100);  return; }
   lastResult = result; // cache for price chart roll markers
   _eraPinRun = null; // v7.10.4 — a new STD run invalidates the pin (its params may differ); runEval / Conformance re-pin
+  _confRan = false; // v7.10.5 — Conformance re-runs on its next showing (YTD / ALL read this run)
   buildRollSnapshots(result);
   if (_perfBuilt) renderPerfPanel(true); // v6.25.0 — sim overlay row reads the run in memory; refresh on every completed run
 
