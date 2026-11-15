@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -819,7 +819,18 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.0';
+const APP_VERSION = 'v7.10.1';
+// v7.10.1 (S71, Ron) — DIVIDEND SCHEDULE: NO SILENT GAPS. v7.10.0 loaded 5 of
+// the 6 statement quarters: per-share = amount / ledger shares, and ledger
+// shares count only buys and sells since the first statement (2025-06-02), so
+// a quarter whose count came out ≤ 0 (shares held before the statements) was
+// dropped without a word. Now: (1) a PUBLISHED per-share backstop covers every
+// ex-date from the sim start (2024-09-20 … 2026-09-18); (2) a ledger figure
+// wins only when its share count is positive AND it sits within 2% of the
+// published amount — otherwise the published one is used and the reason is
+// logged; (3) ledger quarters past the published list are taken as is;
+// (4) every ex-date logs with its source, and a missing quarter between the
+// first and last ex-dates is flagged. Base v7.10.0 (da686796).
 // v7.10.0 (S71, Ron · SPEC sim-live panels) — DIVIDENDS IN THE SIM; STATEMENT
 // LINE SPLITS DIV + INTEREST. Apples to apples: both sides become SPY price +
 // dividends + calls; interest stays on the statement line, out of the strategy.
@@ -2025,24 +2036,28 @@ async function sbGetLiveLegs() {
   return rows;
 }
 // v7.10.0 — SPY dividend schedule: ledger (Fidelity) + fixed pre-statement list.
-const _SPY_DIV_FIXED = [ // published per-share, ex-date basis; before the first statement (2025-06-02)
-  { ex: '2024-09-20', ps: 1.7455, src: 'fixed' }, { ex: '2024-12-20', ps: 1.9655, src: 'fixed' },
-  { ex: '2025-03-21', ps: 1.6955, src: 'fixed' } ];
+const _SPY_DIV_FIXED = [ // v7.10.1 — PUBLISHED per-share, ex-date basis, every quarter from the sim start; the ledger overrides within 2%
+  { ex: '2024-09-20', ps: 1.7455 }, { ex: '2024-12-20', ps: 1.9655 }, { ex: '2025-03-21', ps: 1.6955 },
+  { ex: '2025-06-20', ps: 1.7611 }, { ex: '2025-09-19', ps: 1.8311 }, { ex: '2025-12-19', ps: 1.9934 },
+  { ex: '2026-03-20', ps: 1.7970 }, { ex: '2026-06-18', ps: 1.9035 }, { ex: '2026-09-18', ps: 1.8888 }
+].map(x => ({ ...x, src: 'published' }));
 let _SPY_DIVS = null, _SPY_DIVS_META = null, _spyDivsP = null;
 function _divExFromPay(payIso) { // third Friday of the quarter-end month before the pay month, stepped back to a DM trading day
   const p = new Date(payIso + 'T00:00:00Z'); let y = p.getUTCFullYear(), m = p.getUTCMonth() - 1; if (m < 0) { m = 11; y--; }
   const first = new Date(Date.UTC(y, m, 1)); const fri = 1 + ((5 - first.getUTCDay() + 7) % 7) + 14;
   const tf = new Date(Date.UTC(y, m, fri)).toISOString().slice(0, 10);
-  const r = (DM && DM.spy) ? DM.spy.filter(x => x.date <= tf).pop() : null;
+  const lastDm = (DM && DM.spy && DM.spy.length) ? DM.spy[DM.spy.length - 1].date : null;
+  if (!lastDm || tf > lastDm) return tf; // v7.10.1 — beyond the data: the rule date as is (no step-back onto the last bar)
+  const r = DM.spy.filter(x => x.date <= tf).pop();
   return r ? r.date : tf;
 }
 function _spyDivsFromLedger(ledger) {
   const sharesAt = d => ledger.filter(t => t.iso < d && (t.symbol || '').trim() === 'SPY' && t.quantity && (t.cls === 'share_buy' || t.cls === 'share_sell'))
     .reduce((s, t) => s + Number(t.quantity), 0);
-  const out = [];
+  const out = []; // v7.10.1 — every SPY dividend row, usable or not; the merge decides
   ledger.filter(t => t.cls === 'dividend' && (t.symbol || '').trim() === 'SPY' && Number(t.amount) > 0).forEach(t => {
     const ex = _divExFromPay(t.iso), sh = sharesAt(ex);
-    if (sh > 0) out.push({ ex, ps: Math.round(Number(t.amount) / sh * 1e4) / 1e4, src: 'ledger', pay: t.iso, amt: Number(t.amount), sh });
+    out.push({ ex, ps: sh > 0 ? Math.round(Number(t.amount) / sh * 1e4) / 1e4 : null, src: 'ledger', pay: t.iso, amt: Number(t.amount), sh });
   });
   return out;
 }
@@ -2051,14 +2066,25 @@ function _ensureSpyDivs(force) { // cached; never throws — falls back to the f
   _spyDivsP = (async () => {
     let led = [], err = null;
     try { led = _spyDivsFromLedger(_legsLedger(await sbGetLiveLegs())); } catch (e) { err = e.message; }
-    const byEx = new Map(_SPY_DIV_FIXED.map(x => [x.ex, x]));
-    led.forEach(x => byEx.set(x.ex, x));            // the ledger wins on a shared ex-date
+    // v7.10.1 — merge: published backstop; a ledger figure wins only when usable and within 2%
+    const byEx = new Map(_SPY_DIV_FIXED.map(x => [x.ex, { ...x }])), notes = [];
+    led.forEach(x => {
+      const pub = byEx.get(x.ex);
+      if (x.ps == null) { notes.push(x.ex + ' ledger row (paid ' + x.pay + ', $' + x.amt.toFixed(2) + ') unusable: share count ' + x.sh + ' on the ex-date' + (pub ? ' \u2014 published used' : ' \u2014 NO published backstop, quarter missing')); return; }
+      if (pub && Math.abs(x.ps / pub.ps - 1) > 0.02) { notes.push(x.ex + ' ledger $' + x.ps + ' (' + x.amt.toFixed(2) + ' / ' + x.sh + ' sh) is ' + ((x.ps / pub.ps - 1) * 100).toFixed(1) + '% off published $' + pub.ps + ' \u2014 published used'); return; }
+      byEx.set(x.ex, x);
+    });
     _SPY_DIVS = [...byEx.values()].sort((a, b) => a.ex < b.ex ? -1 : 1);
-    const odd = _SPY_DIVS.filter(x => !(x.ps > 1.2 && x.ps < 2.6));
-    _SPY_DIVS_META = { through: _SPY_DIVS.length ? _SPY_DIVS[_SPY_DIVS.length - 1].ex : null, ledger: led.length, fixed: _SPY_DIV_FIXED.length, err };
-    logMsg('DIVIDENDS: ' + _SPY_DIVS.length + ' SPY ex-dates (' + led.length + ' from the Fidelity ledger, ' + _SPY_DIV_FIXED.length + ' fixed pre-statement) through ' + (_SPY_DIVS_META.through || '—')
-      + (err ? ' · ⚠ ledger unavailable (' + err + ') — fixed list only' : '')
-      + (odd.length ? ' · ⚠ per-share outside $1.20–$2.60: ' + odd.map(x => x.ex + ' $' + x.ps).join(', ') : ''), err || odd.length ? 'err' : '');
+    const qk = d => { const y = +d.slice(0, 4), m = +d.slice(5, 7); return y * 4 + Math.floor((m - 1) / 3); };
+    const miss = [];
+    for (let i = 1; i < _SPY_DIVS.length; i++) for (let q = qk(_SPY_DIVS[i - 1].ex) + 1; q < qk(_SPY_DIVS[i].ex); q++) miss.push(Math.floor(q / 4) + ' Q' + (q % 4 + 1));
+    const nL = _SPY_DIVS.filter(x => x.src === 'ledger').length;
+    _SPY_DIVS_META = { through: _SPY_DIVS.length ? _SPY_DIVS[_SPY_DIVS.length - 1].ex : null, ledger: nL, published: _SPY_DIVS.length - nL, err, miss };
+    logMsg('DIVIDENDS: ' + _SPY_DIVS.length + ' SPY ex-dates (' + nL + ' from the Fidelity ledger, ' + (_SPY_DIVS.length - nL) + ' published) through ' + (_SPY_DIVS_META.through || '\u2014')
+      + (err ? ' \u00b7 \u26a0 ledger unavailable (' + err + ') \u2014 published list only' : '')
+      + (miss.length ? ' \u00b7 \u26a0 MISSING quarter(s): ' + miss.join(', ') : ''), err || miss.length ? 'err' : '');
+    _SPY_DIVS.forEach(x => logMsg('  ' + x.ex + '  $' + x.ps.toFixed(4) + '  ' + x.src + (x.src === 'ledger' ? '  (paid ' + x.pay + ' \u00b7 $' + x.amt.toFixed(2) + ' / ' + x.sh + ' sh)' : '')));
+    notes.forEach(n => logMsg('  \u26a0 ' + n, 'err'));
     return _SPY_DIVS;
   })();
   return _spyDivsP;
