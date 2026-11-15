@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.3</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -821,7 +821,20 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.3';
+const APP_VERSION = 'v7.10.4';
+// v7.10.4 (S71, Ron) — ERA IS THE COMPARISON. The sim runs today's rules over all history while live
+//   ALL/YTD mix in the 2025 dailies and the pre-September approach, so Era is the only like-for-like window.
+//   1. Era is the default window on load (was ALL).
+//   2. Common end date in Era: both rows stop at the last statement row (_ERA_END), so neither side
+//      counts days the other has not seen (S71: four trading days put 17 points between the SPY TRs).
+//   3. Era returns are PERIOD, not annualized: sim + live Covered Call Return, SPY TR and the statement
+//      line; both rows add 'vs SPY TR · ±x pts'. ALL/YTD stay annualized. Core Roll Yield stays annualized.
+//   4. Sim Era cards read the PINNED run (the evaluation's: contract + date pinned at the first live entry),
+//      so they tie to the evaluation and Roll Economics; all its cycles count (the pinned trade is the first).
+//      Sim Era Covered Call Return = equity path incl. the open call at its mark, anchored at the close
+//      before the Era start — the same basis as the live account. Falls back to the STD run until the pin lands.
+//   5. ALL/YTD sim row note: the current model applied back over history.
+//   Baseline sim identical.
 // v7.10.3 (S71, Ron) — LIVE Core Roll Yield is CAPITAL-WEIGHTED: Σ P&L ÷ mean cycle notional × 365/days.
 //   v7.10.2 summed each cycle's % of its own notional, so 1–3 contract cycles (2025) weighed like 5–6 contract
 //   cycles and ALL read −0.8% beside a +$2,253 credit. The yield now always carries the sign of the credit.
@@ -2037,7 +2050,7 @@ const CWIN_START_BALANCE = { d: '2025-06-02', amt: 70348.68 }; // v6.20.6 — ac
 // ruling, and the n on each card is what keeps that readable.
 function _ytdYear() { return new Date().getFullYear(); }
 function _cwinYtdAnchor() { return (_ytdYear() - 1) + '-12-31'; } // Dec-31 close == Jan-1 open
-let   _perfRange = 'all';                                       // v7.6.10 — 'all' | 'ytd' (header toggle)
+let   _perfRange = 'era';                                       // v7.6.10 — 'all' | 'ytd' (header toggle)
 // v7.6.15 — CWIN_LAST_BALANCE RETIRED. The end anchor is the last imported ledger
 // row (v7.6.14) and the tie-out is the ledger cash walk against Fidelity's running
 // balance on that row (_ledgerCashWalk). The S49 open item — computed balances
@@ -2211,7 +2224,7 @@ function _liveCardData(x) {
     const pxEff = c.coverPrice != null ? c.coverPrice : (c.closeType === 'expired' ? 0 : null);
     const o = toIso(c.openDate), cl = toIso(c.closeDate), q = Number(c.qty || 0);
     return { o, cl, q, orphan: !!c.orphan, pnl: (c.sellPrice != null && pxEff != null) ? (c.sellPrice - pxEff) * 100 * q : null };
-  }).filter(c => c.pnl != null && c.cl && c.cl > (w === 'all' ? '0000' : '') && c.cl >= start && (w !== 'era' || (c.o && c.o >= era)));
+  }).filter(c => c.pnl != null && c.cl && c.cl > (w === 'all' ? '0000' : '') && c.cl >= start && (w !== 'era' || (c.o && c.o >= era && c.cl <= L.d))); // v7.10.4 — Era ends at the common end
   const out = { window: w, start, n: cyc.length, orphan: cyc.filter(c => c.orphan).length };
   if (cyc.length) {
     const end = cyc.map(c => c.cl).sort().pop();
@@ -2232,6 +2245,7 @@ function _liveCardData(x) {
   }
   // Covered Call Return: the statement's account return EXCLUDING MM interest (SPY + dividends + calls)
   out.ccRet = (gain != null && yP) ? yP(gain - intP) : null; out.ccThru = L.d;
+  out.per = !!x.per; out.bm = x.bhAnn; // v7.10.4 — Era: period return + SPY TR beside it
   // Max Drawdown: flow-adjusted daily index on the computed account balance
   try {
     const days = (DM && DM.spy ? DM.spy.filter(q => q.date >= S.d && q.date <= L.d).map(q => q.date) : []);
@@ -2261,7 +2275,7 @@ function _renderLiveCards(d) {
     card('Core Roll Yield', f1(d.yld), d.yld == null ? '' : d.yld >= 5 ? 'green' : d.yld >= 0 ? 'yellow' : 'red', 'Ann. · capital-weighted' + (d.ntl ? ' · avg $' + Math.round(d.ntl / 1000) + 'k' : '') + (d.dropped ? ' · ' + d.dropped + ' unpriced' : ''))
   + card('Core Roll Credit', $d(d.sum), d.sum >= 0 ? 'green' : 'red', 'Closed cycles · mean ' + $d(d.mean) + '/cycle' + (d.orphan ? ' · ' + d.orphan + ' orphan' : ''))
   + card('Win Rate', f1(d.win).replace('.0%', '%'), d.win >= 70 ? 'green' : 'yellow', 'Positive P&L')
-  + card('Covered Call Return', f1(d.ccRet), (d.ccRet ?? 0) >= 0 ? 'green' : 'red', 'Ann. · account excl. interest')
+  + card('Covered Call Return', f1(d.ccRet), (d.ccRet ?? 0) >= 0 ? 'green' : 'red', (d.per ? 'Period thru ' + String(d.ccThru).slice(5).replace('-', '/') + ' · vs SPY TR ' + f1(d.bm) + (d.ccRet != null && d.bm != null ? ' · ' + (d.ccRet - d.bm >= 0 ? '+' : '') + (d.ccRet - d.bm).toFixed(1) + ' pts' : '') + ' · excl. interest' : 'Ann. · account excl. interest'))
   + card('Max Drawdown', f1(d.dd), d.dd == null ? '' : d.dd > 20 ? 'red' : d.dd > 10 ? 'yellow' : 'green', 'Flow-adjusted account' + (d.ddSkipped ? ' · ' + d.ddSkipped + 'd unmarkable' : ''))
   + card('Roll Frequency', (d.freq != null ? d.freq.toFixed(0) : 'n/a') + ' /yr', 'accent', d.n + ' in ' + d.days + 'd' + (d.held != null ? ' · ' + d.held.toFixed(1) + 'd held' : ''));
 }
@@ -2272,7 +2286,7 @@ async function renderPerfPanel(force) {
   if (_perfBuilt && !force) return;
   _perfBuilt = true;
   if (st) st.textContent = '\u27f3 loading\u2026';
-  try { const _e0 = _ERA_START; body.innerHTML = await _cwinHtml({ part: 'statement' }); if (_ERA_START !== _e0 && _summaryCtx) renderSummary(_summaryCtx); /* v7.10.2 — Era start known now */ if (st) st.textContent = 'updated ' + new Date().toLocaleTimeString(); }
+  try { const _e0 = _ERA_START, _n0 = _ERA_END; body.innerHTML = await _cwinHtml({ part: 'statement' }); if ((_ERA_START !== _e0 || _ERA_END !== _n0) && _summaryCtx) renderSummary(_summaryCtx); /* v7.10.2 — Era start known now · v7.10.4 + common end */ if (st) st.textContent = 'updated ' + new Date().toLocaleTimeString(); }
   catch (e) { body.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">\u2717 ' + e.message + '</div>'; if (st) st.textContent = ''; }
 }
 async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity) | 'roll' (Conformance; opts.simCycles = the pinned run)
@@ -2320,6 +2334,7 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
   const endB = _ledgerBalanceAt(_lastLedger, ledger, trades);
   if (endB.err) return '<div style="color:#e0a020;">\u26a0 statement section: the account balance at the last imported row (' + (_lastLedger || 'none') + ') could not be computed \u2014 ' + endB.err + '</div>'; // v7.6.15 — no pinned fallback; say why
   const L = { d: _lastLedger, amt: endB.total, computed: true };
+  _ERA_END = _lastLedger; // v7.10.4 — the common end of both Era rows
   const _ytdAnchor = _cwinYtdAnchor(); // v7.6.27 — rolls with the calendar
   const _book0 = _liveBook(trades); // v7.10.2 — one pairing, reused by every balance below
   { const s0 = _book0.cycles.concat(_book0.open || []).map(c => _book0.toIso(c.openDate)).filter(d => d && d >= POLICY_REGIME_2).sort()[0]; if (s0) _ERA_START = s0; }
@@ -2357,7 +2372,8 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
   const gain     = (S.amt != null) ? (L.amt - S.amt - netFlowP) : null;
   const spanP    = Math.max(1, Math.round((new Date(L.d + 'T00:00:00Z') - new Date(S.d + 'T00:00:00Z')) / 86400000));
   const twcP     = (S.amt != null) ? _cwinTwCapital(S.d, L.d, flows, S.amt, S.d) : 0;
-  const yP = v => (v != null && twcP > 0) ? (v / twcP / spanP * 365 * 100) : null;
+  const _per = _perfRange === 'era'; // v7.10.4 — Era reads period returns, not annualized
+  const yP = v => (v != null && twcP > 0) ? (v / twcP * (_per ? 1 : 365 / spanP) * 100) : null;
   // v7.6.10 — SPY BUY/HOLD over the same days: price return from DM closes
   // (last close on/before each end), simple-annualized on the same convention
   // as the statement yield. Price only — dividends sit in the SPY leg residual.
@@ -2366,7 +2382,7 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
   await _ensureSpyDivs(); // v7.10.0 — SPY TR benchmark
   const _bhDps = (_SPY_DIVS || []).filter(x => x.ex > S.d && x.ex <= L.d).reduce((a, x) => a + x.ps, 0);
   const bhRet = (spy0 && spy1) ? ((spy1 + _bhDps) / spy0 - 1) * 100 : null; // v7.10.0 — total return
-  const bhAnn = bhRet != null ? bhRet / spanP * 365 : null;
+  const bhAnn = bhRet != null ? (_per ? bhRet : bhRet / spanP * 365) : null; // v7.10.4 — period in Era
   const pf = v => v != null ? v.toFixed(1) + '%' : 'n/a';
 
   // ── LIVE, trade basis ────────────────────────────────────────────────────
@@ -2465,7 +2481,7 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
   const lab = 'color:var(--muted);';
   const ctx = '<div style="font-family:var(--mono);font-size:10px;color:var(--text);padding:2px 0 4px;line-height:1.8;">'
     + '<span style="' + lab + 'letter-spacing:.05em;">SPY \u00b7 STATEMENT</span>'
-    + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD ' + _ytdYear() + ' \u00b7 ' : _perfRange === 'era' ? 'Era \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (last statement row \u00b7 balance = cash + SPY + open calls at DM marks)</span>'
+    + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD ' + _ytdYear() + ' \u00b7 ' : _perfRange === 'era' ? 'Era \u00b7 period returns, not annualized \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (last statement row \u00b7 balance = cash + SPY + open calls at DM marks)</span>'
     + (S.amt == null
       ? '<br><span style="color:#e0a020;">\u26a0 window anchor ' + S.d + ' could not be computed from the ledger: ' + (ytdB ? ytdB.err : 'n/a') + '</span>'
       : '<br><span style="' + lab + '">Start Bal</span> ' + money(S.amt) // v7.6.20 — labels (Ron): Start Bal · Contrib · Redeem · SPY · Calls · End Bal · Strategy · SPY
@@ -2482,7 +2498,7 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
       + ((() => { const u = [...new Set(ledger.filter(r => r.unchained).map(r => r.iso))]; return u.length ? '<span style="color:#e0a020;"> \u26a0 unchained day' + (u.length > 1 ? 's' : '') + ' ' + u.join(', ') + '</span>' : ''; })())) // v7.6.17
     + '</div>'; // v7.1.0 — residual prose removed (Ron). Header + data line only.
   if (_part === 'statement') { // v7.9.9 — the account only · v7.10.2 — and the LIVE card row
-    try { _renderLiveCards(_liveCardData({ trades, ledger, book: _book0, liveCyc, toIso, S, L, flows, gain, intP, yP, spanP })); }
+    try { _renderLiveCards(_liveCardData({ trades, ledger, book: _book0, liveCyc, toIso, S, L, flows, gain, intP, yP, spanP, bhAnn, per: _per })); }
     catch (e) { const g = $('live-grid'); if (g) g.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--red);">\u2717 live cards: ' + e.message + '</div>'; }
     return ctx;
   }
@@ -3416,6 +3432,7 @@ async function runEval() {
     if (err) { logMsg('EVALUATION: pin unusable — ' + err, 'err'); _evalRunning = false; return; }
     _gaps = [];
     const r = await simulate(Object.assign({}, STD, { shares: STD.shares || 600, pin: pin }));
+    _eraPinRun = r || null; if (_summaryCtx && _summaryWindow === 'era') renderSummary(_summaryCtx); // v7.10.4 — Era sim cards read the pin
     // simulate() returns null when NO cycle closed — "still holding at DM end",
     // not an error. lastResult is set by runBacktest, never by simulate, so this
     // pinned run cannot clobber the panels' full-backtest state.
@@ -3480,6 +3497,7 @@ async function runConformance() {
       _gaps = [];
       const r = await simulate({ ...STD, shares, pin });
       const sc = (r && r.cycles) ? r.cycles : [];
+      _eraPinRun = r || null; if (_summaryCtx && _summaryWindow === 'era') renderSummary(_summaryCtx); // v7.10.4
       _econCycles = sc;
       const n = Math.max(live.length, sc.length);
       // simulate() returns null when NO cycle closed: with the three pin checks
@@ -5212,6 +5230,7 @@ logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.decayTrig
   setProgress(95);
   if (!result) { logMsg('✗ No cycles — check parameters','err'); setProgress(100);  return; }
   lastResult = result; // cache for price chart roll markers
+  _eraPinRun = null; // v7.10.4 — a new STD run invalidates the pin (its params may differ); runEval / Conformance re-pin
   buildRollSnapshots(result);
   if (_perfBuilt) renderPerfPanel(true); // v6.25.0 — sim overlay row reads the run in memory; refresh on every completed run
 
@@ -6627,7 +6646,9 @@ function _fpLedger(cycles) {
 // would flatter the number on a shorter one. Both stay all-time and say so.
 // Every windowed card carries its n: at these sample sizes a win rate moves
 // several points on noise, and a card without n invites reading that as trend.
-let _summaryWindow = 'all';   // 'all' | 'ytd' | 'era' (v7.10.2)
+let _summaryWindow = 'era';   // 'all' | 'ytd' | 'era' (v7.10.2) · v7.10.4 — Era is the default
+let _ERA_END = null;           // v7.10.4 — the last statement row: the common end of both Era rows
+let _eraPinRun = null;         // v7.10.4 — the evaluation's pinned run (Era sim cards); cleared by every STD run
 let _ERA_START = null;         // v7.10.2 — first live entry on/after POLICY_REGIME_2 (set by the statement/live loader)
 function _eraStart() { return _ERA_START || POLICY_REGIME_2; }
 let _summaryCtx    = null;    // last result, so the toggle re-renders without a re-run
@@ -6646,16 +6667,24 @@ function setSummaryWindow(w) {
 // last exit, NOT first-to-last cycle: a year with one December cycle must not
 // report a wild rate off a three-day span.
 function _summaryYTD(r) { const yr = _ytdYear(); return yr ? _summaryRange(r, yr + '-01-01', yr, false) : null; }
-function _summaryEra(r) { return _summaryRange(r, _eraStart(), 'Era', true); } // v7.10.2 — both legs inside (Roll Economics rule)
-function _summaryRange(r, start, year, bothLegs) { // v7.10.2 — generalised from _summaryYTD (same arithmetic)
+function _summaryEra(r) { // v7.10.2 — both legs inside (Roll Economics rule) · v7.10.4 — pinned run, common end, period returns
+  const P = (_eraPinRun && _eraPinRun.cycles && _eraPinRun.cycles.length) ? _eraPinRun : null;
+  const o = _summaryRange(P || r, _eraStart(), 'Era', true, { all: !!P, endCap: _ERA_END, period: true });
+  if (o) o.pinned = !!P;
+  return o;
+}
+function _closeBefore(d) { const x = DM && DM.spy ? DM.spy.filter(q => q.date < d).pop() : null; return x || null; } // v7.10.4
+function _summaryRange(r, start, year, bothLegs, o) { // v7.10.2 — generalised from _summaryYTD (same arithmetic)
+  o = o || {}; // v7.10.4 — all: count the first cycle (pinned run) · endCap: common end · period: no annualizing of returns
   const cyc = r.cycles || [];
-  if (cyc.length < 2) return null;
-  const core = cyc.slice(1).filter(c => c.exitDate);           // same frame as coreYld
+  if (cyc.length < (o.all ? 1 : 2)) return null;
+  const core = (o.all ? cyc : cyc.slice(1)).filter(c => c.exitDate);           // same frame as coreYld
   if (!core.length) return null;
-  const win = core.filter(c => c.exitDate >= start && (!bothLegs || (c.entryDate && c.entryDate >= start)));
+  const win = core.filter(c => c.exitDate >= start && (!o.endCap || c.exitDate <= o.endCap) && (!bothLegs || (c.entryDate && c.entryDate >= start)));
   if (!win.length) return null;
   const yr = year;
-  const end = win[win.length - 1].exitDate;
+  const _eqLast = (r.equity || []).length ? r.equity[r.equity.length - 1].date : null;
+  const end = o.endCap ? [o.endCap, _eqLast].filter(Boolean).sort()[0] : win[win.length - 1].exitDate;
   const days  = Math.max(1, Math.round((new Date(end + 'T00:00:00') - new Date(start + 'T00:00:00')) / 86400000));
   const shares = STD.shares || 600;
   const scored = win.filter(c => c.entrySPY > 0);              // cycles with no entrySPY cannot be
@@ -6669,6 +6698,19 @@ function _summaryRange(r, start, year, bothLegs) { // v7.10.2 — generalised fr
     winRate: win.filter(c => (c.pnl || 0) > 0).length / win.length * 100,
     ...(() => { // v7.9.3 — Covered Call Return on the window: the ALL formula, rebased
       const eq = (r.equity || []).filter(e => e && e.date && e.spy > 0);
+      if (o.period) { // v7.10.4 — period return on the account basis: SPY + closed + open-call MTM + dividends, from the close before the start
+        const a = _closeBefore(start), lastE = eq.filter(e => e.date <= end).pop() || null;
+        if (!a || !lastE || !(a.c > 0)) return { ccRet: null, ccSpyRet: null, ccBase: null, ddY: null };
+        const ovl = e => e.spy / (1 + e.bh / 100) * (e.cc - e.bh) / 100;          // overlay $/share: premium + open MTM + dividends
+        const baseE = eq.filter(e => e.date <= a.date).pop() || null;            // STD run: the overlay already earned before the start
+        const ovl0 = baseE ? ovl(baseE) : 0;                                      // pinned run: none
+        const dpsW = (_SPY_DIVS || []).filter(x => x.ex > a.date && x.ex <= lastE.date).reduce((t, x) => t + x.ps, 0);
+        const b1 = 1 + (eq.find(e => e.date >= start) || lastE).cc / 100;
+        const sl = eq.filter(e => e.date >= start && e.date <= lastE.date).map(e => ((1 + e.cc / 100) / b1 - 1) * 100);
+        return { ccRet: (lastE.spy - a.c + ovl(lastE) - ovl0) / a.c * 100,
+                 ccSpyRet: ((lastE.spy + dpsW) / a.c - 1) * 100, ccBase: a.date, ccEnd: lastE.date, ccPeriod: true,
+                 ddY: b1 > 0 && sl.length ? calcMaxDD(sl) : null };
+      }
       const base = eq.filter(e => e.date < start).pop() || eq.find(e => e.date >= start) || null; // prior year's last close
       const last = eq.filter(e => e.date <= end).pop() || null;
       if (!base || !last || !(shares > 0)) return { ccRet: null, ccSpyRet: null, ccBase: null, ddY: null };
@@ -6712,8 +6754,8 @@ function renderSummary(r) {
         wrap.innerHTML = `<div style="display:flex;align-items:center;gap:6px;">`
           + btn('all', 'ALL') + btn('ytd', 'YTD ' + _ytdYear()) + btn('era', 'Era')
           + `<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">`
-          + (_summaryWindow === 'all' ? `sim ${r.coreCycleCount != null ? r.coreCycleCount : '—'} core cycles · all time`
-             : _isY ? `sim ${_ytd.n} core cycles · ${_ytd.start} → ${_ytd.end} (${_ytd.days}d)` + (_summaryWindow === 'era' ? ' · current model' : '')
+          + (_summaryWindow === 'all' ? `sim ${r.coreCycleCount != null ? r.coreCycleCount : '—'} core cycles · all time · current model applied back over history`
+             : _isY ? `sim ${_ytd.n} ${_summaryWindow === 'era' ? '' : 'core '}cycles · ${_ytd.start} → ${_ytd.end} (${_ytd.days}d)` + (_summaryWindow === 'era' ? ' · current model · ' + (_ytd.pinned ? 'pinned run' : 'STD run (pin pending)') + ' · returns for the period, not annualized' : ' · current model applied back over history')
              : `sim: no closed core cycle in this window — showing ALL`)
           + `</span></div>`;
       }
@@ -6754,7 +6796,7 @@ function renderSummary(r) {
     <div class="stat-card"><div class="stat-label">Core Roll Yield</div><div class="stat-value ${(_yld??0)>=0?'green':'red'}">${_yld!=null?fmt(_yld,1)+'%':'n/a'}</div><div class="stat-sub">${_yldSub}</div></div>
     <div class="stat-card"><div class="stat-label">Core Roll Credit</div><div class="stat-value ${(_sum??0)>=0?'green':'red'}">${_sum!=null?fmtD(_sum):'n/a'}</div><div class="stat-sub">${_sumSub}</div></div>
     <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${_wr>=70?'green':'yellow'}">${fmt(_wr,0)}%</div><div class="stat-sub">Positive P&L</div></div>
-    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet)>=0?'green':'red'}">${fmt(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet,1)}%</div><div class="stat-sub">${_isY && _ytd.ccRet!=null ? `Ann. · vs SPY TR ${fmt(_ytd.ccSpyRet,1)}% ann.` : `Ann. · vs SPY TR ${fmt(r.spyRet,1)}% ann.`}${_SPY_DIVS_META && _SPY_DIVS_META.through ? ` · div thru ${_SPY_DIVS_META.through.slice(5).replace('-', '/')}` : ''}</div></div>
+    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet)>=0?'green':'red'}">${fmt(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet,1)}%</div><div class="stat-sub">${_isY && _ytd.ccRet!=null ? (_ytd.ccPeriod ? `Period thru ${_ytd.ccEnd.slice(5).replace('-', '/')} · vs SPY TR ${fmt(_ytd.ccSpyRet,1)}% · ${_ytd.ccRet - _ytd.ccSpyRet >= 0 ? '+' : ''}${fmt(_ytd.ccRet - _ytd.ccSpyRet,1)} pts` : `Ann. · vs SPY TR ${fmt(_ytd.ccSpyRet,1)}% ann.`) : `Ann. · vs SPY TR ${fmt(r.spyRet,1)}% ann.`}${_SPY_DIVS_META && _SPY_DIVS_META.through ? ` · div thru ${_SPY_DIVS_META.through.slice(5).replace('-', '/')}` : ''}</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(_dd,1)}%</div><div class="stat-sub">Premium equity</div></div>
     <div class="stat-card"><div class="stat-label">Roll Frequency</div><div class="stat-value accent">${_frqY!=null?fmt(_frqY,0)+' /yr':_freq.yr}</div><div class="stat-sub">${_isY?`${_ytd.n} core in ${_ytd.days}d`+(_ytd.held!=null?` · ${fmt(_ytd.held,1)}d held`:''):_freq.sub}</div></div>
   `;
