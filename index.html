@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.9.9</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -819,7 +819,27 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.9.9';
+const APP_VERSION = 'v7.10.0';
+// v7.10.0 (S71, Ron · SPEC sim-live panels) — DIVIDENDS IN THE SIM; STATEMENT
+// LINE SPLITS DIV + INTEREST. Apples to apples: both sides become SPY price +
+// dividends + calls; interest stays on the statement line, out of the strategy.
+// (1) SPY dividends from the Fidelity ledger (live_legs cls 'dividend', symbol
+// SPY): per share = amount / shares held on the ex-date (ledger share rows);
+// ex-date = the last DM trading day on or before the third Friday of the
+// quarter-end month before the pay month (Juneteenth 2026 → 06-18). Three
+// pre-statement dividends are a FIXED list (sim starts 2024-07, statements
+// 2025-06): 2024-09-20 $1.7455 · 2024-12-20 $1.9655 · 2025-03-21 $1.6955.
+// (2) The sim credits shares × per-share on each ex-date AFTER its start into
+// the equity curve, so Covered Call Return, Max Drawdown and the YTD versions
+// include them; "vs SPY" becomes SPY TOTAL return (price + cash dividends, not
+// reinvested — the same treatment the sim gets). Cycles, core yield, triggers,
+// selection, the ranker and the Gate are untouched: option prices already
+// embed the dividend. MODEL_VERSION unchanged.
+// (3) Statement line: SPY · Div · Interest · Calls, each with its yield — the
+// SPY leg is now PRICE only (residual − dividends − MM interest); Strategy and
+// the cash tie unchanged. Benchmark → SPY TR. A dividend reaches the sim on
+// the statement import that carries it; the card says how far it runs.
+// Base v7.9.9 (e5b71841).
 // v7.9.9 (S71, Ron) — CONFORMANCE AFTER A SWEEP + ROLL ECONOMICS MOVES.
 // (1) DEFECT: runOptimization set _mode = 'optimize' and nothing reset it, so
 // after ANY sweep Conformance and the Evaluation refused with "a sweep is in
@@ -2004,6 +2024,46 @@ async function sbGetLiveLegs() {
   if (rows.length === 1000) throw new Error('live_legs hit the 1000-row window \u2014 raise the limit or paginate');
   return rows;
 }
+// v7.10.0 — SPY dividend schedule: ledger (Fidelity) + fixed pre-statement list.
+const _SPY_DIV_FIXED = [ // published per-share, ex-date basis; before the first statement (2025-06-02)
+  { ex: '2024-09-20', ps: 1.7455, src: 'fixed' }, { ex: '2024-12-20', ps: 1.9655, src: 'fixed' },
+  { ex: '2025-03-21', ps: 1.6955, src: 'fixed' } ];
+let _SPY_DIVS = null, _SPY_DIVS_META = null, _spyDivsP = null;
+function _divExFromPay(payIso) { // third Friday of the quarter-end month before the pay month, stepped back to a DM trading day
+  const p = new Date(payIso + 'T00:00:00Z'); let y = p.getUTCFullYear(), m = p.getUTCMonth() - 1; if (m < 0) { m = 11; y--; }
+  const first = new Date(Date.UTC(y, m, 1)); const fri = 1 + ((5 - first.getUTCDay() + 7) % 7) + 14;
+  const tf = new Date(Date.UTC(y, m, fri)).toISOString().slice(0, 10);
+  const r = (DM && DM.spy) ? DM.spy.filter(x => x.date <= tf).pop() : null;
+  return r ? r.date : tf;
+}
+function _spyDivsFromLedger(ledger) {
+  const sharesAt = d => ledger.filter(t => t.iso < d && (t.symbol || '').trim() === 'SPY' && t.quantity && (t.cls === 'share_buy' || t.cls === 'share_sell'))
+    .reduce((s, t) => s + Number(t.quantity), 0);
+  const out = [];
+  ledger.filter(t => t.cls === 'dividend' && (t.symbol || '').trim() === 'SPY' && Number(t.amount) > 0).forEach(t => {
+    const ex = _divExFromPay(t.iso), sh = sharesAt(ex);
+    if (sh > 0) out.push({ ex, ps: Math.round(Number(t.amount) / sh * 1e4) / 1e4, src: 'ledger', pay: t.iso, amt: Number(t.amount), sh });
+  });
+  return out;
+}
+function _ensureSpyDivs(force) { // cached; never throws — falls back to the fixed list, loudly
+  if (_spyDivsP && !force) return _spyDivsP;
+  _spyDivsP = (async () => {
+    let led = [], err = null;
+    try { led = _spyDivsFromLedger(_legsLedger(await sbGetLiveLegs())); } catch (e) { err = e.message; }
+    const byEx = new Map(_SPY_DIV_FIXED.map(x => [x.ex, x]));
+    led.forEach(x => byEx.set(x.ex, x));            // the ledger wins on a shared ex-date
+    _SPY_DIVS = [...byEx.values()].sort((a, b) => a.ex < b.ex ? -1 : 1);
+    const odd = _SPY_DIVS.filter(x => !(x.ps > 1.2 && x.ps < 2.6));
+    _SPY_DIVS_META = { through: _SPY_DIVS.length ? _SPY_DIVS[_SPY_DIVS.length - 1].ex : null, ledger: led.length, fixed: _SPY_DIV_FIXED.length, err };
+    logMsg('DIVIDENDS: ' + _SPY_DIVS.length + ' SPY ex-dates (' + led.length + ' from the Fidelity ledger, ' + _SPY_DIV_FIXED.length + ' fixed pre-statement) through ' + (_SPY_DIVS_META.through || '—')
+      + (err ? ' · ⚠ ledger unavailable (' + err + ') — fixed list only' : '')
+      + (odd.length ? ' · ⚠ per-share outside $1.20–$2.60: ' + odd.map(x => x.ex + ' $' + x.ps).join(', ') : ''), err || odd.length ? 'err' : '');
+    return _SPY_DIVS;
+  })();
+  return _spyDivsP;
+}
+
 function _legsLedger(legs) { // → normalized statement rows, chronological; within a day ordered by CASH CONTINUITY (v7.6.17)
   const rows = legs.filter(r => r.cash_balance != null && /^\d{4}-\d{2}-\d{2}/.test(r.trade_date || ''))
     .map(r => ({ iso: r.trade_date.slice(0, 10), cls: r.cls, symbol: r.symbol, quantity: r.quantity, amount: r.amount, cash_balance: r.cash_balance, occ_seq: r.occ_seq || 0, unchained: false }));
@@ -2173,6 +2233,9 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
   // before the anchor). Contributions and redemptions are reported separately
   // so the balance identity reads left to right on the line.
   const flowsW   = flows.filter(e => e.d > S.d && e.d <= L.d);
+  const _inS = t => t.iso > S.d && t.iso <= L.d; // v7.10.0 — Div / Interest inside the statement window
+  const divP  = ledger.filter(t => _inS(t) && t.cls === 'dividend' && (t.symbol || '').trim() === 'SPY').reduce((a, t) => a + Number(t.amount || 0), 0);
+  const intP  = ledger.filter(t => _inS(t) && t.cls === 'mm_interest').reduce((a, t) => a + Number(t.amount || 0), 0);
   const contribP = flowsW.filter(e => e.amt > 0).reduce((s, e) => s + e.amt, 0);
   const redeemP  = -flowsW.filter(e => e.amt < 0).reduce((s, e) => s + e.amt, 0);
   const netFlowP = contribP - redeemP;
@@ -2185,7 +2248,9 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
   // as the statement yield. Price only — dividends sit in the SPY leg residual.
   const _cAt = d => { const r = DM && DM.spy ? DM.spy.filter(x => x.date <= d).pop() : null; return r ? r.c : null; };
   const spy0 = _cAt(S.d), spy1 = _cAt(L.d);
-  const bhRet = (spy0 && spy1) ? (spy1 / spy0 - 1) * 100 : null;
+  await _ensureSpyDivs(); // v7.10.0 — SPY TR benchmark
+  const _bhDps = (_SPY_DIVS || []).filter(x => x.ex > S.d && x.ex <= L.d).reduce((a, x) => a + x.ps, 0);
+  const bhRet = (spy0 && spy1) ? ((spy1 + _bhDps) / spy0 - 1) * 100 : null; // v7.10.0 — total return
   const bhAnn = bhRet != null ? bhRet / spanP * 365 : null;
   const pf = v => v != null ? v.toFixed(1) + '%' : 'n/a';
 
@@ -2291,11 +2356,13 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
       : '<br><span style="' + lab + '">Start Bal</span> ' + money(S.amt) // v7.6.20 — labels (Ron): Start Bal · Contrib · Redeem · SPY · Calls · End Bal · Strategy · SPY
       + '<span style="' + lab + '"> \u00b7 Contrib</span> ' + money(contribP)
       + '<span style="' + lab + '"> \u00b7 Redeem</span> ' + money(-redeemP)
-      + '<span style="' + lab + '"> \u00b7 SPY</span> ' + money(spyPnl) + ' (' + pf(yP(spyPnl)) + ')'
+      + '<span style="' + lab + '"> \u00b7 SPY</span> ' + money(spyPnl - divP - intP) + ' (' + pf(yP(spyPnl - divP - intP)) + ')' // v7.10.0 — price only
+      + '<span style="' + lab + '"> \u00b7 Div</span> ' + money(divP) + ' (' + pf(yP(divP)) + ')'
+      + '<span style="' + lab + '"> \u00b7 Interest</span> ' + money(intP) + ' (' + pf(yP(intP)) + ')'
       + '<span style="' + lab + '"> \u00b7 Calls</span> ' + money(grossP) + ' (' + pf(yP(grossP)) + ')'
       + '<span style="' + lab + '"> \u00b7 End Bal</span> ' + money(L.amt)
       + '<span style="' + lab + '"> \u00b7 Strategy</span> <b>' + pf(yP(gain)) + '</b>'
-      + '<span style="' + lab + '"> \u00b7 SPY</span> <b>' + pf(bhAnn) + '</b>'
+      + '<span style="' + lab + '"> \u00b7 SPY TR</span> <b>' + pf(bhAnn) + '</b>'
       + '<br>' + (walk ? '<span style="' + (walk.resid === 0 ? 'color:var(--green);' : 'color:var(--red);') + '">' + (walk.resid === 0 ? '\u2713 cash ties ' + walk.lastIso : '\u2717 cash \u0394 $' + walk.resid.toFixed(2) + ' at ' + walk.lastIso) + '</span>' : '') // v7.6.15/16/20 — the tie-out, second line
       + ((() => { const u = [...new Set(ledger.filter(r => r.unchained).map(r => r.iso))]; return u.length ? '<span style="color:#e0a020;"> \u26a0 unchained day' + (u.length > 1 ? 's' : '') + ' ' + u.join(', ') + '</span>' : ''; })())) // v7.6.17
     + '</div>'; // v7.1.0 — residual prose removed (Ron). Header + data line only.
@@ -4323,6 +4390,10 @@ async function simulate(p) {
     logMsg('\u26a0 POINT-IN-TIME MASK DISARMED (ovPit=0) \u2014 PRE-FIX UNIVERSE: this run reaches contracts the live scan cannot. Not comparable to a published baseline.', 'err');
   }
   let premPnL = 0;
+  // v7.10.0 — dividends: shares × per-share on each ex-date strictly after the start (bought on the start close)
+  const _divStart = _pin ? _pin.entryDate : _simSpy[0].date;
+  const _divs = (_SPY_DIVS || []).filter(x => x.ex > _divStart);
+  let _di = 0, _divCum = 0, _divPS = 0;
   let curC = null;
   let posOpen = false, entryPrice = null, entryDate = null;
   let entryStrike = null, entrySPY = null, entryDelta_ = 0;
@@ -4481,8 +4552,9 @@ async function simulate(p) {
     // ── Equity curve ──
     const bhRet  = (spy/startSPY-1)*100;
     const optPnL = (entryPrice-(callPx??0))*100*contracts;
-    const ccRet  = bhRet+((premPnL+optPnL)/(startSPY*shares))*100;
-    equity.push({ date, cc:ccRet, bh:bhRet, spy, vix });
+    while (_di < _divs.length && _divs[_di].ex <= date) { _divPS += _divs[_di].ps; _divCum += _divs[_di].ps * shares; _di++; } // v7.10.0
+    const ccRet  = bhRet+((premPnL+optPnL+_divCum)/(startSPY*shares))*100;
+    equity.push({ date, cc:ccRet, bh:bhRet, spy, vix, divPS:_divPS });
 
     // ── Realized TV decay — ONE computation per day (v7.6.0) ──────────────
     // Time-value decay: strips intrinsic value, measures pure theta erosion.
@@ -4877,8 +4949,9 @@ async function simulate(p) {
   const lastSPYc   = _simSpy[_simSpy.length-1].c;
   const rawSpyRet  = (lastSPYc/firstSPYc-1)*100;
   const spyGain    = (lastSPYc - firstSPYc) * shares;
-  const ccTotalRet = ((spyGain + rollCreditTotal) / (firstSPYc * shares)) * 100;
-  const spyRet     = (Math.pow(1 + rawSpyRet/100, 365/dayCount) - 1) * 100;
+  const _divPSAll  = (_SPY_DIVS || []).filter(x => x.ex > firstDate && x.ex <= lastDate).reduce((a, x) => a + x.ps, 0); // v7.10.0
+  const ccTotalRet = ((spyGain + rollCreditTotal + _divPSAll * shares) / (firstSPYc * shares)) * 100;
+  const spyRet     = (Math.pow((lastSPYc + _divPSAll) / firstSPYc, 365/dayCount) - 1) * 100; // v7.10.0 — SPY TOTAL return (cash dividends)
   const covRet     = (Math.pow(1 + ccTotalRet/100, 365/dayCount) - 1) * 100;
 
   return { cycles, rolls, equity, totalPnl, avgYld, winRate, spyRet, covRet, maxDD, params:p, pendingContract, rollCreditTotal, stratYld, openMark, openMarkSrc, coreYld, coreSum, coreDays, coreStart, coreEnd, coreCycleCount, initPnl, openNetD, pin: _pin, pinNote }; // v7.6.1 — pin echoed for the caller
@@ -4924,6 +4997,7 @@ async function _logFillSandbox(params, r) {
 
 // ── Run simulation ─────────────────────────────────────────────────────────
 async function runSimulation(opts) {
+  await _ensureSpyDivs(); // v7.10.0 — the sim's equity needs the dividend schedule before its first run
   // v7.6.30 — opts.noScan: run the backtest WITHOUT the trailing candidate
   // hunt. Eval needs what this function produces (progress bar, performance
   // panels, lastResult, Core Yield) and must NOT fire a live 454-contract
@@ -5858,6 +5932,7 @@ async function runOptimization() { // v7.9.9 — _mode can never outlive the swe
   try { await _runOptimizationBody(); } finally { _mode = 'test'; }
 }
 async function _runOptimizationBody() {
+  await _ensureSpyDivs(); // v7.10.0
   _mode = 'optimize';
   _optParams = null;
   _gaps = [];
@@ -6474,7 +6549,8 @@ function _summaryYTD(r) {
       if (!base || !last || !(shares > 0)) return { ccRet: null, ccSpyRet: null, ccBase: null, ddY: null };
       const d = Math.max(1, Math.round((new Date(last.date + 'T00:00:00') - new Date(base.date + 'T00:00:00')) / 86400000));
       const credit = win.reduce((s, c) => s + (c.pnl || 0), 0);
-      const tot = ((last.spy - base.spy) * shares + credit) / (base.spy * shares);
+      const dps = (last.divPS || 0) - (base.divPS || 0); // v7.10.0 — dividends with ex-date inside the window
+      const tot = ((last.spy - base.spy) * shares + credit + dps * shares) / (base.spy * shares);
       // v7.9.4 — Max Drawdown on the window (Ron, S71, option a): the peak resets at the
       // base row. cc is cumulative % of the 2024 start capital, so the slice is rebased to
       // the base row first — the drawdown reads in points of start-of-year capital, the
@@ -6483,7 +6559,7 @@ function _summaryYTD(r) {
       const sl = eq.filter(e => e.date >= base.date && e.date <= last.date)
                    .map(e => ((1 + e.cc / 100) / b1 - 1) * 100);
       return { ccRet: (Math.pow(1 + tot, 365 / d) - 1) * 100,
-               ccSpyRet: (Math.pow(last.spy / base.spy, 365 / d) - 1) * 100, ccBase: base.date,
+               ccSpyRet: (Math.pow((last.spy + dps) / base.spy, 365 / d) - 1) * 100, ccBase: base.date, // v7.10.0 — SPY TR
                ddY: b1 > 0 && sl.length ? calcMaxDD(sl) : null };
     })(),
     freqYr:  win.length / days * 365,
@@ -6552,7 +6628,7 @@ function renderSummary(r) {
     <div class="stat-card"><div class="stat-label">Core Roll Yield</div><div class="stat-value ${(_yld??0)>=0?'green':'red'}">${_yld!=null?fmt(_yld,1)+'%':'n/a'}</div><div class="stat-sub">${_yldSub}</div></div>
     <div class="stat-card"><div class="stat-label">Core Roll Credit</div><div class="stat-value ${(_sum??0)>=0?'green':'red'}">${_sum!=null?fmtD(_sum):'n/a'}</div><div class="stat-sub">${_sumSub}</div></div>
     <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value ${_wr>=70?'green':'yellow'}">${fmt(_wr,0)}%</div><div class="stat-sub">Positive P&L</div></div>
-    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet)>=0?'green':'red'}">${fmt(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet,1)}%</div><div class="stat-sub">${_isY && _ytd.ccRet!=null ? `Ann. · vs SPY ${fmt(_ytd.ccSpyRet,1)}% ann.` : `Ann. · vs SPY ${fmt(r.spyRet,1)}% ann.`}</div></div>
+    <div class="stat-card"><div class="stat-label">Covered Call Return</div><div class="stat-value ${(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet)>=0?'green':'red'}">${fmt(_isY && _ytd.ccRet!=null ? _ytd.ccRet : r.covRet,1)}%</div><div class="stat-sub">${_isY && _ytd.ccRet!=null ? `Ann. · vs SPY TR ${fmt(_ytd.ccSpyRet,1)}% ann.` : `Ann. · vs SPY TR ${fmt(r.spyRet,1)}% ann.`}${_SPY_DIVS_META && _SPY_DIVS_META.through ? ` · div thru ${_SPY_DIVS_META.through.slice(5).replace('-', '/')}` : ''}</div></div>
     <div class="stat-card"><div class="stat-label">Max Drawdown</div><div class="stat-value ${ddClass}">${fmt(_dd,1)}%</div><div class="stat-sub">Premium equity</div></div>
     <div class="stat-card"><div class="stat-label">Roll Frequency</div><div class="stat-value accent">${_frqY!=null?fmt(_frqY,0)+' /yr':_freq.yr}</div><div class="stat-sub">${_isY?`${_ytd.n} core in ${_ytd.days}d`+(_ytd.held!=null?` · ${fmt(_ytd.held,1)}d held`:''):_freq.sub}</div></div>
   `;
