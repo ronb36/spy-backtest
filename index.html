@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -348,15 +348,33 @@ select.display-box { cursor:pointer; outline:none; }
     <div id="json-footnote" style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px;letter-spacing:.03em;">Constants — <span style="opacity:.55;">(awaiting roll_params.json)</span></div>
   </div>
 
-  <!-- Progress bar — sits between param grid and results -->
+  <!-- v7.10.2 — window buttons + SIM row above the bar; LIVE row + statement below it -->
+  <div id="summary-window" style="display:none;margin:8px 0;"></div>
+  <div id="sim-row-lbl" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--muted);margin-bottom:4px;">SIM</div>
+  <div class="summary-grid" id="summary-grid" style="margin-bottom:8px;"></div>
+
+  <!-- Progress bar — sits between the SIM and LIVE rows -->
   <div class="progress-bar-bg" style="margin:8px 0;"><div class="progress-bar-fill" id="progress-bar"></div></div>
 
   <!-- Hidden log sink - content mirrors to Logs tab -->
   <div style="display:none"><div id="progress-log"></div></div>
 
-  <!-- Summary stats -->
-  <div id="summary-window" style="display:none;margin-bottom:8px;"></div>
-  <div class="summary-grid" id="summary-grid"></div>
+  <div id="live-row-lbl" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--muted);margin:4px 0;">LIVE</div>
+  <div class="summary-grid" id="live-grid" style="margin-bottom:8px;"></div>
+  <!-- v7.10.2 — the statement line: Fidelity tie-out (moved off the Activity tab) -->
+  <div id="perf-panel" style="display:none">
+    <div class="chart-panel" style="margin-bottom:12px;">
+      <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="chart-title">🧾 Statement — Fidelity tie-out</span>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span id="perf-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
+          <button onclick="renderPerfPanel(true)" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⟳ Refresh</button>
+          <button id="perf-exp" onclick="resExport('account_activity', 'perf-exp')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⬇️ Export data</button>
+        </div>
+      </div>
+      <div id="perf-body" style="padding:2px 10px 6px;"></div>
+    </div>
+  </div>
 
   <!-- Results tabs -->
   <div id="results-area" style="display:none">
@@ -384,23 +402,7 @@ select.display-box { cursor:pointer; outline:none; }
       <button class="tab-btn" id="tab-btn-conf" onclick="showTab('conf')">🔬 Conformance</button><!-- v7.6.2 — sim vs live, cycle by cycle (SPEC_conformance_tab) -->
     </div>
 
-    <!-- v6.24.1 — Performance panel: directly below the tab row (Ron respec), compact height,
-         no in-panel description (doctrine text lives in the Foundation doc). Visible in BOTH subviews. -->
-    <div id="perf-panel" style="display:none">
-      <div class="chart-panel" style="margin-bottom:8px;">
-        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="chart-title">📊 Performance — sim vs live</span>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <span id="perf-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
-            <button id="perf-rng-all" onclick="_perfRange='all';_perfRngPaint();renderPerfPanel(true)" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--accent);border:1px solid var(--accent);border-radius:3px;color:#fff;padding:3px 8px;cursor:pointer;">ALL</button><!-- v7.6.10 — statement range -->
-            <button id="perf-rng-ytd" onclick="_perfRange='ytd';_perfRngPaint();renderPerfPanel(true)" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 8px;cursor:pointer;">YTD</button>
-            <button onclick="renderPerfPanel(true)" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⟳ Refresh</button>
-            <button id="perf-exp" onclick="resExport('account_activity', 'perf-exp')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⬇ Export data</button>
-          </div>
-        </div>
-        <div id="perf-body" style="padding:2px 10px 6px;"></div>
-      </div>
-    </div>
+    <!-- v7.10.2 — the Performance panel moved above the tabs as the statement line -->
     <!-- v6.7.8 — Trades virtual tab: Sim/Live toggle + Chart expand (panels below untouched) -->
     <div id="trades-subnav" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
       <button id="tsub-sim" onclick="setTradesView('sim')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;">Sim Rolls</button>
@@ -819,7 +821,23 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.1';
+const APP_VERSION = 'v7.10.2';
+// v7.10.2 (S71, Ron · SPEC sim-live panels §2–§3) — SIM ROW / LIVE ROW.
+// Main page: window buttons ALL · YTD · Era → SIM cards → progress bar → LIVE
+// cards → the statement line (the Fidelity tie-out, moved off the Activity
+// tab). One window drives all three. Era = the current model, from the first
+// live entry on/after POLICY_REGIME_2 (2026-09-09), the date Conformance and
+// Roll Economics use.
+// LIVE cards, same formulas as the sim: Core Roll Yield = Σ cycle P&L / (SPY
+// at the open × shares) annualised over the window; Core Roll Credit / Win
+// Rate / Roll Frequency from closed live cycles (trade basis, _liveBook; Era =
+// both legs inside, the Roll Economics rule); Covered Call Return = the
+// statement's account return EXCLUDING money-market interest (SPY + dividends
+// + calls, the sim's frame since v7.10.0); Max Drawdown = a FLOW-ADJUSTED
+// daily index, r_t = (B_t − F_t)/B_{t−1} − 1 on the computed account balance,
+// so deposits and withdrawals cannot register (Ron, S71).
+// Display only: no sim, ranker, Gate or MODEL_VERSION change. The Activity
+// tab keeps its blotter until v7.10.3. Base v7.10.1 (37dd8464).
 // v7.10.1 (S71, Ron) — DIVIDEND SCHEDULE: NO SILENT GAPS. v7.10.0 loaded 5 of
 // the 6 statement quarters: per-share = amount / ledger shares, and ledger
 // shares count only buys and sells since the first statement (2025-06-02), so
@@ -1919,9 +1937,7 @@ function showTab(tab) {
   });
   const sn = $('trades-subnav');
   if (sn) sn.style.display = tab === 'trades' ? 'flex' : 'none';
-  const pp = $('perf-panel'); // v6.24.0 — performance panel tracks the subnav's visibility
-  if (pp) pp.style.display = tab === 'trades' ? 'block' : 'none';
-  if (tab === 'trades') { _applyTradesView(); renderPerfPanel(false); }
+  if (tab === 'trades') { _applyTradesView(); } // v7.10.2 — the statement line lives above the tabs
   else {
     ['log','chart','live'].forEach(t => { const el = $('tab-' + t); if (el) el.style.display = 'none'; });
     if (_chatOpen) setChatContext(tab); // v6.1.0 — chat context follows the tab
@@ -2141,7 +2157,7 @@ function _ledgerCashWalk(ledger) { // → { open, sum, close, resid, firstIso, l
 // construction. Anything the ledger does not carry (a T-bill before its
 // redemption) is NOT in this number — the composition is printed so a
 // statement tie-out can say so.
-function _ledgerBalanceAt(d, ledger, trades) { // v7.6.16 — ledger = normalized live_legs rows; v7.8.0 — trades = the raw activity rows (open calls via _liveBook)
+function _ledgerBalanceAt(d, ledger, trades, book) { // v7.10.2 — book: a precomputed _liveBook(trades), reused across many dates // v7.6.16 — ledger = normalized live_legs rows; v7.8.0 — trades = the raw activity rows (open calls via _liveBook)
   const iso = t => t.iso;
   const imp = ledger.filter(t => t.iso <= d);
   if (!imp.length) return { err: 'no statement row on or before ' + d };
@@ -2151,7 +2167,7 @@ function _ledgerBalanceAt(d, ledger, trades) { // v7.6.16 — ledger = normalize
     .reduce((s, t) => s + Number(t.quantity), 0);
   const spyRow = (DM && DM.spy) ? DM.spy.filter(r => r.date <= d).pop() : null;
   if (!spyRow) return { err: 'no DM SPY close on or before ' + d };
-  const { cycles, open, toIso } = _liveBook(trades);
+  const { cycles, open, toIso } = book || _liveBook(trades);
   const openAt = [...cycles, ...open].filter(c => !c.orphan && c.openDate && c.sellPrice != null && toIso(c.openDate) <= d && (c.closeDate == null || toIso(c.closeDate) > d));
   let optMark = 0; const legs = [];
   for (const c of openAt) {
@@ -2181,13 +2197,75 @@ function _perfRngPaint() { // v7.6.10 — ALL / YTD pill state
   if (y) { y.style.cssText += ';' + (_perfRange === 'ytd' ? on : off);
            y.textContent = 'YTD ' + _ytdYear(); }   // v7.6.27 — the pill names its year
 }
+// v7.10.2 — LIVE card row (SPEC sim-live panels §3). Same formulas as the sim.
+function _liveCardData(x) {
+  const { ledger, book, liveCyc, toIso, S, L, flows, gain, intP, yP } = x;
+  const w = _perfRange, era = _eraStart();
+  const start = w === 'all' ? S.d : w === 'ytd' ? _ytdYear() + '-01-01' : era;
+  const spyAt = d => { const r = DM && DM.spy ? DM.spy.filter(q => q.date <= d).pop() : null; return r ? r.c : null; };
+  const cyc = liveCyc.map(c => {
+    const pxEff = c.coverPrice != null ? c.coverPrice : (c.closeType === 'expired' ? 0 : null);
+    const o = toIso(c.openDate), cl = toIso(c.closeDate), q = Number(c.qty || 0);
+    return { o, cl, q, orphan: !!c.orphan, pnl: (c.sellPrice != null && pxEff != null) ? (c.sellPrice - pxEff) * 100 * q : null };
+  }).filter(c => c.pnl != null && c.cl && c.cl > (w === 'all' ? '0000' : '') && c.cl >= start && (w !== 'era' || (c.o && c.o >= era)));
+  const out = { window: w, start, n: cyc.length, orphan: cyc.filter(c => c.orphan).length };
+  if (cyc.length) {
+    const end = cyc.map(c => c.cl).sort().pop();
+    const days = Math.max(1, Math.round((new Date(end + 'T00:00:00Z') - new Date(start + 'T00:00:00Z')) / 86400000));
+    const sc = cyc.filter(c => c.o && spyAt(c.o) && c.q > 0);
+    out.end = end; out.days = days;
+    out.sum = cyc.reduce((a, c) => a + c.pnl, 0);
+    out.mean = out.sum / cyc.length;
+    out.win = cyc.filter(c => c.pnl > 0).length / cyc.length * 100;
+    out.yld = sc.length ? sc.reduce((a, c) => a + c.pnl / (spyAt(c.o) * c.q * 100), 0) * (365 / days) * 100 : null;
+    out.dropped = cyc.length - sc.length;
+    out.freq = cyc.length / days * 365;
+    const hs = cyc.filter(c => c.o).map(c => Math.round((new Date(c.cl + 'T00:00:00Z') - new Date(c.o + 'T00:00:00Z')) / 86400000));
+    out.held = hs.length ? hs.reduce((a, b) => a + b, 0) / hs.length : null;
+  }
+  // Covered Call Return: the statement's account return EXCLUDING MM interest (SPY + dividends + calls)
+  out.ccRet = (gain != null && yP) ? yP(gain - intP) : null; out.ccThru = L.d;
+  // Max Drawdown: flow-adjusted daily index on the computed account balance
+  try {
+    const days = (DM && DM.spy ? DM.spy.filter(q => q.date >= S.d && q.date <= L.d).map(q => q.date) : []);
+    let prev = null, prevD = null, idx = 1, peak = 1, dd = 0, skipped = 0;
+    for (const d of days) {
+      const b = _ledgerBalanceAt(d, ledger, x.trades, book);
+      if (b.err || !(b.total > 0)) { skipped++; continue; }
+      if (prev != null) {
+        const F = flows.filter(f => f.d > prevD && f.d <= d).reduce((a, f) => a + f.amt, 0);
+        idx *= (b.total - F) / prev;
+        peak = Math.max(peak, idx); dd = Math.max(dd, (peak - idx) / peak * 100);
+      }
+      prev = b.total; prevD = d;
+    }
+    out.dd = prev != null ? dd : null; out.ddSkipped = skipped;
+  } catch (e) { out.dd = null; out.ddErr = e.message; }
+  return out;
+}
+function _renderLiveCards(d) {
+  const g = $('live-grid'); if (!g) return;
+  const lbl = $('live-row-lbl'); if (lbl) lbl.style.display = '';
+  const f1 = v => v == null ? 'n/a' : v.toFixed(1) + '%';
+  const $d = v => v == null ? 'n/a' : (v >= 0 ? '+' : '-') + '$' + Math.abs(Math.round(v)).toLocaleString('en-US');
+  if (!d.n) { g.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);">LIVE: no closed cycle in this window — opens from ' + d.start + '</div>'; return; }
+  const card = (l, v, cls, sub) => `<div class="stat-card"><div class="stat-label">${l}</div><div class="stat-value ${cls}">${v}</div><div class="stat-sub">${sub}</div></div>`;
+  g.innerHTML =
+    card('Core Roll Yield', f1(d.yld), d.yld == null ? '' : d.yld >= 5 ? 'green' : d.yld >= 0 ? 'yellow' : 'red', 'Ann.' + (d.dropped ? ' · ' + d.dropped + ' unpriced' : ''))
+  + card('Core Roll Credit', $d(d.sum), d.sum >= 0 ? 'green' : 'red', 'Closed cycles · mean ' + $d(d.mean) + '/cycle' + (d.orphan ? ' · ' + d.orphan + ' orphan' : ''))
+  + card('Win Rate', f1(d.win).replace('.0%', '%'), d.win >= 70 ? 'green' : 'yellow', 'Positive P&L')
+  + card('Covered Call Return', f1(d.ccRet), (d.ccRet ?? 0) >= 0 ? 'green' : 'red', 'Ann. · account excl. interest')
+  + card('Max Drawdown', f1(d.dd), d.dd == null ? '' : d.dd > 20 ? 'red' : d.dd > 10 ? 'yellow' : 'green', 'Flow-adjusted account' + (d.ddSkipped ? ' · ' + d.ddSkipped + 'd unmarkable' : ''))
+  + card('Roll Frequency', (d.freq != null ? d.freq.toFixed(0) : 'n/a') + ' /yr', 'accent', d.n + ' in ' + d.days + 'd' + (d.held != null ? ' · ' + d.held.toFixed(1) + 'd held' : ''));
+}
+
 async function renderPerfPanel(force) {
   const body = $('perf-body'), st = $('perf-status');
   if (!body) return;
   if (_perfBuilt && !force) return;
   _perfBuilt = true;
   if (st) st.textContent = '\u27f3 loading\u2026';
-  try { body.innerHTML = await _cwinHtml({ part: 'statement' }); if (st) st.textContent = 'updated ' + new Date().toLocaleTimeString(); }
+  try { const _e0 = _ERA_START; body.innerHTML = await _cwinHtml({ part: 'statement' }); if (_ERA_START !== _e0 && _summaryCtx) renderSummary(_summaryCtx); /* v7.10.2 — Era start known now */ if (st) st.textContent = 'updated ' + new Date().toLocaleTimeString(); }
   catch (e) { body.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">\u2717 ' + e.message + '</div>'; if (st) st.textContent = ''; }
 }
 async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity) | 'roll' (Conformance; opts.simCycles = the pinned run)
@@ -2236,8 +2314,12 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
   if (endB.err) return '<div style="color:#e0a020;">\u26a0 statement section: the account balance at the last imported row (' + (_lastLedger || 'none') + ') could not be computed \u2014 ' + endB.err + '</div>'; // v7.6.15 — no pinned fallback; say why
   const L = { d: _lastLedger, amt: endB.total, computed: true };
   const _ytdAnchor = _cwinYtdAnchor(); // v7.6.27 — rolls with the calendar
-  const ytdB = (_perfRange === 'ytd') ? _ledgerBalanceAt(_ytdAnchor, ledger, trades) : null; // v7.6.11 — computed anchor
-  const S = (_perfRange === 'ytd') ? { d: _ytdAnchor, amt: (ytdB && !ytdB.err) ? ytdB.total : null } : CWIN_START_BALANCE; // v7.6.10 — ALL / YTD
+  const _book0 = _liveBook(trades); // v7.10.2 — one pairing, reused by every balance below
+  { const s0 = _book0.cycles.concat(_book0.open || []).map(c => _book0.toIso(c.openDate)).filter(d => d && d >= POLICY_REGIME_2).sort()[0]; if (s0) _ERA_START = s0; }
+  const _eraAnchor = (() => { const r0 = DM && DM.spy ? DM.spy.filter(x => x.date < _eraStart()).pop() : null; return r0 ? r0.date : _eraStart(); })(); // the close before the first era trade
+  const _anc = _perfRange === 'ytd' ? _ytdAnchor : _perfRange === 'era' ? _eraAnchor : null;
+  const ytdB = _anc ? _ledgerBalanceAt(_anc, ledger, trades, _book0) : null; // v7.6.11 — computed anchor · v7.10.2 + Era
+  const S = _anc ? { d: _anc, amt: (ytdB && !ytdB.err) ? ytdB.total : null } : CWIN_START_BALANCE; // v7.6.10 — ALL / YTD · v7.10.2 Era
   const walk = _ledgerCashWalk(ledger); // v7.6.15 — the tie-out: cash walk vs Fidelity's running balance on the last statement row
   // v7.6.13 — the composition string (_bal) was dropped with the prose; _ledgerBalanceAt still returns legs/cash/shares for a future tie-out view.
   const flows = _ledgerFlows(ledger); // v6.23.0 — ledger-derived; guard: absence can never hide; v7.6.16 — from live_legs
@@ -2376,9 +2458,9 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
   const lab = 'color:var(--muted);';
   const ctx = '<div style="font-family:var(--mono);font-size:10px;color:var(--text);padding:2px 0 4px;line-height:1.8;">'
     + '<span style="' + lab + 'letter-spacing:.05em;">SPY \u00b7 STATEMENT</span>'
-    + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD ' + _ytdYear() + ' \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (last statement row \u00b7 balance = cash + SPY + open calls at DM marks)</span>'
+    + '<span style="' + lab + '"> \u2014 ' + (_perfRange === 'ytd' ? 'YTD ' + _ytdYear() + ' \u00b7 ' : _perfRange === 'era' ? 'Era \u00b7 ' : '') + S.d + ' \u2192 ' + L.d + ' (last statement row \u00b7 balance = cash + SPY + open calls at DM marks)</span>'
     + (S.amt == null
-      ? '<br><span style="color:#e0a020;">\u26a0 YTD anchor ' + S.d + ' could not be computed from the ledger: ' + (ytdB ? ytdB.err : 'n/a') + '</span>'
+      ? '<br><span style="color:#e0a020;">\u26a0 window anchor ' + S.d + ' could not be computed from the ledger: ' + (ytdB ? ytdB.err : 'n/a') + '</span>'
       : '<br><span style="' + lab + '">Start Bal</span> ' + money(S.amt) // v7.6.20 — labels (Ron): Start Bal · Contrib · Redeem · SPY · Calls · End Bal · Strategy · SPY
       + '<span style="' + lab + '"> \u00b7 Contrib</span> ' + money(contribP)
       + '<span style="' + lab + '"> \u00b7 Redeem</span> ' + money(-redeemP)
@@ -2392,7 +2474,11 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
       + '<br>' + (walk ? '<span style="' + (walk.resid === 0 ? 'color:var(--green);' : 'color:var(--red);') + '">' + (walk.resid === 0 ? '\u2713 cash ties ' + walk.lastIso : '\u2717 cash \u0394 $' + walk.resid.toFixed(2) + ' at ' + walk.lastIso) + '</span>' : '') // v7.6.15/16/20 — the tie-out, second line
       + ((() => { const u = [...new Set(ledger.filter(r => r.unchained).map(r => r.iso))]; return u.length ? '<span style="color:#e0a020;"> \u26a0 unchained day' + (u.length > 1 ? 's' : '') + ' ' + u.join(', ') + '</span>' : ''; })())) // v7.6.17
     + '</div>'; // v7.1.0 — residual prose removed (Ron). Header + data line only.
-  if (_part === 'statement') return ctx; // v7.9.9 — Activity: the account only
+  if (_part === 'statement') { // v7.9.9 — the account only · v7.10.2 — and the LIVE card row
+    try { _renderLiveCards(_liveCardData({ trades, ledger, book: _book0, liveCyc, toIso, S, L, flows, gain, intP, yP, spanP })); }
+    catch (e) { const g = $('live-grid'); if (g) g.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--red);">\u2717 live cards: ' + e.message + '</div>'; }
+    return ctx;
+  }
   const rhdr = '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:' + (_part === 'roll' ? '0' : '9px') + ' 0 3px;letter-spacing:.05em;">'
     + 'ROLL ECONOMICS <span style="font-size:9px;letter-spacing:0;">\u2014 current model \u00b7 ' + winStart + ' \u2192 ' + endIso + ' \u00b7 sim = ' + ((opts && opts.simCycles) ? 'pinned at the first live trade (the run in the grid below)' : 'unpinned STD path') + '</span></div>'; // v7.6.8 · v7.9.9
     // v7.1.0 — BOTH HEADERS ARE DATED, which is what now carries the
@@ -5153,6 +5239,7 @@ logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.decayTrig
   
 
   renderSummary(result);
+  { const pp = $('perf-panel'); if (pp) pp.style.display = 'block'; renderPerfPanel(true); } // v7.10.2 — statement + LIVE row follow every run
   renderCycleTable(result);
   // Seed price chart start date to first data point
   const _pcStart = $('pc-start');
@@ -6533,13 +6620,17 @@ function _fpLedger(cycles) {
 // would flatter the number on a shorter one. Both stay all-time and say so.
 // Every windowed card carries its n: at these sample sizes a win rate moves
 // several points on noise, and a card without n invites reading that as trend.
-let _summaryWindow = 'all';   // 'all' | 'ytd'
+let _summaryWindow = 'all';   // 'all' | 'ytd' | 'era' (v7.10.2)
+let _ERA_START = null;         // v7.10.2 — first live entry on/after POLICY_REGIME_2 (set by the statement/live loader)
+function _eraStart() { return _ERA_START || POLICY_REGIME_2; }
 let _summaryCtx    = null;    // last result, so the toggle re-renders without a re-run
 
 function setSummaryWindow(w) {
-  if (w !== 'all' && w !== 'ytd') return;
+  if (w !== 'all' && w !== 'ytd' && w !== 'era') return;
   _summaryWindow = w;
+  _perfRange = w; // v7.10.2 — one window drives SIM, LIVE and the statement
   if (_summaryCtx) renderSummary(_summaryCtx);
+  renderPerfPanel(true);
 }
 
 // YTD = core cycles whose EXIT (the date P&L is realised) falls in the calendar
@@ -6547,16 +6638,17 @@ function setSummaryWindow(w) {
 // so a historical run windows to its own final year. Annualised over Jan 1 → that
 // last exit, NOT first-to-last cycle: a year with one December cycle must not
 // report a wild rate off a three-day span.
-function _summaryYTD(r) {
+function _summaryYTD(r) { const yr = _ytdYear(); return yr ? _summaryRange(r, yr + '-01-01', yr, false) : null; }
+function _summaryEra(r) { return _summaryRange(r, _eraStart(), 'Era', true); } // v7.10.2 — both legs inside (Roll Economics rule)
+function _summaryRange(r, start, year, bothLegs) { // v7.10.2 — generalised from _summaryYTD (same arithmetic)
   const cyc = r.cycles || [];
   if (cyc.length < 2) return null;
   const core = cyc.slice(1).filter(c => c.exitDate);           // same frame as coreYld
   if (!core.length) return null;
-  const yr = _ytdYear();   // v7.6.27 — shared with the Performance panel; was the data's
-  if (!yr) return null;    // last-exit year, which could disagree with it across a new year
-  const win = core.filter(c => Number(String(c.exitDate).slice(0, 4)) === yr);
+  const win = core.filter(c => c.exitDate >= start && (!bothLegs || (c.entryDate && c.entryDate >= start)));
   if (!win.length) return null;
-  const start = yr + '-01-01', end = win[win.length - 1].exitDate;
+  const yr = year;
+  const end = win[win.length - 1].exitDate;
   const days  = Math.max(1, Math.round((new Date(end + 'T00:00:00') - new Date(start + 'T00:00:00')) / 86400000));
   const shares = STD.shares || 600;
   const scored = win.filter(c => c.entrySPY > 0);              // cycles with no entrySPY cannot be
@@ -6596,14 +6688,14 @@ function _summaryYTD(r) {
 // ── Render: Summary ────────────────────────────────────────────────────────
 function renderSummary(r) {
   _summaryCtx = r;                                   // v7.6.26
-  const _ytd = _summaryYTD(r);                       // v7.6.26 — null when the year has no closed core cycle
-  if (!_ytd && _summaryWindow === 'ytd') _summaryWindow = 'all';   // never show an empty window
-  const _isY = _summaryWindow === 'ytd' && !!_ytd;
+  { const a = $('sim-row-lbl'), b = $('live-row-lbl'); if (a) a.style.display = ''; if (b) b.style.display = ''; } // v7.10.2
+  const _yW = _summaryYTD(r), _eW = _summaryEra(r);   // v7.10.2 — YTD and Era windows (null when empty)
+  const _ytd = _summaryWindow === 'era' ? _eW : _yW;
+  const _isY = _summaryWindow !== 'all' && !!_ytd;     // the sim row shows the window when it has cycles; the buttons never hide
   {                                                  // v7.6.26 — the toggle
     const wrap = $('summary-window');
     if (wrap) {
-      if (!_ytd) { wrap.style.display = 'none'; }
-      else {
+      {
         wrap.style.display = '';
         const btn = (w, lbl) => `<button onclick="setSummaryWindow('${w}')" style="font-family:var(--mono);`
           + `font-size:9px;letter-spacing:.08em;padding:3px 12px;border-radius:3px;cursor:pointer;`
@@ -6611,10 +6703,11 @@ function renderSummary(r) {
           + `background:${_summaryWindow === w ? 'rgba(91,138,245,.10)' : 'var(--surface2)'};`
           + `color:${_summaryWindow === w ? 'var(--accent)' : 'var(--muted)'};">${lbl}</button>`;
         wrap.innerHTML = `<div style="display:flex;align-items:center;gap:6px;">`
-          + btn('all', 'ALL') + btn('ytd', 'YTD ' + _ytd.year)
+          + btn('all', 'ALL') + btn('ytd', 'YTD ' + _ytdYear()) + btn('era', 'Era')
           + `<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">`
-          + (_isY ? `${_ytd.n} core cycles · ${_ytd.start} → ${_ytd.end} (${_ytd.days}d)`
-                  : `${r.coreCycleCount != null ? r.coreCycleCount : '—'} core cycles · all time`)
+          + (_summaryWindow === 'all' ? `sim ${r.coreCycleCount != null ? r.coreCycleCount : '—'} core cycles · all time`
+             : _isY ? `sim ${_ytd.n} core cycles · ${_ytd.start} → ${_ytd.end} (${_ytd.days}d)` + (_summaryWindow === 'era' ? ' · current model' : '')
+             : `sim: no closed core cycle in this window — showing ALL`)
           + `</span></div>`;
       }
     }
