@@ -1,5 +1,23 @@
 """
-SPY Backtest Data Collector — v2.3.5 (Supabase)
+SPY Backtest Data Collector — v2.3.6 (Supabase)
+
+v2.3.6 — ET-ANCHORED DATES (S72, Foundation §6.23 — the UTC-literal class).
+The §6.23 check came back CLEAN: the Railway cron is `0 22 * * 1-5` UTC =
+6:00pm EDT / 5:00pm EST, and at 22:00 UTC the UTC date always equals the ET
+date, so no row has ever been mis-dated. This release removes the coincidence:
+(1) today_et() replaces every date.today() (run "today", the 2-yr window,
+overlap windows, expiry horizons) — container-clock UTC no longer decides it.
+(2) bar_date() converts Polygon daily-bar timestamps in ET (they are stamped at
+ET midnight, so the dates are unchanged — harness-asserted over two years
+incl. both DST transitions).
+(3) The ES fallback date (only when session_end_date is missing) converted
+window_start in UTC; a CME session opens ~6pm ET the evening BEFORE its trade
+date, so it booked the prior day. It now converts in ET and rolls a session
+that opens at/after 17:00 ET to the next date.
+(4) Boot log prints the run time in ET and UTC with the ET offset; the push
+adds "⚠ ran HH:MM ET" if a run starts outside 16:30–20:00 ET (a manual or
+re-scheduled run), so a frame change can never again be silent.
+Data path otherwise unchanged.
 
 v2.3.5 — Yields in the nightly push (S34, display-only): the Pushover
 summary gains a "YLD {n} days → {latest}" line after ES, making Treasury
@@ -89,7 +107,7 @@ from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 
-COLLECTOR_VERSION = "2.3.5"
+COLLECTOR_VERSION = "2.3.6"
 
 # ── Credentials ────────────────────────────────────────────────────────────
 POLYGON_KEY   = os.environ["POLYGON_KEY"]
@@ -130,8 +148,18 @@ def log(msg):
     print(f"{datetime.now(ET).strftime('%H:%M:%S ET')} — {msg}", flush=True)
 
 
+def today_et():
+    """v2.3.6 — the run's calendar date in ET (never the container's UTC clock)."""
+    return datetime.now(ET).date()
+
+
+def bar_date(t_ms):
+    """v2.3.6 — Polygon daily-bar timestamp (ms) → its ET trading date."""
+    return datetime.fromtimestamp(t_ms / 1000, tz=ET).strftime("%Y-%m-%d")
+
+
 def today_str():
-    return date.today().strftime("%Y-%m-%d")
+    return today_et().strftime("%Y-%m-%d")
 
 
 # ── Supabase REST helpers ──────────────────────────────────────────────────
@@ -256,7 +284,7 @@ def fetch_option_history(ticker, start, end):
     time.sleep(CALL_DELAY)
     days = []
     for r in results:
-        dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        dt = bar_date(r["t"])
         days.append({
             "date": dt,
             "o":    round(r.get("o", 0), 4),
@@ -270,8 +298,8 @@ def fetch_option_history(ticker, start, end):
 
 
 def date_range_str(years_back=2):
-    end   = date.today().strftime("%Y-%m-%d")
-    start = (date.today() - timedelta(days=365*years_back)).strftime("%Y-%m-%d")
+    end   = today_et().strftime("%Y-%m-%d")
+    start = (today_et() - timedelta(days=365*years_back)).strftime("%Y-%m-%d")
     start = max(start, START_DATE)
     return start, end
 
@@ -315,14 +343,14 @@ def append_spy_vix(start, end):
     OVERLAP_DAYS window so intraday partial bars self-heal (v2.3.2)."""
     existing_spy = sb_get_dates("spy_daily")
     existing_vix = sb_get_dates("vix_daily")
-    overlap_start = (date.today() - timedelta(days=OVERLAP_DAYS)).isoformat()
+    overlap_start = (today_et() - timedelta(days=OVERLAP_DAYS)).isoformat()
 
     log(f"Fetching SPY {start} → {end}...")
     spy_raw = fetch_aggs("SPY", start, end)
     time.sleep(CALL_DELAY)
     new_spy, refresh_spy = [], []
     for r in spy_raw:
-        dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        dt = bar_date(r["t"])
         row = {"date": dt, "o": r["o"], "h": r["h"],
                "l": r["l"], "c": r["c"], "v": r.get("v", 0)}
         if dt not in existing_spy:
@@ -338,7 +366,7 @@ def append_spy_vix(start, end):
     time.sleep(CALL_DELAY)
     new_vix, refresh_vix = [], []
     for r in vix_raw:
-        dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        dt = bar_date(r["t"])
         row = {"date": dt, "c": round(r["c"], 2)}
         if dt not in existing_vix:
             new_vix.append(row)
@@ -356,7 +384,7 @@ def append_treasury_yields(start, end):
     inserted, trailing OVERLAP_DAYS window re-upserted. Non-fatal on error."""
     try:
         existing = sb_get_dates("yield_daily")
-        overlap_start = (date.today() - timedelta(days=OVERLAP_DAYS)).isoformat()
+        overlap_start = (today_et() - timedelta(days=OVERLAP_DAYS)).isoformat()
         log(f"Phase 1.6: Treasury yields {start} → {end} — {len(existing)} dates already in DM")
         url = (f"https://api.polygon.io/fed/v1/treasury-yields"
                f"?date.gte={start}&date.lte={end}&limit=50000&sort=date.asc"
@@ -411,7 +439,7 @@ def audit_spy_vix(start, end):
     spy_fix, spy_add, spy_official_dates = [], [], set()
     spy_vol_only, spy_price_fix = 0, 0  # v2.3.3 materiality split
     for r in official:
-        dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        dt = bar_date(r["t"])
         spy_official_dates.add(dt)
         row = {"date": dt, "o": r["o"], "h": r["h"],
                "l": r["l"], "c": r["c"], "v": r.get("v", 0)}
@@ -443,7 +471,7 @@ def audit_spy_vix(start, end):
     time.sleep(CALL_DELAY)
     vix_fix, vix_add, vix_official_dates = [], [], set()
     for r in official:
-        dt = datetime.fromtimestamp(r["t"] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        dt = bar_date(r["t"])
         vix_official_dates.add(dt)
         row = {"date": dt, "c": round(r["c"], 2)}
         dm = dm_vix.get(dt)
@@ -503,7 +531,7 @@ def append_es_daily(start, end):
     log(f"Phase 1.5: ES daily — {len(existing)} dates already in DM")
 
     from datetime import date as ddate, timedelta
-    overlap_start = (ddate.today() - timedelta(days=OVERLAP_DAYS)).isoformat()  # v2.3.2
+    overlap_start = (today_et() - timedelta(days=OVERLAP_DAYS)).isoformat()  # v2.3.2 · v2.3.6 ET
     quarters = [
         ("ESH", [1,2,3]),   # Mar contract covers Jan–Mar
         ("ESM", [4,5,6]),   # Jun contract covers Apr–Jun
@@ -535,7 +563,9 @@ def append_es_daily(start, end):
                     t = bar.get("window_start")
                     if not t:
                         continue
-                    date_iso = datetime.utcfromtimestamp(t / 1e9).strftime("%Y-%m-%d")
+                    # v2.3.6 — ET, and a session opening at/after 17:00 ET is the NEXT trade date
+                    _ws = datetime.fromtimestamp(t / 1e9, tz=ET)
+                    date_iso = (_ws.date() + timedelta(days=1 if _ws.hour >= 17 else 0)).strftime("%Y-%m-%d")
                 if date_iso not in existing or date_iso >= overlap_start:
                     # Use settlement_price when available (official daily settlement)
                     # Fall back to close for open/incomplete sessions
@@ -576,7 +606,7 @@ def inspect_and_fill(start, end):
 
     today_iso    = today_str()
     two_yr_ago   = start
-    future_end   = (date.today() + timedelta(days=MAX_LOOKAHEAD)).strftime("%Y-%m-%d")
+    future_end   = (today_et() + timedelta(days=MAX_LOOKAHEAD)).strftime("%Y-%m-%d")
 
     monthly_expiries = get_monthly_expiries(two_yr_ago, future_end) if USE_MONTHLY else []
     weekly_expiries  = get_weekly_expiries(two_yr_ago, future_end)  if USE_WEEKLY  else []
@@ -712,7 +742,7 @@ def sync_future_strikes(current_spy):
     """Add strikes for future expiries anchored to current SPY price."""
     log(f"Phase 4: Syncing future expiry strikes (SPY=${current_spy:.2f})...")
     today_iso  = today_str()
-    future_end = (date.today() + timedelta(days=MAX_LOOKAHEAD)).strftime("%Y-%m-%d")
+    future_end = (today_et() + timedelta(days=MAX_LOOKAHEAD)).strftime("%Y-%m-%d")
 
     future_m = get_monthly_expiries(today_iso, future_end) if USE_MONTHLY else []
     future_w = get_weekly_expiries(today_iso, future_end)  if USE_WEEKLY  else []
@@ -760,6 +790,15 @@ def send_push(title, body):
 # ── Main ───────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     log(f"SPY Backtest Data Collector v{COLLECTOR_VERSION} starting...")
+    _now_et = datetime.now(ET)                                   # v2.3.6 — name the frame
+    log(f"Run frame: {_now_et.strftime('%Y-%m-%d %H:%M ET')} · "
+        f"{datetime.now(timezone.utc).strftime('%H:%M UTC')} · "
+        f"ET offset {int(_now_et.utcoffset().total_seconds() // 3600):+d}h · today_et {today_str()}")
+    _run_mins = _now_et.hour * 60 + _now_et.minute
+    run_warn = (None if 16 * 60 + 30 <= _run_mins <= 20 * 60
+                else f"⚠ ran {_now_et.strftime('%H:%M')} ET (outside 16:30–20:00)")
+    if run_warn:
+        log(run_warn)
     log(f"Supabase: {SUPABASE_URL}")
     log(f"OTM targets: {len(OTM_TARGETS)} | monthly={USE_MONTHLY} weekly={USE_WEEKLY}")
 
@@ -843,6 +882,7 @@ if __name__ == "__main__":
         f"YLD {yld_count} days → {max(yld_dates) if yld_dates else '—'}\n"
         f"OPT {opt_days} days → {opt_last or '—'}\n"
         f"{integrity_line}\n"
+        + (f"{run_warn}\n" if run_warn else "") +                # v2.3.6
         f"\n"
         f"Options:\n"
         f"{opt_count:,} contracts · {len(expiries)} expiries · {opt_bars:,} bars\n"
