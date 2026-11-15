@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.9</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.10</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -369,10 +369,14 @@ select.display-box { cursor:pointer; outline:none; }
         <div style="display:flex;gap:6px;align-items:center;">
           <span id="perf-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
           <button onclick="renderPerfPanel(true)" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⟳ Refresh</button>
+          <label style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:3px 10px;cursor:pointer;">⬆ Upload statement<input type="file" id="imp-files" accept=".csv" multiple onchange="impStatement(false)" style="display:none;"></label><!-- v7.10.10 — import lives on the statement line -->
           <button id="perf-exp" onclick="resExport('account_activity', 'perf-exp')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--muted);padding:3px 10px;cursor:pointer;">⬇️ Export data</button>
         </div>
       </div>
       <div id="perf-body" style="padding:2px 10px 6px;"></div>
+      <div style="padding:0 10px;"><span id="imp-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span></div><!-- v7.10.10 — Statement Import output -->
+      <div id="imp-basis" style="padding:0 10px 6px;font-family:var(--mono);font-size:9px;color:var(--muted);"></div>
+      <div id="imp-results" style="padding:0 10px 10px;"></div>
     </div>
   </div>
 
@@ -393,32 +397,25 @@ select.display-box { cursor:pointer; outline:none; }
       </div>
     </div>
     <div class="tab-bar">
-      <!-- v7.10.5 — Activity tab retired: its blotters are toggles under the Conformance grid -->
+      <!-- v7.10.10 — order: Activity · Scan · Data Mart · Logs -->
+      <button class="tab-btn active" id="tab-btn-conf" onclick="showTab('conf')">Activity</button><!-- v7.10.10 — Activity (was Conformance) · v7.6.2 — sim vs live, cycle by cycle (SPEC_conformance_tab) -->
       <button class="tab-btn" id="tab-btn-heatmap" onclick="showTab('heatmap')" style="display:none">⊞ Opt Results</button>
       <button class="tab-btn" id="tab-btn-gaps" onclick="showTab('gaps')" style="display:none">⚠ Gaps</button>
-      <button class="tab-btn" id="tab-btn-runlog" onclick="showTab('runlog')">📄 Logs</button>
       <button class="tab-btn" id="tab-btn-scan" onclick="showTab('scan')" style="display:none">🔍 Scan</button>
       <button class="tab-btn" id="tab-btn-mart" onclick="showTab('mart')">🗄 Data Mart</button>
-      <button class="tab-btn active" id="tab-btn-conf" onclick="showTab('conf')">🔬 Conformance</button><!-- v7.6.2 — sim vs live, cycle by cycle (SPEC_conformance_tab) -->
+      <button class="tab-btn" id="tab-btn-runlog" onclick="showTab('runlog')">📄 Logs</button>
     </div>
 
     <!-- v7.10.2 — the Performance panel moved above the tabs as the statement line -->
     <div id="tab-conf" style="display:block"><!-- v7.6.2 — CONFORMANCE: sim vs live, cycle by cycle -->
       <div class="chart-panel">
         <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="chart-title">🔬 Conformance — sim vs live, cycle by cycle</span>
+          <span class="chart-title">Activity — sim vs live, cycle by cycle</span>
           <span id="conf-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
         </div>
         <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin:4px 0 10px;line-height:1.5;">Era pins the first live entry under the current model (on or after POLICY_REGIME_2) by contract and date; the sim opens it at its own DM price and selects forward on its own. YTD and ALL lay the standard run beside every live trade in the window, unpinned. One row per trading date, newest first, every price that side's actual. Reads only.</div>
         <div id="conf-body"></div>
       </div>
-    </div>
-    <!-- v6.7.8 — Trades virtual tab: Sim/Live toggle + Chart expand (panels below untouched) -->
-    <div id="trades-subnav" style="display:flex;gap:8px;align-items:center;margin:10px 0;"><!-- v7.10.5 — under the Conformance grid; toggles, closed by default -->
-      <button id="tsub-sim" onclick="setTradesView('sim')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Sim Rolls</button>
-      <button id="tsub-live" onclick="setTradesView('live')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">Live Rolls</button>
-      <div style="flex:1;"></div>
-      <button id="tsub-chart" onclick="toggleTradesChart()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:4px 14px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;">📈 Chart</button>
     </div>
     <!-- Log tab -->
     <!-- Chart tab -->
@@ -554,19 +551,6 @@ select.display-box { cursor:pointer; outline:none; }
         <!-- Live summary stats -->
         <!-- v6.24.2 — live-summary chip banner REMOVED (Ron: duplicate of Performance panel + top blotter row; MTM readout went with it) -->
         <div class="tbl-wrap"><div id="live-trade-table"></div></div>
-      </div>
-      <!-- v6.22.0 — Statement Import (DRY RUN — zero POSTs this release; insert path arrives v6.22.1) -->
-      <div class="chart-panel" style="margin-top:12px;">
-        <div class="chart-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="chart-title">⬇ Statement Import</span>
-          <span id="imp-status" style="font-family:var(--mono);font-size:9px;color:var(--muted);"></span>
-        </div>
-        <div style="padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <label style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--accent);border-radius:3px;color:var(--accent);padding:6px 14px;cursor:pointer;">⬆ Upload statement<input type="file" id="imp-files" accept=".csv" multiple onchange="impStatement(false)" style="display:none;"></label><!-- v7.7.4 — one path: upload → summary → confirm (Ron, S70) -->
-          <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">Fidelity history CSV · validated before anything is written · the statement corrects mistyped tickets</span>
-        </div>
-        <div id="imp-basis" style="padding:0 16px 6px;font-family:var(--mono);font-size:9px;color:var(--muted);"></div><!-- v6.26.0 -->
-        <div id="imp-results" style="padding:0 16px 14px;"></div>
       </div>
     </div>
 
@@ -821,7 +805,15 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.9';
+const APP_VERSION = 'v7.10.10';
+// v7.10.10 (S72, Ron) — ACTIVITY TAB · ROLL TOGGLES RETIRED · IMPORT ON THE STATEMENT LINE.
+//   1. Conformance is renamed ACTIVITY. Tab order: Activity · Scan · Data Mart · Logs (Activity the default).
+//   2. The Sim Rolls · Live Rolls · Chart row under the grid is removed: the Activity grid already shows every
+//      sim and live trade by date. The charts are hidden 'for now' (Ron); their code stays, one line to restore.
+//   3. ⬆ Upload statement moves to the statement line beside Refresh / Export; plan, confirm, results and
+//      post-checks print there. Import code unchanged — same element ids.
+//   4. The live blotter (Cycles/Tickets, Add Trade, Cover Only, ✕) shows under the Activity grid in DEBUG only.
+//   Display only. Baseline sim identical.
 // v7.10.9 (S72, Ron) — ONE WINDOW EVERYWHERE. The Conformance tab buttons are removed; the window bar at the
 //   top (Era · YTD · ALL) now drives Conformance too, with the SIM row, the LIVE row and the statement line.
 //   Changing window re-runs Conformance in that window; it opens in the bar's window (Era by default).
@@ -1414,6 +1406,7 @@ function toggleDebug() {
     btn.style.color        = _debugMode ? 'var(--yellow)' : 'var(--muted)';
     btn.style.background   = _debugMode ? 'rgba(234,179,8,.08)' : 'var(--surface2)';
   }
+  _applyTradesView(); // v7.10.10 — the live blotter follows Debug
   // Hide scan tab when debug is on
   const scanTab = $('tab-btn-scan');
   if (scanTab && _debugMode) { scanTab.style.display = 'none'; showTab('log'); }
@@ -1942,34 +1935,17 @@ function updateParamDisplay() {
 
 // ── Tab management ─────────────────────────────────────────────────────────
 // v6.7.8 — Trades virtual tab state: which blotter shows + chart expansion
-let _tradesView = 'none'; // v7.10.5 — 'none' | 'sim' | 'live': blotters under the Conformance grid, closed by default
+let _tradesView = 'none'; // v7.10.5 · v7.10.10 — no toggles; kept only for the showTab alias and chat context
 let _tradesChartOpen = false;
 let _chartViewCur = 'price';
 function _tradesCtx() { return _tradesChartOpen ? 'chart' : (_tradesView === 'live' ? 'live' : 'log'); }
-function setTradesView(v) { _tradesView = (_tradesView === v) ? 'none' : v; _applyTradesView(); } // v7.10.5 — a second tap closes it
-function toggleTradesChart() {
-  _tradesChartOpen = !_tradesChartOpen;
-  _applyTradesView(); // v6.7.11 — un-hide FIRST: renderers measure clientWidth, and a
-                      // hidden panel reads 0 (Sim rendered narrow; Live self-healed via async)
-  if (_tradesChartOpen) setChartView(_tradesView === 'live' ? 'credit' : 'price');
-}
-function _applyTradesView() {
-  const pill = (id, on) => { const b = $(id); if (!b) return;
-    b.style.background = on ? 'var(--accent)' : 'var(--surface2)';
-    b.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
-    b.style.color = on ? '#fff' : 'var(--muted)'; };
-  pill('tsub-sim', _tradesView === 'sim'); pill('tsub-live', _tradesView === 'live');
-  pill('tsub-chart', _tradesChartOpen);
+function _applyTradesView() { // v7.10.10 — no toggles: the live blotter shows under the Activity grid in DEBUG only;
+  // Sim Rolls (tab-log) and the charts (tab-chart) are hidden — the grid shows every trade. Chart code kept (Ron: 'for now').
   const set = (id, on) => { const el = $(id); if (el) el.style.display = on ? 'block' : 'none'; };
-  set('tab-log', _tradesView === 'sim'); set('tab-live', _tradesView === 'live');
-  set('tab-chart', _tradesChartOpen);
-  // Mode-dependent second chart view: sim → Yield Grid, live → Credit Curve
-  const vb = $('chart-toggle-vol'), cb = $('chart-toggle-credit');
-  if (vb) vb.style.display = _tradesView === 'sim' ? '' : 'none';
-  if (cb) cb.style.display = _tradesView === 'live' ? '' : 'none';
-  if (_tradesChartOpen && _tradesView === 'live' && _chartViewCur === 'vol') setChartView('credit');
-  if (_tradesChartOpen && _tradesView === 'sim' && _chartViewCur === 'credit') setChartView('price');
-  if (_tradesView === 'live') loadLiveBlotter();
+  const act = $('tab-conf'); const onAct = !!act && act.style.display !== 'none';
+  const dbg = onAct && typeof _debugMode !== 'undefined' && !!_debugMode;
+  set('tab-log', false); set('tab-chart', false); set('tab-live', dbg);
+  if (dbg) loadLiveBlotter();
   if (_chatOpen) setChatContext(_tradesCtx());
 }
 function showTab(tab) {
@@ -1988,8 +1964,6 @@ function showTab(tab) {
     const el = $('tab-' + t);
     if (el) el.style.display = t === tab ? 'block' : 'none';
   });
-  const sn = $('trades-subnav');
-  if (sn) sn.style.display = tab === 'conf' ? 'flex' : 'none';
   if (tab === 'conf') { _applyTradesView(); } // v7.10.5 — blotters ride under the Conformance grid
   else {
     ['log','chart','live'].forEach(t => { const el = $('tab-' + t); if (el) el.style.display = 'none'; });
