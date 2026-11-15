@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.7</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.9</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -821,7 +821,14 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.7';
+const APP_VERSION = 'v7.10.9';
+// v7.10.9 (S72, Ron) — ONE WINDOW EVERYWHERE. The Conformance tab buttons are removed; the window bar at the
+//   top (Era · YTD · ALL) now drives Conformance too, with the SIM row, the LIVE row and the statement line.
+//   Changing window re-runs Conformance in that window; it opens in the bar's window (Era by default).
+//   The Conformance strip names the window and says where it is set. Display only. Baseline sim identical.
+// v7.10.8 (S72, Ron) — WINDOW BAR ORDER: Era · YTD · ALL on the left (was ALL · YTD · Era); Realized · Annual
+//   stay on the right. The window note moves to its own line under the buttons: squeezed between the two
+//   button groups it wrapped into a one-word column on the phone. Display only. Baseline sim identical.
 // v7.10.7 (S72, Ron) — REALIZED / ANNUAL TOGGLE on the SIM and LIVE card rows.
 //   Two buttons on the right of the window bar; DEFAULT REALIZED (Ron), kept across window changes.
 //   REALIZED = what the window actually earned: Core Roll Yield = period % (no ×365/days); Covered Call
@@ -2746,9 +2753,8 @@ let _confRunning = false;
 let _confStart = null;     // ISO entry date of the pin: first live entry on/after POLICY_REGIME_2 (v7.6.7 — the only scenario)
 let _confRan = false;      // v7.6.7 — auto-run once per page load on tab open
 let _confLive = null;      // paired live cycles (closed + open), ascending
-let _confWin = 'era';      // v7.10.5 — 'all' | 'ytd' | 'era' (Conformance tabs)
+let _confWin = 'era';      // v7.10.5 — 'all' | 'ytd' | 'era' · v7.10.9 — follows the window bar (setSummaryWindow), no tabs of its own
 let _confPending = false;  // v7.10.5 — asked for while the evaluation was running
-function setConfWin(w) { if (w !== 'all' && w !== 'ytd' && w !== 'era') return; _confWin = w; _confRan = false; renderConfTab(); }
 // v7.10.6 — ONE window definition for YTD / ALL: the strip, the status line and the grid all read this.
 function _confWinLive(rows) {
   const r = (typeof lastResult === 'object' && lastResult) ? lastResult : null;
@@ -3511,13 +3517,12 @@ async function renderConfTab() {
   if (!first) { body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;">No live entry on or after ' + POLICY_REGIME_2 + ' (POLICY_REGIME_2) \u2014 nothing to pin.</div>'; return; }
   _confStart = first.open;
   const n = rows.filter(r => r.open >= _confStart).length;
-  const _wb = (w, lbl) => `<button onclick="setConfWin('${w}')" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 12px;border-radius:3px;cursor:pointer;border:1px solid ${_confWin === w ? 'var(--accent)' : 'var(--border)'};background:${_confWin === w ? 'rgba(91,138,245,.10)' : 'var(--surface2)'};color:${_confWin === w ? 'var(--accent)' : 'var(--muted)'};">${lbl}</button>`; // v7.10.5
   const _cw = _confWin === 'era' ? null : _confWinLive(rows); // v7.10.6
   const _wn = _confWin === 'era' ? null : _confWin === 'ytd' ? 'YTD ' + _ytdYear() + ' \u00b7 standard run vs every live trade from ' + _ytdYear() + '-01-01, unpinned' : 'ALL \u00b7 standard run from its start vs every live trade, unpinned';
   body.innerHTML =
-    `<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">${_wb('all', 'ALL')}${_wb('ytd', 'YTD ' + _ytdYear())}${_wb('era', 'Era')}</div>
+    `
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;font-family:var(--mono);font-size:10px;">
-      <span style="color:var(--muted);">${_wn ? _wn + ' \u00b7 ' + _cw.live.length + ' live cycle' + (_cw.live.length !== 1 ? 's' : '') + ' in window' : `pin ${_confStart} \u00b7 ${_confContract(first.strike, first.expiry)} (first live entry under the current model, POLICY_REGIME_2 ${POLICY_REGIME_2}) \u00b7 sim selects forward on its own \u00b7 ${n} live cycle${n !== 1 ? 's' : ''} in window`}</span>
+      <span style="color:var(--muted);"><span style="color:var(--accent);">${_confWin === 'era' ? 'Era' : _confWin === 'ytd' ? 'YTD ' + _ytdYear() : 'ALL'}</span> \u00b7 set by the window buttons above \u00b7 ${_wn ? _wn + ' \u00b7 ' + _cw.live.length + ' live cycle' + (_cw.live.length !== 1 ? 's' : '') + ' in window' : `pin ${_confStart} \u00b7 ${_confContract(first.strike, first.expiry)} (first live entry under the current model, POLICY_REGIME_2 ${POLICY_REGIME_2}) \u00b7 sim selects forward on its own \u00b7 ${n} live cycle${n !== 1 ? 's' : ''} in window`}</span>
       <button class="btn btn-primary" id="conf-run-btn" style="height:24px;padding:0 12px;font-size:9px;" onclick="_confLive=null;_confRan=false;renderConfTab();">\u21bb reload &amp; run</button><!-- v7.6.8 — one button: refetch the blotter, re-run -->
     </div>
     <div id="conf-econ" style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--muted);">Roll Economics \u2014 computing with the run\u2026</div><!-- v7.9.9 -->
@@ -6747,6 +6752,7 @@ function setSummaryWindow(w) {
   if (w !== 'all' && w !== 'ytd' && w !== 'era') return;
   _summaryWindow = w;
   _perfRange = w; // v7.10.2 — one window drives SIM, LIVE and the statement
+  if (_confWin !== w) { _confWin = w; _confRan = false; renderConfTab(); } // v7.10.9 — and Conformance
   if (_summaryCtx) renderSummary(_summaryCtx);
   renderPerfPanel(true);
 }
@@ -6849,13 +6855,14 @@ function renderSummary(r) {
           + `border:1px solid ${_cardBasis === b ? 'var(--accent)' : 'var(--border)'};`
           + `background:${_cardBasis === b ? 'rgba(91,138,245,.10)' : 'var(--surface2)'};`
           + `color:${_cardBasis === b ? 'var(--accent)' : 'var(--muted)'};">${lbl}</button>`;
-        wrap.innerHTML = `<div style="display:flex;align-items:center;gap:6px;">`
-          + btn('all', 'ALL') + btn('ytd', 'YTD ' + _ytdYear()) + btn('era', 'Era')
-          + `<span style="font-family:var(--mono);font-size:9px;color:var(--muted);flex:1;">`
+        wrap.innerHTML = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">` // v7.10.8 — Era · YTD · ALL
+          + btn('era', 'Era') + btn('ytd', 'YTD ' + _ytdYear()) + btn('all', 'ALL')
+          + `<span style="display:flex;gap:6px;margin-left:auto;">` + bb('real', 'Realized') + bb('ann', 'Annual') + `</span>`
+          + `<span style="font-family:var(--mono);font-size:9px;color:var(--muted);flex-basis:100%;">`
           + (_summaryWindow === 'all' ? `sim ${r.coreCycleCount != null ? r.coreCycleCount : '—'} core cycles · all time · current model applied back over history` + (_cardBasis === 'real' ? ' · realized' : ' · annualized (simple)')
              : _isY ? `sim ${_ytd.n} ${_summaryWindow === 'era' ? '' : 'core '}cycles · ${_ytd.start} → ${_ytd.end} (${_ytd.days}d)` + (_summaryWindow === 'era' ? ' · current model · ' + (_ytd.pinned ? 'pinned run' : 'STD run (pin pending)') : ' · current model applied back over history') + (_cardBasis === 'real' ? ' · realized for the period' : ' · annualized (simple)')
              : `sim: no closed core cycle in this window — showing ALL`)
-          + `</span><span style="display:flex;gap:6px;margin-left:auto;">` + bb('real', 'Realized') + bb('ann', 'Annual') + `</span></div>`;
+          + `</span></div>`;
       }
     }
   }
