@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.14</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.15</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,26 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.14';
+const APP_VERSION = 'v7.10.15';
+// v7.10.15 (S73, Ron) — THE CARDS RUN TO THE LATEST DATA; PROGRESS BAR FINISHES.
+//   1. CARD END. Both card rows used to stop at the last STATEMENT row (v7.10.4 common end), so a roll
+//      closed after the last upload was in the books but on no Era card (11-18: +$2,118). Ron, S73: the
+//      statement corrects and adds; it does not create the record, and the sim already runs to the DM.
+//      The common end is now the LAST DM DATE (sim and live together, still like-for-like). The live
+//      account after the last statement row is PROVISIONAL: cash = the last statement balance + the
+//      ticket legs dated after it (signed gross) − derived fees ($0.68/contract sold, $0.40 bought, §3.4).
+//      Shares are unchanged; open calls are marked on the DM as before. Covered Call Return and Max
+//      Drawdown read that account and say "prov. after MM/DD". An assignment (or any share-moving or
+//      unsigned) ticket after the statement BLOCKS the extension — the account cannot be walked across
+//      it — and the cards fall back to the statement end and say why. If the latest DM date cannot mark
+//      the open call, the end steps back to the latest date that can. A statement import covering those
+//      days replaces the provisional part by construction (the ledger rows then carry Fidelity's cash).
+//      The STATEMENT LINE is unchanged: it still ends at the last statement row, because its job is the
+//      Fidelity cash tie, which only means something on statement data.
+//   2. PROGRESS BAR. Activity's own simulate() advanced the bar (20% + 1%/5 trading days) and nothing
+//      finished it, so after the evaluation reached 100% the bar fell back to ~30%. Both Activity runs
+//      (Era, and YTD/ALL) now finish it at 100%.
+//   Display only: no sim, model or Gate change.
 // v7.10.14 (S73, Ron) — LIVE TRIGGER CHECK: THE DM EDGE. On its first real run the check flagged
 //   2026-11-17 [HELD] for the $765C that was closed 2026-11-18 — the very next trading day. 11-17 was the
 //   LAST DM date, so the next-trading-day lookup returned nothing and the close fell through to HELD.
@@ -2226,12 +2245,26 @@ function _ledgerCashWalk(ledger) { // → { open, sum, close, resid, firstIso, l
 // construction. Anything the ledger does not carry (a T-bill before its
 // redemption) is NOT in this number — the composition is printed so a
 // statement tie-out can say so.
-function _ledgerBalanceAt(d, ledger, trades, book) { // v7.10.2 — book: a precomputed _liveBook(trades), reused across many dates // v7.6.16 — ledger = normalized live_legs rows; v7.8.0 — trades = the raw activity rows (open calls via _liveBook)
+function _ledgerBalanceAt(d, ledger, trades, book, ext) { // v7.10.2 — book: a precomputed _liveBook(trades), reused across many dates // v7.6.16 — ledger = normalized live_legs rows; v7.8.0 — trades = the raw activity rows (open calls via _liveBook) // v7.10.15 — ext: continue cash past the last statement row on ticket legs (provisional)
   const iso = t => t.iso;
   const imp = ledger.filter(t => t.iso <= d);
   if (!imp.length) return { err: 'no statement row on or before ' + d };
   const last = imp[imp.length - 1];
-  const cash = Number(last.cash_balance);
+  let cash = Number(last.cash_balance), tktN = 0;
+  if (ext) { // v7.10.15 — PROVISIONAL cash after the last statement row: + ticket legs (signed gross) − derived fees
+    const lEnd = ledger[ledger.length - 1].iso;
+    if (d > lEnd) {
+      const blk = _ticketExtBlock(trades, lEnd);
+      if (blk) return { err: blk };
+      (trades || []).forEach(t => {
+        const td = String(t.trade_date || '').slice(0, 10);
+        if (t.basis !== 'ticket' || !(td > lEnd && td <= d)) return;
+        const q = Math.abs(Number(t.quantity || 0));
+        const fee = t.cls === 'opt_sell_open' ? 0.68 * q : (t.cls === 'opt_buy_close' || t.cls === 'opt_buy_open') ? 0.40 * q : 0;
+        cash += Number(t.amount || 0) - fee; tktN++;
+      });
+    }
+  }
   const shares = imp.filter(t => (t.symbol || '').trim() === 'SPY' && t.quantity && (t.cls === 'share_buy' || t.cls === 'share_sell'))
     .reduce((s, t) => s + Number(t.quantity), 0);
   const spyRow = (DM && DM.spy) ? DM.spy.filter(r => r.date <= d).pop() : null;
@@ -2256,7 +2289,20 @@ function _ledgerBalanceAt(d, ledger, trades, book) { // v7.10.2 — book: a prec
     if (!bar) return { err: 'no DM bar for $' + K + 'C ' + exp + ' on ' + spyRow.date + ' \u2014 cannot mark' };
     optMark += q * 100 * bar.c; legs.push({ K, exp, q, px: bar.c, tag: '' });
   }
-  return { d, asOf: iso(last), cash, shares, spyPx: spyRow.c, spyDate: spyRow.date, optMark, legs, total: cash + shares * spyRow.c - optMark };
+  return { d, asOf: iso(last), cash, shares, spyPx: spyRow.c, spyDate: spyRow.date, optMark, legs, total: cash + shares * spyRow.c - optMark, tktN };
+}
+// v7.10.15 — can the account be walked past the last statement row on ticket legs alone? Not across an
+// assignment, a share leg or an unsigned ticket: those move cash or shares no ticket amount carries.
+// Returns the reason (string) or null.
+function _ticketExtBlock(trades, lEnd) {
+  const OK = new Set(['opt_buy_close', 'opt_sell_open', 'opt_buy_open', 'opt_expired']);
+  for (const t of (trades || [])) {
+    const td = String(t.trade_date || '').slice(0, 10);
+    if (t.basis !== 'ticket' || !(td > lEnd)) continue;
+    if (!OK.has(t.cls)) return 'a ' + (t.cls || '?') + ' ticket on ' + td + ' moves cash or shares no ticket amount carries — import the statement';
+    if (t.note && /sign unmeasured/.test(t.note)) return 'an unsigned ticket on ' + td + ' — import the statement';
+  }
+  return null;
 }
 let _perfBuilt = false; // v6.24.0 — lazy once per load; ⟳ forces re-fetch
 function _perfRngPaint() { // v7.6.10 — ALL / YTD pill state
@@ -2298,6 +2344,7 @@ function _liveCardData(x) {
   }
   // Covered Call Return: the statement's account return EXCLUDING MM interest (SPY + dividends + calls)
   out.ccRet = (gain != null && yP) ? yP(gain - intP) : null; out.ccThru = L.d;
+  out.provAfter = x.provAfter || null; out.extBlk = x.extBlk || null; // v7.10.15
   out.per = !!x.per; out.bm = x.bhAnn; // v7.10.4 — Era: period return + SPY TR beside it
   { const sp = x.spanP || 0, toR = v => v == null ? null : (x.per ? v : v * sp / 365); // v7.10.7 — undo the statement's own scaling
     out.ccReal = toR(out.ccRet); out.bmReal = toR(out.bm); out.ccDays = sp;
@@ -2307,7 +2354,7 @@ function _liveCardData(x) {
     const days = (DM && DM.spy ? DM.spy.filter(q => q.date >= S.d && q.date <= L.d).map(q => q.date) : []);
     let prev = null, prevD = null, idx = 1, peak = 1, dd = 0, skipped = 0;
     for (const d of days) {
-      const b = _ledgerBalanceAt(d, ledger, x.trades, book);
+      const b = _ledgerBalanceAt(d, ledger, x.trades, book, true); // v7.10.15 — provisional past the statement
       if (b.err || !(b.total > 0)) { skipped++; continue; }
       if (prev != null) {
         const F = flows.filter(f => f.d > prevD && f.d <= d).reduce((a, f) => a + f.amt, 0);
@@ -2334,8 +2381,10 @@ function _renderLiveCards(d) {
   + card('Core Roll Credit', $d(d.sum), d.sum >= 0 ? 'green' : 'red', 'Closed cycles · mean ' + $d(d.mean) + '/cycle' + (d.orphan ? ' · ' + d.orphan + ' orphan' : ''))
   + card('Win Rate', f1(d.win).replace('.0%', '%'), d.win >= 70 ? 'green' : 'yellow', 'Positive P&L')
   + (() => { const v = R ? d.ccReal : d.ccAnn, b = R ? d.bmReal : d.bmAnn; // v7.10.7
-      return card('Covered Call Return', f1(v), (v ?? 0) >= 0 ? 'green' : 'red', (R ? 'Period' : 'Ann.') + ' thru ' + String(d.ccThru).slice(5).replace('-', '/') + ' · vs SPY TR ' + f1(b) + (v != null && b != null ? ' · ' + (v - b >= 0 ? '+' : '') + (v - b).toFixed(1) + ' pts' : '') + ' · excl. interest'); })()
-  + card('Max Drawdown', f1(d.dd), d.dd == null ? '' : d.dd > 20 ? 'red' : d.dd > 10 ? 'yellow' : 'green', 'Flow-adjusted account' + (d.ddSkipped ? ' · ' + d.ddSkipped + 'd unmarkable' : ''))
+      const _md = s => String(s).slice(5).replace('-', '/'); // v7.10.15
+      const _pv = d.provAfter ? ' · prov. after ' + _md(d.provAfter) : d.extBlk ? ' · statement only (' + d.extBlk + ')' : '';
+      return card('Covered Call Return', f1(v), (v ?? 0) >= 0 ? 'green' : 'red', (R ? 'Period' : 'Ann.') + ' thru ' + _md(d.ccThru) + _pv + ' · vs SPY TR ' + f1(b) + (v != null && b != null ? ' · ' + (v - b >= 0 ? '+' : '') + (v - b).toFixed(1) + ' pts' : '') + ' · excl. interest'); })()
+  + card('Max Drawdown', f1(d.dd), d.dd == null ? '' : d.dd > 20 ? 'red' : d.dd > 10 ? 'yellow' : 'green', 'Flow-adjusted account' + (d.provAfter ? ' · prov. after ' + String(d.provAfter).slice(5).replace('-', '/') : '') + (d.ddSkipped ? ' · ' + d.ddSkipped + 'd unmarkable' : ''))
   + card('Roll Frequency', R ? d.n + ' rolls' : (d.freq != null ? d.freq.toFixed(0) : 'n/a') + ' /yr', 'accent', (R ? d.days + 'd' : d.n + ' in ' + d.days + 'd') + (d.held != null ? ' · ' + d.held.toFixed(1) + 'd held' : ''));
 }
 
@@ -2393,9 +2442,21 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
   const endB = _ledgerBalanceAt(_lastLedger, ledger, trades);
   if (endB.err) return '<div style="color:#e0a020;">\u26a0 statement section: the account balance at the last imported row (' + (_lastLedger || 'none') + ') could not be computed \u2014 ' + endB.err + '</div>'; // v7.6.15 — no pinned fallback; say why
   const L = { d: _lastLedger, amt: endB.total, computed: true };
-  _ERA_END = _lastLedger; // v7.10.4 — the common end of both Era rows
+  _ERA_END = _lastLedger; // v7.10.4 — the common end of both Era rows · v7.10.15 — moved forward below (card end)
   const _ytdAnchor = _cwinYtdAnchor(); // v7.6.27 — rolls with the calendar
   const _book0 = _liveBook(trades); // v7.10.2 — one pairing, reused by every balance below
+  // v7.10.15 — THE CARD END: the latest DM date at which the (provisional) live account can be marked,
+  // never earlier than the last statement row. Both card rows end here; the statement line does not.
+  const _card = (() => {
+    const later = (DM && DM.spy) ? DM.spy.map(x => x.date).filter(x => x > L.d) : [];
+    const blk = later.length ? _ticketExtBlock(trades, L.d) : null;
+    if (!blk) for (let i = later.length - 1; i >= 0; i--) {
+      const b = _ledgerBalanceAt(later[i], ledger, trades, _book0, true);
+      if (!b.err) return { d: later[i], amt: b.total, prov: true, n: b.tktN || 0, blk: null };
+    }
+    return { d: L.d, amt: L.amt, prov: false, n: 0, blk };
+  })();
+  _ERA_END = _card.d; // v7.10.15 — the common end of both Era card rows
   { const s0 = _book0.cycles.concat(_book0.open || []).map(c => _book0.toIso(c.openDate)).filter(d => d && d >= POLICY_REGIME_2).sort()[0]; if (s0) _ERA_START = s0; }
   const _eraAnchor = (() => { const r0 = DM && DM.spy ? DM.spy.filter(x => x.date < _eraStart()).pop() : null; return r0 ? r0.date : _eraStart(); })(); // the close before the first era trade
   const _anc = _perfRange === 'ytd' ? _ytdAnchor : _perfRange === 'era' ? _eraAnchor : null;
@@ -2557,7 +2618,18 @@ async function _cwinHtml(opts) { // v7.9.9 — opts.part: 'statement' (Activity)
       + ((() => { const u = [...new Set(ledger.filter(r => r.unchained).map(r => r.iso))]; return u.length ? '<span style="color:#e0a020;"> \u26a0 unchained day' + (u.length > 1 ? 's' : '') + ' ' + u.join(', ') + '</span>' : ''; })())) // v7.6.17
     + '</div>'; // v7.1.0 — residual prose removed (Ron). Header + data line only.
   if (_part === 'statement') { // v7.9.9 — the account only · v7.10.2 — and the LIVE card row
-    try { _renderLiveCards(_liveCardData({ trades, ledger, book: _book0, liveCyc, toIso, S, L, flows, gain, intP, yP, spanP, bhAnn, per: _per })); }
+    // v7.10.15 — the cards read the account at the CARD END (provisional after the last statement row)
+    const E = _card.d;
+    const netE  = flows.filter(e => e.d > S.d && e.d <= E).reduce((a, e) => a + e.amt, 0);
+    const gainE = (S.amt != null) ? (_card.amt - S.amt - netE) : null;
+    const spanE = Math.max(1, Math.round((new Date(E + 'T00:00:00Z') - new Date(S.d + 'T00:00:00Z')) / 86400000));
+    const twcE  = (S.amt != null) ? _cwinTwCapital(S.d, E, flows, S.amt, S.d) : 0;
+    const yPE   = v => (v != null && twcE > 0) ? (v / twcE * (_per ? 1 : 365 / spanE) * 100) : null;
+    const spyE  = _cAt(E), dpsE = (_SPY_DIVS || []).filter(x => x.ex > S.d && x.ex <= E).reduce((a, x) => a + x.ps, 0);
+    const bhRetE = (spy0 && spyE) ? ((spyE + dpsE) / spy0 - 1) * 100 : null;
+    const bhAnnE = bhRetE != null ? (_per ? bhRetE : bhRetE / spanE * 365) : null;
+    try { _renderLiveCards(_liveCardData({ trades, ledger, book: _book0, liveCyc, toIso, S, L: { d: E, amt: _card.amt }, flows, gain: gainE, intP, yP: yPE, spanP: spanE, bhAnn: bhAnnE, per: _per,
+                                           provAfter: _card.prov ? L.d : null, provN: _card.n, extBlk: _card.blk })); }
     catch (e) { const g = $('live-grid'); if (g) g.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--red);">\u2717 live cards: ' + e.message + '</div>'; }
     return ctx;
   }
@@ -3611,6 +3683,7 @@ async function _confRunWindow() {
     try { ec.innerHTML = await _cwinHtml({ part: 'roll', simCycles: r.cycles, winStart: econStart, winLabel: _confWin === 'ytd' ? 'YTD ' + _ytdYear() : 'ALL \u00b7 since the first live trade' }); }
     catch (e) { ec.innerHTML = '<span style="color:var(--red);">\u2717 Roll Economics: ' + e.message + '</span>'; }
   }
+  if (_mode !== 'optimize') setProgress(100); // v7.10.15 — finish the bar
 }
 
 async function runConformance() {
@@ -3657,6 +3730,7 @@ async function runConformance() {
     try { ec.innerHTML = _econCycles ? await _cwinHtml({ part: 'roll', simCycles: _econCycles }) : '<span style="color:#e0a020;">Roll Economics: the pinned run did not complete \u2014 see the grid below</span>'; }
     catch (e) { ec.innerHTML = '<span style="color:var(--red);">\u2717 Roll Economics: ' + e.message + '</span>'; }
   }
+  if (_mode !== 'optimize') setProgress(100); // v7.10.15 — Activity's simulate() moved the bar; finish it
 }
 
 function _confRender(results) {
