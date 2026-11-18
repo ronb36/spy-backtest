@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.13</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.14</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,15 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.13';
+const APP_VERSION = 'v7.10.14';
+// v7.10.14 (S73, Ron) — LIVE TRIGGER CHECK: THE DM EDGE. On its first real run the check flagged
+//   2026-11-17 [HELD] for the $765C that was closed 2026-11-18 — the very next trading day. 11-17 was the
+//   LAST DM date, so the next-trading-day lookup returned nothing and the close fell through to HELD.
+//   Fix: when the flagged day is the last DM date and the cycle closed AFTER it, the close is compared
+//   with the NEXT WEEKDAY after that day (Sat/Sun skipped): on or before it is NEXT, later stays HELD.
+//   (A calendar-day gap was rejected in the build: Tue→Fri is also 3 days.) A market holiday on that
+//   weekday makes a true next-day close read HELD — a false alarm, never a hidden miss. Days inside the
+//   DM are unchanged (next DM trading day). Evaluation display only; no sim, model or Gate change.
 // v7.10.13 (S73, Ron) — EXECUTION WEDGE: EACH FILL AGAINST BOTH REFERENCES.
 //   The question in progress (§6.24, Tests A/B): do the sim's fill prices match fills Ron can actually
 //   get? The wedge priced live fills against the day-bar VWAP only. Every row now also prices them
@@ -2912,6 +2920,11 @@ function _evalLiveCheck(live, maps) {
   const lastDm = days.length ? days[days.length - 1] : null;
   const grace = (STD.graceDays ?? 3);
   const nextDay = function (d) { const k = days.indexOf(d); return (k >= 0 && k + 1 < days.length) ? days[k + 1] : null; };
+  const nextWeekday = function (d) { // v7.10.14 — beyond the DM: Sat/Sun skipped, holidays not known
+    const t = new Date(d + 'T12:00:00Z');
+    do { t.setUTCDate(t.getUTCDate() + 1); } while (t.getUTCDay() === 0 || t.getUTCDay() === 6);
+    return t.toISOString().slice(0, 10);
+  };
   const out = { cycles: 0, read: 0, unread: [], flags: [], grace: grace, lastDm: lastDm };
   live.forEach(function (r) {
     if (!r.open || r.strike == null || !r.expiry) return;
@@ -2929,6 +2942,9 @@ function _evalLiveCheck(live, maps) {
       let kind;
       if (r.close == null && d === lastDm) kind = 'PROV';
       else if (r.close != null && nextDay(d) === r.close) kind = 'NEXT';
+      // v7.10.14 — the DM edge: d is the last DM date and the close lies beyond the DM, where no
+      // next trading day exists to compare with. Compare with the next WEEKDAY after d instead.
+      else if (r.close != null && d === lastDm && r.close > d && r.close <= nextWeekday(d)) kind = 'NEXT';
       else kind = 'HELD';
       out.flags.push({ date: d, kind: kind, row: r, read: read, quiet: 'live', traded: 'sim' });
     });
