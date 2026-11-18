@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.10</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.11</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -639,7 +639,7 @@ function showError(msg) {
 // PAT stored in localStorage only — never in code
 const GITHUB_REPO = 'ronb36/spy-backtest';
 const PARAMS_FILE = 'roll_params.json';
-// live_trades in Supabase (live_trades table); DM in Supabase (v3.8.1+) —
+// Trades in Supabase (ACT_TABLE, v7.7.2; live_trades retired S70); DM in Supabase (v3.8.1+) —
 // legacy GitHub JSON consts (DATA_URL/DATA_FILE) removed v5.2.1
 // Polygon key lives in localStorage only ('polygon_key') — never in code
 const SB_URL      = 'https://pepdnkwytziegjvgkofq.supabase.co/rest/v1';
@@ -805,7 +805,18 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.10';
+const APP_VERSION = 'v7.10.11';
+// v7.10.11 (S73, Ron) — TICKET PATH: NO MORE live_trades NAMES. PLUMBING ONLY.
+//   The 11-18 roll was the first ticket since the S70 cutover, and its audit_snapshot insert was refused:
+//   the table still carried audit_snapshot_trade_id_fkey → live_trades(id), a retired table nothing writes.
+//   Ron dropped the constraint in SQL (S73). This release removes the names that made the retired table
+//   look live from the code: makeLiveTradeId → makeTicketId, appendLiveTrade → appendTicket,
+//   deleteLiveTrade → deleteTicketRow, liveEntry → ticket. trade_id on audit_snapshot is documented as what
+//   it is — a TICKET CORRELATION TAG, not a row id: legs get _tktRowId(date, cls, sym, n) and are re-keyed
+//   when a statement converts them, so no foreign key can hold. A snapshot is matched to its trade by
+//   date + chosen contract, the same identity the assembler pairs on. Error and status strings name
+//   ACT_TABLE. Stale "FK trade_id" / "live_trades.json" comments corrected. No sim, model or Gate change;
+//   no behaviour change (renames + strings + comments only).
 // v7.10.10 (S72, Ron) — ACTIVITY TAB · ROLL TOGGLES RETIRED · IMPORT ON THE STATEMENT LINE.
 //   1. Conformance is renamed ACTIVITY. Tab order: Activity · Scan · Data Mart · Logs (Activity the default).
 //   2. The Sim Rolls · Live Rolls · Chart row under the grid is removed: the Activity grid already shows every
@@ -3481,7 +3492,7 @@ async function renderConfTab() {
   if (!DM) { body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;padding:8px 0;">Data mart not loaded yet.</div>'; return; }
   try {
     if (!_confLive) { if (st) st.textContent = 'loading live cycles\u2026'; _confLive = await _confLoadLive(); }
-  } catch (e) { body.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">\u2717 live_trades: ' + e.message + '</div>'; return; }
+  } catch (e) { body.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:10px;">\u2717 ' + ACT_TABLE + ': ' + e.message + '</div>'; return; }
   const rows = _confLive.rows;
   // v7.6.7 — ONE SCENARIO (Ron): the pin is the first live entry on or after
   // POLICY_REGIME_2 — the current model's first trade. Earlier cycles ran the
@@ -6998,7 +7009,7 @@ async function renderCreditCurve() {
   const host = $('credit-chart'); const st = $('credit-status');
   if (!host) return;
   if (!_liveTradesCache) {
-    if (st) st.textContent = 'Loading live_trades...';
+    if (st) st.textContent = 'Loading ' + ACT_TABLE + '...'; // v7.10.11
     try { await loadLiveBlotter(); } catch (e) { /* loader renders its own error */ }
   }
   // v6.7.9 — trade_date is US-format MM/DD/YY in the blotter rows; lexicographic
@@ -9278,11 +9289,11 @@ async function confirmTrade() {
     statusEl.style.color = 'var(--green)';
     btn.textContent = '\u2713 Done';
 
-    // Also append to live_trades.json
+    // v7.10.11 — the ticket's legs → ACT_TABLE, then the audit snapshot.
     try {
       const contracts = payload.contracts ?? STD.contracts ?? (STD.shares ? Math.floor(STD.shares / 100) : 6); // v6.1.0
-      const liveEntry = {
-        id:             makeLiveTradeId(),
+      const ticket = {
+        id:             makeTicketId(),
         trade_date:     today,
         row_type:       'roll',            // v6.1.10 — canonical rebuilt-schema names throughout
         status:         'open',
@@ -9300,10 +9311,11 @@ async function confirmTrade() {
         triggerThreshold: _trigMetrics(_tradeCloseReason).t,
         note:           'ticket v6.32.0'
       };
-      await appendLiveTrade(liveEntry);
+      await appendTicket(ticket);
 
       // v6.1.0 — audit_snapshot writes: the ONLY audit path (Ron S33; scans never write).
-      // Runs only after live_trades succeeds (FK trade_id). Failures never block the trade.
+      // Runs only after the ticket's legs are written. Failures never block the trade.
+      // v7.10.11 — trade_id is the ticket's correlation tag (makeTicketId), not a foreign key.
       const _auditInfo = {
         cover: parseFloat(cover.toFixed(2)), sell: parseFloat(sell.toFixed(2)),
         contracts: contracts, payload: payload, prior: _prior,
@@ -9314,10 +9326,10 @@ async function confirmTrade() {
                   no_opt_in_memory: !_optDisplayRows }
       };
       try {
-        await writeAuditRecords(liveEntry.id, _auditInfo);
+        await writeAuditRecords(ticket.id, _auditInfo);
         statusEl.textContent = '\u2713 Published \u00b7 position updated \u00b7 audit written';
       } catch (aErr) {
-        _pendingAudit = { tradeId: liveEntry.id, info: _auditInfo };
+        _pendingAudit = { tradeId: ticket.id, info: _auditInfo };
         statusEl.innerHTML = '\u26a0 Trade saved; audit write failed: ' + aErr.message.replace(/</g, '&lt;')
           + ' <button onclick="retryAuditWrite()" style="font-family:var(--mono);font-size:9px;padding:3px 10px;border-radius:3px;border:1px solid var(--yellow);background:transparent;color:var(--yellow);cursor:pointer;">Retry</button>';
         statusEl.style.color = 'var(--yellow)';
@@ -9325,8 +9337,8 @@ async function confirmTrade() {
         return; // keep the modal open so Retry is reachable
       }
     } catch(liveErr) {
-      console.warn('Live trade log failed:', liveErr.message);
-      statusEl.textContent = '\u2713 Published \u00b7 \u26a0 live_trades write failed (audit skipped): ' + liveErr.message;
+      console.warn('Ticket write failed:', liveErr.message); // v7.10.11
+      statusEl.textContent = '\u2713 Published \u00b7 \u26a0 ' + ACT_TABLE + ' write failed (audit skipped): ' + liveErr.message;
       statusEl.style.color = 'var(--yellow)';
     }
 
@@ -9476,7 +9488,7 @@ function renderLiveTickets(rows) {
       + `<td class="muted">${r.cash_balance != null ? '$' + Number(r.cash_balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</td>`
       + `<td class="muted" style="font-size:9px;">${tkt ? '<span style="color:#e0a020;">ticket</span>' : 'statement'}</td>`
       + `<td class="muted" style="font-size:10px;">${r.trigger ? r.trigger + (tm ? ` <span style="opacity:.75;">${tm}</span>` : '') : ''}</td>`
-      + (_debugMode && tkt ? `<td><button onclick="deleteLiveTrade('${r.id}')" style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">✕</button></td>` : '<td></td>')
+      + (_debugMode && tkt ? `<td><button onclick="deleteTicketRow('${r.id}')" style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">✕</button></td>` : '<td></td>')
       + '</tr>';
   }
   const sortArrow = _liveBlotterAsc ? ' ↑' : ' ↓';
@@ -9922,8 +9934,10 @@ async function legsGetFromTable() {
   })) };
 }
 
-// ===================== v7.2.6 · TICKET DUAL-WRITE =====================
-// Every ticket now writes its LEGS to live_legs as basis='ticket' alongside the
+// ===================== v7.2.6 · TICKET LEGS =====================
+// v7.10.11 — CURRENT STATE: every ticket writes its LEGS to ACT_TABLE as basis='ticket',
+// and nothing else. live_trades is retired (S70) and receives nothing. The paragraph below
+// is the v7.2.6 history. — v7.2.6: Every ticket now writes its LEGS to live_legs as basis='ticket' alongside the
 // existing live_trades row. Transitional by design: readers still take
 // live_trades, so this can only ADD information. The §7 convert path picks these
 // rows up when the statement lands — its first real exercise, since until now
@@ -10029,7 +10043,7 @@ async function _legsWriteTicket(t) {
     method: 'POST',
     headers: { ..._sbHeaders, 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
     body: JSON.stringify(legs) });
-  if (!res.ok) throw new Error('live_legs ticket write ' + res.status + ' ' + await res.text());
+  if (!res.ok) throw new Error(ACT_TABLE + ' ticket write ' + res.status + ' ' + await res.text()); // v7.10.11 — was 'live_legs'
   return legs.length;
 }
 
@@ -10326,7 +10340,7 @@ function toggleLiveSort() {
   if (_liveTradesCache) renderLiveBlotter(_liveTradesCache);
 }
 
-async function deleteLiveTrade(id) {
+async function deleteTicketRow(id) { // v7.10.11 — was deleteLiveTrade
   if (!confirm('Delete this trade entry?')) return;
   try {
     await sbDeleteTrade(id);
@@ -10334,8 +10348,8 @@ async function deleteLiveTrade(id) {
   } catch(e) { alert('Error: ' + e.message); }
 }
 
-// ── Append a completed roll to Supabase ────────────────────────────────────
-async function appendLiveTrade(tradeObj) {
+// ── Write a ticket's legs to ACT_TABLE ─────────────────────────────────────
+async function appendTicket(tradeObj) { // v7.10.11 — was appendLiveTrade
   // v7.7.2 — ONE WRITE. The legs ARE the record now, so a failure here is a failed
   // ticket and must throw into the ticket path like any other save error. (v7.2.6
   // swallowed it, correctly, while live_trades was the authority.)
@@ -10444,7 +10458,10 @@ async function retryAuditWrite() {
   }
 }
 
-function makeLiveTradeId() {
+// v7.10.11 — a TICKET CORRELATION TAG, stamped on audit_snapshot.trade_id. It is NOT a row id anywhere:
+// the legs get _tktRowId(...) and are re-keyed when a statement converts them, so a foreign key on this
+// could never hold (audit_snapshot_trade_id_fkey → live_trades was dropped, S73). Was makeLiveTradeId.
+function makeTicketId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
@@ -10518,7 +10535,7 @@ async function confirmCoverOnly() {
     // v7.7.2 — no PATCH: 'open' is derived by cycle assembly, so the cover leg below closes it.
 
     const trade = { // v6.1.10 — canonical rebuilt-schema names
-      id:             makeLiveTradeId(),
+      id:             makeTicketId(),
       trade_date:     today,
       row_type:       'cover_only',
       status:         'flat',
@@ -10532,7 +10549,7 @@ async function confirmCoverOnly() {
       triggerValue:     _trigMetrics(_coCloseReason).v,   // v6.32.0
       triggerThreshold: _trigMetrics(_coCloseReason).t
     };
-    await appendLiveTrade(trade);
+    await appendTicket(trade);
 
     // v6.15.0 — close the open audit row. THE S44 GAP: this path never did, so a cover-only
     // close left the row open for the next roll ticket to patch with the WRONG date/reason.
@@ -10655,7 +10672,7 @@ async function confirmManualEntry() {
 
   try {
     const trade = { // v6.1.10 — canonical rebuilt-schema names
-      id:             makeLiveTradeId(),
+      id:             makeTicketId(),
       trade_date:     date,
       row_type:       type,
       status:         statusVal,
