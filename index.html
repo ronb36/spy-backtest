@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.11</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.13</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,30 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.11';
+const APP_VERSION = 'v7.10.13';
+// v7.10.13 (S73, Ron) — EXECUTION WEDGE: EACH FILL AGAINST BOTH REFERENCES.
+//   The question in progress (§6.24, Tests A/B): do the sim's fill prices match fills Ron can actually
+//   get? The wedge priced live fills against the day-bar VWAP only. Every row now also prices them
+//   against the day-bar CLOSE (c), same contract, same date, same sign rule (positive = live worse), with
+//   its own ± and n, and tags the reference with the smaller bias. A closing REFERENCE line names the
+//   per-leg winner (decay exit · delta exit · sells) and the Test A variant that pattern matches:
+//   A0 all VWAP · A1 all close · A2 close except delta exits · A3 sales at close, buy-backs at VWAP.
+//   n is printed on every figure and the line says when n is too small to read. The dollar column
+//   stays VWAP-based (the §4.2 severity bound is unchanged). Evaluation display only; reads only.
+//   No sim, model or Gate change; the fill model itself is NOT changed (decision gate §6.24).
+// v7.10.12 (S73, Ron) — EVALUATION: LIVE TRIGGER CHECK REPLACES THE DIVERGENCE LOG.
+//   The §4.1 divergence log was keyed on dates when ONE side traded and the other did not. Live selects
+//   higher strikes by choice (S69/S70), so most of its rows were selection noise (11-18: 7 benign + 2 flat
+//   of 13), and its one useful question — was live's OWN position past its OWN trigger without a close? —
+//   was asked only on days the sim happened to trade. A miss on any other day was invisible.
+//   NEW: every DM trading day each live cycle in the window was held (from the end of grace to the day
+//   before its close), live's own contract is read off the DM day bar (vw||c, the sim's frame) against the
+//   published triggers. A day past a trigger is flagged: NEXT DAY (closed on the next trading day — normal
+//   response), PROV (last DM date, not yet decidable) or HELD (still held two or more trading days later —
+//   the candidate miss). Each flagged day carries the agent run-log cause (FIRED · NOT ACTED / DID NOT
+//   FIRE / PRE-LOG). Days with no bar for the contract are counted and listed, never read as clean.
+//   _evalDivergence is REMOVED (retired, not left dormant); _evalBand and _evalCause are reused unchanged.
+//   Evaluation display only: reads only, never writes. No sim, model or Gate change.
 // v7.10.11 (S73, Ron) — TICKET PATH: NO MORE live_trades NAMES. PLUMBING ONLY.
 //   The 11-18 roll was the first ticket since the S70 cutover, and its audit_snapshot insert was refused:
 //   the table still carried audit_snapshot_trade_id_fkey → live_trades(id), a retired table nothing writes.
@@ -2844,6 +2867,8 @@ function _evalReadingOn(pos, iso, maps) {
   };
 }
 
+// v7.10.12 — the divergence log this described is RETIRED; _evalLiveCheck (below) replaces it.
+// The banding is kept: _evalBand is reused by the live trigger check. History follows.
 // §4.1 — every date one side traded and the other did not. A "trade" is a cycle
 // ENTRY on either side (a roll closes one and opens the next). The quiet side's
 // open position on that date is read, and what it did NEXT is carried, because
@@ -2871,34 +2896,42 @@ function _evalBand(pos, read) {
   return 'benign';
 }
 
-function _evalDivergence(live, sim, maps) {
-  const L = live.map(function (r) {
-    return { side: 'live', open: r.open, close: r.close, strike: r.strike, expiry: r.expiry, sell: r.sell,
-      outcome: r.isOpen ? 'live still open'
-        : 'live closed ' + (r.close || '?') + ' · ' + _confLiveType(r.trigger)
-          + ' · ' + _confMoney((r.cover != null && r.sell != null) ? (r.sell - r.cover) * 100 * (r.qty || 0) : null) };
-  });
-  const S = sim.map(function (c) {
-    return { side: 'sim', open: c.entryDate, close: c.exitDate, strike: c.strike, expiry: c.expiry, sell: c.entryPx,
-      outcome: 'sim closed ' + c.exitDate + ' · ' + _confSimType(c.reason) + ' · ' + _confMoney(c.pnl) };
-  });
-  const lOpens = {}; L.forEach(function (r) { lOpens[r.open] = true; });
-  const sOpens = {}; S.forEach(function (r) { sOpens[r.open] = true; });
-  const heldOn = function (arr, d) {
-    return arr.filter(function (r) { return r.open <= d && (r.close == null || r.close > d); })[0] || null;
-  };
-  const out = [];
-  S.forEach(function (r) { if (!lOpens[r.open]) out.push({ date: r.open, traded: 'sim', quiet: 'live', pos: heldOn(L, r.open) }); });
-  L.forEach(function (r) { if (!sOpens[r.open]) out.push({ date: r.open, traded: 'live', quiet: 'sim', pos: heldOn(S, r.open) }); });
-  out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-  // v7.6.31 — a row on the LAST DM date is not yet a finding: the quiet side
-  // has not been evaluated past it. Friday's 2026-11-05 row cleared itself on
-  // Tuesday once the DM advanced and the sim's own 11-05 entry existed.
-  const _lastDm = (DM && DM.spy && DM.spy.length) ? DM.spy[DM.spy.length - 1].date : null;
-  out.forEach(function (d) {
-    d.read = _evalReadingOn(d.pos, d.date, maps);
-    d.band = _evalBand(d.pos, d.read);
-    d.prov = !!(_lastDm && d.date >= _lastDm);
+// v7.10.12 — LIVE TRIGGER CHECK (S73, Ron). Replaces the sim-keyed divergence log.
+// For every DM trading day a live cycle in the window was HELD — from the end of
+// grace (days held >= published graceDays, the sim's own gate) up to and including
+// its close date — read live's OWN contract off the DM day bar (_evalReadingOn:
+// vw||c and the defense-horizon delta, the sim's frame) and band it with
+// _evalBand. Only 'past' days matter here. The close date itself is the exit, so
+// a past reading there is the trigger being acted on, not a miss.
+//   NEXT  past on d, closed on the NEXT DM trading day — normal response lag
+//   PROV  past on the LAST DM date, still open — not yet decidable
+//   HELD  past on d and still held two or more trading days later — candidate miss
+// Days with no bar for the contract are NOT clean: they are counted and listed.
+function _evalLiveCheck(live, maps) {
+  const days = (DM && DM.spy) ? DM.spy.map(function (x) { return x.date; }) : [];
+  const lastDm = days.length ? days[days.length - 1] : null;
+  const grace = (STD.graceDays ?? 3);
+  const nextDay = function (d) { const k = days.indexOf(d); return (k >= 0 && k + 1 < days.length) ? days[k + 1] : null; };
+  const out = { cycles: 0, read: 0, unread: [], flags: [], grace: grace, lastDm: lastDm };
+  live.forEach(function (r) {
+    if (!r.open || r.strike == null || !r.expiry) return;
+    out.cycles++;
+    const pos = { open: r.open, strike: r.strike, expiry: r.expiry, sell: r.sell };
+    days.forEach(function (d) {
+      if (d < r.open) return;
+      if (r.close != null && d > r.close) return;
+      if (_confDays(r.open, d) < grace) return;           // grace: triggers not armed yet
+      const read = _evalReadingOn(pos, d, maps);
+      if (!read || (read.decay == null && read.delta == null)) { out.unread.push({ date: d, row: r }); return; }
+      out.read++;
+      if (_evalBand(pos, read) !== 'past') return;
+      if (r.close != null && d === r.close) return;        // the exit day: acted on
+      let kind;
+      if (r.close == null && d === lastDm) kind = 'PROV';
+      else if (r.close != null && nextDay(d) === r.close) kind = 'NEXT';
+      else kind = 'HELD';
+      out.flags.push({ date: d, kind: kind, row: r, read: read, quiet: 'live', traded: 'sim' });
+    });
   });
   return out;
 }
@@ -3094,6 +3127,7 @@ function _evalWedge(live) {
       if (mx == null) unpriced.push('exit ' + r.close);
       else obs.push({ leg: 'exit', date: r.close, pool: _confLiveType(r.trigger),
                       live: r.cover, mark: mx, per: r.cover - mx,
+                      perC: (bx && bx.c != null) ? r.cover - bx.c : null, // v7.10.13 — vs the day close
                       dollars: (r.cover - mx) * 100 * qty,
                       fillPos: posIn(bx, r.cover), markPos: posIn(bx, mx),
                       range: (bx && bx.h != null && bx.l != null) ? (bx.h - bx.l) : null,
@@ -3104,6 +3138,7 @@ function _evalWedge(live) {
       if (mn == null) unpriced.push('entry ' + r.open);
       else obs.push({ leg: 'entry', date: r.open, pool: 'entry',
                       live: r.sell, mark: mn, per: mn - r.sell,
+                      perC: (bn && bn.c != null) ? bn.c - r.sell : null, // v7.10.13 — vs the day close
                       dollars: (mn - r.sell) * 100 * qty,
                       fillPos: posIn(bn, r.sell), markPos: posIn(bn, mn),
                       range: (bn && bn.h != null && bn.l != null) ? (bn.h - bn.l) : null,
@@ -3117,18 +3152,24 @@ function _evalWedge(live) {
     return Object.keys(by).sort().map(function (p) {
       const per = _evalStat(by[p].map(function (o) { return o.per; }));
       const dol = _evalStat(by[p].map(function (o) { return o.dollars; }));
-      return { pool: p, n: per.n, meanPer: per.mean, sdPer: per.sd, totalD: dol.sum };
+      const pc  = _evalStat(by[p].map(function (o) { return o.perC; }).filter(function (v) { return v != null; })); // v7.10.13
+      return { pool: p, n: per.n, meanPer: per.mean, sdPer: per.sd, totalD: dol.sum,
+               nC: pc.n, meanPerC: pc.mean, sdPerC: pc.sd };
     });
   };
   const isExit  = function (o) { return o.leg === 'exit'; };
   const isEntry = function (o) { return o.leg === 'entry'; };
   const stat = function (sel, f) { return _evalStat(obs.filter(sel).map(f)); };
   const per = function (o) { return o.per; }, dol = function (o) { return o.dollars; };
+  const statC = function (sel) { // v7.10.13 — close-referenced, fills whose bar has a close
+    return _evalStat(obs.filter(sel).map(function (o) { return o.perC; }).filter(function (v) { return v != null; }));
+  };
 
   return {
     obs: obs, unpriced: unpriced,
     exitRows: group(isExit),
     exitPooledPer: stat(isExit, per), exitPooledDol: stat(isExit, dol),
+    exitPooledPerC: statC(isExit),    entryPerC: statC(isEntry),   // v7.10.13
     entryPer: stat(isEntry, per),     entryDol: stat(isEntry, dol),
     entryFillPos: _evalStat(obs.filter(isEntry).map(function (o) { return o.fillPos; }).filter(function (v) { return v != null; })),
     entryMarkPos: _evalStat(obs.filter(isEntry).map(function (o) { return o.markPos; }).filter(function (v) { return v != null; })),
@@ -3142,30 +3183,37 @@ function _evalRenderWedge(w, dec) {
   const signed = function (v) { return (v >= 0 ? '+' : '') + v.toFixed(2); };
   const verdict = function (v) { return v > 0 ? 'live WORSE than the mark' : 'live better than the mark'; };
 
-  logMsg('  EXECUTION WEDGE        live fill vs the sim day-bar VWAP (vw||c), same contract, same date', '');
-  logMsg('    POSITIVE = live worse, on both legs. exit = cover \u2212 mark \u00b7 entry = mark \u2212 sell.', '');
+  logMsg('  EXECUTION WEDGE        live fill vs the day-bar VWAP (vw||c) AND vs the day-bar CLOSE, same contract, same date', '');
+  logMsg('    POSITIVE = live worse, on both legs. exit = cover \u2212 ref \u00b7 entry = ref \u2212 sell. $ total is VWAP-based.', '');
+  // v7.10.13 — the reference with the smaller absolute bias; '\u2014' when either side is missing.
+  const nearer = function (v, c) { return (v == null || c == null) ? '\u2014' : (Math.abs(c) < Math.abs(v) ? 'CLOSE' : 'VWAP'); };
+  const cell = function (m, s) { return m == null ? '\u2014'.padStart(8) + '        ' : (signed(m).padStart(8) + ' ' + se(s).padStart(7)); };
   if (!w.obs.length) { logMsg('    no priceable live fills in the window', ''); return; }
 
   logMsg('    EXIT leg \u2014 split by trigger, never pooled as a headline (\u00a74.3)', '');
-  logMsg('      pool          n    mean $/sh      total $     \u00b1 $/sh', '');
+  logMsg('      pool          n     vs VWAP \u00b1 $/sh      vs CLOSE \u00b1 $/sh   nearer      total $ (VWAP)', '');
   w.exitRows.forEach(function (r) {
     logMsg('      ' + (r.pool + '        ').slice(0, 10) + String(r.n).padStart(5)
-         + '   ' + signed(r.meanPer).padStart(9) + '  ' + _confMoney(r.totalD).padStart(11)
-         + '   ' + se({ sd: r.sdPer, n: r.n }).padStart(8) + '   ' + verdict(r.meanPer), '');
+         + '   ' + cell(r.meanPer, { sd: r.sdPer, n: r.n })
+         + '   ' + cell(r.meanPerC, { sd: r.sdPerC, n: r.nC }) + (r.nC !== r.n ? ' (n=' + r.nC + ')' : '')
+         + '   ' + nearer(r.meanPer, r.meanPerC).padEnd(6)
+         + '  ' + _confMoney(r.totalD).padStart(11) + '   ' + verdict(r.meanPer) + ' (VWAP)', '');
   });
   if (w.exitPooledPer.n > 1) {
     logMsg('      pooled    ' + String(w.exitPooledPer.n).padStart(5)
-         + '   ' + signed(w.exitPooledPer.mean).padStart(9) + '  ' + _confMoney(w.exitPooledDol.sum).padStart(11)
-         + '   ' + se(w.exitPooledPer).padStart(8)
+         + '   ' + cell(w.exitPooledPer.mean, w.exitPooledPer)
+         + '   ' + cell(w.exitPooledPerC.mean, w.exitPooledPerC)
+         + '   ' + '      ' + '  ' + _confMoney(w.exitPooledDol.sum).padStart(11)
          + '   \u2190 DO NOT READ: this is the S67 shape, a sign flip averaged away', '');
   }
 
   logMsg('    ENTRY leg \u2014 not split: entries are chosen, not forced (\u00a74.3)', '');
   logMsg('      sells     ' + String(w.entryPer.n).padStart(5)
-       + '   ' + (w.entryPer.mean != null ? signed(w.entryPer.mean) : '\u2014').padStart(9)
+       + '   ' + cell(w.entryPer.mean, w.entryPer)
+       + '   ' + cell(w.entryPerC.mean, w.entryPerC) + (w.entryPerC.n !== w.entryPer.n ? ' (n=' + w.entryPerC.n + ')' : '')
+       + '   ' + nearer(w.entryPer.mean, w.entryPerC.mean).padEnd(6)
        + '  ' + _confMoney(w.entryDol.sum).padStart(11)
-       + '   ' + se(w.entryPer).padStart(8)
-       + '   ' + (w.entryPer.mean != null ? verdict(w.entryPer.mean) : ''), '');
+       + '   ' + (w.entryPer.mean != null ? verdict(w.entryPer.mean) + ' (VWAP)' : ''), '');
 
   if (w.entryFillPos.n > 0 && w.entryMarkPos.n > 0) {
     logMsg('      range position  fill at ' + w.entryFillPos.mean.toFixed(0) + '% of the day range \u00b7 VWAP at '
@@ -3175,6 +3223,24 @@ function _evalRenderWedge(w, dec) {
     logMsg('                      The day-bar VWAP is no more reachable on entry than on exit (\u00a74.3).', '');
   }
   logMsg('    BOTH LEGS              total ' + _confMoney(w.allDol.sum) + ' over ' + w.allDol.n + ' fills', '');
+  // v7.10.13 — which reference each kind of leg tracks, and the Test A variant (§6.24) that pattern is.
+  {
+    const row = function (p) { return w.exitRows.filter(function (r) { return r.pool === p; })[0] || null; };
+    const dR = row('decay'), kR = row('delta');
+    const pick = function (v, c) { return (v == null || c == null) ? null : (Math.abs(c) < Math.abs(v) ? 'C' : 'V'); };
+    const pd = dR ? pick(dR.meanPer, dR.meanPerC) : null;
+    const pk = kR ? pick(kR.meanPer, kR.meanPerC) : null;
+    const pe = pick(w.entryPer.mean, w.entryPerC.mean);
+    const nm = function (x) { return x === 'C' ? 'CLOSE' : x === 'V' ? 'VWAP' : '\u2014'; };
+    const nMin = Math.min(dR ? dR.n : 0, kR ? kR.n : 0, w.entryPer.n || 0);
+    const VAR = { 'VVV': 'A0 (all VWAP \u2014 today\u2019s sim)', 'CCC': 'A1 (all at the close)',
+                  'CVC': 'A2 (close except delta exits)', 'VVC': 'A3 (sales at the close, buy-backs at VWAP)' };
+    const key = (pd || '?') + (pk || '?') + (pe || '?');
+    logMsg('    REFERENCE              nearer by leg: decay exit ' + nm(pd) + ' \u00b7 delta exit ' + nm(pk)
+         + ' \u00b7 sells ' + nm(pe) + '  \u2192  ' + (VAR[key] || (key.indexOf('?') >= 0 ? 'incomplete \u2014 a leg has no reading' : 'matches no Test A variant')), '');
+    logMsg('                           smallest leg n=' + nMin + (nMin < 8 ? ' \u2014 too few to read; the \u00a76.24 gate wants \u2265 8 delta exits' : '')
+         + '. Bias only: compare each \u00b1 before trusting a winner. Reads only; the fill model is unchanged.', '');
+  }
   if (dec && dec.sev != null) {
     const pct = (dec.sev !== 0) ? Math.round(w.allDol.sum / dec.sev * 100) : null;
     logMsg('    vs \u00a74.2 SEVERITY ' + _confMoney(dec.sev)
@@ -3363,64 +3429,54 @@ function _evalReport(live, sim, start, ms, full, pend, runs) {
     const on = _evalOpenNow(live, pend, maps, _asOf);
     logMsg('  OPEN NOW               as of ' + _asOf + (_asOf !== _lastSpy ? ' (latest DM date with a bar on both sides; ' + _lastSpy + ' has SPY but not both option bars yet)' : '') + (on.same
       ? '  \u00b7  SAME CONTRACT on both sides'
-      : '  \u00b7  DIFFERENT CONTRACT \u2014 selection divergence, expected (see POLICY below)'),
+      : '  \u00b7  DIFFERENT CONTRACT \u2014 selection divergence, expected (live picks higher strikes by choice, S69/S70)'),
       on.same ? 'ok' : '');
     logMsg(_evalOpenLine('sim ', on.sim), '');
     logMsg(_evalOpenLine('live', on.live), '');
   }
 
-  const dv = _evalDivergence(live, sim, maps);
-  const bands = { past: [], near: [], benign: [], flat: [] };
-  dv.forEach(function (d) { (bands[d.band] || bands.flat).push(d); });
-  logMsg('  DIVERGENCE LOG         ' + dv.length + ' date' + (dv.length === 1 ? '' : 's')
-       + '  \u00b7  ' + bands.past.length + ' past threshold \u00b7 ' + bands.near.length + ' near \u00b7 '
-       + bands.benign.length + ' benign \u00b7 ' + bands.flat.length + ' flat', bands.past.length ? 'err' : 'ok');
-  logMsg("    FRAME: readings below are the SIM day-bar VWAP (vw||c), not the agent intraday NBBO mark.", '');
-  logMsg("           A past-threshold row says the sim price source puts that position past its trigger.", '');
-  logMsg("           It is NOT evidence the agent saw the same number and did not act on it.", '');
-  logMsg("    POLICY: live selects HIGHER strikes by choice and does not target the sim trades, only its", '');
-  logMsg("            performance (Ron, S70). Selection divergence is EXPECTED. Only [PAST] rows bear on", '');
-  logMsg("            trigger integrity; benign and flat rows are ordinary selection and timing difference.", '');
-  if (!dv.length) {
-    logMsg('    none \u2014 both sides entered on the same dates in this window', '');
-  }
-  bands.past.concat(bands.near).forEach(function (d) {
-    const r = d.read;
+  // v7.10.12 — LIVE TRIGGER CHECK (replaces the sim-keyed divergence log).
+  const lc = _evalLiveCheck(live, maps);
+  const held = lc.flags.filter(function (f) { return f.kind === 'HELD'; });
+  const nxt  = lc.flags.filter(function (f) { return f.kind === 'NEXT'; });
+  const prov = lc.flags.filter(function (f) { return f.kind === 'PROV'; });
+  logMsg('  LIVE TRIGGER CHECK     ' + lc.cycles + ' live cycle' + (lc.cycles === 1 ? '' : 's') + ' · '
+       + lc.read + ' position-days read · ' + held.length + ' past & held · ' + nxt.length
+       + ' past, closed next day · ' + prov.length + ' provisional · ' + lc.unread.length + ' unreadable',
+       held.length ? 'err' : 'ok');
+  logMsg('    FRAME: live’s OWN contract on the DM day bar (vw||c) vs the published triggers (decay '
+       + STD.decayTrigger + '% · Δ' + STD.deltaThreshold + ' · grace ' + lc.grace + 'd), every day it was held.', '');
+  logMsg('           The sim’s frame, not the agent’s intraday mark: a past reading here is a question, not a verdict.', '');
+  logMsg('           Selection is not tested — live picks higher strikes by choice (S69/S70). This asks one thing:', '');
+  logMsg('           was live’s own position past its own trigger without a close?', '');
+  runs = runs || { rows: [], first: null, err: 'not loaded' };
+  const _rd = function (r) {
     let dec = '—', del = '—';
-    if (r && r.decay != null) {
-      const g = r.decay - STD.decayTrigger;
-      dec = r.decay.toFixed(2) + '% (' + (g >= 0 ? '+' : '') + g.toFixed(2) + 'pp vs ' + STD.decayTrigger + '%)';
-    }
-    if (r && r.delta != null) {
-      const g = r.delta - STD.deltaThreshold;
-      del = r.delta.toFixed(3) + ' (' + (g >= 0 ? '+' : '') + g.toFixed(3) + ' vs ' + STD.deltaThreshold + ')';
-    }
-    logMsg('    [' + d.band.toUpperCase() + (d.prov ? '\u00b7PROV' : '') + '] ' + d.date + '  '
-         + d.traded + ' traded, ' + d.quiet + ' did not'
-         + (d.prov ? '   (provisional \u2014 last DM date; the quiet side has not been evaluated past it)' : ''),
-           d.band === 'past' && !d.prov ? 'err' : '');
-    logMsg('      ' + d.quiet + ' held ' + (d.pos ? _confContract(d.pos.strike, d.pos.expiry) + ' (opened ' + d.pos.open + ')' : 'nothing'), '');
-    logMsg('      read: decay ' + dec + ' · Δ ' + del + (r ? ' · px $' + r.px.toFixed(2) + ' · ' + r.dte + 'd' : ''), '');
-    logMsg('      → ' + (d.pos ? d.pos.outcome : 'no open position on that date'), '');
+    if (r && r.decay != null) { const g = r.decay - STD.decayTrigger; dec = r.decay.toFixed(2) + '% (' + (g >= 0 ? '+' : '') + g.toFixed(2) + 'pp)'; }
+    if (r && r.delta != null) { const g = r.delta - STD.deltaThreshold; del = r.delta.toFixed(3) + ' (' + (g >= 0 ? '+' : '') + g.toFixed(3) + ')'; }
+    return 'decay ' + dec + ' · Δ ' + del + (r ? ' · px $' + r.px.toFixed(2) + ' · ' + r.dte + 'd' : '');
+  };
+  const _out = function (row) {
+    return row.isOpen ? 'still open'
+      : 'closed ' + row.close + ' · ' + _confLiveType(row.trigger) + ' · '
+        + _confMoney((row.cover != null && row.sell != null) ? (row.sell - row.cover) * 100 * (row.qty || 0) : null);
+  };
+  if (!lc.flags.length) {
+    logMsg('    none — no held day read past a trigger in this window', 'ok');
+  }
+  held.concat(prov).concat(nxt).forEach(function (f) {
+    const c = _evalCause(f, runs);
+    logMsg('    [' + f.kind + '] ' + f.date + '  ' + _confContract(f.row.strike, f.row.expiry) + ' (opened ' + f.row.open + ')'
+         + '  → ' + _out(f.row), f.kind === 'HELD' ? 'err' : '');
+    logMsg('      read: ' + _rd(f.read), '');
+    logMsg('      cause: ' + c.tag + ' — ' + c.txt, f.kind === 'HELD' ? c.cls : '');
   });
-  if (bands.benign.length) {
-    logMsg('    benign (' + bands.benign.length + '): ' + bands.benign.map(function (d) { return d.date; }).join(', ')
-         + '  \u2014 quiet side priced but nowhere near either trigger; ordinary desync, not a miss', '');
+  if (lc.unread.length) {
+    logMsg('    unreadable (' + lc.unread.length + '): ' + lc.unread.map(function (u) { return u.date; }).join(', ')
+         + '  — no DM bar for the held contract that day (thin contract). NOT checked, not clean.', '');
   }
-  if (bands.flat.length) {
-    logMsg('    flat   (' + bands.flat.length + '): ' + bands.flat.map(function (d) { return d.date; }).join(', ')
-         + '  \u2014 quiet side held nothing: out of position, not a trigger event', '');
-  }
-  if (dv.length) {
-    // v7.8.1 — cause per date from the agent run log (agent_runs, agent v1.7.66).
-    runs = runs || { rows: [], first: null, err: 'not loaded' };
-    logMsg('    CAUSE — agent run log' + (runs.err ? ' UNREADABLE: ' + runs.err
-         : runs.first ? ' · first row ' + runs.first + ' · ' + runs.rows.length + ' rows in window' : ' · no rows yet'), '');
-    dv.forEach(function (d) {
-      const c = _evalCause(d, runs);
-      logMsg('      ' + d.date + '  ' + d.traded + ' traded  ' + c.tag + ' — ' + c.txt, c.cls);
-    });
-  }
+  if (runs.err) logMsg('    run log UNREADABLE: ' + runs.err, 'err');
+  else logMsg('    run log: ' + (runs.first ? 'first row ' + runs.first + ' · ' + runs.rows.length + ' rows in window · days before it read PRE-LOG' : 'no rows yet'), '');
 
   const _dec = _evalGapDecomp(live, sim);
   _evalRenderDecomp(_dec);
