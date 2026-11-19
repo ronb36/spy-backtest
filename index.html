@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.16</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.17</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,12 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.16';
+const APP_VERSION = 'v7.10.17';
+// v7.10.17 (S73, Ron) — A REJECTED ANTHROPIC KEY CAN BE REPLACED. Ask Claude only offers the key box when
+//   no key is stored, so a stored key Anthropic rejects (revoked, expired, mistyped) blocked it for good,
+//   and clearing Safari's website data would also wipe polygon_key and gh_pat. On an authentication
+//   error (HTTP 401 / authentication_error) the page now removes ONLY anthropic_key and says so; closing
+//   and reopening Ask Claude shows the key box. No other key, no sim, model or Gate change.
 // v7.10.16 (S73, Ron) — NAME THE UNMARKABLE DAYS. Max Drawdown counted the days it could not mark
 //   ("1d unmarkable") and threw away which day and why. Each skipped day now keeps its date and the
 //   reason from _ledgerBalanceAt (usually: no DM bar for the open call that day — the data mart only
@@ -3917,6 +3922,10 @@ async function callClaudeAPI(messages, system) {
     body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1500, system: system, messages: messages })
   });
   const data = await response.json();
+  if (response.status === 401 || (data.error && data.error.type === 'authentication_error')) { // v7.10.17
+    try { localStorage.removeItem('anthropic_key'); } catch (e) {}
+    throw new Error('Anthropic rejected the saved key (' + ((data.error && data.error.message) || 'HTTP 401') + ') \u2014 it has been cleared. Close and reopen Ask Claude to enter a new one.');
+  }
   if (data.error) throw new Error(data.error.message || 'API error');
   return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n') || 'No response received.';
 }
