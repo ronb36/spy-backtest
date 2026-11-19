@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.15</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.16</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,13 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.15';
+const APP_VERSION = 'v7.10.16';
+// v7.10.16 (S73, Ron) — NAME THE UNMARKABLE DAYS. Max Drawdown counted the days it could not mark
+//   ("1d unmarkable") and threw away which day and why. Each skipped day now keeps its date and the
+//   reason from _ledgerBalanceAt (usually: no DM bar for the open call that day — the data mart only
+//   holds a bar on days the contract traded). The card names up to 3 dates; the log lists every one
+//   with its reason, once per distinct set. Display only: the drawdown figure is unchanged (no
+//   carry-forward of the last mark — a separate decision).
 // v7.10.15 (S73, Ron) — THE CARDS RUN TO THE LATEST DATA; PROGRESS BAR FINISHES.
 //   1. CARD END. Both card rows used to stop at the last STATEMENT row (v7.10.4 common end), so a roll
 //      closed after the last upload was in the books but on no Era card (11-18: +$2,118). Ron, S73: the
@@ -2245,6 +2251,7 @@ function _ledgerCashWalk(ledger) { // → { open, sum, close, resid, firstIso, l
 // construction. Anything the ledger does not carry (a T-bill before its
 // redemption) is NOT in this number — the composition is printed so a
 // statement tie-out can say so.
+let _ddSkipLogged = ''; // v7.10.16
 function _ledgerBalanceAt(d, ledger, trades, book, ext) { // v7.10.2 — book: a precomputed _liveBook(trades), reused across many dates // v7.6.16 — ledger = normalized live_legs rows; v7.8.0 — trades = the raw activity rows (open calls via _liveBook) // v7.10.15 — ext: continue cash past the last statement row on ticket legs (provisional)
   const iso = t => t.iso;
   const imp = ledger.filter(t => t.iso <= d);
@@ -2352,10 +2359,10 @@ function _liveCardData(x) {
   // Max Drawdown: flow-adjusted daily index on the computed account balance
   try {
     const days = (DM && DM.spy ? DM.spy.filter(q => q.date >= S.d && q.date <= L.d).map(q => q.date) : []);
-    let prev = null, prevD = null, idx = 1, peak = 1, dd = 0, skipped = 0;
+    let prev = null, prevD = null, idx = 1, peak = 1, dd = 0, skipped = 0; const skipDays = []; // v7.10.16
     for (const d of days) {
       const b = _ledgerBalanceAt(d, ledger, x.trades, book, true); // v7.10.15 — provisional past the statement
-      if (b.err || !(b.total > 0)) { skipped++; continue; }
+      if (b.err || !(b.total > 0)) { skipped++; skipDays.push({ d, why: b.err || ('balance ' + b.total) }); continue; }
       if (prev != null) {
         const F = flows.filter(f => f.d > prevD && f.d <= d).reduce((a, f) => a + f.amt, 0);
         idx *= (b.total - F) / prev;
@@ -2363,7 +2370,13 @@ function _liveCardData(x) {
       }
       prev = b.total; prevD = d;
     }
-    out.dd = prev != null ? dd : null; out.ddSkipped = skipped;
+    out.dd = prev != null ? dd : null; out.ddSkipped = skipped; out.ddSkipDays = skipDays;
+    if (skipDays.length) { // v7.10.16 — log each unmarkable day once per distinct set
+      const key = skipDays.map(s => s.d + s.why).join('|');
+      if (key !== _ddSkipLogged) { _ddSkipLogged = key;
+        logMsg('MAX DRAWDOWN: ' + skipDays.length + ' unmarkable day(s) skipped (live, ' + S.d + ' \u2192 ' + L.d + ')');
+        skipDays.forEach(s => logMsg('  ' + s.d + '  ' + s.why)); }
+    }
   } catch (e) { out.dd = null; out.ddErr = e.message; }
   return out;
 }
@@ -2384,7 +2397,7 @@ function _renderLiveCards(d) {
       const _md = s => String(s).slice(5).replace('-', '/'); // v7.10.15
       const _pv = d.provAfter ? ' · prov. after ' + _md(d.provAfter) : d.extBlk ? ' · statement only (' + d.extBlk + ')' : '';
       return card('Covered Call Return', f1(v), (v ?? 0) >= 0 ? 'green' : 'red', (R ? 'Period' : 'Ann.') + ' thru ' + _md(d.ccThru) + _pv + ' · vs SPY TR ' + f1(b) + (v != null && b != null ? ' · ' + (v - b >= 0 ? '+' : '') + (v - b).toFixed(1) + ' pts' : '') + ' · excl. interest'); })()
-  + card('Max Drawdown', f1(d.dd), d.dd == null ? '' : d.dd > 20 ? 'red' : d.dd > 10 ? 'yellow' : 'green', 'Flow-adjusted account' + (d.provAfter ? ' · prov. after ' + String(d.provAfter).slice(5).replace('-', '/') : '') + (d.ddSkipped ? ' · ' + d.ddSkipped + 'd unmarkable' : ''))
+  + card('Max Drawdown', f1(d.dd), d.dd == null ? '' : d.dd > 20 ? 'red' : d.dd > 10 ? 'yellow' : 'green', 'Flow-adjusted account' + (d.provAfter ? ' · prov. after ' + String(d.provAfter).slice(5).replace('-', '/') : '') + (d.ddSkipped ? ' · ' + d.ddSkipped + 'd unmarkable (' + (d.ddSkipDays || []).slice(0, 3).map(s => String(s.d).slice(5).replace('-', '/')).join(', ') + ((d.ddSkipDays || []).length > 3 ? ', \u2026' : '') + ')' : ''))
   + card('Roll Frequency', R ? d.n + ' rolls' : (d.freq != null ? d.freq.toFixed(0) : 'n/a') + ' /yr', 'accent', (R ? d.days + 'd' : d.n + ' in ' + d.days + 'd') + (d.held != null ? ' · ' + d.held.toFixed(1) + 'd held' : ''));
 }
 
