@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.17</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.18</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,16 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.17';
+const APP_VERSION = 'v7.10.18';
+// v7.10.18 (S73, Ron) — NET CREDIT VS TARGET. Ron enters each roll as ONE spread order at mid, so the
+//   exchange's split of the price between the legs is arbitrary; the number he controls is the NET. Every
+//   ticket's audit_snapshot row already held both sides — the scanner's top-5 candidates with their model
+//   net (scan_topk[].net, from the last scan before the ticket) and the fills (chosen.fills sell/cover) —
+//   and nothing compared them. The evaluation now prints, per audited roll in the window: target net,
+//   actual net (sell − cover), the difference per share and in $, and the minutes from that scan to the
+//   ticket (a stale scan is no fair target). A strike outside the scan's top 5, an entry with no buy-back,
+//   or a row with no scan (row 29, rebuilt by hand) is listed and SAY SO — never guessed. Mean ± SE over
+//   the rolls that have a target. Reads only; no sim, model or Gate change.
 // v7.10.17 (S73, Ron) — A REJECTED ANTHROPIC KEY CAN BE REPLACED. Ask Claude only offers the key box when
 //   no key is stored, so a stored key Anthropic rejects (revoked, expired, mistyped) blocked it for good,
 //   and clearing Safari's website data would also wipe polygon_key and gh_pat. On an authentication
@@ -3447,6 +3456,55 @@ async function _evalLoadRuns(start) {
   }
 }
 
+// v7.10.18 — audited tickets in the eval window. NEVER throws (eval renders regardless).
+async function _evalLoadAudit(start) {
+  try {
+    const r = await fetch(`${SB_URL}/audit_snapshot?select=id,trade_id,created_at,scan_ts,scan_topk,chosen&created_at=gte.${start}&order=created_at.asc&limit=1000`, { headers: _sbHeaders });
+    if (!r.ok) throw new Error('audit_snapshot read failed: ' + r.status);
+    return { rows: await r.json(), err: null };
+  } catch (e) { return { rows: [], err: e.message }; }
+}
+// v7.10.18 — pure: one line per audited roll. Target = the scan candidate matching the chosen contract.
+function _evalNetTarget(aud) {
+  const out = [];
+  (aud.rows || []).forEach(function (a) {
+    const ch = a.chosen || {}, f = ch.fills || {};
+    const day = String(a.created_at || '').slice(0, 10);
+    const row = { id: a.id, date: day, strike: ch.strike, exp: ch.exp, sell: f.sell, cover: f.cover, qty: f.contracts || 0,
+                  actual: null, target: null, diff: null, mins: null, why: null };
+    if (f.sell == null || !(f.cover > 0)) { row.why = 'entry — no buy-back, no net'; out.push(row); return; }
+    row.actual = f.sell - f.cover;
+    const top = Array.isArray(a.scan_topk) ? a.scan_topk : null;
+    if (!top || !top.length) { row.why = 'no scan on the row'; out.push(row); return; }
+    const m = top.find(function (t) { return Number(t.strike) === Number(ch.strike) && String(t.exp) === String(ch.exp); });
+    if (!m || m.net == null) { row.why = 'chosen contract not in the scan\u2019s top 5'; out.push(row); return; }
+    row.target = Number(m.net); row.diff = row.actual - row.target;
+    if (a.scan_ts && a.created_at) row.mins = Math.round((new Date(a.created_at) - new Date(a.scan_ts)) / 60000);
+    out.push(row);
+  });
+  return out;
+}
+function _evalRenderNetTarget(rows, err) {
+  logMsg('  NET CREDIT VS TARGET   per audited roll \u00b7 target = the last scan\u2019s model net for the contract you chose \u00b7 actual = sell \u2212 buy-back', '');
+  logMsg('    the NET is what a spread order at mid controls; the legs\u2019 split of it is the exchange\u2019s. Positive diff = better than target.', '');
+  if (err) { logMsg('    audit_snapshot UNREADABLE: ' + err, 'err'); return; }
+  if (!rows.length) { logMsg('    no audited tickets in this window', ''); return; }
+  const f2 = function (v) { return (v >= 0 ? '+' : '\u2212') + '$' + Math.abs(v).toFixed(2); };
+  rows.forEach(function (r) {
+    const c = '$' + r.strike + 'C ' + String(r.exp || '').slice(5) + '-' + String(r.exp || '').slice(2, 4);
+    if (r.why) { logMsg('    ' + r.date + '  ' + c + (r.actual != null ? '  actual ' + f2(r.actual) : '') + '  \u2014 no target: ' + r.why, ''); return; }
+    logMsg('    ' + r.date + '  ' + c + '  target ' + f2(r.target) + '  actual ' + f2(r.actual) + '  diff ' + f2(r.diff) + '/sh'
+         + ' (' + (r.diff >= 0 ? '+' : '\u2212') + '$' + Math.abs(r.diff * 100 * r.qty).toFixed(0) + ' on ' + r.qty + ')'
+         + (r.mins != null ? '  \u00b7 scan ' + r.mins + ' min before' : ''), r.diff >= 0 ? 'ok' : '');
+  });
+  const d = rows.filter(function (r) { return r.diff != null; }).map(function (r) { return r.diff; });
+  if (d.length) {
+    const st = _evalStat(d);
+    logMsg('    mean diff ' + f2(st.mean) + '/sh' + (st.sd != null && st.n > 1 ? ' \u00b1' + (st.sd / Math.sqrt(st.n)).toFixed(2) : ' (n<2)')
+         + ' \u00b7 n=' + st.n + ' of ' + rows.length + ' audited \u00b7 a target is a model price, so read the diff as model + market move, not slippage alone', '');
+  }
+}
+
 function _evalRunEt(ts) {
   try { return new Date(ts).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); }
   catch (e) { return '?'; }
@@ -3494,7 +3552,7 @@ function _evalCause(d, runs) {
            cls: '' };
 }
 
-function _evalReport(live, sim, start, ms, full, pend, runs) {
+function _evalReport(live, sim, start, ms, full, pend, runs, aud) { // v7.10.18 — aud
   const maps = buildMaps();
   const sp = function (a, b) { return (a && b) ? _confDays(a, b) + 'd' : '?'; };
   const lFirst = live.length ? live[0].open : null;
@@ -3588,6 +3646,7 @@ function _evalReport(live, sim, start, ms, full, pend, runs) {
   _evalRenderDecomp(_dec);
   _evalRenderWedge(_evalWedge(live), _dec);
   _evalRenderAgreement(_evalAgreement(live, sim));
+  if (aud) _evalRenderNetTarget(_evalNetTarget(aud), aud.err); // v7.10.18
   logMsg('  — evaluation ' + (ms / 1000).toFixed(1) + 's · reads only; never writes roll_params.json', '');
   showTab('log'); // §5 — eval writes to Logs and shows that tab, as Debug does
 }
@@ -3636,8 +3695,9 @@ async function runEval() {
     // not an error. lastResult is set by runBacktest, never by simulate, so this
     // pinned run cannot clobber the panels' full-backtest state.
     const _runs = await _evalLoadRuns(start);   // v7.8.1 — never throws
+    const _aud = await _evalLoadAudit(start);   // v7.10.18 — never throws
     _evalReport(live, (r && r.cycles) ? r.cycles : [], start, Date.now() - t0, full,
-                r ? r.pendingContract : null, _runs);
+                r ? r.pendingContract : null, _runs, _aud);
     setProgress(100);
   } catch (e) {
     logMsg('✗ EVALUATION: ' + e.message, 'err');
