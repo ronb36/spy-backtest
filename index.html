@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.18</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.19</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,14 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.18';
+const APP_VERSION = 'v7.10.19';
+// v7.10.19 (S73, Ron) — THE ACTIVITY TABLE FITS. 11 columns overflowed the iPad and the panel clipped the
+//   last one (live sell px) out of sight; one row with two live legs joined by ' · ' stretched LIVE BUY.
+//   Now 7 columns: each contract carries its price in the same cell as '$725C 03-19 @ $25.53'; the year is
+//   dropped when the expiry is within 12 months of the row date (kept otherwise); several legs on one
+//   date STACK one per line instead of widening the column; prices right-aligned in a fixed-width slot.
+//   Backstop: the table scrolls sideways inside its panel with the date column held in place, so nothing
+//   is ever clipped again. Display only — every value, colour and note unchanged; no sim, model or Gate change.
 // v7.10.18 (S73, Ron) — NET CREDIT VS TARGET. Ron enters each roll as ONE spread order at mid, so the
 //   exchange's split of the price between the legs is arbitrary; the number he controls is the NET. Every
 //   ticket's audit_snapshot row already held both sides — the scanner's top-5 candidates with their model
@@ -3906,7 +3913,13 @@ function _confRender(results) {
     return { t: e.tag || '', type: e.type, v: e.type === 'decay' ? e.vDecay : e.type === 'delta' ? e.vDelta : null };
   };
   const better = (type, a, b) => (a == null || b == null) ? null : type === 'decay' ? (a > b) : type === 'delta' ? (a < b) : null;
-  const cell = (arr, key, other) => arr.map(e => { const o = e.prior ? 'opacity:.62;' : '';
+  // v7.10.19 — '$725C 03-19-27' → '$725C 03-19' when the expiry is within 12 months of the row date
+  const shortC = (c, d) => String(c).replace(/(\d\d)-(\d\d)-(\d\d)/, (m, mo, da, yy) => {
+    const ex = new Date('20' + yy + '-' + mo + '-' + da + 'T00:00:00Z'), rd = new Date(d + 'T00:00:00Z');
+    return (ex - rd) / 86400000 <= 365 ? mo + '-' + da : m; });
+  const cell = (arr, key, other, d) => arr.map(e => { const o = e.prior ? 'opacity:.62;' : '';
+    if (key === 'cpx') return `<span style="${o}"><span style="display:inline-block;min-width:11ch;">${shortC(e.c, d)}</span>`
+      + (e.px != null ? ` <span style="display:inline-block;min-width:8ch;text-align:right;">@ ${fmtPx(e.px)}</span>` : '') + `</span>`;
     if (key === 'c')  return `<span style="${o}">${e.c}</span>`;
     if (key === 'px') return `<span style="${o}">${fmtPx(e.px)}</span>`;
     if (key === 'stag') { // sim trigger, matched to the live buy on that date
@@ -3918,22 +3931,23 @@ function _confRender(results) {
     // live trigger, compared to the sim buy on that date
     let win = null;
     if (other && other.length) { const sh = simShown(other[0], e.type); if (sh.type === e.type) win = better(e.type, e.val, sh.v); }
-    return `<span style="${o}${win ? green : muted}">${e.tag || ''}</span>`; }).join(' \u00b7 ');
+    return `<span style="${o}${win ? green : muted}">${e.tag || ''}</span>`; }).join('<br>'); // v7.10.19 — stack, don't widen
   results.forEach(x => { if (x.sim && x.note) notes.push(`<span style="${amber}">\u26a0 ${x.sim.entryDate} ${_confContract(x.sim.strike, x.sim.expiry)}: ${x.note}</span>`); });
-  let html = `<table style="border-collapse:collapse;width:100%;font-family:var(--mono);font-size:10px;"><thead><tr>
-    <th style="${th}">date</th><th style="${th}">sim buy</th><th style="${th}">px</th><th style="${th}">trigger</th><th style="${th}">sim sell</th><th style="${th}">px</th><th style="${th}">live buy</th><th style="${th}">px</th><th style="${th}">trigger</th><th style="${th}">live sell</th><th style="${th}">px</th></tr></thead><tbody>`;
+  const stk = 'position:sticky;left:0;background:var(--surface);z-index:1;'; // v7.10.19 — date column held while scrolling
+  let html = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="border-collapse:collapse;width:100%;font-family:var(--mono);font-size:10px;"><thead><tr>
+    <th style="${th}${stk}">date</th><th style="${th}">sim buy</th><th style="${th}">trigger</th><th style="${th}">sim sell</th><th style="${th}">live buy</th><th style="${th}">trigger</th><th style="${th}">live sell</th></tr></thead><tbody>`;
   axis.slice().reverse().forEach(d => {   // v7.9.4 — newest date on top (Ron, S71)
     const e = ev[d];
     const anySim = e && (e.sb.length || e.ss.length), anyLive = e && (e.lb.length || e.ls.length);
     const rowStyle = (!anySim && !anyLive) ? 'opacity:.35;' : '';
     const dateStyle = (anySim && !anyLive) || (!anySim && anyLive) ? amber : (anySim && anyLive ? green : '');
     const prior = d < POLICY_REGIME_2;
-    html += `<tr style="${rowStyle}"><td style="${td}${dateStyle}">${d}${prior ? ` <span style="${amber}">prior</span>` : ''}${d > lastDm ? ` <span style="${amber}">no DM</span>` : ''}</td>`
-      + (e ? `<td style="${td}">${cell(e.sb, 'c')}</td><td style="${td}">${cell(e.sb, 'px')}</td><td style="${td}">${cell(e.sb, 'stag', e.lb)}</td><td style="${td}">${cell(e.ss, 'c')}</td><td style="${td}">${cell(e.ss, 'px')}</td><td style="${td}">${cell(e.lb, 'c')}</td><td style="${td}">${cell(e.lb, 'px')}</td><td style="${td}">${cell(e.lb, 'ltag', e.sb)}</td><td style="${td}">${cell(e.ls, 'c')}</td><td style="${td}">${cell(e.ls, 'px')}</td>`
-           : `<td style="${td}"></td>`.repeat(10))
+    html += `<tr style="${rowStyle}"><td style="${td}${dateStyle}${stk}">${d}${prior ? ` <span style="${amber}">prior</span>` : ''}${d > lastDm ? ` <span style="${amber}">no DM</span>` : ''}</td>`
+      + (e ? `<td style="${td}">${cell(e.sb, 'cpx', null, d)}</td><td style="${td}">${cell(e.sb, 'stag', e.lb)}</td><td style="${td}">${cell(e.ss, 'cpx', null, d)}</td><td style="${td}">${cell(e.lb, 'cpx', null, d)}</td><td style="${td}">${cell(e.lb, 'ltag', e.sb)}</td><td style="${td}">${cell(e.ls, 'cpx', null, d)}</td>`
+           : `<td style="${td}"></td>`.repeat(6))
       + '</tr>';
   });
-  html += '</tbody></table>';
+  html += '</tbody></table></div>'; // v7.10.19 — closes the scroll wrapper
   html += `<div style="margin-top:6px;font-size:9px;${muted}">date colour: <span style="${green}">both traded</span> \u00b7 <span style="${amber}">one side only</span> \u00b7 dim = no trade. \u201cpin\u201d = the sim opened the live contract on that date at its OWN DM price. Every price is that side\u2019s actual. Live decay = the level actually got (fill-frame: the sim\u2019s arithmetic on the live fills, DM-close intrinsic); live delta = the recorded scan value. \u207a = sim co-fire; the reading shown matches the live trigger that day. <span style="${green}">green trigger</span> = the better level of the two (higher decay, lower delta).${notes.length ? '<br>' + notes.join('<br>') : ''}</div>`;
   // ── summary band ──
   if (results.unpinned) return html + `<div style="margin-top:10px;padding:8px 10px;border:1px solid var(--border);border-radius:4px;line-height:1.7;color:var(--muted);">Exit and entry conformance are measured in <b>Era</b> only, where the sim is pinned to the live contract. Here each side runs on its own path${results.start < POLICY_REGIME_2 ? '; rows before ' + POLICY_REGIME_2 + ' ran earlier rules (dimmed)' : ''}.</div>`; // v7.10.5
