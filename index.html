@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.21</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.22</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,12 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.21';
+const APP_VERSION = 'v7.10.22';
+// v7.10.22 (S73, Ron) — EXPIRY BEFORE STRIKE on the Activity tab, the trading convention (Fidelity:
+//   "SPY MAR 19 2027 $730 CALL"): 'Mar 19 730C @ $25.86'. Month as a word (03-19 can be misread); the year
+//   ("Dec 17 '27 765C") only when the expiry is more than 12 months past the row date; no '$' on the
+//   strike so '$' means a price. Scope: the Activity tab's table and notes only (_confRender shadows the
+//   label); the evaluation and run logs keep '$730C 03-19-27' for now. Display only; no sim, model or Gate change.
 // v7.10.21 (S73, Ron) — THE RESULT LIVES IN THE TRIGGER CELL. The green/red moves from the buy cell to
 //   the trigger cell beside it, which also carries the cycle's dollar result, unsigned (the colour is the
 //   sign): live = (sale − buy-back) × 100 × the contracts actually traded, before fees; sim = the sim's
@@ -2904,6 +2909,14 @@ function _confDays(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Da
 function _confMoney(v) { return v == null ? '—' : (v < 0 ? '-$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US'); }
 function _confFmtExp(iso) { const d = new Date(iso + 'T00:00:00'); return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}-${String(d.getFullYear()).slice(2)}`; }
 function _confContract(strike, expiryIso) { return '$' + strike + 'C ' + _confFmtExp(expiryIso); }
+// v7.10.22 — Activity-tab label: expiry before strike, month as a word, year always present here
+// ("Mar 19 '27 730C"); the table cell drops the year when within 12 months of the row date.
+const _CONF_MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _confContractMon(strike, expiryIso) {
+  const p = String(expiryIso || '').slice(0, 10).split('-');
+  if (p.length !== 3) return strike + 'C ' + expiryIso;
+  return _CONF_MON[Number(p[1]) - 1] + ' ' + p[2] + " '" + p[0].slice(2) + ' ' + strike + 'C';
+}
 
 // Pre-flight the pin so a failed row can say WHY (simulate() returns null and
 // logs the reason; the tab must not leave a blank cell). Same three checks, same
@@ -3832,6 +3845,7 @@ async function runConformance() {
 }
 
 function _confRender(results) {
+  const _confContract = _confContractMon; // v7.10.22 — this tab only: 'Mar 19 730C'
   // v7.6.3 — CALENDAR GRID (Ron, S68): one row per trading date from the start,
   // regardless of trade. Sim buy/sell and live buy/sell each get a contract
   // column and a price column, so every date can be read for "did one or both
@@ -3929,14 +3943,15 @@ function _confRender(results) {
   };
   const better = (type, a, b) => (a == null || b == null) ? null : type === 'decay' ? (a > b) : type === 'delta' ? (a < b) : null;
   // v7.10.19 — '$725C 03-19-27' → '$725C 03-19' when the expiry is within 12 months of the row date
-  const shortC = (c, d) => String(c).replace(/(\d\d)-(\d\d)-(\d\d)/, (m, mo, da, yy) => {
+  const shortC = (c, d) => String(c).replace(/([A-Z][a-z]{2}) (\d\d) '(\d\d)/, (m, mon, da, yy) => { // v7.10.22
+    const mo = String(_CONF_MON.indexOf(mon) + 1).padStart(2, '0');
     const ex = new Date('20' + yy + '-' + mo + '-' + da + 'T00:00:00Z'), rd = new Date(d + 'T00:00:00Z');
-    return (ex - rd) / 86400000 <= 365 ? mo + '-' + da : m; });
+    return (ex - rd) / 86400000 <= 365 ? mon + ' ' + da : m; });
   // v7.10.21 — the trigger cell carries the cycle's result: colour = sign, dollars unsigned
   const res = e => { const v = e.usd != null ? e.usd : e.pl; return v > 0.0049 ? green : v < -0.0049 ? red : ''; };
   const usdTxt = e => e.usd != null ? '\u00a0\u00a0$' + Math.round(Math.abs(e.usd)).toLocaleString('en-US') : '';
   const cell = (arr, key, other, d) => arr.map(e => { const o0 = e.prior ? 'opacity:.62;' : '', o = o0; // v7.10.21 — buy cells plain
-    if (key === 'cpx') return `<span style="${o}"><span style="display:inline-block;min-width:11ch;">${shortC(e.c, d)}</span>`
+    if (key === 'cpx') return `<span style="${o}"><span style="display:inline-block;min-width:12ch;">${shortC(e.c, d)}</span>`
       + (e.px != null ? ` <span style="display:inline-block;min-width:8ch;text-align:right;">@ ${fmtPx(e.px)}</span>` : '') + `</span>`;
     if (key === 'c')  return `<span style="${o}">${e.c}</span>`;
     if (key === 'px') return `<span style="${o}">${fmtPx(e.px)}</span>`;
