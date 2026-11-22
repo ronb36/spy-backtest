@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.24</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.25</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,18 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.24';
+const APP_VERSION = 'v7.10.25';
+// v7.10.25 (S73, Ron) — DECAY EXITS AT THE TRIGGER (evaluation, read-only; SPEC trigger-level fills, A4).
+//   The sim buys a decay exit back at the day bar (vw||c). On a day that falls all session that is far
+//   past the trigger (11/20: 30.0% vs live 15.6%). This block REPRICES each Era sim decay exit at the
+//   price where decay = the published trigger (STD.decayTrigger, 8%): P = intrinsic + entry TV × (1 − 8%).
+//   If the contract OPENED at or through P, the fill is the open (first price the market offered).
+//   Every fill is inside the day's range by construction (the bar passed the trigger, so low ≤ P), and a
+//   fill outside [low, high] would be clamped and flagged. ITM exits use the SPY close for intrinsic and
+//   are flagged approximate. Fire rules are UNCHANGED (Ron, D3): same cycles, same dates, same sales —
+//   only the decay buy-back price moves. The gap decomposition is then re-run with those cycles.
+//   Ron's rulings (S73 D1–D4): the exact parameter only (an overshoot from live's average can come later);
+//   trade only at prices the market offered; current fire rules; build now. No sim, model or Gate change.
 // v7.10.24 (S73, Ron) — TRIGGER FIRST. Each side now reads in the order things happen: the trigger fires,
 //   the call is bought back, the next one is sold — Date | Sim Trigger | Sim Buy | Sim Sell | Live Trigger
 //   | Live Buy | Live Sell. The trigger cell still carries the cycle's result (colour + $). Headers name the
@@ -3333,6 +3344,57 @@ function _evalWedge(live) {
   };
 }
 
+// v7.10.25 — reprice the sim's decay exits at the trigger price (read-only; fire rules unchanged)
+function _evalTrigFill(live, sim, maps) {
+  const theta = STD.decayTrigger / 100;
+  const rows = [], unpriced = [];
+  const sim2 = sim.map(function (c) {
+    if (_confSimType(c.reason) !== 'decay') return c;
+    const tv0 = c.entryTv;
+    let bar = null;
+    if (DM && DM.options) { const k = DM.options[buildScanTicker(c.expiry, c.strike)]; if (k) { buildDayMap(k); bar = k._dm[c.exitDate] || null; } }
+    if (!(tv0 > 0) || !bar || c.exitSPY == null || c.entryPx == null || c.exitPx == null) { unpriced.push(c.exitDate); return c; }
+    const intr = Math.max(0, c.exitSPY - c.strike);
+    const sRow = maps.spyMap[c.exitDate];
+    const itm = intr > 0 || (sRow && sRow.h != null && sRow.h > c.strike);
+    const P = intr + tv0 * (1 - theta);
+    let fill = P, kind = 'trigger';
+    if (bar.o != null && bar.o <= P) { fill = bar.o; kind = 'open'; }
+    if (bar.l != null && fill < bar.l) { fill = bar.l; kind += '\u2192clamped'; }
+    if (bar.h != null && fill > bar.h) { fill = bar.h; kind += '\u2192clamped'; }
+    const dPx = c.entryPx - c.exitPx;
+    const k = Math.abs(dPx) > 0.005 && c.pnl != null ? Math.round(c.pnl / (dPx * 100)) : 6;
+    const pnl2 = (c.entryPx - fill) * 100 * k;
+    const decBar = c.exitDecayPct, decFill = (tv0 - Math.max(0, fill - intr)) / tv0 * 100;
+    rows.push({ date: c.exitDate, strike: c.strike, expiry: c.expiry, barPx: c.exitPx, fill: fill, kind: kind, itm: itm,
+                decBar: decBar, decFill: decFill, pnl: c.pnl, pnl2: pnl2, v: bar.v });
+    return Object.assign({}, c, { pnl: pnl2 });
+  });
+  return { rows: rows, unpriced: unpriced, dec2: _evalGapDecomp(live, sim2), theta: theta * 100 };
+}
+function _evalRenderTrigFill(t, dec) {
+  const m = function (v) { return (v < 0 ? '\u2212$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US'); };
+  logMsg('  DECAY AT THE TRIGGER   sim decay exits repriced at decay = ' + t.theta.toFixed(0) + '% (the published trigger) \u00b7 read-only \u00b7 fire rules, dates and sales unchanged', '');
+  logMsg('    fill = intrinsic + entry TV \u00d7 (1 \u2212 ' + t.theta.toFixed(0) + '%); the OPEN if the contract opened at or through it \u2014 only prices the market offered', '');
+  if (!t.rows.length) { logMsg('    no sim decay exits in the window' + (t.unpriced.length ? ' with a bar (' + t.unpriced.length + ' unpriced)' : ''), ''); return; }
+  let s1 = 0, s2 = 0;
+  t.rows.forEach(function (r) {
+    s1 += r.pnl; s2 += r.pnl2;
+    logMsg('    ' + r.date + '  ' + _confContract(r.strike, r.expiry) + '  bar $' + r.barPx.toFixed(2) + ' (decay ' + (r.decBar != null ? r.decBar.toFixed(1) : '?') + '%)'
+         + ' \u2192 ' + r.kind + ' $' + r.fill.toFixed(2) + ' (' + r.decFill.toFixed(1) + '%)  ' + m(r.pnl) + ' \u2192 ' + m(r.pnl2)
+         + (r.itm ? '  \u00b7 ITM: approx (SPY close intrinsic)' : '') + (r.v != null && r.v < 5 ? '  \u00b7 thin (v ' + r.v + ')' : ''), '');
+  });
+  const opens = t.rows.filter(function (r) { return /^open/.test(r.kind); }).length;
+  logMsg('    decay pool: ' + m(s1) + ' at the bar \u2192 ' + m(s2) + ' at the trigger (' + m(s2 - s1) + ') \u00b7 n=' + t.rows.length
+       + ' \u00b7 ' + opens + ' filled at the open' + (t.unpriced.length ? ' \u00b7 ' + t.unpriced.length + ' unpriced (no bar/TV): ' + t.unpriced.join(', ') : ''), '');
+  const d2 = t.dec2, sh = function (d) { const a = Math.abs(d.mix) + Math.abs(d.sev); return a > 0 ? Math.round(Math.abs(d.sev) / a * 100) : 0; };
+  logMsg('    GAP at the trigger    ' + m(dec.gap) + ' \u2192 ' + m(d2.gap) + '  \u00b7 mix ' + m(dec.mix) + ' \u2192 ' + m(d2.mix)
+       + ' \u00b7 severity ' + m(dec.sev) + ' (' + sh(dec) + '%) \u2192 ' + m(d2.sev) + ' (' + sh(d2) + '%)', d2.gap < dec.gap ? 'ok' : '');
+  const dl = d2.rows.find(function (r) { return r.pool === 'decay'; });
+  if (dl) logMsg('    decay mean: sim ' + m(dl.m.mean) + ' at the trigger vs live ' + m(dl.l.mean) + ' \u00b7 n ' + dl.m.n + ' / ' + dl.l.n
+       + ' \u00b7 live rolls deeper than the trigger (median reading ~11.6%), so live ABOVE the trigger-priced sim is expected', '');
+}
+
 function _evalRenderWedge(w, dec) {
   const se = function (s) { return (s.sd != null && s.n > 1) ? '\u00b1' + (s.sd / Math.sqrt(s.n)).toFixed(2) : 'n<2'; };
   const signed = function (v) { return (v >= 0 ? '+' : '') + v.toFixed(2); };
@@ -3684,6 +3746,8 @@ function _evalReport(live, sim, start, ms, full, pend, runs, aud) { // v7.10.18 
 
   const _dec = _evalGapDecomp(live, sim);
   _evalRenderDecomp(_dec);
+  try { _evalRenderTrigFill(_evalTrigFill(live, sim, maps), _dec); } // v7.10.25 — never blocks the eval
+  catch (e) { logMsg('  DECAY AT THE TRIGGER   \u2717 ' + e.message, 'err'); }
   _evalRenderWedge(_evalWedge(live), _dec);
   _evalRenderAgreement(_evalAgreement(live, sim));
   if (aud) _evalRenderNetTarget(_evalNetTarget(aud), aud.err); // v7.10.18
