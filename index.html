@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.11.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.12.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -615,7 +615,7 @@ select.display-box { cursor:pointer; outline:none; }
 
   <div class="footer">
     Data sourced from Polygon.io via spy-backtest data mart (ronb36/spy-backtest).
-    SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks and exits read option_days.vw, the option day-bar VWAP (c fallback), which no order can reach — S67 measured live fills at +5.7¢/sh net in Ron's favour against it. P&amp;L reflects premium collected net of buybacks.
+    SPY spot and every trigger evaluation read spy_daily.c (the plain close — that table has no vw column). Option marks read option_days.vw, the option day-bar VWAP (c fallback). Since model m7.7.0, a DECAY roll books at the moment the trigger fired: the buy-back at the trigger price (or the open, if the option opened past it) and the new sale at the same moment; delta exits and expiries stay on the day-bar VWAP. P&amp;L reflects premium collected net of buybacks.
     SPY equity appreciation tracked separately. Not financial advice.
     </div>
 </div>
@@ -805,7 +805,22 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.11.0';
+const APP_VERSION = 'v7.12.0';
+// v7.12.0 (S73, Ron) — MODEL m7.7.0: A4 IS THE DEFAULT FILL MODEL (SPEC trigger-level fills §9).
+//   Every simulate() run — STD, ALL, the Era pinned run, Conformance, OPT, the Gate's evaluations — now
+//   books a DECAY roll at the moment the trigger fired, both legs: the buy-back at the trigger price
+//   (intrinsic + entry TV × (1 − decayTrigger)), or the open if the contract opened through it; the new
+//   sale at its open, or by the move ratio. Delta exits, expiries and DTE-floor-only exits stay on the
+//   day-bar VWAP. Triggers, entry TV and candidate funding stay on the VWAP frame (a live-fill pin keeps
+//   its pinned TV frame, as before), so cycles, dates and contracts are unchanged from m7.6.0; only
+//   booked P&L moves (lifetime core credit +$106,664 → +$90,928 on DM through 11/20).
+//   ?ovFill=0 runs the LEGACY day-bar VWAP model (pre-m7.7.0) and prints the FILL SANDBOX block beside
+//   the default; ?ovFill=1–3 (Test A) now compare against the A4 default. ?ovFill=4 ≡ default (no block).
+//   The two read-only "DECAY AT THE TRIGGER" evaluation blocks (v7.10.25–28) are retired: the sim now
+//   prices this way, and repricing again would double-count. Footer and Conformance notes updated.
+//   MODEL bump INVALIDATES the published parameters' fit: fresh OPT → Gate → Ron decides on publish.
+//   The agent has no model-version check; roll_params.json is untouched by this release. Gate region
+//   byte-identical; GATE_VERSION unchanged.
 // v7.11.0 (S73, Ron · SPEC trigger-level fills §9) — FILL SANDBOX A4: DECAY ROLLS AT THE TRIGGER, BOTH LEGS.
 //   ?ovFill=4. On a DECAY exit (no delta fire, not expiry) the buy-back is booked at the price where decay
 //   = the trigger: P = intrinsic (SPY close) + entry TV × (1 − decayTrigger); the OPEN if the contract
@@ -1263,7 +1278,10 @@ const APP_VERSION = 'v7.11.0';
 //   region is NEVER edited in the same release as the sim or the ranker. That
 //   rule is what preserves the independence the two files used to get for free
 //   — v1.3.1 hard-rejecting /2 packs was that independence working.
-const MODEL_VERSION = 'm7.6.0'; // ONE-PASS SELECTION (S71): the paired score now SELECTS
+const MODEL_VERSION = 'm7.7.0'; // m7.7.0 (S73) — FILL MODEL A4: decay rolls book at the trigger moment, both legs
+// (SPEC trigger-level fills). Triggers and selection unchanged; booked P&L moves. INVALIDATES every
+// fitted parameter: fresh OPT before any decision; m7.6.0 leaderboards are not comparable.
+// m7.6.0 — ONE-PASS SELECTION (S71): the paired score now SELECTS
 // everywhere — default selection, ★, winner re-run and the Gate pack. m7.5.0 scored
 // with it but every chooser still keyed on coreYld, so the pack never saw it.
 // m7.5.0 — PAIRED RANKER (S67). The ranker IS the objective:
@@ -3875,10 +3893,8 @@ function _evalReport(live, sim, start, ms, full, pend, runs, aud) { // v7.10.18 
 
   const _dec = _evalGapDecomp(live, sim);
   _evalRenderDecomp(_dec);
-  try { _evalRenderTrigFill(_evalTrigFill(live, sim, maps), _dec); } // v7.10.25 — never blocks the eval
-  catch (e) { logMsg('  DECAY AT THE TRIGGER   \u2717 ' + e.message, 'err'); }
-  try { _evalRenderTrigFillAll(full, maps); } // v7.10.26 — lifetime
-  catch (e) { logMsg('  DECAY AT THE TRIGGER \u00b7 LIFETIME   \u2717 ' + e.message, 'err'); }
+  // v7.12.0 — the read-only DECAY AT THE TRIGGER blocks (v7.10.25–28) are retired: under m7.7.0 the sim
+  // itself books decay rolls at the trigger, both legs. Their functions stay defined, uncalled.
   _evalRenderWedge(_evalWedge(live), _dec);
   _evalRenderAgreement(_evalAgreement(live, sim));
   if (aud) _evalRenderNetTarget(_evalNetTarget(aud), aud.err); // v7.10.18
@@ -4192,7 +4208,7 @@ function _confRender(results) {
     sum += `delta rows n ${S.delta.n}: live fires ${S.delta.gap.length ? fm(mean(S.delta.gap), 3, '\u0394') + ' vs the sim\u2019s own reading' : '\u2014'} \u00b7 mean ${fm(mean(S.delta.days), 1, 'd')} (+ = late)<br>`;
   } else sum += 'no closed in-regime rows with a sim exit.<br>';
   sum += `ENTRY CONFORMANCE (leg B): same contract ${S.contractN ? S.sameContract + '/' + S.contractN : '\u2014'} \u00b7 first divergence: ${S.firstDiv ? 'row ' + S.firstDiv.row + ' \u2014 ' + S.firstDiv.why : 'none in window'}<br>`;
-  sum += `<span style="${muted}font-size:9px;">Not a P&amp;L verdict: the sim covers at the option day-bar VWAP (option_days.vw), unreachable by any order \u2014 S67 measured live fills at +5.7\u00a2/sh net in Ron\u2019s favour vs that benchmark. Not a conformance statement (\u00a712.4). Live trigger values are the agent\u2019s intraday readings; sim values are the option\u2019s day-bar VWAP with SPY at the close, on the same calendar day \u2014 the gap IS the overshoot being measured. Reads only; never writes roll_params.</span>`;
+  sum += `<span style="${muted}font-size:9px;">Not a P&amp;L verdict: since m7.7.0 the sim books decay rolls at the trigger moment (both legs) and delta exits at the option day-bar VWAP (option_days.vw). Not a conformance statement (\u00a712.4). Live trigger values are the agent\u2019s intraday readings; sim values are the option\u2019s day-bar VWAP with SPY at the close, on the same calendar day \u2014 the gap IS the overshoot being measured. Reads only; never writes roll_params.</span>`;
   sum += '</div>';
   return html + sum;
 }
@@ -4976,7 +4992,7 @@ function updateInitPosition() {
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
   _scratchGate  = p.scratchRoll ?? null; // v6.18.0 — embedded identity
-  const _fillAt = (p.fillAt === 1 || p.fillAt === 2 || p.fillAt === 3 || p.fillAt === 4) ? p.fillAt : null; // v7.9.6 — Test A sandbox; null ≡ VWAP fills (baseline) · v7.9.7 +A3 · v7.11.0 +A4
+  const _fillAt = (p.fillAt === 0) ? null : ((p.fillAt === 1 || p.fillAt === 2 || p.fillAt === 3) ? p.fillAt : 4); // v7.12.0 — m7.7.0: A4 IS THE DEFAULT; 0 = legacy VWAP fills; 1–3 Test A · (v7.9.6 Test A sandbox · v7.9.7 +A3 · v7.11.0 +A4)
   let _a4Sale_ = null; // v7.11.0 — A4: the decay buy-back's moment, handed to the same-day sale
   const _closeOf = d => (d && d.c != null && d.c > 0) ? d.c : null;     // v7.9.6
   const { decayTrigger, dteFloor, deltaThreshold, dtePenaltyAnchor = 45, shares, defHorizon = 0 } = p; // v6.14.0 — otmFixed removed from the sim: no consumer remained // v6.5.0 — vixGate removed (retired on evidence, S33; inert at 0 since) // v6.3.0 — defense horizon; 0 = off ≡ full DTE
@@ -5135,6 +5151,7 @@ async function simulate(p) {
     entryPxDm_      = day.vw || day.c;
     entryPrice      = (_pinPxPending != null) ? _pinPxPending : entryPxDm_; // v7.6.1 — pinned fill consumed ONCE, at the first open
     entryFill_ = 'vw'; entryThin_ = false;
+    const _pinnedFill_ = _pinPxPending != null; // v7.12.0 — a live-fill pin keeps its m7.6.0 TV frame under A4
     if (_fillAt && _fillAt !== 4 && _pinPxPending == null) { // v7.9.6 — Test A: book the sale at the day close
       const _c = _closeOf(day);
       if (_c != null) { entryPrice = _c; entryFill_ = 'c'; entryThin_ = !(day.v >= 10); } else entryFill_ = 'vw-fallback';
@@ -5161,7 +5178,7 @@ async function simulate(p) {
     entrySPY        = spyMap[key]?.c || spy;
     entryStrike     = curC.strike;
     // Time value at entry = price - intrinsic (for OTM calls, intrinsic = 0)
-    entryTimeValue  = (_fillAt ? entryPxDm_ : entryPrice) - Math.max(0, entrySPY - entryStrike); // v7.9.6 — trigger frame stays on the VWAP under the fill sandbox
+    entryTimeValue  = ((_fillAt && !(_fillAt === 4 && _pinnedFill_)) ? entryPxDm_ : entryPrice) - Math.max(0, entrySPY - entryStrike); // v7.9.6 — trigger frame stays on the VWAP under the fill sandbox · v7.12.0 — under the A4 default a pinned live fill keeps entryPrice, exactly as m7.6.0
     const expD_ = new Date(curC.expiry+'T00:00:00');
     const todD_ = new Date(date+'T00:00:00');
     // v6.3.0 — entry low-water in the DEFENSE frame: horizon = min(defHorizon, entryDTE)
@@ -5682,7 +5699,8 @@ async function _logFillSandbox(params, r) {
   const $f = v => v == null ? '—' : (v >= 0 ? '+' : '-') + '$' + Math.abs(Math.round(v)).toLocaleString();
   const pp = v => v == null ? '—' : v.toFixed(1) + '%';
   const sB = stat(b), sV = stat(r);
-  const lbl = params.fillAt === 1 ? 'A1 · all fills at the day close'
+  const lbl = params.fillAt === 0 ? 'A0 · LEGACY day-bar VWAP fills (the pre-m7.7.0 model)'
+            : params.fillAt === 1 ? 'A1 · all fills at the day close'
             : params.fillAt === 2 ? 'A2 · decay exits + entries at the close, delta exits at VWAP'
             : params.fillAt === 4 ? 'A4 · decay rolls at the trigger, both legs (buy-back at the trigger or open; sale at the same moment)'
             : 'A3 · sales at the close, every buy-back at VWAP';
@@ -5690,7 +5708,7 @@ async function _logFillSandbox(params, r) {
   logMsg('  triggers unchanged (VWAP mark, VWAP entry TV) — only the booked fill moves');
   if (sB.n !== sV.n) logMsg('  ⚠ core cycle count differs: baseline ' + sB.n + ' vs variant ' + sV.n + ' — triggers were NOT identical', 'err');
   const row = (k, a, v, d) => logMsg('  ' + k.padEnd(18) + a.padStart(12) + v.padStart(12) + d.padStart(12));
-  row('', 'A0 VWAP', 'variant', 'Δ');
+  row('', 'default A4', 'variant', 'Δ'); // v7.12.0 — the baseline is the m7.7.0 default
   row('core yield', pp(b.coreYld), pp(r.coreYld), (r.coreYld != null && b.coreYld != null) ? (r.coreYld - b.coreYld >= 0 ? '+' : '') + (r.coreYld - b.coreYld).toFixed(2) + 'pp' : '—');
   row('core credit', $f(sB.sum), $f(sV.sum), $f(sV.sum - sB.sum));
   ['decay', 'delta'].forEach(k => row(k + ' mean (n=' + sV[k].length + ')', $f(mean(sB[k])), $f(mean(sV[k])),
@@ -5698,7 +5716,12 @@ async function _logFillSandbox(params, r) {
   const all = (r.cycles || []);
   const cnt = (f, v) => all.filter(c => c[f] === v).length;
   const thin = all.filter(c => (c.entryFill === 'c' && c.entryThin) || (c.exitFill === 'c' && c.exitThin)).length;
-  if (params.fillAt === 4) { // v7.11.0
+  if (params.fillAt === 0) { // v7.12.0 — legacy run: report how the DEFAULT (A4) priced its rolls
+    const ba = (b.cycles || []);
+    const cb = (f, v) => ba.filter(c => c[f] === v).length;
+    logMsg('  default A4 priced: buy-backs at the trigger ' + cb('exitFill', 'trig') + ' · at the open ' + cb('exitFill', 'o')
+      + ' · sales at the open ' + cb('entryFill', 'o') + ' · by move ratio ' + cb('entryFill', 'ratio') + ' · legacy books every fill on the day-bar VWAP');
+  } else if (params.fillAt === 4) { // v7.11.0
     const th4 = all.filter(c => (c.exitFill === 'o' || c.exitFill === 'trig') && c.exitThin).length;
     logMsg('  decay buy-backs: at the trigger ' + cnt('exitFill', 'trig') + ' · at the open ' + cnt('exitFill', 'o')
       + ' · sales moved: at the open ' + cnt('entryFill', 'o') + ' · by move ratio ' + cnt('entryFill', 'ratio')
@@ -5839,7 +5862,7 @@ logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.decayTrig
   }
   logHeadroomTable(result);  // v5.11.4 — headroom look, both STD paths
   logExitAttribution(result); // v6.7.18 — exit attribution, STD only (this call site never runs in OPT)
-  if (params.fillAt) await _logFillSandbox(params, result); // v7.9.6 — Test A
+  if (params.fillAt != null && params.fillAt !== 4) await _logFillSandbox(params, result); // v7.9.6 — Test A · v7.12.0 — 0 = legacy vs the A4 default; 4 ≡ default, no block
   /* v5.15.4 auto-analysis retired; Ask Claude is on-demand */
   
   
