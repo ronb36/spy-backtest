@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.12.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.12.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,11 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.12.1';
+const APP_VERSION = 'v7.12.2';
+// v7.12.2 (S73, Ron) — PROGRESS BAR after the OPT. At completion the OPT auto-selects the Gate's row and
+//   re-simulates it (optSelectRow). That re-run happens after _mode has returned to 'test', so simulate()
+//   moved the bar back to ~80% and nothing finished it. optSelectRow now sets the bar to 100% when its
+//   re-sim ends (also covers tapping a row later). Display only: no sim, model or Gate change.
 // v7.12.1 (S73, Ron) — OPEN NOW, sim side: the decay reading now uses the sim's OWN trigger reference.
 //   Under m7.7.0 a decay roll's new sale is booked at the trigger moment (e.g. the open, $50.00 on
 //   11/20), while the sim's trigger frame stays on the entry day's DM bar (vw||c, $44.70). OPEN NOW read
@@ -6643,6 +6647,7 @@ async function optSelectRow(i) {
     logMsg('\u2717 Selection re-sim failed: ' + err.message, 'err');
   } finally {
     _rankPickBusy = false;
+    setProgress(100); // v7.12.2 — the selection re-sim moved the bar; finish it
     if (_st) _st.textContent = '';
     // v6.1.0 — a new selection while in Scan state means unpublished again
     if (!_reselectingPub && _gateCycle && _gateCycle.pack && _pipeState !== 'publishing' && _pipeState !== 'scanning') _gateButtonFor(i); // v7.9.8 — Hold/Publish follows the selection
