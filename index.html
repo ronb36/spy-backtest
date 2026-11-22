@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.12.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.13.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,15 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.12.2';
+const APP_VERSION = 'v7.13.0';
+// v7.13.0 (S73, Ron · SPEC delta trigger-level fills, phase 1) — DELTA AT THE TRIGGER, read-only log block.
+//   Every sim delta stop (co-fires included, D1) is repriced at the moment SPY crossed the delta trigger:
+//   S* solves callDelta(S*, strike, min(defHorizon, dte), VIX, TNX) = deltaThreshold (the sim's own
+//   defense-frame delta). SPY opened ≥ S* → both legs at their OPENS (grace-delayed stops included, D2);
+//   SPY crossed intraday → both options at the same share f = (S* − SPY open)/(SPY high − SPY open) of
+//   their own open→high moves; clamped to each day range. Prints the lifetime pool, sale leg, roll net and
+//   core yield before → after, the Era gap re-run, and the Era stops in detail. Reads only: no sim, model
+//   (m7.7.0) or Gate change; never writes roll_params.json.
 // v7.12.2 (S73, Ron) — PROGRESS BAR after the OPT. At completion the OPT auto-selects the Gate's row and
 //   re-simulates it (optSelectRow). That re-run happens after _mode has returned to 'test', so simulate()
 //   moved the bar back to ~80% and nothing finished it. optSelectRow now sets the bar to 100% when its
@@ -3488,6 +3496,121 @@ function _evalTrigFill(live, sim, maps) {
   return { rows: rows, unpriced: unpriced, dec2: _evalGapDecomp(live, sim2), dec3: _evalGapDecomp(live, sim3), theta: theta * 100 };
 }
 // v7.10.26 — the same repricing over the FULL standard run (lifetime), summary only
+
+// ══ v7.13.0 — DELTA AT THE TRIGGER (read-only; SPEC delta trigger-level fills) ══════════════════════
+function _dtSolveS(strike, days, vix, th) { // SPY level where the sim's defense-frame delta = th (bisection)
+  let lo = strike * 0.5, hi = strike * 2.0;
+  if (callDelta(lo, strike, days, vix, _EVAL_TNX) >= th || callDelta(hi, strike, days, vix, _EVAL_TNX) < th) return null;
+  for (let it = 0; it < 80; it++) {
+    const mid = (lo + hi) / 2;
+    if (callDelta(mid, strike, days, vix, _EVAL_TNX) >= th) hi = mid; else lo = mid;
+  }
+  return (lo + hi) / 2;
+}
+function _dtFillCycle(c, maps) {
+  if (!DM || !DM.options) return null;
+  const k0 = DM.options[buildScanTicker(c.expiry, c.strike)];
+  if (!k0) return null;
+  buildDayMap(k0);
+  const bar = k0._dm[c.exitDate], sp = maps.spyMap[c.exitDate], vix = maps.vixMap[c.exitDate];
+  if (!bar || !sp || bar.o == null || c.exitPx == null || c.entryPx == null) return null;
+  const dte = _confDays(c.exitDate, c.expiry);
+  const dd = (STD.defHorizon > 0) ? Math.min(STD.defHorizon, dte) : dte;
+  const S = _dtSolveS(c.strike, dd, vix, STD.deltaThreshold);
+  if (S == null) return null;
+  let kind, fill, f = null;
+  if (sp.o != null && sp.o >= S) { kind = 'open'; fill = bar.o; }
+  else if (sp.o != null && sp.h != null && sp.h >= S && sp.h > sp.o && bar.h != null) {
+    f = (S - sp.o) / (sp.h - sp.o); kind = 'trig'; fill = bar.o + (bar.h - bar.o) * f;
+  } else { kind = 'bar'; fill = c.exitPx; }
+  if (bar.l != null && fill < bar.l) fill = bar.l;
+  if (bar.h != null && fill > bar.h) fill = bar.h;
+  const d0 = c.entryPx - c.exitPx;
+  const k = Math.abs(d0) > 0.005 && c.pnl != null ? Math.round(c.pnl / (d0 * 100)) : 6;
+  return { date: c.exitDate, strike: c.strike, expiry: c.expiry, S: S, spyO: sp.o, spyH: sp.h, spyC: sp.c,
+           kind: kind, f: f, barPx: c.exitPx, fill: fill, k: k, pnl: c.pnl, pnl2: (c.entryPx - fill) * 100 * k,
+           cofire: /tv decay/i.test(c.reason || ''), v: bar.v };
+}
+function _dtSaleLeg(c, nx, r) {
+  if (!nx) return { ok: false, why: 'open' };
+  if (nx._nextDay) return { ok: false, why: 'nextday' };
+  if (nx.isInitial || nx.entryDate !== c.exitDate || nx.entryPx == null) return { ok: false, why: 'nomatch' };
+  if (r.kind === 'bar') return { ok: false, why: 'flat' };
+  const k2 = DM.options[buildScanTicker(nx.expiry, nx.strike)];
+  if (!k2) return { ok: false, why: 'nobar' };
+  buildDayMap(k2);
+  const b2 = k2._dm[nx.entryDate];
+  if (!b2 || b2.o == null) return { ok: false, why: 'nobar' };
+  let s2;
+  if (r.kind === 'open') s2 = b2.o;
+  else { if (b2.h == null) return { ok: false, why: 'nobar' }; s2 = b2.o + (b2.h - b2.o) * r.f; }
+  if (b2.l != null && s2 < b2.l) s2 = b2.l;
+  if (b2.h != null && s2 > b2.h) s2 = b2.h;
+  const d2 = nx.exitPx != null ? nx.entryPx - nx.exitPx : 0;
+  const kk = Math.abs(d2) > 0.005 && nx.pnl != null ? Math.round(nx.pnl / (d2 * 100)) : r.k;
+  return { ok: true, how: r.kind, sale: nx.entryPx, s2: s2, delta: (s2 - nx.entryPx) * 100 * kk, strike: nx.strike, expiry: nx.expiry };
+}
+function _dtReprice(list, maps) { // → { rows, adj (per-index P&L deltas), counts }
+  const rows = [], adj = {}, cnt = { n: 0, un: 0, open: 0, trig: 0, bar: 0, cof: 0, sOpen: 0, sTrig: 0, sUn: {}, b: 0, t: 0, sd: 0 };
+  list.forEach(function (c, i) {
+    if (c.isInitial || _confSimType(c.reason) !== 'delta') return;
+    const r = _dtFillCycle(c, maps);
+    if (!r) { cnt.un++; return; }
+    cnt.n++; cnt[r.kind]++; if (r.cofire) cnt.cof++;
+    cnt.b += r.pnl; cnt.t += r.pnl2;
+    adj[i] = (adj[i] || 0) + (r.pnl2 - r.pnl);
+    const nx = _trigNextCycle(list, i);
+    r.sale = _dtSaleLeg(c, nx, r);
+    if (r.sale.ok) {
+      cnt.sd += r.sale.delta; if (r.sale.how === 'open') cnt.sOpen++; else cnt.sTrig++;
+      const j = list[i + 1] && list[i + 1].entryDate === c.exitDate ? i + 1 : i + 2;
+      adj[j] = (adj[j] || 0) + r.sale.delta;
+    } else cnt.sUn[r.sale.why] = (cnt.sUn[r.sale.why] || 0) + 1;
+    rows.push(r);
+  });
+  return { rows: rows, adj: adj, cnt: cnt };
+}
+function _evalRenderDeltaTrig(live, sim, full, maps, dec) {
+  const m = function (v) { return (v < 0 ? '−$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US'); };
+  const px = function (v) { return v == null ? '—' : '$' + Number(v).toFixed(2); };
+  const why = function (o) { return Object.keys(o).map(function (k) { return o[k] + ' ' + (_TRIG_SALE_WHY[k] || k); }).join(', '); };
+  const th = STD.deltaThreshold;
+  // ── Era ──
+  const E = _dtReprice(sim, maps);
+  logMsg('  DELTA AT THE TRIGGER   sim delta stops repriced where SPY crossed \u0394 ' + th.toFixed(2) + ' (the sim\u2019s own defense-frame delta, VIX that day) \u00b7 read-only \u00b7 m7.7.0 unchanged', '');
+  logMsg('    S* = the SPY level where \u0394 = ' + th.toFixed(2) + ' \u00b7 SPY opened \u2265 S* \u2192 both legs at their OPENS \u00b7 crossed intraday \u2192 both options at the same share of their open\u2192high moves \u00b7 co-fires at the delta level (D1)', '');
+  E.rows.forEach(function (r) {
+    logMsg('    ' + r.date + '  ' + _confContract(r.strike, r.expiry) + '  S* ' + r.S.toFixed(2) + ' \u00b7 SPY o ' + (r.spyO != null ? r.spyO.toFixed(2) : '\u2014')
+         + ' h ' + (r.spyH != null ? r.spyH.toFixed(2) : '\u2014') + ' c ' + (r.spyC != null ? r.spyC.toFixed(2) : '\u2014')
+         + '  \u00b7 buy-back bar ' + px(r.barPx) + ' \u2192 ' + (r.kind === 'open' ? 'open' : r.kind === 'trig' ? 'trigger (f ' + r.f.toFixed(2) + ')' : 'bar') + ' ' + px(r.fill)
+         + '  ' + m(r.pnl) + ' \u2192 ' + m(r.pnl2) + (r.cofire ? '  \u00b7 co-fire' : '') + (r.v != null && r.v < 5 ? '  \u00b7 thin (v ' + r.v + ')' : ''), '');
+    if (r.sale && r.sale.ok) logMsg('               sale ' + _confContract(r.sale.strike, r.sale.expiry) + '  bar ' + px(r.sale.sale) + ' \u2192 ' + (r.sale.how === 'open' ? 'open' : 'same share') + ' ' + px(r.sale.s2)
+         + '  ' + m(r.sale.delta) + '  \u00b7 roll ' + m(r.pnl2 - r.pnl + r.sale.delta), '');
+    else if (r.sale) logMsg('               sale left on the bar (' + (_TRIG_SALE_WHY[r.sale.why] || r.sale.why) + ')', '');
+  });
+  if (dec) {
+    const sim3 = sim.map(function (c, i) { return E.adj[i] ? Object.assign({}, c, { pnl: c.pnl + E.adj[i] }) : c; });
+    const d3 = _evalGapDecomp(live, sim3);
+    const sh = function (d) { const t = Math.abs(d.mix) + Math.abs(d.sev); return t > 0 ? Math.round(Math.abs(d.sev) / t * 100) : 0; };
+    logMsg('    Era: ' + E.cnt.n + ' stops \u00b7 GAP ' + m(dec.gap) + ' \u2192 ' + m(d3.gap) + ' \u00b7 mix ' + m(dec.mix) + ' \u2192 ' + m(d3.mix)
+         + ' \u00b7 severity ' + m(dec.sev) + ' \u2192 ' + m(d3.sev) + ' (' + sh(d3) + '%) \u00b7 buy leg ' + m(E.cnt.t - E.cnt.b) + ', sale leg ' + m(E.cnt.sd), '');
+  }
+  // ── Lifetime ──
+  if (!full || !Array.isArray(full.cycles) || !full.cycles.length) { logMsg('    LIFETIME   the full run returned no cycles', ''); return; }
+  const A = _dtReprice(full.cycles, maps), c = A.cnt;
+  logMsg('    LIFETIME   delta stops repriced ' + c.n + (c.un ? ' (' + c.un + ' unpriced)' : '') + ' \u00b7 ' + c.open + ' at the open \u00b7 ' + c.trig + ' at the trigger \u00b7 '
+       + c.bar + ' left on the bar (SPY high below S*) \u00b7 ' + c.cof + ' co-fires', '');
+  logMsg('      buy leg: delta pool ' + m(c.b) + ' \u2192 ' + m(c.t) + ' (' + m(c.t - c.b) + ')', '');
+  logMsg('      sale leg: ' + c.sOpen + ' at the new contract\u2019s open \u00b7 ' + c.sTrig + ' at the same share' + (Object.keys(c.sUn).length ? ' \u00b7 left on the bar: ' + why(c.sUn) : '') + ' \u00b7 ' + m(c.sd), '');
+  logMsg('      roll net (buy + sale) ' + m(c.t - c.b + c.sd), (c.t - c.b + c.sd) < 0 ? 'err' : 'ok');
+  if (full.coreSum != null && full.coreYld != null && full.coreSum > 0) {
+    const cs3 = full.coreSum + (c.t - c.b) + c.sd;
+    logMsg('      core credit ' + m(full.coreSum) + ' \u2192 ' + m(cs3) + ' \u00b7 core yield ' + full.coreYld.toFixed(1) + '% \u2192 ~' + (full.coreYld * cs3 / full.coreSum).toFixed(1)
+         + '% (scaled estimate) \u00b7 decay rolls already at the trigger (m7.7.0)', '');
+  }
+  logMsg('      fire rules, dates and contracts unchanged \u00b7 SPY open\u2192high is a proxy for the moment (spec \u00a73) \u00b7 a repriced sim would re-fit (m7.8.0)', '');
+}
+
 function _evalRenderTrigFillAll(full, maps) {
   if (!full || !Array.isArray(full.cycles) || !full.cycles.length) { logMsg('  DECAY AT THE TRIGGER \u00b7 LIFETIME   the full run returned no cycles', ''); return; }
   const theta = STD.decayTrigger / 100;
@@ -3910,6 +4033,8 @@ function _evalReport(live, sim, start, ms, full, pend, runs, aud) { // v7.10.18 
 
   const _dec = _evalGapDecomp(live, sim);
   _evalRenderDecomp(_dec);
+  try { _evalRenderDeltaTrig(live, sim, full, maps, _dec); } // v7.13.0 — never blocks the eval
+  catch (e) { logMsg('  DELTA AT THE TRIGGER   \u2717 ' + e.message, 'err'); }
   // v7.12.0 — the read-only DECAY AT THE TRIGGER blocks (v7.10.25–28) are retired: under m7.7.0 the sim
   // itself books decay rolls at the trigger, both legs. Their functions stay defined, uncalled.
   _evalRenderWedge(_evalWedge(live), _dec);
