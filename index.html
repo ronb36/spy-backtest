@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.12.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.12.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,13 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.12.0';
+const APP_VERSION = 'v7.12.1';
+// v7.12.1 (S73, Ron) — OPEN NOW, sim side: the decay reading now uses the sim's OWN trigger reference.
+//   Under m7.7.0 a decay roll's new sale is booked at the trigger moment (e.g. the open, $50.00 on
+//   11/20), while the sim's trigger frame stays on the entry day's DM bar (vw||c, $44.70). OPEN NOW read
+//   decay against the booked sale and showed 10.61% on the entry day; the sim itself was at 0%. The
+//   reading now uses the entry day's DM bar, and the line prints "trigger ref $x" when it differs from
+//   the booked price. Display only: no sim, model or Gate change.
 // v7.12.0 (S73, Ron) — MODEL m7.7.0: A4 IS THE DEFAULT FILL MODEL (SPEC trigger-level fills §9).
 //   Every simulate() run — STD, ALL, the Era pinned run, Conformance, OPT, the Gate's evaluations — now
 //   books a DECAY roll at the moment the trigger fired, both legs: the buy-back at the trigger price
@@ -3168,8 +3174,14 @@ function _evalOpenNow(live, pend, maps, asOf) {
   const so = (pend && pend.strike != null && pend.expiry)
     ? { open: pend.entryDate, strike: pend.strike, expiry: pend.expiry, sell: pend.entryPx }
     : null;
+  // v7.12.1 — the sim's trigger frame is the entry day's DM bar (vw||c), not the booked sale (m7.7.0)
+  if (so && DM && DM.options) {
+    const k0 = DM.options[buildScanTicker(so.expiry, so.strike)];
+    if (k0) { buildDayMap(k0); const b0 = k0._dm[so.open]; const r0 = b0 ? (b0.vw || b0.c) : null;
+      if (r0 != null && so.sell != null && Math.abs(r0 - so.sell) > 0.005) so.ref = r0; }
+  }
   const liveSide = lo ? { pos: lo, read: _evalReadingOn(lo, asOf, maps) } : null;
-  const simSide  = so ? { pos: so, read: _evalReadingOn(so, asOf, maps) } : null;
+  const simSide  = so ? { pos: so, read: _evalReadingOn(so.ref != null ? Object.assign({}, so, { sell: so.ref }) : so, asOf, maps) } : null;
   const same = !!(lo && so && Number(lo.strike) === Number(so.strike) && lo.expiry === so.expiry);
   return { live: liveSide, sim: simSide, same: same };
 }
@@ -3179,7 +3191,8 @@ function _evalOpenLine(label, side) {
   const p = side.pos, r = side.read;
   let s = '    ' + label + ' ' + _confContract(p.strike, p.expiry)
         + ' opened ' + (p.open || '?')
-        + ' @ $' + (p.sell != null ? Number(p.sell).toFixed(2) : '\u2014');
+        + ' @ $' + (p.sell != null ? Number(p.sell).toFixed(2) : '\u2014')
+        + (p.ref != null ? ' (trigger ref $' + Number(p.ref).toFixed(2) + ')' : ''); // v7.12.1
   if (r) {
     s += '  \u00b7  decay ' + (r.decay != null ? r.decay.toFixed(2) + '%' : '\u2014')
        + ' \u00b7 \u0394 ' + (r.delta != null ? r.delta.toFixed(3) : '\u2014')
