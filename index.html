@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.27</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.28</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,12 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.27';
+const APP_VERSION = 'v7.10.28';
+// v7.10.28 (S73, Ron) — LABEL FIX, display only. In the both-legs repricing, a decay exit whose new short
+//   was sold on a LATER day (the sim found no net-credit candidate on the exit day, held, and re-entered
+//   from the daily re-scan — typically after an ITM exit) was labelled "still-open short". It now reads
+//   "re-entry next day"; only an exit with no later cycle at all reads "still-open short". The treatment is
+//   unchanged (a later-day sale is not the same moment, so it stays on its bar); no number moves.
 // v7.10.27 (S73, Ron) — DECAY AT THE TRIGGER, BOTH LEGS. Live rolls as one spread order, so the buy-back
 //   and the new sale fill at the same moment. v7.10.25/26 moved only the buy-back to the trigger and left
 //   the new sale on the day bar, which overstates the penalty on gap days. Now the new sale moves with it:
@@ -3388,6 +3393,7 @@ function _trigFillCycle(c, maps, theta) {
 //   (the short opened that day). Returns { ok:false, why } when it cannot be priced (the sale stays on the bar).
 function _trigSaleLeg(c, nx, r) {
   if (!nx) return { ok: false, why: 'open' };   // the new short is the still-open position (no cycle record)
+  if (nx._nextDay) return { ok: false, why: 'nextday' }; // v7.10.28 — sold on a later day: not the same moment
   if (nx.isInitial || nx.entryDate !== c.exitDate || nx.entryPx == null) return { ok: false, why: 'nomatch' };
   let b2 = null;
   if (DM && DM.options) { const t2 = DM.options[buildScanTicker(nx.expiry, nx.strike)]; if (t2) { buildDayMap(t2); b2 = t2._dm[nx.entryDate] || null; } }
@@ -3407,11 +3413,11 @@ function _trigSaleLeg(c, nx, r) {
   return { ok: true, how: how, sale: nx.entryPx, s2: s2, delta: (s2 - nx.entryPx) * 100 * k2, strike: nx.strike, expiry: nx.expiry };
 }
 // v7.10.27 — the cycle that opened when c closed (the roll's new short), or null
-const _TRIG_SALE_WHY = { open: 'still-open short', nomatch: 'no matching cycle', nobar: 'no DM bar', flat: 'old contract flat' };
+const _TRIG_SALE_WHY = { open: 'still-open short', nextday: 're-entry next day', nomatch: 'no matching cycle', nobar: 'no DM bar', flat: 'old contract flat' };
 function _trigNextCycle(list, i) {
   const c = list[i];
   for (let j = i + 1; j < list.length && j <= i + 2; j++) if (list[j].entryDate === c.exitDate) return list[j];
-  return null;
+  return list[i + 1] ? { _nextDay: true } : null; // v7.10.28 — a later cycle exists but opened on another day
 }
 function _evalTrigFill(live, sim, maps) {
   const theta = STD.decayTrigger / 100;
