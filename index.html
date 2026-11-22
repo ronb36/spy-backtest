@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.23</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.24</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,11 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.23';
+const APP_VERSION = 'v7.10.24';
+// v7.10.24 (S73, Ron) — TRIGGER FIRST. Each side now reads in the order things happen: the trigger fires,
+//   the call is bought back, the next one is sold — Date | Sim Trigger | Sim Buy | Sim Sell | Live Trigger
+//   | Live Buy | Live Sell. The trigger cell still carries the cycle's result (colour + $). Headers name the
+//   side since 'trigger' now appears twice. Display only; no sim, model or Gate change.
 // v7.10.23 (S73, Ron) — FULL YEAR, ALWAYS. 'Mar 19 730C' read like March 2019. The Activity label is now
 //   Fidelity's own order and year: 'Mar 19 2027 730C @ $25.86', on every row (the 12-month year drop is
 //   gone). Activity tab only, as v7.10.22. Display only; no sim, model or Gate change.
@@ -3968,14 +3972,14 @@ function _confRender(results) {
   results.forEach(x => { if (x.sim && x.note) notes.push(`<span style="${amber}">\u26a0 ${x.sim.entryDate} ${_confContract(x.sim.strike, x.sim.expiry)}: ${x.note}</span>`); });
   const stk = 'position:sticky;left:0;background:var(--surface);z-index:1;'; // v7.10.19 — date column held while scrolling
   let html = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;"><table style="border-collapse:collapse;width:100%;font-family:var(--mono);font-size:10px;"><thead><tr>
-    <th style="${th}${stk}">date</th><th style="${th}">sim buy</th><th style="${th}">trigger</th><th style="${th}">sim sell</th><th style="${th}">live buy</th><th style="${th}">trigger</th><th style="${th}">live sell</th></tr></thead><tbody>`;
+    <th style="${th}${stk}">date</th><th style="${th}">sim trigger</th><th style="${th}">sim buy</th><th style="${th}">sim sell</th><th style="${th}">live trigger</th><th style="${th}">live buy</th><th style="${th}">live sell</th></tr></thead><tbody>`;
   axis.slice().reverse().forEach(d => {   // v7.9.4 — newest date on top (Ron, S71)
     const e = ev[d];
     const anySim = e && (e.sb.length || e.ss.length), anyLive = e && (e.lb.length || e.ls.length);
     const rowStyle = '', dateStyle = ''; // v7.10.20 — plain dates, no dimming (Ron)
     const prior = d < POLICY_REGIME_2;
     html += `<tr style="${rowStyle}"><td style="${td}${dateStyle}${stk}">${d}${prior ? ` <span style="${amber}">prior</span>` : ''}${d > lastDm ? ` <span style="${amber}">no DM</span>` : ''}</td>`
-      + (e ? `<td style="${td}">${cell(e.sb, 'cpx', null, d)}</td><td style="${td}">${cell(e.sb, 'stag', e.lb)}</td><td style="${td}">${cell(e.ss, 'cpx', null, d)}</td><td style="${td}">${cell(e.lb, 'cpx', null, d)}</td><td style="${td}">${cell(e.lb, 'ltag', e.sb)}</td><td style="${td}">${cell(e.ls, 'cpx', null, d)}</td>`
+      + (e ? `<td style="${td}">${cell(e.sb, 'stag', e.lb)}</td><td style="${td}">${cell(e.sb, 'cpx', null, d)}</td><td style="${td}">${cell(e.ss, 'cpx', null, d)}</td><td style="${td}">${cell(e.lb, 'ltag', e.sb)}</td><td style="${td}">${cell(e.lb, 'cpx', null, d)}</td><td style="${td}">${cell(e.ls, 'cpx', null, d)}</td>`
            : `<td style="${td}"></td>`.repeat(6))
       + '</tr>';
   });
