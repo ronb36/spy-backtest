@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.28</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.11.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,20 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.28';
+const APP_VERSION = 'v7.11.0';
+// v7.11.0 (S73, Ron · SPEC trigger-level fills §9) — FILL SANDBOX A4: DECAY ROLLS AT THE TRIGGER, BOTH LEGS.
+//   ?ovFill=4. On a DECAY exit (no delta fire, not expiry) the buy-back is booked at the price where decay
+//   = the trigger: P = intrinsic (SPY close) + entry TV × (1 − decayTrigger); the OPEN if the contract
+//   opened at or through P; clamped to the day range. The roll's NEW SALE is booked at the same moment
+//   (live rolls as one spread order): at the new contract's OPEN after an open fill, else by the MOVE
+//   RATIO (the old contract's open→fill share of its open→close move, applied to the new contract's
+//   open→close; clamped to its range). A re-entry on a later day, a missing bar or a flat old contract
+//   keeps the bar price. Delta exits, expiries and DTE-floor-only exits stay on the VWAP. Same rules as
+//   A1–A3: triggers, entry TV and the roll's funding test stay on the VWAP, so cycles and contracts are
+//   identical to the baseline — only the booked fills move. decayTrigger is read from the run's params
+//   (not STD), so the trigger price follows the swept value. Sandbox-only (URL override → SANDBOX chip,
+//   NOT PUBLISHED); the FILL SANDBOX block prints A4 beside A0. Default fills byte-identical to v7.10.28.
+//   MODEL_VERSION and the Gate unchanged.
 // v7.10.28 (S73, Ron) — LABEL FIX, display only. In the both-legs repricing, a decay exit whose new short
 //   was sold on a LATER day (the sim found no net-credit candidate on the exit day, held, and re-entered
 //   from the daily re-scan — typically after an ITM exit) was labelled "still-open short". It now reads
@@ -4963,7 +4976,8 @@ function updateInitPosition() {
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
   _scratchGate  = p.scratchRoll ?? null; // v6.18.0 — embedded identity
-  const _fillAt = (p.fillAt === 1 || p.fillAt === 2 || p.fillAt === 3) ? p.fillAt : null; // v7.9.6 — Test A sandbox; null ≡ VWAP fills (baseline) · v7.9.7 +A3
+  const _fillAt = (p.fillAt === 1 || p.fillAt === 2 || p.fillAt === 3 || p.fillAt === 4) ? p.fillAt : null; // v7.9.6 — Test A sandbox; null ≡ VWAP fills (baseline) · v7.9.7 +A3 · v7.11.0 +A4
+  let _a4Sale_ = null; // v7.11.0 — A4: the decay buy-back's moment, handed to the same-day sale
   const _closeOf = d => (d && d.c != null && d.c > 0) ? d.c : null;     // v7.9.6
   const { decayTrigger, dteFloor, deltaThreshold, dtePenaltyAnchor = 45, shares, defHorizon = 0 } = p; // v6.14.0 — otmFixed removed from the sim: no consumer remained // v6.5.0 — vixGate removed (retired on evidence, S33; inert at 0 since) // v6.3.0 — defense horizon; 0 = off ≡ full DTE
   // v6.8.0 — grace parameterized: the trigger min-hold gate, hardcoded `>= 3`
@@ -5121,10 +5135,27 @@ async function simulate(p) {
     entryPxDm_      = day.vw || day.c;
     entryPrice      = (_pinPxPending != null) ? _pinPxPending : entryPxDm_; // v7.6.1 — pinned fill consumed ONCE, at the first open
     entryFill_ = 'vw'; entryThin_ = false;
-    if (_fillAt && _pinPxPending == null) { // v7.9.6 — Test A: book the sale at the day close
+    if (_fillAt && _fillAt !== 4 && _pinPxPending == null) { // v7.9.6 — Test A: book the sale at the day close
       const _c = _closeOf(day);
       if (_c != null) { entryPrice = _c; entryFill_ = 'c'; entryThin_ = !(day.v >= 10); } else entryFill_ = 'vw-fallback';
     }
+    if (_fillAt === 4 && _pinPxPending == null && _a4Sale_ && _a4Sale_.date === key) { // v7.11.0 — A4: the sale at the buy-back's moment
+      let _s = null, _how = null;
+      if (_a4Sale_.kind === 'o') { if (day.o != null && day.o > 0) { _s = day.o; _how = 'o'; } }
+      else {
+        const _den = (_a4Sale_.oO != null && _a4Sale_.oC != null) ? _a4Sale_.oO - _a4Sale_.oC : 0;
+        if (day.o != null && day.c != null && Math.abs(_den) >= 0.02) {
+          const _f = Math.min(1, Math.max(0, (_a4Sale_.oO - _a4Sale_.fill) / _den));
+          _s = day.o + (day.c - day.o) * _f; _how = 'ratio';
+        }
+      }
+      if (_s != null) {
+        if (day.l != null && _s < day.l) _s = day.l;
+        if (day.h != null && _s > day.h) _s = day.h;
+        entryPrice = _s; entryFill_ = _how; entryThin_ = !(day.v >= 10);
+      } else entryFill_ = 'vw-fallback';
+    }
+    if (_fillAt === 4) _a4Sale_ = null; // v7.11.0 — consumed (or stale: a later-day re-entry keeps its bar)
     _pinPxPending   = null;
     entryDate       = date;
     entrySPY        = spyMap[key]?.c || spy;
@@ -5285,9 +5316,18 @@ async function simulate(p) {
     let exitPx = isExp ? Math.max(0, spy-entryStrike) : (callPx??0);
     const exitPxDecide_ = exitPx; // v7.9.6 — the DECISION frame cover (VWAP): selection funds against this, so the fill sandbox cannot change which contract is chosen
     let exitFill_ = isExp ? 'expiry' : 'vw', exitThin_ = false;
-    if (_fillAt && _fillAt !== 3 && !isExp && (_fillAt === 1 || !deltaFired)) { // v7.9.7 — A3 keeps every buy-back on the VWAP // v7.9.6 — Test A: cover at the day close (ovFill=2 keeps delta exits on the VWAP)
+    if (_fillAt && _fillAt !== 3 && _fillAt !== 4 && !isExp && (_fillAt === 1 || !deltaFired)) { // v7.9.7 — A3 keeps every buy-back on the VWAP // v7.9.6 — Test A: cover at the day close (ovFill=2 keeps delta exits on the VWAP)
       const _c = _closeOf(callDay);
       if (_c != null) { exitPx = _c; exitFill_ = 'c'; exitThin_ = !(callDay.v >= 10); } else exitFill_ = 'vw-fallback';
+    }
+    if (_fillAt === 4 && !isExp && !deltaFired && /tv decay/.test(reason) && callDay && entryTimeValue > 0) { // v7.11.0 — A4: decay buy-back at the trigger
+      const _P = Math.max(0, spy - entryStrike) + entryTimeValue * (1 - decayTrigger / 100);
+      let _f = _P, _k = 'trig';
+      if (callDay.o != null && callDay.o > 0 && callDay.o <= _P) { _f = callDay.o; _k = 'o'; }
+      if (callDay.l != null && _f < callDay.l) _f = callDay.l;
+      if (callDay.h != null && _f > callDay.h) _f = callDay.h;
+      exitPx = _f; exitFill_ = _k; exitThin_ = !(callDay.v >= 10);
+      _a4Sale_ = { date: key, kind: _k, oO: callDay.o, oC: callDay.c, fill: _f };
     }
     const pnl    = (entryPrice-exitPx)*100*contracts;
     premPnL += pnl;
@@ -5644,6 +5684,7 @@ async function _logFillSandbox(params, r) {
   const sB = stat(b), sV = stat(r);
   const lbl = params.fillAt === 1 ? 'A1 · all fills at the day close'
             : params.fillAt === 2 ? 'A2 · decay exits + entries at the close, delta exits at VWAP'
+            : params.fillAt === 4 ? 'A4 · decay rolls at the trigger, both legs (buy-back at the trigger or open; sale at the same moment)'
             : 'A3 · sales at the close, every buy-back at VWAP';
   logMsg('── FILL SANDBOX (Test A) — ' + lbl + ' ──', 'err');
   logMsg('  triggers unchanged (VWAP mark, VWAP entry TV) — only the booked fill moves');
@@ -5657,10 +5698,18 @@ async function _logFillSandbox(params, r) {
   const all = (r.cycles || []);
   const cnt = (f, v) => all.filter(c => c[f] === v).length;
   const thin = all.filter(c => (c.entryFill === 'c' && c.entryThin) || (c.exitFill === 'c' && c.exitThin)).length;
+  if (params.fillAt === 4) { // v7.11.0
+    const th4 = all.filter(c => (c.exitFill === 'o' || c.exitFill === 'trig') && c.exitThin).length;
+    logMsg('  decay buy-backs: at the trigger ' + cnt('exitFill', 'trig') + ' · at the open ' + cnt('exitFill', 'o')
+      + ' · sales moved: at the open ' + cnt('entryFill', 'o') + ' · by move ratio ' + cnt('entryFill', 'ratio')
+      + ' · kept on the bar (no bar / flat old contract) ' + cnt('entryFill', 'vw-fallback') + ' · thin buy-back bars (<10 traded) ' + th4);
+    logMsg('  a bar’s OPEN is its first TRADE (can be late on a thin contract); the move ratio is a proxy, not a delta. Later-day re-entries keep their bar. Delta exits on the VWAP.');
+  } else {
   logMsg('  fills at close: entries ' + cnt('entryFill', 'c') + ' · exits ' + cnt('exitFill', 'c')
     + ' · VWAP fallbacks (no close) ' + (cnt('entryFill', 'vw-fallback') + cnt('exitFill', 'vw-fallback'))
     + ' · cycles with a close fill on a THIN bar (<10 traded) ' + thin);
   logMsg('  the close is the day’s LAST TRADE — on a thin bar it can be hours old; a real closing quote needs a collector change (spec §4)');
+  }
 }
 
 // ── Run simulation ─────────────────────────────────────────────────────────
