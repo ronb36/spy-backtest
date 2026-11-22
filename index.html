@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.25</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.26</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,15 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.25';
+const APP_VERSION = 'v7.10.26';
+// v7.10.26 (S73, Ron) — DECAY AT THE TRIGGER, LIFETIME. The v7.10.25 repricing (decay buy-back at the
+//   price where decay = the published trigger; the open if the contract opened through it) now also runs
+//   over the FULL standard run's cycles (ALL, the run behind the 11.5% lifetime Core Roll Yield), as one
+//   summary block: decay exits repriced / unpriced, fills at the open, ITM-approximate rows, the decay
+//   pool and core credit at the bar vs at the trigger, and the core yield SCALED by that credit ratio
+//   (same capital, same days — an estimate, labelled so). The pricing moved into one helper
+//   (_trigFillCycle) shared by the Era and lifetime blocks; the Era block's output is unchanged.
+//   Fire rules unchanged; read-only; no sim, model or Gate change.
 // v7.10.25 (S73, Ron) — DECAY EXITS AT THE TRIGGER (evaluation, read-only; SPEC trigger-level fills, A4).
 //   The sim buys a decay exit back at the day bar (vw||c). On a day that falls all session that is far
 //   past the trigger (11/20: 30.0% vs live 15.6%). This block REPRICES each Era sim decay exit at the
@@ -3345,32 +3353,65 @@ function _evalWedge(live) {
 }
 
 // v7.10.25 — reprice the sim's decay exits at the trigger price (read-only; fire rules unchanged)
+// v7.10.26 — one cycle's decay buy-back repriced at the trigger. Returns null when it cannot be priced.
+function _trigFillCycle(c, maps, theta) {
+  const tv0 = c.entryTv;
+  let bar = null;
+  if (DM && DM.options) { const k = DM.options[buildScanTicker(c.expiry, c.strike)]; if (k) { buildDayMap(k); bar = k._dm[c.exitDate] || null; } }
+  if (!(tv0 > 0) || !bar || c.exitSPY == null || c.entryPx == null || c.exitPx == null) return null;
+  const intr = Math.max(0, c.exitSPY - c.strike);
+  const sRow = maps.spyMap[c.exitDate];
+  const itm = intr > 0 || (sRow && sRow.h != null && sRow.h > c.strike);
+  const P = intr + tv0 * (1 - theta);
+  let fill = P, kind = 'trigger';
+  if (bar.o != null && bar.o <= P) { fill = bar.o; kind = 'open'; }
+  if (bar.l != null && fill < bar.l) { fill = bar.l; kind += '\u2192clamped'; }
+  if (bar.h != null && fill > bar.h) { fill = bar.h; kind += '\u2192clamped'; }
+  const dPx = c.entryPx - c.exitPx;
+  const k = Math.abs(dPx) > 0.005 && c.pnl != null ? Math.round(c.pnl / (dPx * 100)) : 6;
+  const pnl2 = (c.entryPx - fill) * 100 * k;
+  const decBar = c.exitDecayPct, decFill = (tv0 - Math.max(0, fill - intr)) / tv0 * 100;
+  return { date: c.exitDate, strike: c.strike, expiry: c.expiry, barPx: c.exitPx, fill: fill, kind: kind, itm: itm,
+           decBar: decBar, decFill: decFill, pnl: c.pnl, pnl2: pnl2, v: bar.v };
+}
 function _evalTrigFill(live, sim, maps) {
   const theta = STD.decayTrigger / 100;
   const rows = [], unpriced = [];
   const sim2 = sim.map(function (c) {
     if (_confSimType(c.reason) !== 'decay') return c;
-    const tv0 = c.entryTv;
-    let bar = null;
-    if (DM && DM.options) { const k = DM.options[buildScanTicker(c.expiry, c.strike)]; if (k) { buildDayMap(k); bar = k._dm[c.exitDate] || null; } }
-    if (!(tv0 > 0) || !bar || c.exitSPY == null || c.entryPx == null || c.exitPx == null) { unpriced.push(c.exitDate); return c; }
-    const intr = Math.max(0, c.exitSPY - c.strike);
-    const sRow = maps.spyMap[c.exitDate];
-    const itm = intr > 0 || (sRow && sRow.h != null && sRow.h > c.strike);
-    const P = intr + tv0 * (1 - theta);
-    let fill = P, kind = 'trigger';
-    if (bar.o != null && bar.o <= P) { fill = bar.o; kind = 'open'; }
-    if (bar.l != null && fill < bar.l) { fill = bar.l; kind += '\u2192clamped'; }
-    if (bar.h != null && fill > bar.h) { fill = bar.h; kind += '\u2192clamped'; }
-    const dPx = c.entryPx - c.exitPx;
-    const k = Math.abs(dPx) > 0.005 && c.pnl != null ? Math.round(c.pnl / (dPx * 100)) : 6;
-    const pnl2 = (c.entryPx - fill) * 100 * k;
-    const decBar = c.exitDecayPct, decFill = (tv0 - Math.max(0, fill - intr)) / tv0 * 100;
-    rows.push({ date: c.exitDate, strike: c.strike, expiry: c.expiry, barPx: c.exitPx, fill: fill, kind: kind, itm: itm,
-                decBar: decBar, decFill: decFill, pnl: c.pnl, pnl2: pnl2, v: bar.v });
-    return Object.assign({}, c, { pnl: pnl2 });
+    const r = _trigFillCycle(c, maps, theta);
+    if (!r) { unpriced.push(c.exitDate); return c; }
+    rows.push(r);
+    return Object.assign({}, c, { pnl: r.pnl2 });
   });
   return { rows: rows, unpriced: unpriced, dec2: _evalGapDecomp(live, sim2), theta: theta * 100 };
+}
+// v7.10.26 — the same repricing over the FULL standard run (lifetime), summary only
+function _evalRenderTrigFillAll(full, maps) {
+  if (!full || !Array.isArray(full.cycles) || !full.cycles.length) { logMsg('  DECAY AT THE TRIGGER \u00b7 LIFETIME   the full run returned no cycles', ''); return; }
+  const theta = STD.decayTrigger / 100;
+  const m = function (v) { return (v < 0 ? '\u2212$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US'); };
+  let n = 0, un = 0, opens = 0, itm = 0, b = 0, t = 0, decB = 0, decF = 0, nd = 0;
+  full.cycles.forEach(function (c) {
+    if (c.isInitial || _confSimType(c.reason) !== 'decay') return;
+    const r = _trigFillCycle(c, maps, theta);
+    if (!r) { un++; return; }
+    n++; b += r.pnl; t += r.pnl2;
+    if (/^open/.test(r.kind)) opens++;
+    if (r.itm) itm++;
+    if (r.decBar != null) { decB += r.decBar; decF += r.decFill; nd++; }
+  });
+  logMsg('  DECAY AT THE TRIGGER \u00b7 LIFETIME   the same repricing over the full standard run ('
+       + (full.coreStart || '?') + ' \u2192 ' + (full.coreEnd || '?') + ', ' + (full.coreCycleCount || '?') + ' core cycles) \u00b7 read-only', '');
+  logMsg('    decay exits repriced ' + n + (un ? ' \u00b7 unpriced ' + un + ' (no bar/TV)' : '') + ' \u00b7 ' + opens + ' filled at the open \u00b7 ' + itm + ' ITM-approx'
+       + (nd ? ' \u00b7 mean decay at exit ' + (decB / nd).toFixed(1) + '% at the bar \u2192 ' + (decF / nd).toFixed(1) + '% at the fill' : ''), '');
+  logMsg('    decay pool ' + m(b) + ' \u2192 ' + m(t) + ' (' + m(t - b) + ')', '');
+  if (full.coreSum != null && full.coreYld != null && full.coreSum > 0) {
+    const cs2 = full.coreSum + (t - b);
+    logMsg('    core credit ' + m(full.coreSum) + ' \u2192 ' + m(cs2) + ' \u00b7 core yield ' + full.coreYld.toFixed(1) + '% \u2192 ~'
+         + (full.coreYld * cs2 / full.coreSum).toFixed(1) + '% (scaled by the credit ratio \u2014 same capital and days; an estimate)', (t - b) < 0 ? '' : 'ok');
+  }
+  logMsg('    fire rules, dates and sales unchanged \u2014 a repriced sim would re-fit its parameters (spec \u00a79); delta stops still at the bar', '');
 }
 function _evalRenderTrigFill(t, dec) {
   const m = function (v) { return (v < 0 ? '\u2212$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US'); };
@@ -3748,6 +3789,8 @@ function _evalReport(live, sim, start, ms, full, pend, runs, aud) { // v7.10.18 
   _evalRenderDecomp(_dec);
   try { _evalRenderTrigFill(_evalTrigFill(live, sim, maps), _dec); } // v7.10.25 — never blocks the eval
   catch (e) { logMsg('  DECAY AT THE TRIGGER   \u2717 ' + e.message, 'err'); }
+  try { _evalRenderTrigFillAll(full, maps); } // v7.10.26 — lifetime
+  catch (e) { logMsg('  DECAY AT THE TRIGGER \u00b7 LIFETIME   \u2717 ' + e.message, 'err'); }
   _evalRenderWedge(_evalWedge(live), _dec);
   _evalRenderAgreement(_evalAgreement(live, sim));
   if (aud) _evalRenderNetTarget(_evalNetTarget(aud), aud.err); // v7.10.18
