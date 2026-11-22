@@ -805,7 +805,19 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.13.0';
+const APP_VERSION = 'v7.14.0';
+// v7.14.0 (S74, Ron) — RETIREMENTS. Retired, never dormant. APP only: MODEL m7.7.0 and the Gate unchanged.
+//   (1) FILL SWITCHES ?ovFill=1/2/3 (S71 Test A — close-anchored fills) RETIRED: their decision was taken
+//   another way (S71 live keeps trading intraday; S73 m7.7.0 books decay rolls at the trigger moment).
+//   simulate() now maps fillAt 0 → legacy day-bar VWAP and anything else → the A4 default. Removed: the
+//   two close-fill branches (entry sale, exit buy-back) and _closeOf — each was reachable only for 1–3,
+//   so the default and ?ovFill=0 paths are unchanged by construction. entryTimeValue's guard is
+//   rewritten for the reduced domain {null, 4} with the same truth table. The FILL SANDBOX block now
+//   prints only for ?ovFill=0 (A0 legacy vs the default); ?ovFill=4 ≡ default, no block. The
+//   evaluation wedge's read-only REFERENCE line still names the A0–A3 patterns (it never read the switch).
+//   (2) SCAN HOLD-HORIZON SHADOW (v6.1.12, log-only) RETIRED with the discarded H-tournament: the six-
+//   horizon re-ranking, its log lines, and the scan_snapshot shadow_topk / p1_identity fields (the
+//   columns stay in the table; new rows leave them null).
 // v7.13.0 (S73, Ron · SPEC delta trigger-level fills, phase 1) — DELTA AT THE TRIGGER, read-only log block.
 //   Every sim delta stop (co-fires included, D1) is repriced at the moment SPY crossed the delta trigger:
 //   S* solves callDelta(S*, strike, min(defHorizon, dte), VIX, TNX) = deltaThreshold (the sim's own
@@ -5134,9 +5146,8 @@ function updateInitPosition() {
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
   _scratchGate  = p.scratchRoll ?? null; // v6.18.0 — embedded identity
-  const _fillAt = (p.fillAt === 0) ? null : ((p.fillAt === 1 || p.fillAt === 2 || p.fillAt === 3) ? p.fillAt : 4); // v7.12.0 — m7.7.0: A4 IS THE DEFAULT; 0 = legacy VWAP fills; 1–3 Test A · (v7.9.6 Test A sandbox · v7.9.7 +A3 · v7.11.0 +A4)
+  const _fillAt = (p.fillAt === 0) ? null : 4; // v7.12.0 — m7.7.0: A4 IS THE DEFAULT; 0 = legacy VWAP fills · v7.14.0 — Test A (1–3) retired: anything else ≡ default
   let _a4Sale_ = null; // v7.11.0 — A4: the decay buy-back's moment, handed to the same-day sale
-  const _closeOf = d => (d && d.c != null && d.c > 0) ? d.c : null;     // v7.9.6
   const { decayTrigger, dteFloor, deltaThreshold, dtePenaltyAnchor = 45, shares, defHorizon = 0 } = p; // v6.14.0 — otmFixed removed from the sim: no consumer remained // v6.5.0 — vixGate removed (retired on evidence, S33; inert at 0 since) // v6.3.0 — defense horizon; 0 = off ≡ full DTE
   // v6.8.0 — grace parameterized: the trigger min-hold gate, hardcoded `>= 3`
   // since inception (surfaced S41 — modeled but never named, never swept, on
@@ -5294,10 +5305,6 @@ async function simulate(p) {
     entryPrice      = (_pinPxPending != null) ? _pinPxPending : entryPxDm_; // v7.6.1 — pinned fill consumed ONCE, at the first open
     entryFill_ = 'vw'; entryThin_ = false;
     const _pinnedFill_ = _pinPxPending != null; // v7.12.0 — a live-fill pin keeps its m7.6.0 TV frame under A4
-    if (_fillAt && _fillAt !== 4 && _pinPxPending == null) { // v7.9.6 — Test A: book the sale at the day close
-      const _c = _closeOf(day);
-      if (_c != null) { entryPrice = _c; entryFill_ = 'c'; entryThin_ = !(day.v >= 10); } else entryFill_ = 'vw-fallback';
-    }
     if (_fillAt === 4 && _pinPxPending == null && _a4Sale_ && _a4Sale_.date === key) { // v7.11.0 — A4: the sale at the buy-back's moment
       let _s = null, _how = null;
       if (_a4Sale_.kind === 'o') { if (day.o != null && day.o > 0) { _s = day.o; _how = 'o'; } }
@@ -5320,7 +5327,7 @@ async function simulate(p) {
     entrySPY        = spyMap[key]?.c || spy;
     entryStrike     = curC.strike;
     // Time value at entry = price - intrinsic (for OTM calls, intrinsic = 0)
-    entryTimeValue  = ((_fillAt && !(_fillAt === 4 && _pinnedFill_)) ? entryPxDm_ : entryPrice) - Math.max(0, entrySPY - entryStrike); // v7.9.6 — trigger frame stays on the VWAP under the fill sandbox · v7.12.0 — under the A4 default a pinned live fill keeps entryPrice, exactly as m7.6.0
+    entryTimeValue  = ((_fillAt === 4 && !_pinnedFill_) ? entryPxDm_ : entryPrice) - Math.max(0, entrySPY - entryStrike); // v7.9.6 — trigger frame stays on the VWAP under the fill sandbox · v7.12.0 — under the A4 default a pinned live fill keeps entryPrice, exactly as m7.6.0
     const expD_ = new Date(curC.expiry+'T00:00:00');
     const todD_ = new Date(date+'T00:00:00');
     // v6.3.0 — entry low-water in the DEFENSE frame: horizon = min(defHorizon, entryDTE)
@@ -5475,10 +5482,6 @@ async function simulate(p) {
     let exitPx = isExp ? Math.max(0, spy-entryStrike) : (callPx??0);
     const exitPxDecide_ = exitPx; // v7.9.6 — the DECISION frame cover (VWAP): selection funds against this, so the fill sandbox cannot change which contract is chosen
     let exitFill_ = isExp ? 'expiry' : 'vw', exitThin_ = false;
-    if (_fillAt && _fillAt !== 3 && _fillAt !== 4 && !isExp && (_fillAt === 1 || !deltaFired)) { // v7.9.7 — A3 keeps every buy-back on the VWAP // v7.9.6 — Test A: cover at the day close (ovFill=2 keeps delta exits on the VWAP)
-      const _c = _closeOf(callDay);
-      if (_c != null) { exitPx = _c; exitFill_ = 'c'; exitThin_ = !(callDay.v >= 10); } else exitFill_ = 'vw-fallback';
-    }
     if (_fillAt === 4 && !isExp && !deltaFired && /tv decay/.test(reason) && callDay && entryTimeValue > 0) { // v7.11.0 — A4: decay buy-back at the trigger
       const _P = Math.max(0, spy - entryStrike) + entryTimeValue * (1 - decayTrigger / 100);
       let _f = _P, _k = 'trig';
@@ -5841,12 +5844,8 @@ async function _logFillSandbox(params, r) {
   const $f = v => v == null ? '—' : (v >= 0 ? '+' : '-') + '$' + Math.abs(Math.round(v)).toLocaleString();
   const pp = v => v == null ? '—' : v.toFixed(1) + '%';
   const sB = stat(b), sV = stat(r);
-  const lbl = params.fillAt === 0 ? 'A0 · LEGACY day-bar VWAP fills (the pre-m7.7.0 model)'
-            : params.fillAt === 1 ? 'A1 · all fills at the day close'
-            : params.fillAt === 2 ? 'A2 · decay exits + entries at the close, delta exits at VWAP'
-            : params.fillAt === 4 ? 'A4 · decay rolls at the trigger, both legs (buy-back at the trigger or open; sale at the same moment)'
-            : 'A3 · sales at the close, every buy-back at VWAP';
-  logMsg('── FILL SANDBOX (Test A) — ' + lbl + ' ──', 'err');
+  const lbl = 'A0 · LEGACY day-bar VWAP fills (the pre-m7.7.0 model)'; // v7.14.0 — the only sandbox variant left
+  logMsg('── FILL SANDBOX — ' + lbl + ' ──', 'err');
   logMsg('  triggers unchanged (VWAP mark, VWAP entry TV) — only the booked fill moves');
   if (sB.n !== sV.n) logMsg('  ⚠ core cycle count differs: baseline ' + sB.n + ' vs variant ' + sV.n + ' — triggers were NOT identical', 'err');
   const row = (k, a, v, d) => logMsg('  ' + k.padEnd(18) + a.padStart(12) + v.padStart(12) + d.padStart(12));
@@ -5855,25 +5854,11 @@ async function _logFillSandbox(params, r) {
   row('core credit', $f(sB.sum), $f(sV.sum), $f(sV.sum - sB.sum));
   ['decay', 'delta'].forEach(k => row(k + ' mean (n=' + sV[k].length + ')', $f(mean(sB[k])), $f(mean(sV[k])),
     (mean(sV[k]) != null && mean(sB[k]) != null) ? $f(mean(sV[k]) - mean(sB[k])) : '—'));
-  const all = (r.cycles || []);
-  const cnt = (f, v) => all.filter(c => c[f] === v).length;
-  const thin = all.filter(c => (c.entryFill === 'c' && c.entryThin) || (c.exitFill === 'c' && c.exitThin)).length;
-  if (params.fillAt === 0) { // v7.12.0 — legacy run: report how the DEFAULT (A4) priced its rolls
+  { // v7.12.0 — legacy run: report how the DEFAULT (A4) priced its rolls
     const ba = (b.cycles || []);
     const cb = (f, v) => ba.filter(c => c[f] === v).length;
     logMsg('  default A4 priced: buy-backs at the trigger ' + cb('exitFill', 'trig') + ' · at the open ' + cb('exitFill', 'o')
       + ' · sales at the open ' + cb('entryFill', 'o') + ' · by move ratio ' + cb('entryFill', 'ratio') + ' · legacy books every fill on the day-bar VWAP');
-  } else if (params.fillAt === 4) { // v7.11.0
-    const th4 = all.filter(c => (c.exitFill === 'o' || c.exitFill === 'trig') && c.exitThin).length;
-    logMsg('  decay buy-backs: at the trigger ' + cnt('exitFill', 'trig') + ' · at the open ' + cnt('exitFill', 'o')
-      + ' · sales moved: at the open ' + cnt('entryFill', 'o') + ' · by move ratio ' + cnt('entryFill', 'ratio')
-      + ' · kept on the bar (no bar / flat old contract) ' + cnt('entryFill', 'vw-fallback') + ' · thin buy-back bars (<10 traded) ' + th4);
-    logMsg('  a bar’s OPEN is its first TRADE (can be late on a thin contract); the move ratio is a proxy, not a delta. Later-day re-entries keep their bar. Delta exits on the VWAP.');
-  } else {
-  logMsg('  fills at close: entries ' + cnt('entryFill', 'c') + ' · exits ' + cnt('exitFill', 'c')
-    + ' · VWAP fallbacks (no close) ' + (cnt('entryFill', 'vw-fallback') + cnt('exitFill', 'vw-fallback'))
-    + ' · cycles with a close fill on a THIN bar (<10 traded) ' + thin);
-  logMsg('  the close is the day’s LAST TRADE — on a thin bar it can be hours old; a real closing quote needs a collector change (spec §4)');
   }
 }
 
@@ -6004,7 +5989,7 @@ logMsg(`Running — ${params.scratchRoll ? 'SCRATCH · ' : ''}${params.decayTrig
   }
   logHeadroomTable(result);  // v5.11.4 — headroom look, both STD paths
   logExitAttribution(result); // v6.7.18 — exit attribution, STD only (this call site never runs in OPT)
-  if (params.fillAt != null && params.fillAt !== 4) await _logFillSandbox(params, result); // v7.9.6 — Test A · v7.12.0 — 0 = legacy vs the A4 default; 4 ≡ default, no block
+  if (params.fillAt === 0) await _logFillSandbox(params, result); // v7.12.0 — 0 = legacy vs the A4 default · v7.14.0 — Test A (1–3) retired
   /* v5.15.4 auto-analysis retired; Ask Claude is on-demand */
   
   
@@ -9515,46 +9500,7 @@ async function runRollScan() {
     }
   }
 
-  // ── v6.1.12 · Phase A holdRatio shadow (LOG ONLY — ranking above is final) ──
-  // Re-scores the SAME qualifying candidate list at hold horizons H (days).
-  // score_H = (mid·capture/SPY)·(365/min(H,DTE))·min(1,DTE/anchor),   // v6.37.0 basis
-  // capture = 1−√(1−min(H,DTE)/DTE). H=∞ ⇒ capture=1, horizon=DTE ≡ live
-  // formula (identity benchmark, P1). h-as-RATIO was killed at the algebra
-  // gate: capture(h) candidate-independent ⇒ rank-invariant at every h.
-  let _shadowTopk = null, _shadowP1 = null; // v6.2.0 — captured for scan_snapshot
-  if (scored.length > 0) {
-    _shadowTopk = {};
-    const H_SET = [Infinity, 30, 14, 7, 6, 3];
-    const hLabel = H => H === Infinity ? 'H=∞ (identity)' : 'H=' + H + 'd';
-    logMsg('── Shadow: hold-horizon re-scoring (v6.1.12, log-only) ──────────────────', '');
-    logMsg('  score_H = mid·capture/SPY · 365/min(H,DTE) · min(1,DTE/' + anchor + ') · capture=1−√(1−min(H,DTE)/DTE)', 'dbg');
-    const liveOrder = scored.map(r => r.exp + '_' + r.strike);
-    let p1ok = null;
-    for (const H of H_SET) {
-      const ranked = scored.map(r => {
-        const horizon = Math.min(H, r.dte);
-        const capture = H === Infinity ? 1 : 1 - Math.sqrt(Math.max(0, 1 - horizon / r.dte));
-        // v6.37.0 — premium basis, preserving the P1 identity (H=∞ ≡ live formula).
-        const score   = (r.mid * capture / spyNow) * (365 / horizon) * 100 * Math.min(1, r.dte / anchor);
-        return { key: r.exp + '_' + r.strike, exp: r.exp, strike: r.strike, dte: r.dte, score };
-      }).sort((a, b) => b.score - a.score);
-      if (H === Infinity) {
-        p1ok = ranked.every((r, i) => r.key === liveOrder[i]);
-        _shadowP1 = p1ok; // v6.2.0
-      }
-      _shadowTopk[H === Infinity ? 'inf' : String(H)] =
-        ranked.slice(0, 10).map(r => ({ exp: r.exp, strike: r.strike, dte: r.dte, score: +r.score.toFixed(2) })); // v6.2.0
-      const rows = ranked.slice(0, 10).map((r, i) => {
-        const li = liveOrder.indexOf(r.key);
-        const dv = li < 0 ? '?' : li === i ? '—' : (li > i ? '↑' + (li - i) : '↓' + (i - li));
-        return (i + 1) + '.$' + r.strike + ' ' + r.exp.slice(5) + ' ' + r.dte + 'd ' + r.score.toFixed(1) + '% ' + dv;
-      });
-      logMsg('  ' + hLabel(H) + ' : ' + rows.slice(0, 5).join(' · '), '');
-      if (rows.length > 5) logMsg('         ' + rows.slice(5).join(' · '), 'dbg');
-    }
-    logMsg(p1ok ? '  ✓ P1 identity: H=∞ ranking matches live ranking exactly'
-                : '  ✗ P1 IDENTITY FAILURE: H=∞ ranking diverges from live — shadow defect, do not trust block', p1ok ? 'ok' : 'err');
-  }
+  // v7.14.0 — v6.1.12 hold-horizon shadow RETIRED (H-tournament discarded; scan_snapshot shadow_topk / p1_identity left null).
 
   // ── v6.34.0 — θ opportunity SHADOW REMOVED (S58 ruling) ───────────────────
   // Track 7's instrument completed its job: the S39 arming gate reached its
@@ -9600,7 +9546,6 @@ async function runRollScan() {
         best_dte: best ? best.dte : null,
         best_adj_yield: best ? +best.rollAdjYield.toFixed(2) : null,
         at_expiry_edge: best ? (best.exp === expList[expList.length - 1]) : null,
-        shadow_topk: _shadowTopk, p1_identity: _shadowP1,
       };
       const res = await fetch(SB_URL + '/scan_snapshot', {
         method: 'POST',
