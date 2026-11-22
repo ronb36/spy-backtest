@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.26</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.10.27</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,17 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.10.26';
+const APP_VERSION = 'v7.10.27';
+// v7.10.27 (S73, Ron) — DECAY AT THE TRIGGER, BOTH LEGS. Live rolls as one spread order, so the buy-back
+//   and the new sale fill at the same moment. v7.10.25/26 moved only the buy-back to the trigger and left
+//   the new sale on the day bar, which overstates the penalty on gap days. Now the new sale moves with it:
+//   OPEN fills (the contract opened through the trigger) → the new contract sells at ITS open; TRIGGER
+//   fills → the new contract's price at that moment is estimated by the MOVE RATIO: the old contract's
+//   open→fill share of its open→close move, applied to the new contract's open→close (clamped to its
+//   day range). Both the Era block and the lifetime block print buy-only AND both-legs results; the
+//   buy-only lines are unchanged. A sale the DM cannot price (no bar, flat old contract, or the new
+//   short is the still-open position) keeps its bar price and is counted. Fire rules, dates and
+//   contracts unchanged; read-only; no sim, model or Gate change.
 // v7.10.26 (S73, Ron) — DECAY AT THE TRIGGER, LIFETIME. The v7.10.25 repricing (decay buy-back at the
 //   price where decay = the published trigger; the open if the contract opened through it) now also runs
 //   over the FULL standard run's cycles (ALL, the run behind the 11.5% lifetime Core Roll Yield), as one
@@ -3372,7 +3382,36 @@ function _trigFillCycle(c, maps, theta) {
   const pnl2 = (c.entryPx - fill) * 100 * k;
   const decBar = c.exitDecayPct, decFill = (tv0 - Math.max(0, fill - intr)) / tv0 * 100;
   return { date: c.exitDate, strike: c.strike, expiry: c.expiry, barPx: c.exitPx, fill: fill, kind: kind, itm: itm,
-           decBar: decBar, decFill: decFill, pnl: c.pnl, pnl2: pnl2, v: bar.v };
+           decBar: decBar, decFill: decFill, pnl: c.pnl, pnl2: pnl2, v: bar.v, k: k, oO: bar.o, oC: bar.c };
+}
+// v7.10.27 — the roll's new sale, moved to the same moment as the repriced buy-back. nx = the next cycle
+//   (the short opened that day). Returns { ok:false, why } when it cannot be priced (the sale stays on the bar).
+function _trigSaleLeg(c, nx, r) {
+  if (!nx) return { ok: false, why: 'open' };   // the new short is the still-open position (no cycle record)
+  if (nx.isInitial || nx.entryDate !== c.exitDate || nx.entryPx == null) return { ok: false, why: 'nomatch' };
+  let b2 = null;
+  if (DM && DM.options) { const t2 = DM.options[buildScanTicker(nx.expiry, nx.strike)]; if (t2) { buildDayMap(t2); b2 = t2._dm[nx.entryDate] || null; } }
+  if (!b2 || b2.o == null) return { ok: false, why: 'nobar' };
+  let s2, how;
+  if (/^open/.test(r.kind)) { s2 = b2.o; how = 'open'; }
+  else {
+    const den = (r.oO != null && r.oC != null) ? r.oO - r.oC : 0;
+    if (b2.c == null || Math.abs(den) < 0.02) return { ok: false, why: 'flat' };
+    const f = Math.min(1, Math.max(0, (r.oO - r.fill) / den));
+    s2 = b2.o + (b2.c - b2.o) * f; how = 'ratio';
+  }
+  if (b2.l != null && s2 < b2.l) s2 = b2.l;
+  if (b2.h != null && s2 > b2.h) s2 = b2.h;
+  const d2 = nx.exitPx != null ? nx.entryPx - nx.exitPx : 0;
+  const k2 = Math.abs(d2) > 0.005 && nx.pnl != null ? Math.round(nx.pnl / (d2 * 100)) : r.k;
+  return { ok: true, how: how, sale: nx.entryPx, s2: s2, delta: (s2 - nx.entryPx) * 100 * k2, strike: nx.strike, expiry: nx.expiry };
+}
+// v7.10.27 — the cycle that opened when c closed (the roll's new short), or null
+const _TRIG_SALE_WHY = { open: 'still-open short', nomatch: 'no matching cycle', nobar: 'no DM bar', flat: 'old contract flat' };
+function _trigNextCycle(list, i) {
+  const c = list[i];
+  for (let j = i + 1; j < list.length && j <= i + 2; j++) if (list[j].entryDate === c.exitDate) return list[j];
+  return null;
 }
 function _evalTrigFill(live, sim, maps) {
   const theta = STD.decayTrigger / 100;
@@ -3384,7 +3423,15 @@ function _evalTrigFill(live, sim, maps) {
     rows.push(r);
     return Object.assign({}, c, { pnl: r.pnl2 });
   });
-  return { rows: rows, unpriced: unpriced, dec2: _evalGapDecomp(live, sim2), theta: theta * 100 };
+  // v7.10.27 — both legs: the sale delta lands on the next cycle (the short that the roll opened)
+  const sim3 = sim2.map(function (c) { return Object.assign({}, c); });
+  sim.forEach(function (c, i) {
+    const r = rows.find(function (x) { return x.date === c.exitDate && x.strike === c.strike && _confSimType(c.reason) === 'decay'; });
+    if (!r) return;
+    r.sale = _trigSaleLeg(c, _trigNextCycle(sim, i), r);
+    if (r.sale.ok) sim3[i + (sim[i + 1] && sim[i + 1].entryDate === c.exitDate ? 1 : 2)].pnl += r.sale.delta;
+  });
+  return { rows: rows, unpriced: unpriced, dec2: _evalGapDecomp(live, sim2), dec3: _evalGapDecomp(live, sim3), theta: theta * 100 };
 }
 // v7.10.26 — the same repricing over the FULL standard run (lifetime), summary only
 function _evalRenderTrigFillAll(full, maps) {
@@ -3392,10 +3439,14 @@ function _evalRenderTrigFillAll(full, maps) {
   const theta = STD.decayTrigger / 100;
   const m = function (v) { return (v < 0 ? '\u2212$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US'); };
   let n = 0, un = 0, opens = 0, itm = 0, b = 0, t = 0, decB = 0, decF = 0, nd = 0;
-  full.cycles.forEach(function (c) {
+  let sd = 0, sOpen = 0, sRatio = 0, sUn = {}, sOpenD = 0, sRatioD = 0; // v7.10.27 — sale leg
+  full.cycles.forEach(function (c, i) {
     if (c.isInitial || _confSimType(c.reason) !== 'decay') return;
     const r = _trigFillCycle(c, maps, theta);
     if (!r) { un++; return; }
+    const sl = _trigSaleLeg(c, _trigNextCycle(full.cycles, i), r);
+    if (sl.ok) { sd += sl.delta; if (sl.how === 'open') { sOpen++; sOpenD += sl.delta; } else { sRatio++; sRatioD += sl.delta; } }
+    else sUn[sl.why] = (sUn[sl.why] || 0) + 1;
     n++; b += r.pnl; t += r.pnl2;
     if (/^open/.test(r.kind)) opens++;
     if (r.itm) itm++;
@@ -3411,12 +3462,22 @@ function _evalRenderTrigFillAll(full, maps) {
     logMsg('    core credit ' + m(full.coreSum) + ' \u2192 ' + m(cs2) + ' \u00b7 core yield ' + full.coreYld.toFixed(1) + '% \u2192 ~'
          + (full.coreYld * cs2 / full.coreSum).toFixed(1) + '% (scaled by the credit ratio \u2014 same capital and days; an estimate)', (t - b) < 0 ? '' : 'ok');
   }
-  logMsg('    fire rules, dates and sales unchanged \u2014 a repriced sim would re-fit its parameters (spec \u00a79); delta stops still at the bar', '');
+  // v7.10.27 — BOTH LEGS: the new sale moved to the same moment (live rolls as one spread order)
+  const unTxt = Object.keys(sUn).map(function (k) { return sUn[k] + ' ' + (_TRIG_SALE_WHY[k] || k); }).join(', ');
+  logMsg('    BOTH LEGS   new sale at the same moment: ' + sOpen + ' at the new contract\u2019s open (' + m(sOpenD) + ') \u00b7 '
+       + sRatio + ' by move ratio (' + m(sRatioD) + ')' + (unTxt ? ' \u00b7 left on the bar: ' + unTxt : ''), '');
+  logMsg('    roll net (buy + sale) ' + m(b) + ' \u2192 ' + m(t + sd) + ' (' + m(t + sd - b) + ') \u00b7 buy leg ' + m(t - b) + ', sale leg ' + m(sd), '');
+  if (full.coreSum != null && full.coreYld != null && full.coreSum > 0) {
+    const cs3 = full.coreSum + (t - b) + sd;
+    logMsg('    core credit ' + m(full.coreSum) + ' \u2192 ' + m(cs3) + ' \u00b7 core yield ' + full.coreYld.toFixed(1) + '% \u2192 ~'
+         + (full.coreYld * cs3 / full.coreSum).toFixed(1) + '% both legs (scaled estimate; the sale leg lands on the next cycle)', '');
+  }
+  logMsg('    fire rules, dates and contracts unchanged \u2014 a repriced sim would re-fit its parameters (spec \u00a79); delta stops still at the bar', '');
 }
 function _evalRenderTrigFill(t, dec) {
   const m = function (v) { return (v < 0 ? '\u2212$' : '+$') + Math.abs(Math.round(v)).toLocaleString('en-US'); };
-  logMsg('  DECAY AT THE TRIGGER   sim decay exits repriced at decay = ' + t.theta.toFixed(0) + '% (the published trigger) \u00b7 read-only \u00b7 fire rules, dates and sales unchanged', '');
-  logMsg('    fill = intrinsic + entry TV \u00d7 (1 \u2212 ' + t.theta.toFixed(0) + '%); the OPEN if the contract opened at or through it \u2014 only prices the market offered', '');
+  logMsg('  DECAY AT THE TRIGGER   sim decay exits repriced at decay = ' + t.theta.toFixed(0) + '% (the published trigger) \u00b7 read-only \u00b7 fire rules, dates and contracts unchanged', '');
+  logMsg('    fill = intrinsic + entry TV \u00d7 (1 \u2212 ' + t.theta.toFixed(0) + '%); the OPEN if the contract opened at or through it \u2014 only prices the market offered \u00b7 BOTH LEGS: the new sale at the same moment (its open, or the move ratio)', '');
   if (!t.rows.length) { logMsg('    no sim decay exits in the window' + (t.unpriced.length ? ' with a bar (' + t.unpriced.length + ' unpriced)' : ''), ''); return; }
   let s1 = 0, s2 = 0;
   t.rows.forEach(function (r) {
@@ -3424,6 +3485,9 @@ function _evalRenderTrigFill(t, dec) {
     logMsg('    ' + r.date + '  ' + _confContract(r.strike, r.expiry) + '  bar $' + r.barPx.toFixed(2) + ' (decay ' + (r.decBar != null ? r.decBar.toFixed(1) : '?') + '%)'
          + ' \u2192 ' + r.kind + ' $' + r.fill.toFixed(2) + ' (' + r.decFill.toFixed(1) + '%)  ' + m(r.pnl) + ' \u2192 ' + m(r.pnl2)
          + (r.itm ? '  \u00b7 ITM: approx (SPY close intrinsic)' : '') + (r.v != null && r.v < 5 ? '  \u00b7 thin (v ' + r.v + ')' : ''), '');
+    if (r.sale && r.sale.ok) logMsg('               sale ' + _confContract(r.sale.strike, r.sale.expiry) + '  bar $' + r.sale.sale.toFixed(2) + ' \u2192 '
+         + (r.sale.how === 'open' ? 'open' : 'ratio') + ' $' + r.sale.s2.toFixed(2) + '  ' + m(r.sale.delta) + '  \u00b7 roll ' + m(r.pnl2 - r.pnl + r.sale.delta), '');
+    else if (r.sale) logMsg('               sale left on the bar (' + _TRIG_SALE_WHY[r.sale.why] + ')', '');
   });
   const opens = t.rows.filter(function (r) { return /^open/.test(r.kind); }).length;
   logMsg('    decay pool: ' + m(s1) + ' at the bar \u2192 ' + m(s2) + ' at the trigger (' + m(s2 - s1) + ') \u00b7 n=' + t.rows.length
@@ -3431,6 +3495,11 @@ function _evalRenderTrigFill(t, dec) {
   const d2 = t.dec2, sh = function (d) { const a = Math.abs(d.mix) + Math.abs(d.sev); return a > 0 ? Math.round(Math.abs(d.sev) / a * 100) : 0; };
   logMsg('    GAP at the trigger    ' + m(dec.gap) + ' \u2192 ' + m(d2.gap) + '  \u00b7 mix ' + m(dec.mix) + ' \u2192 ' + m(d2.mix)
        + ' \u00b7 severity ' + m(dec.sev) + ' (' + sh(dec) + '%) \u2192 ' + m(d2.sev) + ' (' + sh(d2) + '%)', d2.gap < dec.gap ? 'ok' : '');
+  if (t.dec3) {
+    const d3 = t.dec3, sdT = t.rows.reduce(function (a, r) { return a + (r.sale && r.sale.ok ? r.sale.delta : 0); }, 0);
+    logMsg('    GAP both legs         ' + m(dec.gap) + ' \u2192 ' + m(d3.gap) + '  \u00b7 mix ' + m(dec.mix) + ' \u2192 ' + m(d3.mix)
+         + ' \u00b7 severity ' + m(dec.sev) + ' (' + sh(dec) + '%) \u2192 ' + m(d3.sev) + ' (' + sh(d3) + '%) \u00b7 sale leg ' + m(sdT), '');
+  }
   const dl = d2.rows.find(function (r) { return r.pool === 'decay'; });
   if (dl) logMsg('    decay mean: sim ' + m(dl.m.mean) + ' at the trigger vs live ' + m(dl.l.mean) + ' \u00b7 n ' + dl.m.n + ' / ' + dl.l.n
        + ' \u00b7 live rolls deeper than the trigger (median reading ~11.6%), so live ABOVE the trigger-priced sim is expected', '');
