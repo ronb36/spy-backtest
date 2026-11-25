@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.14.0</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.14.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,498 +805,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.14.0';
-// v7.14.0 (S74, Ron) — RETIREMENTS. Retired, never dormant. APP only: MODEL m7.7.0 and the Gate unchanged.
-//   (1) FILL SWITCHES ?ovFill=1/2/3 (S71 Test A — close-anchored fills) RETIRED: their decision was taken
-//   another way (S71 live keeps trading intraday; S73 m7.7.0 books decay rolls at the trigger moment).
-//   simulate() now maps fillAt 0 → legacy day-bar VWAP and anything else → the A4 default. Removed: the
-//   two close-fill branches (entry sale, exit buy-back) and _closeOf — each was reachable only for 1–3,
-//   so the default and ?ovFill=0 paths are unchanged by construction. entryTimeValue's guard is
-//   rewritten for the reduced domain {null, 4} with the same truth table. The FILL SANDBOX block now
-//   prints only for ?ovFill=0 (A0 legacy vs the default); ?ovFill=4 ≡ default, no block. The
-//   evaluation wedge's read-only REFERENCE line still names the A0–A3 patterns (it never read the switch).
-//   (2) SCAN HOLD-HORIZON SHADOW (v6.1.12, log-only) RETIRED with the discarded H-tournament: the six-
-//   horizon re-ranking, its log lines, and the scan_snapshot shadow_topk / p1_identity fields (the
-//   columns stay in the table; new rows leave them null).
-// v7.13.0 (S73, Ron · SPEC delta trigger-level fills, phase 1) — DELTA AT THE TRIGGER, read-only log block.
-//   Every sim delta stop (co-fires included, D1) is repriced at the moment SPY crossed the delta trigger:
-//   S* solves callDelta(S*, strike, min(defHorizon, dte), VIX, TNX) = deltaThreshold (the sim's own
-//   defense-frame delta). SPY opened ≥ S* → both legs at their OPENS (grace-delayed stops included, D2);
-//   SPY crossed intraday → both options at the same share f = (S* − SPY open)/(SPY high − SPY open) of
-//   their own open→high moves; clamped to each day range. Prints the lifetime pool, sale leg, roll net and
-//   core yield before → after, the Era gap re-run, and the Era stops in detail. Reads only: no sim, model
-//   (m7.7.0) or Gate change; never writes roll_params.json.
-// v7.12.2 (S73, Ron) — PROGRESS BAR after the OPT. At completion the OPT auto-selects the Gate's row and
-//   re-simulates it (optSelectRow). That re-run happens after _mode has returned to 'test', so simulate()
-//   moved the bar back to ~80% and nothing finished it. optSelectRow now sets the bar to 100% when its
-//   re-sim ends (also covers tapping a row later). Display only: no sim, model or Gate change.
-// v7.12.1 (S73, Ron) — OPEN NOW, sim side: the decay reading now uses the sim's OWN trigger reference.
-//   Under m7.7.0 a decay roll's new sale is booked at the trigger moment (e.g. the open, $50.00 on
-//   11/20), while the sim's trigger frame stays on the entry day's DM bar (vw||c, $44.70). OPEN NOW read
-//   decay against the booked sale and showed 10.61% on the entry day; the sim itself was at 0%. The
-//   reading now uses the entry day's DM bar, and the line prints "trigger ref $x" when it differs from
-//   the booked price. Display only: no sim, model or Gate change.
-// v7.12.0 (S73, Ron) — MODEL m7.7.0: A4 IS THE DEFAULT FILL MODEL (SPEC trigger-level fills §9).
-//   Every simulate() run — STD, ALL, the Era pinned run, Conformance, OPT, the Gate's evaluations — now
-//   books a DECAY roll at the moment the trigger fired, both legs: the buy-back at the trigger price
-//   (intrinsic + entry TV × (1 − decayTrigger)), or the open if the contract opened through it; the new
-//   sale at its open, or by the move ratio. Delta exits, expiries and DTE-floor-only exits stay on the
-//   day-bar VWAP. Triggers, entry TV and candidate funding stay on the VWAP frame (a live-fill pin keeps
-//   its pinned TV frame, as before), so cycles, dates and contracts are unchanged from m7.6.0; only
-//   booked P&L moves (lifetime core credit +$106,664 → +$90,928 on DM through 11/20).
-//   ?ovFill=0 runs the LEGACY day-bar VWAP model (pre-m7.7.0) and prints the FILL SANDBOX block beside
-//   the default; ?ovFill=1–3 (Test A) now compare against the A4 default. ?ovFill=4 ≡ default (no block).
-//   The two read-only "DECAY AT THE TRIGGER" evaluation blocks (v7.10.25–28) are retired: the sim now
-//   prices this way, and repricing again would double-count. Footer and Conformance notes updated.
-//   MODEL bump INVALIDATES the published parameters' fit: fresh OPT → Gate → Ron decides on publish.
-//   The agent has no model-version check; roll_params.json is untouched by this release. Gate region
-//   byte-identical; GATE_VERSION unchanged.
-// v7.11.0 (S73, Ron · SPEC trigger-level fills §9) — FILL SANDBOX A4: DECAY ROLLS AT THE TRIGGER, BOTH LEGS.
-//   ?ovFill=4. On a DECAY exit (no delta fire, not expiry) the buy-back is booked at the price where decay
-//   = the trigger: P = intrinsic (SPY close) + entry TV × (1 − decayTrigger); the OPEN if the contract
-//   opened at or through P; clamped to the day range. The roll's NEW SALE is booked at the same moment
-//   (live rolls as one spread order): at the new contract's OPEN after an open fill, else by the MOVE
-//   RATIO (the old contract's open→fill share of its open→close move, applied to the new contract's
-//   open→close; clamped to its range). A re-entry on a later day, a missing bar or a flat old contract
-//   keeps the bar price. Delta exits, expiries and DTE-floor-only exits stay on the VWAP. Same rules as
-//   A1–A3: triggers, entry TV and the roll's funding test stay on the VWAP, so cycles and contracts are
-//   identical to the baseline — only the booked fills move. decayTrigger is read from the run's params
-//   (not STD), so the trigger price follows the swept value. Sandbox-only (URL override → SANDBOX chip,
-//   NOT PUBLISHED); the FILL SANDBOX block prints A4 beside A0. Default fills byte-identical to v7.10.28.
-//   MODEL_VERSION and the Gate unchanged.
-// v7.10.28 (S73, Ron) — LABEL FIX, display only. In the both-legs repricing, a decay exit whose new short
-//   was sold on a LATER day (the sim found no net-credit candidate on the exit day, held, and re-entered
-//   from the daily re-scan — typically after an ITM exit) was labelled "still-open short". It now reads
-//   "re-entry next day"; only an exit with no later cycle at all reads "still-open short". The treatment is
-//   unchanged (a later-day sale is not the same moment, so it stays on its bar); no number moves.
-// v7.10.27 (S73, Ron) — DECAY AT THE TRIGGER, BOTH LEGS. Live rolls as one spread order, so the buy-back
-//   and the new sale fill at the same moment. v7.10.25/26 moved only the buy-back to the trigger and left
-//   the new sale on the day bar, which overstates the penalty on gap days. Now the new sale moves with it:
-//   OPEN fills (the contract opened through the trigger) → the new contract sells at ITS open; TRIGGER
-//   fills → the new contract's price at that moment is estimated by the MOVE RATIO: the old contract's
-//   open→fill share of its open→close move, applied to the new contract's open→close (clamped to its
-//   day range). Both the Era block and the lifetime block print buy-only AND both-legs results; the
-//   buy-only lines are unchanged. A sale the DM cannot price (no bar, flat old contract, or the new
-//   short is the still-open position) keeps its bar price and is counted. Fire rules, dates and
-//   contracts unchanged; read-only; no sim, model or Gate change.
-// v7.10.26 (S73, Ron) — DECAY AT THE TRIGGER, LIFETIME. The v7.10.25 repricing (decay buy-back at the
-//   price where decay = the published trigger; the open if the contract opened through it) now also runs
-//   over the FULL standard run's cycles (ALL, the run behind the 11.5% lifetime Core Roll Yield), as one
-//   summary block: decay exits repriced / unpriced, fills at the open, ITM-approximate rows, the decay
-//   pool and core credit at the bar vs at the trigger, and the core yield SCALED by that credit ratio
-//   (same capital, same days — an estimate, labelled so). The pricing moved into one helper
-//   (_trigFillCycle) shared by the Era and lifetime blocks; the Era block's output is unchanged.
-//   Fire rules unchanged; read-only; no sim, model or Gate change.
-// v7.10.25 (S73, Ron) — DECAY EXITS AT THE TRIGGER (evaluation, read-only; SPEC trigger-level fills, A4).
-//   The sim buys a decay exit back at the day bar (vw||c). On a day that falls all session that is far
-//   past the trigger (11/20: 30.0% vs live 15.6%). This block REPRICES each Era sim decay exit at the
-//   price where decay = the published trigger (STD.decayTrigger, 8%): P = intrinsic + entry TV × (1 − 8%).
-//   If the contract OPENED at or through P, the fill is the open (first price the market offered).
-//   Every fill is inside the day's range by construction (the bar passed the trigger, so low ≤ P), and a
-//   fill outside [low, high] would be clamped and flagged. ITM exits use the SPY close for intrinsic and
-//   are flagged approximate. Fire rules are UNCHANGED (Ron, D3): same cycles, same dates, same sales —
-//   only the decay buy-back price moves. The gap decomposition is then re-run with those cycles.
-//   Ron's rulings (S73 D1–D4): the exact parameter only (an overshoot from live's average can come later);
-//   trade only at prices the market offered; current fire rules; build now. No sim, model or Gate change.
-// v7.10.24 (S73, Ron) — TRIGGER FIRST. Each side now reads in the order things happen: the trigger fires,
-//   the call is bought back, the next one is sold — Date | Sim Trigger | Sim Buy | Sim Sell | Live Trigger
-//   | Live Buy | Live Sell. The trigger cell still carries the cycle's result (colour + $). Headers name the
-//   side since 'trigger' now appears twice. Display only; no sim, model or Gate change.
-// v7.10.23 (S73, Ron) — FULL YEAR, ALWAYS. 'Mar 19 730C' read like March 2019. The Activity label is now
-//   Fidelity's own order and year: 'Mar 19 2027 730C @ $25.86', on every row (the 12-month year drop is
-//   gone). Activity tab only, as v7.10.22. Display only; no sim, model or Gate change.
-// v7.10.22 (S73, Ron) — EXPIRY BEFORE STRIKE on the Activity tab, the trading convention (Fidelity:
-//   "SPY MAR 19 2027 $730 CALL"): 'Mar 19 730C @ $25.86'. Month as a word (03-19 can be misread); the year
-//   ("Dec 17 '27 765C") only when the expiry is more than 12 months past the row date; no '$' on the
-//   strike so '$' means a price. Scope: the Activity tab's table and notes only (_confRender shadows the
-//   label); the evaluation and run logs keep '$730C 03-19-27' for now. Display only; no sim, model or Gate change.
-// v7.10.21 (S73, Ron) — THE RESULT LIVES IN THE TRIGGER CELL. The green/red moves from the buy cell to
-//   the trigger cell beside it, which also carries the cycle's dollar result, unsigned (the colour is the
-//   sign): live = (sale − buy-back) × 100 × the contracts actually traded, before fees; sim = the sim's
-//   own cycle P&L exactly as the log prints it (C.pnl, at the sim's own size — 6 contracts on the
-//   standard run, so YTD/ALL rows from months live traded 3/5/7 do not compare dollar for dollar; Era
-//   does). Buy cells plain again. Display only; no sim, model or Gate change.
-// v7.10.20 (S73, Ron) — ACTIVITY TABLE, READ BY RESULT. (1) Each BUY (the leg that closes a cycle) is
-//   green for a profit, red for a loss: sale price − buy-back price of that cycle, both sides; an expiry
-//   is a buy at $0 and shows green. Sells stay uncoloured (no result until the buy). (2) No colour on the
-//   trigger columns: live sells higher strikes by choice, so 'the better level of the two' compared
-//   different contracts. (3) Plain dates, no dimming — the activity shows whether a day traded.
-//   (4) No 'open' tag on the sim's open sell (live's open sell has none); 'pin' stays. Legend trimmed to
-//   match. Display only; no sim, model or Gate change.
-// v7.10.19 (S73, Ron) — THE ACTIVITY TABLE FITS. 11 columns overflowed the iPad and the panel clipped the
-//   last one (live sell px) out of sight; one row with two live legs joined by ' · ' stretched LIVE BUY.
-//   Now 7 columns: each contract carries its price in the same cell as '$725C 03-19 @ $25.53'; the year is
-//   dropped when the expiry is within 12 months of the row date (kept otherwise); several legs on one
-//   date STACK one per line instead of widening the column; prices right-aligned in a fixed-width slot.
-//   Backstop: the table scrolls sideways inside its panel with the date column held in place, so nothing
-//   is ever clipped again. Display only — every value, colour and note unchanged; no sim, model or Gate change.
-// v7.10.18 (S73, Ron) — NET CREDIT VS TARGET. Ron enters each roll as ONE spread order at mid, so the
-//   exchange's split of the price between the legs is arbitrary; the number he controls is the NET. Every
-//   ticket's audit_snapshot row already held both sides — the scanner's top-5 candidates with their model
-//   net (scan_topk[].net, from the last scan before the ticket) and the fills (chosen.fills sell/cover) —
-//   and nothing compared them. The evaluation now prints, per audited roll in the window: target net,
-//   actual net (sell − cover), the difference per share and in $, and the minutes from that scan to the
-//   ticket (a stale scan is no fair target). A strike outside the scan's top 5, an entry with no buy-back,
-//   or a row with no scan (row 29, rebuilt by hand) is listed and SAY SO — never guessed. Mean ± SE over
-//   the rolls that have a target. Reads only; no sim, model or Gate change.
-// v7.10.17 (S73, Ron) — A REJECTED ANTHROPIC KEY CAN BE REPLACED. Ask Claude only offers the key box when
-//   no key is stored, so a stored key Anthropic rejects (revoked, expired, mistyped) blocked it for good,
-//   and clearing Safari's website data would also wipe polygon_key and gh_pat. On an authentication
-//   error (HTTP 401 / authentication_error) the page now removes ONLY anthropic_key and says so; closing
-//   and reopening Ask Claude shows the key box. No other key, no sim, model or Gate change.
-// v7.10.16 (S73, Ron) — NAME THE UNMARKABLE DAYS. Max Drawdown counted the days it could not mark
-//   ("1d unmarkable") and threw away which day and why. Each skipped day now keeps its date and the
-//   reason from _ledgerBalanceAt (usually: no DM bar for the open call that day — the data mart only
-//   holds a bar on days the contract traded). The card names up to 3 dates; the log lists every one
-//   with its reason, once per distinct set. Display only: the drawdown figure is unchanged (no
-//   carry-forward of the last mark — a separate decision).
-// v7.10.15 (S73, Ron) — THE CARDS RUN TO THE LATEST DATA; PROGRESS BAR FINISHES.
-//   1. CARD END. Both card rows used to stop at the last STATEMENT row (v7.10.4 common end), so a roll
-//      closed after the last upload was in the books but on no Era card (11-18: +$2,118). Ron, S73: the
-//      statement corrects and adds; it does not create the record, and the sim already runs to the DM.
-//      The common end is now the LAST DM DATE (sim and live together, still like-for-like). The live
-//      account after the last statement row is PROVISIONAL: cash = the last statement balance + the
-//      ticket legs dated after it (signed gross) − derived fees ($0.68/contract sold, $0.40 bought, §3.4).
-//      Shares are unchanged; open calls are marked on the DM as before. Covered Call Return and Max
-//      Drawdown read that account and say "prov. after MM/DD". An assignment (or any share-moving or
-//      unsigned) ticket after the statement BLOCKS the extension — the account cannot be walked across
-//      it — and the cards fall back to the statement end and say why. If the latest DM date cannot mark
-//      the open call, the end steps back to the latest date that can. A statement import covering those
-//      days replaces the provisional part by construction (the ledger rows then carry Fidelity's cash).
-//      The STATEMENT LINE is unchanged: it still ends at the last statement row, because its job is the
-//      Fidelity cash tie, which only means something on statement data.
-//   2. PROGRESS BAR. Activity's own simulate() advanced the bar (20% + 1%/5 trading days) and nothing
-//      finished it, so after the evaluation reached 100% the bar fell back to ~30%. Both Activity runs
-//      (Era, and YTD/ALL) now finish it at 100%.
-//   Display only: no sim, model or Gate change.
-// v7.10.14 (S73, Ron) — LIVE TRIGGER CHECK: THE DM EDGE. On its first real run the check flagged
-//   2026-11-17 [HELD] for the $765C that was closed 2026-11-18 — the very next trading day. 11-17 was the
-//   LAST DM date, so the next-trading-day lookup returned nothing and the close fell through to HELD.
-//   Fix: when the flagged day is the last DM date and the cycle closed AFTER it, the close is compared
-//   with the NEXT WEEKDAY after that day (Sat/Sun skipped): on or before it is NEXT, later stays HELD.
-//   (A calendar-day gap was rejected in the build: Tue→Fri is also 3 days.) A market holiday on that
-//   weekday makes a true next-day close read HELD — a false alarm, never a hidden miss. Days inside the
-//   DM are unchanged (next DM trading day). Evaluation display only; no sim, model or Gate change.
-// v7.10.13 (S73, Ron) — EXECUTION WEDGE: EACH FILL AGAINST BOTH REFERENCES.
-//   The question in progress (§6.24, Tests A/B): do the sim's fill prices match fills Ron can actually
-//   get? The wedge priced live fills against the day-bar VWAP only. Every row now also prices them
-//   against the day-bar CLOSE (c), same contract, same date, same sign rule (positive = live worse), with
-//   its own ± and n, and tags the reference with the smaller bias. A closing REFERENCE line names the
-//   per-leg winner (decay exit · delta exit · sells) and the Test A variant that pattern matches:
-//   A0 all VWAP · A1 all close · A2 close except delta exits · A3 sales at close, buy-backs at VWAP.
-//   n is printed on every figure and the line says when n is too small to read. The dollar column
-//   stays VWAP-based (the §4.2 severity bound is unchanged). Evaluation display only; reads only.
-//   No sim, model or Gate change; the fill model itself is NOT changed (decision gate §6.24).
-// v7.10.12 (S73, Ron) — EVALUATION: LIVE TRIGGER CHECK REPLACES THE DIVERGENCE LOG.
-//   The §4.1 divergence log was keyed on dates when ONE side traded and the other did not. Live selects
-//   higher strikes by choice (S69/S70), so most of its rows were selection noise (11-18: 7 benign + 2 flat
-//   of 13), and its one useful question — was live's OWN position past its OWN trigger without a close? —
-//   was asked only on days the sim happened to trade. A miss on any other day was invisible.
-//   NEW: every DM trading day each live cycle in the window was held (from the end of grace to the day
-//   before its close), live's own contract is read off the DM day bar (vw||c, the sim's frame) against the
-//   published triggers. A day past a trigger is flagged: NEXT DAY (closed on the next trading day — normal
-//   response), PROV (last DM date, not yet decidable) or HELD (still held two or more trading days later —
-//   the candidate miss). Each flagged day carries the agent run-log cause (FIRED · NOT ACTED / DID NOT
-//   FIRE / PRE-LOG). Days with no bar for the contract are counted and listed, never read as clean.
-//   _evalDivergence is REMOVED (retired, not left dormant); _evalBand and _evalCause are reused unchanged.
-//   Evaluation display only: reads only, never writes. No sim, model or Gate change.
-// v7.10.11 (S73, Ron) — TICKET PATH: NO MORE live_trades NAMES. PLUMBING ONLY.
-//   The 11-18 roll was the first ticket since the S70 cutover, and its audit_snapshot insert was refused:
-//   the table still carried audit_snapshot_trade_id_fkey → live_trades(id), a retired table nothing writes.
-//   Ron dropped the constraint in SQL (S73). This release removes the names that made the retired table
-//   look live from the code: makeLiveTradeId → makeTicketId, appendLiveTrade → appendTicket,
-//   deleteLiveTrade → deleteTicketRow, liveEntry → ticket. trade_id on audit_snapshot is documented as what
-//   it is — a TICKET CORRELATION TAG, not a row id: legs get _tktRowId(date, cls, sym, n) and are re-keyed
-//   when a statement converts them, so no foreign key can hold. A snapshot is matched to its trade by
-//   date + chosen contract, the same identity the assembler pairs on. Error and status strings name
-//   ACT_TABLE. Stale "FK trade_id" / "live_trades.json" comments corrected. No sim, model or Gate change;
-//   no behaviour change (renames + strings + comments only).
-// v7.10.10 (S72, Ron) — ACTIVITY TAB · ROLL TOGGLES RETIRED · IMPORT ON THE STATEMENT LINE.
-//   1. Conformance is renamed ACTIVITY. Tab order: Activity · Scan · Data Mart · Logs (Activity the default).
-//   2. The Sim Rolls · Live Rolls · Chart row under the grid is removed: the Activity grid already shows every
-//      sim and live trade by date. The charts are hidden 'for now' (Ron); their code stays, one line to restore.
-//   3. ⬆ Upload statement moves to the statement line beside Refresh / Export; plan, confirm, results and
-//      post-checks print there. Import code unchanged — same element ids.
-//   4. The live blotter (Cycles/Tickets, Add Trade, Cover Only, ✕) shows under the Activity grid in DEBUG only.
-//   Display only. Baseline sim identical.
-// v7.10.9 (S72, Ron) — ONE WINDOW EVERYWHERE. The Conformance tab buttons are removed; the window bar at the
-//   top (Era · YTD · ALL) now drives Conformance too, with the SIM row, the LIVE row and the statement line.
-//   Changing window re-runs Conformance in that window; it opens in the bar's window (Era by default).
-//   The Conformance strip names the window and says where it is set. Display only. Baseline sim identical.
-// v7.10.8 (S72, Ron) — WINDOW BAR ORDER: Era · YTD · ALL on the left (was ALL · YTD · Era); Realized · Annual
-//   stay on the right. The window note moves to its own line under the buttons: squeezed between the two
-//   button groups it wrapped into a one-word column on the phone. Display only. Baseline sim identical.
-// v7.10.7 (S72, Ron) — REALIZED / ANNUAL TOGGLE on the SIM and LIVE card rows.
-//   Two buttons on the right of the window bar; DEFAULT REALIZED (Ron), kept across window changes.
-//   REALIZED = what the window actually earned: Core Roll Yield = period % (no ×365/days); Covered Call
-//   Return and SPY TR = period returns; Roll Frequency = the cycle count in the window.
-//   ANNUAL = the same quantities × 365/days, SIMPLE on both rows (Ron, S72: one convention). The sim's
-//   ALL / YTD Covered Call Return and SPY TR were compounded; they now read simple, like the live row.
-//   Core Roll Credit, Win Rate and Max Drawdown don't scale with time and are unchanged.
-//   The statement line is NOT driven by the toggle (Era still prints period, ALL/YTD annualized).
-//   simulate() returns three more fields (ccTotalRet, spyTotRet, dayCount) — read-only additions; no
-//   trigger, selection or pricing change. MODEL_VERSION unchanged.
-// v7.10.6 (S72, Ron) — CONFORMANCE WINDOW COUNT. The YTD / ALL strip printed every live row
-//   ('189 live cycles') while the grid beneath it used its own window filter. One helper,
-//   _confWinLive(), now gives the start date AND the live rows for YTD / ALL; the strip, the status
-//   line and the grid all read it, so the count can't disagree with the rows shown. ALL agreed already
-//   (its start is the earliest of sim and live); YTD was the visible defect. Display only. Baseline sim identical.
-// v7.10.5 (S71, Ron · SPEC sim-live panels §4–§5) — CONFORMANCE WINDOWS · ACTIVITY TAB RETIRED.
-//   1. Conformance gets ALL · YTD · Era tabs (default Era). Era = today's pinned grid, unchanged.
-//      YTD / ALL = the standard run beside every live trade in the window, UNPINNED: each side is laid on the
-//      calendar on its own (no row pairing), so the exit/entry conformance band is Era-only and says so.
-//   2. Roll Economics follows the tab. Era = pinned run (unchanged). YTD = Jan 1 on. ALL = since the first
-//      live trade (a common window; the grid itself shows the sim from 2024). Before the first live sell the
-//      sim is sized at the STD contract count (there is no live size to copy).
-//   3. Activity tab removed. Sim Rolls · Live Rolls (with Statement Import, Add Trade, Cover Only) · Chart are
-//      toggles under the Conformance grid, closed by default. Conformance is the default tab. Refresh / Export
-//      stay on the statement line (main page). showTab('log'|'live'|'chart') aliases land on Conformance.
-//   4. Conformance never runs while the evaluation is running (two simulate() calls must not interleave);
-//      it waits and runs when the evaluation ends.
-//   Display only. Baseline sim identical.
-// v7.10.4 (S71, Ron) — ERA IS THE COMPARISON. The sim runs today's rules over all history while live
-//   ALL/YTD mix in the 2025 dailies and the pre-September approach, so Era is the only like-for-like window.
-//   1. Era is the default window on load (was ALL).
-//   2. Common end date in Era: both rows stop at the last statement row (_ERA_END), so neither side
-//      counts days the other has not seen (S71: four trading days put 17 points between the SPY TRs).
-//   3. Era returns are PERIOD, not annualized: sim + live Covered Call Return, SPY TR and the statement
-//      line; both rows add 'vs SPY TR · ±x pts'. ALL/YTD stay annualized. Core Roll Yield stays annualized.
-//   4. Sim Era cards read the PINNED run (the evaluation's: contract + date pinned at the first live entry),
-//      so they tie to the evaluation and Roll Economics; all its cycles count (the pinned trade is the first).
-//      Sim Era Covered Call Return = equity path incl. the open call at its mark, anchored at the close
-//      before the Era start — the same basis as the live account. Falls back to the STD run until the pin lands.
-//   5. ALL/YTD sim row note: the current model applied back over history.
-//   Baseline sim identical.
-// v7.10.3 (S71, Ron) — LIVE Core Roll Yield is CAPITAL-WEIGHTED: Σ P&L ÷ mean cycle notional × 365/days.
-//   v7.10.2 summed each cycle's % of its own notional, so 1–3 contract cycles (2025) weighed like 5–6 contract
-//   cycles and ALL read −0.8% beside a +$2,253 credit. The yield now always carries the sign of the credit.
-//   Sim yield unchanged (fixed size, so both definitions agree there). Baseline sim identical.
-// v7.10.2 (S71, Ron · SPEC sim-live panels §2–§3) — SIM ROW / LIVE ROW.
-// Main page: window buttons ALL · YTD · Era → SIM cards → progress bar → LIVE
-// cards → the statement line (the Fidelity tie-out, moved off the Activity
-// tab). One window drives all three. Era = the current model, from the first
-// live entry on/after POLICY_REGIME_2 (2026-09-09), the date Conformance and
-// Roll Economics use.
-// LIVE cards, same formulas as the sim: Core Roll Yield = Σ cycle P&L / (SPY
-// at the open × shares) annualised over the window; Core Roll Credit / Win
-// Rate / Roll Frequency from closed live cycles (trade basis, _liveBook; Era =
-// both legs inside, the Roll Economics rule); Covered Call Return = the
-// statement's account return EXCLUDING money-market interest (SPY + dividends
-// + calls, the sim's frame since v7.10.0); Max Drawdown = a FLOW-ADJUSTED
-// daily index, r_t = (B_t − F_t)/B_{t−1} − 1 on the computed account balance,
-// so deposits and withdrawals cannot register (Ron, S71).
-// Display only: no sim, ranker, Gate or MODEL_VERSION change. The Activity
-// tab keeps its blotter until v7.10.3. Base v7.10.1 (37dd8464).
-// v7.10.1 (S71, Ron) — DIVIDEND SCHEDULE: NO SILENT GAPS. v7.10.0 loaded 5 of
-// the 6 statement quarters: per-share = amount / ledger shares, and ledger
-// shares count only buys and sells since the first statement (2025-06-02), so
-// a quarter whose count came out ≤ 0 (shares held before the statements) was
-// dropped without a word. Now: (1) a PUBLISHED per-share backstop covers every
-// ex-date from the sim start (2024-09-20 … 2026-09-18); (2) a ledger figure
-// wins only when its share count is positive AND it sits within 2% of the
-// published amount — otherwise the published one is used and the reason is
-// logged; (3) ledger quarters past the published list are taken as is;
-// (4) every ex-date logs with its source, and a missing quarter between the
-// first and last ex-dates is flagged. Base v7.10.0 (da686796).
-// v7.10.0 (S71, Ron · SPEC sim-live panels) — DIVIDENDS IN THE SIM; STATEMENT
-// LINE SPLITS DIV + INTEREST. Apples to apples: both sides become SPY price +
-// dividends + calls; interest stays on the statement line, out of the strategy.
-// (1) SPY dividends from the Fidelity ledger (live_legs cls 'dividend', symbol
-// SPY): per share = amount / shares held on the ex-date (ledger share rows);
-// ex-date = the last DM trading day on or before the third Friday of the
-// quarter-end month before the pay month (Juneteenth 2026 → 06-18). Three
-// pre-statement dividends are a FIXED list (sim starts 2024-07, statements
-// 2025-06): 2024-09-20 $1.7455 · 2024-12-20 $1.9655 · 2025-03-21 $1.6955.
-// (2) The sim credits shares × per-share on each ex-date AFTER its start into
-// the equity curve, so Covered Call Return, Max Drawdown and the YTD versions
-// include them; "vs SPY" becomes SPY TOTAL return (price + cash dividends, not
-// reinvested — the same treatment the sim gets). Cycles, core yield, triggers,
-// selection, the ranker and the Gate are untouched: option prices already
-// embed the dividend. MODEL_VERSION unchanged.
-// (3) Statement line: SPY · Div · Interest · Calls, each with its yield — the
-// SPY leg is now PRICE only (residual − dividends − MM interest); Strategy and
-// the cash tie unchanged. Benchmark → SPY TR. A dividend reaches the sim on
-// the statement import that carries it; the card says how far it runs.
-// Base v7.9.9 (e5b71841).
-// v7.9.9 (S71, Ron) — CONFORMANCE AFTER A SWEEP + ROLL ECONOMICS MOVES.
-// (1) DEFECT: runOptimization set _mode = 'optimize' and nothing reset it, so
-// after ANY sweep Conformance and the Evaluation refused with "a sweep is in
-// progress" until the next Scan (S71 log 16:41–16:43, sweep done 16:31). The
-// body is now wrapped: _mode returns to 'test' in `finally`, on success, on a
-// preflight refusal and on a crash. The guard stays for a sweep that is
-// genuinely running; its wording now says "running".
-// (2) Roll Economics leaves the Activity Performance panel (which keeps the
-// statement line — the account) and becomes the top panel of the Conformance
-// tab, computed by the same _cwinHtml body (part:'roll'). Its sim row now reads
-// the Conformance tab's PINNED run (first live trade, sim selects forward —
-// Ron, S71) instead of the unpinned STD run in memory, so the summary ties to
-// the grid below it. Display only: no sim, ranker, Gate or MODEL_VERSION
-// change. Base v7.9.8 (fd2d204d).
-// v7.9.8 (S71, Ron) — THE GRID IS THE GATE PACK; THE BUTTON SAYS THE VERDICT.
-// After a sweep the results grid shows only the Gate pack (incumbent + nbr +
-// top-K distinct machines, aliases merged) — the 28k-cell paired-score list
-// was preliminary arithmetic to choose the pack, and only pack entries can
-// publish anyway (_gatePublishCheck). It still prints to the log.
-// ORDER (one rule: a challenger ranks above the incumbent only by clearing
-// the Gate): passing challengers by min P(Δ>0) → the incumbent → the rest by
-// criteria cleared, then min P(Δ>0). So on HOLD the incumbent is #1 and on
-// PUBLISH the winner is #1 — ranked, not pinned. Row #1 is auto-selected.
-// BUTTON: the Gate's choice under HOLD (or NO VERDICT) reads "■ Hold" — a tap
-// writes nothing, logs, disarms the sweeps and returns to Scan. Selecting any
-// other row reads "↑ Publish" (override reason still required by
-// _gatePublishCheck); reselecting #1 restores Hold. The verdict card keeps its
-// headline and drops its own pack table (one table). Display + button logic
-// only: no sim, ranker, Gate or MODEL_VERSION change. Base v7.9.7 (d8f50012).
-// v7.9.7 (S71, Ron · SPEC close-anchored execution §8) — FILL SANDBOX A3.
-// ?ovFill=3 books every SALE at the day close and every BUY-BACK at the day
-// VWAP — the leg split S71 Test A found closest to live (live sells ≈ close,
-// +$0.40 vs +$0.38/sh; live exits beat VWAP on decay and lose to it on delta,
-// partly cancelling). Same rules as A1/A2: triggers, entry TV and the roll's
-// funding test stay on the VWAP, so cycles and contracts are identical to the
-// baseline. Sandbox-only. Default fills byte-identical to v7.9.6. MODEL_VERSION
-// and the Gate unchanged. Base v7.9.6 (1373e44e).
-// v7.9.6 (S71, Ron · SPEC close-anchored execution §4) — FILL SANDBOX (Test A).
-// (1) ?ovFill=1 books EVERY fill at the option's day close (c); ?ovFill=2
-// books decay exits and all entries at c while delta exits (co-fires
-// included — Model Rules §9) stay at the day VWAP. TRIGGERS ARE UNTOUCHED:
-// decay still reads the VWAP mark and entry time value stays on the VWAP, so
-// the cycle dates are identical to the baseline and only the booked P&L
-// moves — the difference is the fill alone. A missing close falls back to
-// the VWAP and is counted. Sandbox-only (URL override → SANDBOX chip, Debug
-// forced, NOT PUBLISHED); the run re-simulates the baseline quietly and logs
-// a FILL SANDBOX block: core yield, credit, pool means, Δ vs baseline, and
-// how many close fills sat on a thin bar (< 10 contracts traded).
-// (2) Conformance footnote: the sim's option values are day-bar VWAP and its
-// SPY is the close (it said "DM-close readings").
-// (3) EVALUATION OPEN NOW prices both sides on the latest DM date where BOTH
-// have a bar (S71: an 11-12 SPY row landed before its option bars, so the
-// sim side read "not priceable"). Default fills: byte-identical to v7.9.5.
-// MODEL_VERSION and the Gate unchanged. Base v7.9.5 (27b90037).
-// v7.9.5 (S71, Ron) — CONFORMANCE SHOWS THE SIM'S OPEN POSITION + LEANER CARDS.
-// (1) The Conformance grid listed only CLOSED sim cycles; the sim's open position
-// surfaced as a footnote, and only when the sim had FEWER closed cycles than
-// live (i === sc.length was unreachable at 15 sim / 13 live) — so the $755C
-// 04-30-27 opened 2026-11-09 vanished. It now rides as a sim-sell row on its
-// entry date, tagged "open", the same way live's open position already shows.
-// The held footnote stays only for "no sim cycle closed at all". (2) Summary
-// card sub-lines drop the time-frame text (YTD 2026 · n=… / from <base> /
-// all time): the window and cycle count already print beside the ALL/YTD
-// toggle. Supersedes the S69 "n on every card" rule. Display only — no sim,
-// MODEL_VERSION or Gate change. Base v7.9.4 (d5b3fb07).
-// v7.9.4 (S71, Ron) — MAX DRAWDOWN WINDOWS ON YTD + CONFORMANCE NEWEST FIRST.
-// (1) On YTD the Max Drawdown card shows the year's own drawdown: the peak resets
-// at the prior year's last close (the same base Covered Call Return uses), and
-// the equity slice is rebased there so the figure reads in points of
-// start-of-year capital — the ALL definition, with the year's start. A window
-// can only shrink a drawdown; Ron sees ALL first on start-up, so no all-time
-// sub-line. (2) The Conformance table renders newest date on top; the summary
-// band and its "row N" first-divergence count are unchanged. Display only —
-// no sim, MODEL_VERSION or Gate change. Base v7.9.3 (fe98fcb6).
-// v7.9.3 (S71, Ron) — COVERED CALL RETURN WINDOWS ON YTD. v7.6.26 kept it
-// all-time as "an equity path", but the card is an ENDPOINT formula — (SPY gain
-// + roll credit) / starting value, annualised — so it windows exactly: SPY from
-// the prior year's last close to the last YTD exit, plus the YTD core credit
-// (the same set the YTD Core Roll Credit card sums), over SPY × shares at that
-// base, annualised over base → last exit. "vs SPY" rebases on the same window.
-// (Max Drawdown windowed in v7.9.4.) Display only — no sim,
-// MODEL_VERSION or Gate change. Base v7.9.2 (dabafa3d).
-// v7.9.2 (S71, Ron) — PREFLIGHT ON THE EFFECTIVE AXIS + LEGACY CLEANUP. (1) The
-// bracketing check now runs on the cells that ACTUALLY run, after the cap rule:
-// a sweep with entryΔcap pinned at 0.69 skips every Δ ≤ 0.69, so v7.9.0 passed
-// a Δ axis whose live range was 0.70–0.73 — the incumbent on its floor (S71
-// smoke test, "Delta floor(0.67): —"). Now refused, with the reason. (2) The
-// Gate's full plain-text report (GATE v1.6.0, GATE_LAST.report) prints to Logs
-// after every cycle. (3) The Gate tab button is gone from the bar; the verdict
-// card links to the report. (4) Retired: ⧉ Download pack; the flip-rate probe
-// (S53 study, verdict at v6.28.0). (5) The Research tab (Walk-Forward Registry,
-// retired from the bar in S67) is REMOVED with its processes — its readiness
-// check still ran 9 Supabase count queries on every load. ⬇ Export data keeps
-// its helpers. No MODEL_VERSION change, Gate untouched.
-// Base v7.9.1 (Gate v1.6.0).
-// v7.9.1 (S71, Ron) — GATE-ONLY RELEASE: GATE v1.6.0. The Gate tab is stripped
-// to the pack bootstrap and its report (Foundation §6.16). Retired: Ledger A/B
-// (paste/load an STD log, one- or two-ledger bootstrap — the pre-pack v1.2
-// path), manual pack import, both results-log downloads. GATE_LAST gains
-// `report` (the Gate's own plain-text report). The sim, the ranker and the app
-// are untouched — the Gate ships alone, per the standing rule. Base v7.9.0
-// (3fc99af7).
-// v7.9.0 (S71, Ron) — ONE-PASS OPTIMIZER (SPEC one-pass optimizer, Release B;
-// MODEL m7.6.0). ▶ Run (with sweep cards armed) now does preflight → sweep →
-// pack → Gate → verdict in one pass. THE PAIRED SCORE IS THE ONLY SELECTION KEY:
-// the table, the default selection, ★ / Best, the winner re-run and the pack all
-// rank on ps (_prCmp); core yield is a displayed column. PREFLIGHT refuses a run
-// whose incumbent is off-grid, on a grid end, or cannot be hoisted (the coreYld
-// fallback is gone), and skips cells with entryΔcap ≥ Δ. PACK = incumbent + ±1
-// nbr seed + top-8 by ps, aliases refilled to 8 distinct machines. The GATE runs
-// in place through the pack contract (serialize → parsePack → showPack → gateP →
-// run → window.GATE_LAST); its code is untouched (v1.5.1 shipped alone in
-// v7.8.3). PUBLISH is armed only for the Gate's winner, or any pack entry with a
-// typed override reason; the run is recorded as gateRun in roll_params.json.
-// SWEEP RANGES centre on the incumbent at load and after a publish (decay ±3·1,
-// Δ ±3·0.01, anchor ±3·7, defH ±3·1, entryΔcap ±3·0.01, grace ±1·1 — 28,812
-// sims on today's policy); range edits no longer persist across reloads.
-// RETIRED: robust ranking (R#), Grid, Graph, Raw/Robust sort, ledger-pack
-// export controls (raw K, robust K, shelf, zoom, ⧉ Export). Base v7.8.3 (7dac96f9).
-// v7.8.3 (S71, Ron) — RELEASE A of SPEC one-pass optimizer: GATE v1.5.1 only.
-// The Gate's run handler now leaves its verdict in window.GATE_LAST (read-only;
-// nothing rendered changes). The sim, the ranker and MODEL_VERSION are
-// untouched — the Gate is released alone, per the standing rule. Base v7.8.2
-// (82648c3d).
-// v7.8.2 (S71, Ron) — §6.11 UTC IN THE SCAN REPRICE PATH. _tradeAnchoredReprice
-// built its same-day minute-bar range from toISOString(), a UTC date, which
-// rolls at 7 PM ET in winter (8 PM in summer). After that a scan asked Polygon
-// for TOMORROW's bars, got none, returned null, and the caller silently kept the
-// day-close mid — wrong rung, no flag. Now _etToday(), the helper every other
-// "what day is it" path already uses. The UTC-literal class, third instance.
-// The SPY aggregate fallback (5-day window, latest bar) was checked and is
-// unaffected: a UTC upper bound only widens a window whose newest bar wins.
-// No MODEL_VERSION change, Gate untouched. Base v7.8.1 (e92dea3c).
-// v7.8.1 (S71, Ron) — §4.1 CAUSE FROM THE AGENT RUN LOG. The divergence log's
-// "cause: UNKNOWN" is replaced, per divergence date, by what agent_runs (agent
-// v1.7.66, one row per scheduled job) recorded that day: FIRED (first ROLL, its
-// time, trigger, mark and whether the push showed it as provisional) / DID NOT
-// FIRE (that day's peak decay and Δ against their thresholds) / NOT WATCHING (no
-// scored run: only skips, errors or nothing) / PRE-LOG (before the log's first
-// row — derived from the table, not pinned). One anon read per load; a failed
-// read prints the reason and eval carries on. Reads only. No MODEL_VERSION
-// change, Gate untouched. Base v7.8.0 (cfd0a12d).
-// v7.8.0 (S70, Ron) — CYCLES FROM LEGS (SPEC cycles from legs). Every reader
-// (blotter, Conformance, eval, Roll Economics, Performance, Cover Only, import
-// gate 3) takes cycles from _legsToCycles via _liveBook; the synthetic tickets
-// (_activityToTrades) and the second pairing (_pairLiveCycles) are removed.
-// Assignments, ruling (b): close price = intrinsic at the expiry close, so P&L =
-// premium − intrinsic; receipts to Logs. TICKETS = the raw activity rows. Bought
-// protection renders as protection. Credit curve = the day's net option cash.
-// No MODEL_VERSION change, Gate untouched. Base v7.7.4 (5a8038b8).
-// v7.7.4 (S70, Ron) — STATEMENT UPLOAD, ONE PATH (SPEC statement upload):
-// ⬆ Upload statement → summary (every gate, every ticket correction, a cash-walk
-// PREVIEW; nothing written) → ✓ Confirm import → post-import cash tie and cost
-// basis. Retired and removed: Dry Run, Legs Dry Run, Compare, Activity Compare,
-// Backfill triggers, Cost Basis button, both panel exports, the live_trades
-// readers behind them. COST BASIS FIX: SPY share rows only (v7.7.2 dropped the
-// SPY condition and read 63,600 sh at $1.94); publish refused unless shares =
-// contracts × 100 and the move is under $1/sh. Base v7.7.3 (e8ebdaf8).
-// v7.7.3 (S70, Ron) — the adapter gives an ASSIGNED close no price (blotter
-// convention, P&L '—'); v7.7.2 priced it at $0 and moved ~$25k of assigned premium
-// from the SPY residual into Calls on the statement line. Totals were unaffected.
-// One change in _activityToTrades. Base v7.7.2 (265a5ab2).
-// v7.7.2 (S70, Ron) — THE CUTOVER to one activity table, account_activity
-// (SPEC single trades table). Every reader takes trades from the ledger through
-// _activityToTrades; tickets write legs only; live_trades is frozen and retired;
-// the statement insert corrects tickets (date, contract, price, quantity) and no
-// longer re-seeds triggers from live_trades; blotter delete works on a ticket's
-// own leg rows and refuses statement rows; Cover Only finds the open position in
-// the ledger; cost basis reads the ledger's share lots; one-time ⇪ Backfill
-// triggers copies pre-era close reasons. Activity Compare: priced late covers
-// stay covers, date mis-punches are paired, every cycle difference is traced.
-// No MODEL_VERSION change, Gate untouched. Base v7.7.1 (848aaa8a).
-// v7.7.1 (S70, Ron) — release notes live in the session summaries and chats; the
-// footer carries none. This release: Activity Compare matches EXPIRIES and
-// ASSIGNMENTS by contract rather than date (v7.7.0 reported 3 identity and 14
-// blotter-only false positives, all expiries dated differently by blotter and
-// statement); the report also goes to Logs so Download captures it; footer
-// release notes stripped. Read-only, no MODEL_VERSION, Gate untouched.
-// Base v7.7.0 (7530dc86).
+const APP_VERSION = 'v7.14.1';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -1311,12 +820,6 @@ const APP_VERSION = 'v7.14.0';
 const MODEL_VERSION = 'm7.7.0'; // m7.7.0 (S73) — FILL MODEL A4: decay rolls book at the trigger moment, both legs
 // (SPEC trigger-level fills). Triggers and selection unchanged; booked P&L moves. INVALIDATES every
 // fitted parameter: fresh OPT before any decision; m7.6.0 leaderboards are not comparable.
-// m7.6.0 — ONE-PASS SELECTION (S71): the paired score now SELECTS
-// everywhere — default selection, ★, winner re-run and the Gate pack. m7.5.0 scored
-// with it but every chooser still keyed on coreYld, so the pack never saw it.
-// m7.5.0 — PAIRED RANKER (S67). The ranker IS the objective:
-// this bump INVALIDATES EVERY FITTED PARAMETER. A fresh OPT is required before any
-// decision, and prior leaderboards are not comparable to this one. // v6.3.0 — single writer for run-header + scan_snapshot + audit_snapshot app_version (badge + changelog remain manual)
 let DM = null;           // data mart
 let _mode = 'test';      // 'test' | 'optimize'
 let _optParams = null;   // optimized params per regime {low,normal,elevated,high}
@@ -3875,11 +3378,15 @@ function _evalNetTarget(aud) {
                   actual: null, target: null, diff: null, mins: null, why: null };
     if (f.sell == null || !(f.cover > 0)) { row.why = 'entry — no buy-back, no net'; out.push(row); return; }
     row.actual = f.sell - f.cover;
-    const top = Array.isArray(a.scan_topk) ? a.scan_topk : null;
-    if (!top || !top.length) { row.why = 'no scan on the row'; out.push(row); return; }
-    const m = top.find(function (t) { return Number(t.strike) === Number(ch.strike) && String(t.exp) === String(ch.exp); });
-    if (!m || m.net == null) { row.why = 'chosen contract not in the scan\u2019s top 5'; out.push(row); return; }
-    row.target = Number(m.net); row.diff = row.actual - row.target;
+    if (ch.target_net != null) { row.target = Number(ch.target_net); row.rank = ch.target_rank; }
+    else {
+      const top = Array.isArray(a.scan_topk) ? a.scan_topk : null;
+      if (!top || !top.length) { row.why = 'no scan on the row'; out.push(row); return; }
+      const m = top.find(function (t) { return Number(t.strike) === Number(ch.strike) && String(t.exp) === String(ch.exp); });
+      if (!m || m.net == null) { row.why = 'chosen contract not in the scan\u2019s top 5 (row predates v7.14.1)'; out.push(row); return; }
+      row.target = Number(m.net); row.rank = top.indexOf(m) + 1;
+    }
+    row.diff = row.actual - row.target;
     if (a.scan_ts && a.created_at) row.mins = Math.round((new Date(a.created_at) - new Date(a.scan_ts)) / 60000);
     out.push(row);
   });
@@ -3896,7 +3403,7 @@ function _evalRenderNetTarget(rows, err) {
     if (r.why) { logMsg('    ' + r.date + '  ' + c + (r.actual != null ? '  actual ' + f2(r.actual) : '') + '  \u2014 no target: ' + r.why, ''); return; }
     logMsg('    ' + r.date + '  ' + c + '  target ' + f2(r.target) + '  actual ' + f2(r.actual) + '  diff ' + f2(r.diff) + '/sh'
          + ' (' + (r.diff >= 0 ? '+' : '\u2212') + '$' + Math.abs(r.diff * 100 * r.qty).toFixed(0) + ' on ' + r.qty + ')'
-         + (r.mins != null ? '  \u00b7 scan ' + r.mins + ' min before' : ''), r.diff >= 0 ? 'ok' : '');
+         + (r.mins != null ? '  \u00b7 scan ' + r.mins + ' min before' : '') + (r.rank ? '  \u00b7 scan rank ' + r.rank : ''), r.diff >= 0 ? 'ok' : '');
   });
   const d = rows.filter(function (r) { return r.diff != null; }).map(function (r) { return r.diff; });
   if (d.length) {
@@ -9471,7 +8978,8 @@ async function runRollScan() {
       net: +r.netCredit.toFixed(2),
       adjYield: r.rollAdjYield != null ? +r.rollAdjYield.toFixed(1) : null,
       deltaMkt: r.delta != null ? +(+r.delta).toFixed(3) : null,
-      deltaSim: r.deltaSim != null ? +(+r.deltaSim).toFixed(3) : null }))
+      deltaSim: r.deltaSim != null ? +(+r.deltaSim).toFixed(3) : null })),
+    nets: scored.map((r, i) => ({ exp: r.exp, strike: r.strike, net: +r.netCredit.toFixed(2), rank: i + 1 })) // memory only; the audit row stores the chosen one
   };
   _bannerLive.spy = spyNow; _bannerLive.spySrc = (_spySource === 'agg' ? 'agg' : (_spySource === 'opt-underlying' ? 'underlying' : 'dm')); _bannerLive.cover = currentCallMid > 0 ? currentCallMid : null; // v6.4.10 — banner flips DM† → live; v6.4.11 mutates fields so a live VIX survives the scan; v6.4.12b source tag
   updateInitPosition();
@@ -11045,7 +10553,15 @@ async function writeAuditRecords(tradeId, info) {
     raw_topk: _optDisplayRows ? _optDisplayRows.slice(0, 5).map((r, i) => ({ rank: i + 1, ...rowObj(r) })) : null,
     scan_ts: _scanCtxData ? _scanCtxData.ts : null,
     scan_topk: _scanCtxData ? _scanCtxData.top : null,
-    chosen: info.chosen,
+    chosen: (function () { // target net of the contract actually chosen, from the last scan, any rank
+      const ch = info.chosen ? { ...info.chosen } : info.chosen;
+      try {
+        const n = _scanCtxData && Array.isArray(_scanCtxData.nets) && ch
+          ? _scanCtxData.nets.find(t => Number(t.strike) === Number(ch.strike) && String(t.exp) === String(ch.exp)) : null;
+        if (ch) { ch.target_net = n ? n.net : null; ch.target_rank = n ? n.rank : null; }
+      } catch (e) {}
+      return ch;
+    })(),
     claude_verdict: [_lastVerdict.opt ? 'OPT: ' + _lastVerdict.opt : null,
                      _lastVerdict.scan ? 'SCAN: ' + _lastVerdict.scan : null].filter(Boolean).join('\n') || null,
     pred_hold_days: preds.hold, pred_credit: preds.credit, pred_close_trigger: 'decay'
