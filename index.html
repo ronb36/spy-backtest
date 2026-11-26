@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.14.1</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.14.2</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.14.1';
+const APP_VERSION = 'v7.14.2';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -2024,6 +2024,11 @@ function _liveCardData(x) {
   } catch (e) { out.dd = null; out.ddErr = e.message; }
   return out;
 }
+function _annK(sum, days) { // v7.14.2 — Core Roll Credit at an annual rate (Annual basis only)
+  if (sum == null || !days) return '';
+  const v = sum * 365 / days;
+  return ' \u00b7 \u2248 ' + (v >= 0 ? '+' : '-') + '$' + Math.round(Math.abs(v) / 1000).toLocaleString('en-US') + 'k/yr';
+}
 function _renderLiveCards(d) {
   _liveCardLast = d; // v7.10.7
   const g = $('live-grid'); if (!g) return;
@@ -2035,7 +2040,7 @@ function _renderLiveCards(d) {
   const card = (l, v, cls, sub) => `<div class="stat-card"><div class="stat-label">${l}</div><div class="stat-value ${cls}">${v}</div><div class="stat-sub">${sub}</div></div>`;
   g.innerHTML =
     card('Core Roll Yield', f1(R ? d.yldReal : d.yld), d.yld == null ? '' : (R ? d.yldReal : d.yld) >= (R ? 0 : 5) ? 'green' : d.yld >= 0 ? 'yellow' : 'red', (R ? 'Realized' : 'Ann.') + ' · capital-weighted' + (d.ntl ? ' · avg $' + Math.round(d.ntl / 1000) + 'k' : '') + (d.dropped ? ' · ' + d.dropped + ' unpriced' : ''))
-  + card('Core Roll Credit', $d(d.sum), d.sum >= 0 ? 'green' : 'red', 'Closed cycles · mean ' + $d(d.mean) + '/cycle' + (d.orphan ? ' · ' + d.orphan + ' orphan' : ''))
+  + card('Core Roll Credit', $d(d.sum), d.sum >= 0 ? 'green' : 'red', 'Closed cycles · mean ' + $d(d.mean) + '/cycle' + (R ? '' : _annK(d.sum, d.days)) + (d.orphan ? ' · ' + d.orphan + ' orphan' : ''))
   + card('Win Rate', f1(d.win).replace('.0%', '%'), d.win >= 70 ? 'green' : 'yellow', 'Positive P&L')
   + (() => { const v = R ? d.ccReal : d.ccAnn, b = R ? d.bmReal : d.bmAnn; // v7.10.7
       const _md = s => String(s).slice(5).replace('-', '/'); // v7.10.15
@@ -7056,7 +7061,8 @@ function renderSummary(r) {
     ? `${_ytd.dropped ? ' · ' + _ytd.dropped + ' no entrySPY' : ''}`
     : ' core rolls · excl. initial + open MTM');
   const _sumSub = `${_isY ? 'Closed core rolls' : 'Closed core rolls only'}`
-    + (_mean != null ? ` · mean ${_mean >= 0 ? '+' : '-'}$${Math.abs(Math.round(_mean)).toLocaleString()}/cycle` : '');
+    + (_mean != null ? ` · mean ${_mean >= 0 ? '+' : '-'}$${Math.abs(Math.round(_mean)).toLocaleString()}/cycle` : '')
+    + (_R ? '' : _annK(_sum, _yDays));   // v7.14.2 — same days as the yield card
   const _frqY = _isY ? _ytd.freqYr : null;
   $('summary-grid').innerHTML = `
     <div class="stat-card"><div class="stat-label">Core Roll Yield</div><div class="stat-value ${(_yld??0)>=0?'green':'red'}">${_yld!=null?fmt(_yld,1)+'%':'n/a'}</div><div class="stat-sub">${_yldSub}</div></div>
