@@ -224,7 +224,7 @@ select.display-box { cursor:pointer; outline:none; }
   <h1 style="font-size:22px;font-weight:600;margin-bottom:4px;">Backtest &amp; Roll Optimizer</h1>
   <div style="font-size:13px;color:var(--muted);margin-bottom:6px;" id="data-status">Loading data mart...</div>
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.14.4</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
+    <div style="display:flex;align-items:center;gap:10px;"><div style="font-family:var(--mono);font-size:12px;color:var(--text);">v7.14.5</div><button id="sandbox-chip" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid #e0a020;background:rgba(224,160,32,.08);color:#e0a020;cursor:default;">SANDBOX</button><button id="debug-btn" onclick="toggleDebug()" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--muted);">Debug</button></div>
   </div>
 
   <!-- Live Position -->
@@ -805,7 +805,7 @@ function _etToday() {
 }
 
 // ── State ──────────────────────────────────────────────────────────────────
-const APP_VERSION = 'v7.14.4';
+const APP_VERSION = 'v7.14.5';
 // ── v7.4.0 · THREE VERSION NAMESPACES (S67, Ron) ────────────────────────────
 // APP_VERSION   — the page: display, plumbing, cosmetics. Bumps freely.
 // MODEL_VERSION — SIM SEMANTICS ONLY: trigger tests, the scoring basis,
@@ -4656,6 +4656,12 @@ function updateInitPosition() {
 // ── Core simulation ────────────────────────────────────────────────────────
 async function simulate(p) {
   _scratchGate  = p.scratchRoll ?? null; // v6.18.0 — embedded identity
+  // v7.14.5 — SANDBOX ?ovDebitFallback=1 (S74, Ron). When a non-expiry exit finds no
+  // candidate that funds its buyback, roll the SAME DAY into the candidate the next-day
+  // re-entry would score (buyback 0, same cap, same ranking) instead of standing aside.
+  // Admission still decides selection whenever any candidate clears. OFF = byte-identical.
+  const _debitFb_ = p.debitFallback === 1;
+  let _dbfN = 0, _dbfDebit = 0, _dbfDelta = 0;
   const _fillAt = (p.fillAt === 0) ? null : 4; // v7.12.0 — m7.7.0: A4 IS THE DEFAULT; 0 = legacy VWAP fills · v7.14.0 — Test A (1–3) retired: anything else ≡ default
   let _a4Sale_ = null; // v7.11.0 — A4: the decay buy-back's moment, handed to the same-day sale
   const { decayTrigger, dteFloor, deltaThreshold, dtePenaltyAnchor = 45, shares, defHorizon = 0 } = p; // v6.14.0 — otmFixed removed from the sim: no consumer remained // v6.5.0 — vixGate removed (retired on evidence, S33; inert at 0 since) // v6.3.0 — defense horizon; 0 = off ≡ full DTE
@@ -5038,8 +5044,16 @@ async function simulate(p) {
 
     // ── Find next contract ──
     _scratchArmed = !!deltaFired; // v6.18.0 — armed ONLY when the delta stop fired (co-fires included, delta-first parity)
-    const next = findNextContract(date, spy, dtePenaltyAnchor, entryDteMin_,
-      curC.expiry+'_'+curC.strike, entryCap_, isExp ? 0 : exitPxDecide_, vix); // v6.34.0 — the oppPick override went with the θ trigger // v6.4.0 — candidate side uses entry params (≡ trigger twins when unset)
+    let next = findNextContract(date, spy, dtePenaltyAnchor, entryDteMin_,
+      curC.expiry+'_'+curC.strike, entryCap_, isExp ? 0 : exitPxDecide_, vix);
+    let _dbfThis = false;
+    if (!next && _debitFb_ && !isExp) { // v7.14.5 — sandbox debit fallback
+      const _arm = _scratchArmed; _scratchArmed = false;
+      next = findNextContract(date, spy, dtePenaltyAnchor, entryDteMin_,
+        curC.expiry+'_'+curC.strike, entryCap_, 0, vix);
+      _scratchArmed = _arm;
+      if (next) { _dbfThis = true; _dbfN++; if (deltaFired) _dbfDelta++; logDbg(`  ↳ DEBIT FALLBACK (sandbox): no funding candidate — rolling same day into ${next.expiry} $${next.strike}`); }
+    } // v6.34.0 — the oppPick override went with the θ trigger // v6.4.0 — candidate side uses entry params (≡ trigger twins when unset)
     if (!next) {
       // v5.4.2 — no net-credit candidate exists at current SPY level: hold
       // long SPY and re-scan daily via the recovery path (de-gated, v6.5.0).
@@ -5065,7 +5079,9 @@ async function simulate(p) {
     if (_debugMode && _mode !== 'optimize') {
       logDbg(`  Cover  ${contracts*100} SPY ${_fmtDate2(cycles[cycles.length-1].expiry)} ${cycles[cycles.length-1].strike} C @ $${_coverPx.toFixed(2)}`);
     }
-    if (!openPosition(date, spy, vix)) {
+    const _opened = openPosition(date, spy, vix);
+    if (_dbfThis && _opened && entryPrice != null) _dbfDebit += (entryPrice - _coverPx) * 100 * contracts; // v7.14.5
+    if (!_opened) {
       // Cannot happen — findNextContract required an exact trigger-date price.
       // If it does, the DM violated that guarantee; surface it loudly.
       logMsg(`⚠ ${curC.expiry} $${curC.strike} selected but has no price on trigger date ${date} — DM integrity violation`, 'err');
@@ -5094,6 +5110,7 @@ async function simulate(p) {
     }
   }
 
+  if (_debitFb_ && _mode !== 'optimize') logMsg(`⚠ SANDBOX ovDebitFallback=1 — ${_dbfN} same-day debit roll(s) instead of next-day re-entry (${_dbfDelta} after delta stops) · net debit paid ${_dbfDebit < 0 ? '-' : '+'}$${Math.abs(Math.round(_dbfDebit)).toLocaleString('en-US')} · compare core yield/credit with a load WITHOUT the key (v7.14.5)`, 'err');
   if (!cycles.length) return null;
 
   const gapCount = _gaps.filter(g=>g.substituted).length;
@@ -5681,7 +5698,7 @@ const EXIT_ATTR_CYCLE_ROWS = true; // per-cycle forensic rows (spec default ON)
 // Takes an optional search string for harness testability.
 function researchOverrides(search) {
   const q = new URLSearchParams(search != null ? search : location.search);
-  const map = { ovDecay: 'decayTrigger', ovDelta: 'deltaThreshold', ovDefh: 'defHorizon', ovGrace: 'graceDays', ovScratch: 'scratchRoll', ovDte: 'dteFloor', ovEntrydte: 'entryDteMin', ovExpfri: 'expiryFriday', ovSkipm: 'skipMonths', ovPit: 'pointInTime', ovFill: 'fillAt' }; // v6.8.0/v6.8.2 — ovOtm deliberately omitted (percent-vs-fraction unit ambiguity; use the card) // v6.11.0 — ovExpfri 1–4: expiry-Friday cohort filter (sandbox-only, no card/axis) // v6.12.0 — ovSkipm 1–12: start-skip jitter (sandbox-only)
+  const map = { ovDecay: 'decayTrigger', ovDelta: 'deltaThreshold', ovDefh: 'defHorizon', ovGrace: 'graceDays', ovScratch: 'scratchRoll', ovDte: 'dteFloor', ovEntrydte: 'entryDteMin', ovExpfri: 'expiryFriday', ovSkipm: 'skipMonths', ovPit: 'pointInTime', ovFill: 'fillAt', ovDebitFallback: 'debitFallback' }; // v6.8.0/v6.8.2 — ovOtm deliberately omitted (percent-vs-fraction unit ambiguity; use the card) // v6.11.0 — ovExpfri 1–4: expiry-Friday cohort filter (sandbox-only, no card/axis) // v6.12.0 — ovSkipm 1–12: start-skip jitter (sandbox-only)
   const ov = {};
   for (const k of Object.keys(map)) {
     if (!q.has(k)) continue;
